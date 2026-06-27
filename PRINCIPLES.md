@@ -187,7 +187,7 @@ They are a design requirement.
 
 ## Applying these principles
 
-These principles guide not only the implementation of Home AI Cluster, but also the way it is evolves.
+These principles guide not only the implementation of Home AI Cluster, but also the way it evolves.
 
 When a decision is likely to shape a significant part of the codebase, the preferred workflow is:
 

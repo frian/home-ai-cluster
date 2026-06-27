@@ -183,3 +183,23 @@ If a decision cannot be explained simply, it is probably not understood well eno
 Simple explanations are not a luxury.
 
 They are a design requirement.
+
+
+## Applying these principles
+
+These principles guide not only the implementation of Home AI Cluster, but also the way it evolves.
+
+When a decision is likely to shape a significant part of the codebase, the preferred workflow is:
+
+1. Describe the decision in an RFC.
+2. Review and refine the RFC.
+3. Merge the RFC.
+4. Implement the decision.
+
+Small implementation details do not require RFCs.
+
+Architectural decisions do.
+
+The codebase is the implementation of architectural decisions.
+
+RFCs preserve the reasoning behind those decisions.

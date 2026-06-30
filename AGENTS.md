@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Status: Draft
+Status: Accepted
 
 This document defines how AI coding agents should work in the Home AI Cluster repository.
 
@@ -138,6 +138,32 @@ Agents should avoid collecting data that is not needed.
 The safest default is:
 
 > Do not collect what is not needed.
+
+---
+
+## Phase 1 constraints
+
+Until an accepted RFC says otherwise, agents must not implement:
+
+* distributed behavior;
+* automatic node discovery;
+* an OpenAI-compatible API;
+* a dashboard;
+* Docker or Kubernetes setup;
+* a database or persistence layer;
+* queues or background workers;
+* cloud providers or hosted control planes;
+* model download or placement automation;
+* prompt or response logging by default;
+* runtime-specific behavior in the core.
+
+Phase 1 should remain focused on the smallest single-machine orchestrator shape:
+
+> One endpoint. One local node. One adapter. One routed request.
+
+This prepares the project for the later proof:
+
+> One endpoint. Two machines. One routed request.
 
 ---
 

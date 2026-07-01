@@ -2,6 +2,7 @@
 
 import httpx
 
+from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -50,19 +51,24 @@ class OllamaAdapter:
             for message in request.messages
         ]
 
-        async with httpx.AsyncClient(
-            base_url=self.base_url,
-            transport=self._transport,
-        ) as client:
-            response = await client.post(
-                "/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                transport=self._transport,
+            ) as client:
+                response = await client.post(
+                    "/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
 
         body = response.json()
         content = body.get("message", {}).get("content", "")

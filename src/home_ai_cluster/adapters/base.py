@@ -10,6 +10,10 @@ from home_ai_cluster.core.models import (
 )
 
 
+class RuntimeAdapterUnavailableError(Exception):
+    """Raised when a runtime adapter cannot complete a request."""
+
+
 class RuntimeAdapter(Protocol):
     """Small boundary between the core and a specific AI runtime."""
 

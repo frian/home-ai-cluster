@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -33,8 +34,17 @@ class TestChatAdapter:
         return ClusterResult(content=content, adapter=self.name)
 
 
+class UnavailableChatAdapter(TestChatAdapter):
+    async def chat(self, request: ClusterRequest) -> ClusterResult:
+        raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+
+
 def create_test_registry() -> AdapterRegistry:
     return AdapterRegistry([TestChatAdapter()])
+
+
+def create_unavailable_registry() -> AdapterRegistry:
+    return AdapterRegistry([UnavailableChatAdapter()])
 
 
 @pytest.fixture
@@ -97,3 +107,23 @@ def test_chat_endpoint_rejects_unsupported_capability(
 
     assert response.status_code == 404
     assert "embeddings" in response.json()["detail"]
+
+
+def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    monkeypatch.setattr(routes, "create_phase1_registry", create_unavailable_registry)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "capability": "chat",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}

@@ -4,6 +4,7 @@ import json
 import httpx
 import pytest
 
+from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.core.models import (
     AdapterHealth,
@@ -105,3 +106,16 @@ def test_ollama_adapter_chat_returns_cluster_result_from_ollama_response() -> No
         adapter="ollama",
         model="llama3.2",
     )
+
+
+def test_ollama_adapter_chat_translates_http_failure_to_adapter_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert isinstance(exc_info.value.__cause__, httpx.ConnectError)

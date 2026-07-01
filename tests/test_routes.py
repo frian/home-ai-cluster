@@ -1,9 +1,50 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ClusterRequest,
+    ClusterResult,
+)
+from home_ai_cluster.core.registry import AdapterRegistry
 from home_ai_cluster.main import create_app
 
 
-def test_chat_endpoint_returns_cluster_result_json() -> None:
+class TestChatAdapter:
+    @property
+    def name(self) -> str:
+        return "test"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="chat")]
+
+    async def chat(self, request: ClusterRequest) -> ClusterResult:
+        user_messages = [
+            message.content
+            for message in request.messages
+            if message.role == "user"
+        ]
+        content = user_messages[-1] if user_messages else request.messages[-1].content
+
+        return ClusterResult(content=content, adapter=self.name)
+
+
+def create_test_registry() -> AdapterRegistry:
+    return AdapterRegistry([TestChatAdapter()])
+
+
+@pytest.fixture
+def use_test_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    from home_ai_cluster.api import routes
+
+    monkeypatch.setattr(routes, "create_phase1_registry", create_test_registry)
+
+
+def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> None:
     client = TestClient(create_app())
 
     response = client.post(
@@ -17,12 +58,12 @@ def test_chat_endpoint_returns_cluster_result_json() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "content": "Hello",
-        "adapter": "in-memory",
+        "adapter": "test",
         "model": None,
     }
 
 
-def test_chat_endpoint_uses_last_user_message() -> None:
+def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:
     client = TestClient(create_app())
 
     response = client.post(
@@ -41,7 +82,9 @@ def test_chat_endpoint_uses_last_user_message() -> None:
     assert response.json()["content"] == "Second"
 
 
-def test_chat_endpoint_rejects_unsupported_capability() -> None:
+def test_chat_endpoint_rejects_unsupported_capability(
+    use_test_registry: None,
+) -> None:
     client = TestClient(create_app())
 
     response = client.post(

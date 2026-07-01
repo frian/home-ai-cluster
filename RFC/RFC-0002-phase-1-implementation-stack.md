@@ -1,6 +1,6 @@
 # RFC-0002: Phase 1 implementation stack
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-06-27
 
@@ -511,4 +511,4 @@ They do not block the Phase 1 stack decision.
 
 ## Decision
 
-Pending.
+Phase 1 uses Python, FastAPI, Pydantic, httpx, uv, pytest, ruff, and Ollama as the first runtime adapter.

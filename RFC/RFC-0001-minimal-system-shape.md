@@ -1,6 +1,6 @@
 # RFC-0001: Minimal system shape
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-06-27
 
@@ -401,4 +401,4 @@ They should guide the first implementation discussion.
 
 ## Decision
 
-Pending.
+Home AI Cluster starts with a minimal architecture made of request, capability, node, runtime adapter, routing decision, and result.

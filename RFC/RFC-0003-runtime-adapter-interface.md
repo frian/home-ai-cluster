@@ -1,6 +1,6 @@
 # RFC-0003: Runtime adapter interface
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-06-30
 
@@ -335,4 +335,4 @@ These questions should not block the first adapter interface.
 
 ## Decision
 
-Pending.
+Home AI Cluster uses the minimal RuntimeAdapter interface for Phase 1, keeping runtime-specific details outside the core.

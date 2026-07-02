@@ -1,6 +1,6 @@
 # RFC-0005: Routing Explanation Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-02
 
@@ -133,4 +133,10 @@ Future work that exposes routing decisions to users, tools, logs, dashboards, or
 
 ## Decision
 
-Pending.
+Accepted.
+
+For Phase 1, routing explanations remain internal.
+
+The public `/v1/chat` response does not expose routing metadata by default.
+
+Any future public explanation surface requires a separate RFC.

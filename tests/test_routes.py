@@ -128,7 +128,9 @@ def test_chat_endpoint_rejects_unsupported_capability(
     )
 
     assert response.status_code == 404
-    assert "embeddings" in response.json()["detail"]
+    assert response.json() == {
+        "detail": "No adapter provides capability: embeddings",
+    }
 
 
 def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(

@@ -44,4 +44,7 @@ async def chat(request: ChatRequest) -> ClusterResult:
             detail="Runtime adapter unavailable",
         ) from exc
     except NoMatchingAdapterError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=404,
+            detail=f"No adapter provides capability: {cluster_request.capability.name}",
+        ) from exc

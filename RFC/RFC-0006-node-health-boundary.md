@@ -1,6 +1,6 @@
 # RFC-0006: Node Health Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-02
 
@@ -162,4 +162,12 @@ Future work involving active health checks, health-based routing, fallback, moni
 
 ## Decision
 
-Pending.
+Accepted.
+
+For Phase 1, node health is internal descriptive state.
+
+Runtime availability remains handled at adapter call time.
+
+Node health does not drive routing, fallback, polling, monitoring, discovery, or runtime supervision.
+
+Any future active health behavior requires a separate RFC.

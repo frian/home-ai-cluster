@@ -55,5 +55,12 @@ Example response shape:
 }
 ```
 
-If the request fails, check that Ollama is running locally and that the
-`llama3.2` model is already available in Ollama.
+If Ollama is not running, `/v1/chat` returns HTTP 503:
+
+```json
+{
+  "detail": "Runtime adapter unavailable"
+}
+```
+
+Start Ollama and make sure the `llama3.2` model is available.

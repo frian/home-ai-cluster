@@ -41,12 +41,22 @@ class UnavailableChatAdapter(TestChatAdapter):
         raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
 
 
+class RuntimeSpecificUnavailableChatAdapter(TestChatAdapter):
+    async def chat(self, request: ClusterRequest) -> ClusterResult:
+        cause = RuntimeError("ollama connection refused on localhost:11434")
+        raise RuntimeAdapterUnavailableError("ollama leaked detail") from cause
+
+
 def create_test_registry() -> AdapterRegistry:
     return AdapterRegistry([TestChatAdapter()])
 
 
 def create_unavailable_registry() -> AdapterRegistry:
     return AdapterRegistry([UnavailableChatAdapter()])
+
+
+def create_runtime_specific_unavailable_registry() -> AdapterRegistry:
+    return AdapterRegistry([RuntimeSpecificUnavailableChatAdapter()])
 
 
 def create_test_node_registry() -> NodeRegistry:
@@ -165,3 +175,35 @@ def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Runtime adapter unavailable"}
+
+
+def test_chat_endpoint_hides_runtime_specific_unavailable_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    monkeypatch.setattr(
+        routes,
+        "create_phase1_adapter_registry",
+        create_runtime_specific_unavailable_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_phase1_node_registry",
+        create_test_node_registry,
+    )
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/v1/chat",
+        json={
+            "messages": [{"role": "user", "content": "Hello"}],
+            "capability": "chat",
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert "ollama" not in response.text
+    assert "localhost:11434" not in response.text
+    assert "connection refused" not in response.text

@@ -93,6 +93,10 @@ def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> N
         "adapter": "test",
         "model": None,
     }
+    assert "reason" not in response.json()
+    assert "node" not in response.json()
+    assert "selected_node" not in response.json()
+    assert "routing" not in response.json()
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:

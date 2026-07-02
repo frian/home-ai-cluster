@@ -1,6 +1,6 @@
 # RFC-0004: Minimal node model
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-02
 
@@ -469,4 +469,17 @@ They should guide later RFCs and implementation discussion.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will use a minimal node model with:
+
+* `id`;
+* `name`;
+* `availability`;
+* `health`;
+* `capabilities`;
+* `adapters`.
+
+Model information is not part of the minimal node model.
+
+For Phase 1, model selection remains an adapter concern.

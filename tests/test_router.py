@@ -16,6 +16,10 @@ from home_ai_cluster.core.router import (
     route_request,
 )
 
+EXPECTED_ROUTING_REASON = (
+    "Selected first available node with requested capability and matching adapter."
+)
+
 
 class StubAdapter:
     def __init__(self, name: str, capabilities: list[Capability]) -> None:
@@ -72,7 +76,24 @@ def test_route_request_selects_first_available_node_and_adapter() -> None:
 
     decision = route_request(make_request(chat), node_registry, adapter_registry)
 
-    assert decision == RoutingDecision(node=node, adapter=second, capability=chat)
+    assert decision == RoutingDecision(
+        node=node,
+        adapter=second,
+        capability=chat,
+        reason=EXPECTED_ROUTING_REASON,
+    )
+
+
+def test_route_request_explains_successful_selection() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("adapter", [chat])
+    node = make_node("local", [chat], ["adapter"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.reason == EXPECTED_ROUTING_REASON
 
 
 def test_route_request_uses_node_adapter_order_for_matches() -> None:

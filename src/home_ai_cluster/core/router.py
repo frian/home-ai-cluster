@@ -18,6 +18,7 @@ class RoutingDecision:
     node: NodeDescription
     adapter: RuntimeAdapter
     capability: Capability
+    reason: str
 
 
 def route_request(
@@ -36,6 +37,10 @@ def route_request(
                     node=node,
                     adapter=adapter,
                     capability=request.capability,
+                    reason=(
+                        "Selected first available node with requested capability "
+                        "and matching adapter."
+                    ),
                 )
 
     if not nodes:

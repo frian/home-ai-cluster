@@ -119,3 +119,20 @@ def test_ollama_adapter_chat_translates_http_failure_to_adapter_error() -> None:
 
     assert str(exc_info.value) == "Runtime adapter unavailable"
     assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+
+
+def test_ollama_adapter_chat_translates_non_2xx_response_to_adapter_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            json={"error": "ollama runtime is warming up"},
+            request=request,
+        )
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)

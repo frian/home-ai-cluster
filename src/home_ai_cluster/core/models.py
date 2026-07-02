@@ -18,6 +18,24 @@ class AdapterHealth(BaseModel):
     reason: str | None = None
 
 
+class NodeHealth(BaseModel):
+    """Minimal node health information."""
+
+    healthy: bool
+    reason: str | None = None
+
+
+class NodeDescription(BaseModel):
+    """A cluster-visible description of a node."""
+
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    availability: Literal["available", "unavailable", "unknown"]
+    health: NodeHealth
+    capabilities: list[Capability] = Field(min_length=1)
+    adapters: list[str] = Field(min_length=1)
+
+
 class ChatMessage(BaseModel):
     """A normalized chat message accepted by the cluster core."""
 

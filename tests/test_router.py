@@ -6,8 +6,10 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
 )
-from home_ai_cluster.core.registry import AdapterRegistry
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import (
     NoMatchingAdapterError,
     RoutingDecision,
@@ -43,35 +45,72 @@ def make_request(capability: Capability) -> ClusterRequest:
     )
 
 
-def test_route_request_selects_first_adapter_with_requested_capability() -> None:
+def make_node(
+    node_id: str,
+    capabilities: list[Capability],
+    adapters: list[str],
+    availability: str = "available",
+) -> NodeDescription:
+    return NodeDescription(
+        id=node_id,
+        name=f"{node_id} node",
+        availability=availability,  # type: ignore[arg-type]
+        health=NodeHealth(healthy=availability == "available"),
+        capabilities=capabilities,
+        adapters=adapters,
+    )
+
+
+def test_route_request_selects_first_available_node_and_adapter() -> None:
     chat = Capability(name="chat")
     first = StubAdapter("first", [Capability(name="code")])
     second = StubAdapter("second", [chat])
     third = StubAdapter("third", [chat])
-    registry = AdapterRegistry([first, second, third])
+    node = make_node("local", [chat], ["second", "third"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([first, second, third])
 
-    decision = route_request(make_request(chat), registry)
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
 
-    assert decision == RoutingDecision(adapter=second, capability=chat)
+    assert decision == RoutingDecision(node=node, adapter=second, capability=chat)
 
 
-def test_route_request_uses_registry_order_for_matches() -> None:
+def test_route_request_uses_node_adapter_order_for_matches() -> None:
     chat = Capability(name="chat")
     first = StubAdapter("first", [chat])
     second = StubAdapter("second", [chat])
-    registry = AdapterRegistry([first, second])
+    node = make_node("local", [chat], ["second", "first"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([first, second])
 
-    decision = route_request(make_request(chat), registry)
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
 
+    assert decision.adapter is second
+
+
+def test_route_request_uses_node_registry_order_for_matches() -> None:
+    chat = Capability(name="chat")
+    first = StubAdapter("first", [chat])
+    second = StubAdapter("second", [chat])
+    first_node = make_node("first", [chat], ["first"])
+    second_node = make_node("second", [chat], ["second"])
+    node_registry = NodeRegistry([first_node, second_node])
+    adapter_registry = AdapterRegistry([first, second])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is first_node
     assert decision.adapter is first
 
 
 def test_route_request_returns_requested_capability() -> None:
     code = Capability(name="code")
     adapter = StubAdapter("adapter", [code])
-    registry = AdapterRegistry([adapter])
+    node = make_node("local", [code], ["adapter"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
 
-    decision = route_request(make_request(code), registry)
+    decision = route_request(make_request(code), node_registry, adapter_registry)
 
     assert decision.capability == code
 
@@ -79,17 +118,41 @@ def test_route_request_returns_requested_capability() -> None:
 def test_route_request_does_not_call_adapter_chat() -> None:
     chat = Capability(name="chat")
     adapter = StubAdapter("adapter", [chat])
-    registry = AdapterRegistry([adapter])
+    node = make_node("local", [chat], ["adapter"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
 
-    route_request(make_request(chat), registry)
+    route_request(make_request(chat), node_registry, adapter_registry)
 
     assert adapter.chat_was_called is False
 
 
-def test_route_request_fails_when_no_adapter_matches() -> None:
-    registry = AdapterRegistry(
+def test_route_request_fails_when_no_available_node_matches() -> None:
+    node_registry = NodeRegistry(
+        [
+            make_node(
+                "local",
+                [Capability(name="summarization")],
+                ["adapter"],
+            )
+        ]
+    )
+    adapter_registry = AdapterRegistry(
         [StubAdapter("adapter", [Capability(name="summarization")])]
     )
 
     with pytest.raises(NoMatchingAdapterError, match="chat"):
-        route_request(make_request(Capability(name="chat")), registry)
+        route_request(
+            make_request(Capability(name="chat")),
+            node_registry,
+            adapter_registry,
+        )
+
+
+def test_route_request_fails_when_node_adapter_is_missing() -> None:
+    chat = Capability(name="chat")
+    node_registry = NodeRegistry([make_node("local", [chat], ["missing"])])
+    adapter_registry = AdapterRegistry([StubAdapter("adapter", [chat])])
+
+    with pytest.raises(NoMatchingAdapterError, match="chat"):
+        route_request(make_request(chat), node_registry, adapter_registry)

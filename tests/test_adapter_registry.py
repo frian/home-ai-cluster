@@ -4,8 +4,10 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
 )
-from home_ai_cluster.core.registry import AdapterRegistry
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
 
 class StubAdapter:
@@ -80,3 +82,64 @@ def test_stub_adapter_satisfies_runtime_adapter_protocol() -> None:
     adapter: RuntimeAdapter = StubAdapter("adapter", [Capability(name="chat")])
 
     assert adapter.name == "adapter"
+
+
+def test_registry_finds_adapter_by_name() -> None:
+    adapter = StubAdapter("adapter", [Capability(name="chat")])
+    registry = AdapterRegistry([adapter])
+
+    assert registry.adapter_named("adapter") is adapter
+    assert registry.adapter_named("missing") is None
+
+
+def test_node_registry_lists_static_nodes_in_order() -> None:
+    first = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["ollama"],
+    )
+    second = NodeDescription(
+        id="other",
+        name="Other node",
+        availability="unknown",
+        health=NodeHealth(healthy=False, reason="not checked"),
+        capabilities=[Capability(name="chat")],
+        adapters=["other"],
+    )
+    registry = NodeRegistry([first, second])
+
+    assert registry.list_nodes() == [first, second]
+
+
+def test_node_registry_returns_available_nodes_by_capability() -> None:
+    chat = Capability(name="chat")
+    available = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[chat],
+        adapters=["ollama"],
+    )
+    unavailable = NodeDescription(
+        id="offline",
+        name="Offline node",
+        availability="unavailable",
+        health=NodeHealth(healthy=False, reason="offline"),
+        capabilities=[chat],
+        adapters=["offline"],
+    )
+    code_only = NodeDescription(
+        id="code",
+        name="Code node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="code")],
+        adapters=["code"],
+    )
+    registry = NodeRegistry([available, unavailable, code_only])
+
+    assert registry.nodes_for(chat) == [available]

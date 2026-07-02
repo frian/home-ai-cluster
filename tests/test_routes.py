@@ -7,8 +7,10 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
 )
-from home_ai_cluster.core.registry import AdapterRegistry
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.main import create_app
 
 
@@ -47,11 +49,31 @@ def create_unavailable_registry() -> AdapterRegistry:
     return AdapterRegistry([UnavailableChatAdapter()])
 
 
+def create_test_node_registry() -> NodeRegistry:
+    return NodeRegistry(
+        [
+            NodeDescription(
+                id="local",
+                name="Local node",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="chat")],
+                adapters=["test"],
+            )
+        ]
+    )
+
+
 @pytest.fixture
 def use_test_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     from home_ai_cluster.api import routes
 
-    monkeypatch.setattr(routes, "create_phase1_registry", create_test_registry)
+    monkeypatch.setattr(routes, "create_phase1_adapter_registry", create_test_registry)
+    monkeypatch.setattr(
+        routes,
+        "create_phase1_node_registry",
+        create_test_node_registry,
+    )
 
 
 def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> None:
@@ -106,7 +128,9 @@ def test_chat_endpoint_rejects_unsupported_capability(
     )
 
     assert response.status_code == 404
-    assert "embeddings" in response.json()["detail"]
+    assert response.json() == {
+        "detail": "No adapter provides capability: embeddings",
+    }
 
 
 def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
@@ -114,7 +138,16 @@ def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
 ) -> None:
     from home_ai_cluster.api import routes
 
-    monkeypatch.setattr(routes, "create_phase1_registry", create_unavailable_registry)
+    monkeypatch.setattr(
+        routes,
+        "create_phase1_adapter_registry",
+        create_unavailable_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_phase1_node_registry",
+        create_test_node_registry,
+    )
     client = TestClient(create_app())
 
     response = client.post(

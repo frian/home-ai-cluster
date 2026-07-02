@@ -1,6 +1,6 @@
 # RFC-0007: Runtime Availability Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-02
 
@@ -156,4 +156,14 @@ Future work that changes runtime availability behavior must reference this RFC a
 
 ## Decision
 
-Pending.
+Accepted.
+
+For Phase 1, runtime availability is detected at runtime adapter call time.
+
+Runtime-specific availability failures are normalized by runtime adapters.
+
+The public `/v1/chat` endpoint may map normalized runtime-unavailable errors to HTTP 503.
+
+Runtime availability does not drive retries, fallback, preflight checks, circuit breakers, runtime supervision, runtime auto-start behavior, or health-based routing.
+
+Any future active runtime availability behavior requires a separate RFC.

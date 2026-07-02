@@ -11,6 +11,14 @@ For project context, read:
 * `ROADMAP.md`
 * `RFC/`
 
+## Current Phase 1 shape
+
+Phase 1 currently runs as a single local process.
+
+Requests go through one static local node and one Ollama runtime adapter.
+
+The static node is an internal routing concept. It does not add distributed behavior, discovery, registration, a node protocol, or a public API change.
+
 ## Run locally
 
 This is an early Phase 1 prototype.

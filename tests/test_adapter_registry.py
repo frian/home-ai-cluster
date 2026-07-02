@@ -143,3 +143,18 @@ def test_node_registry_returns_available_nodes_by_capability() -> None:
     registry = NodeRegistry([available, unavailable, code_only])
 
     assert registry.nodes_for(chat) == [available]
+
+
+def test_node_registry_does_not_filter_available_nodes_by_health() -> None:
+    chat = Capability(name="chat")
+    unhealthy = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=False, reason="runtime not checked"),
+        capabilities=[chat],
+        adapters=["ollama"],
+    )
+    registry = NodeRegistry([unhealthy])
+
+    assert registry.nodes_for(chat) == [unhealthy]

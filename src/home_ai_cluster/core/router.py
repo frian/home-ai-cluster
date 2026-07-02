@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
-from home_ai_cluster.core.models import Capability, ClusterRequest
-from home_ai_cluster.core.registry import AdapterRegistry
+from home_ai_cluster.core.models import Capability, ClusterRequest, NodeDescription
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
 
 class NoMatchingAdapterError(Exception):
@@ -13,22 +13,36 @@ class NoMatchingAdapterError(Exception):
 
 @dataclass(frozen=True)
 class RoutingDecision:
-    """A minimal record of which adapter was selected for a request."""
+    """A minimal record of which node and adapter were selected."""
 
+    node: NodeDescription
     adapter: RuntimeAdapter
     capability: Capability
 
 
 def route_request(
     request: ClusterRequest,
-    registry: AdapterRegistry,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
 ) -> RoutingDecision:
-    """Select the first registered adapter matching the requested capability."""
-    adapters = registry.adapters_for(request.capability)
+    """Select the first available node and adapter for the requested capability."""
+    nodes = node_registry.nodes_for(request.capability)
 
-    if not adapters:
+    for node in nodes:
+        for adapter_name in node.adapters:
+            adapter = adapter_registry.adapter_named(adapter_name)
+            if adapter is not None and request.capability in adapter.capabilities():
+                return RoutingDecision(
+                    node=node,
+                    adapter=adapter,
+                    capability=request.capability,
+                )
+
+    if not nodes:
         raise NoMatchingAdapterError(
-            f"No adapter provides capability: {request.capability.name}"
+            f"No available node provides capability: {request.capability.name}"
         )
 
-    return RoutingDecision(adapter=adapters[0], capability=request.capability)
+    raise NoMatchingAdapterError(
+        f"No adapter provides capability on available node: {request.capability.name}"
+    )

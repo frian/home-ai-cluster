@@ -8,9 +8,11 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
 )
 from home_ai_cluster.core.orchestrator import orchestrate_request
-from home_ai_cluster.core.registry import AdapterRegistry
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import NoMatchingAdapterError
 
 
@@ -48,12 +50,26 @@ def make_request(content: str = "Hello") -> ClusterRequest:
     )
 
 
+def make_node(capabilities: list[Capability], adapters: list[str]) -> NodeDescription:
+    return NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=capabilities,
+        adapters=adapters,
+    )
+
+
 def test_orchestrate_request_returns_selected_adapter_result() -> None:
     result = ClusterResult(content="Hi", adapter="adapter", model="model")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
-    registry = AdapterRegistry([adapter])
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
 
-    actual = asyncio.run(orchestrate_request(make_request(), registry))
+    actual = asyncio.run(
+        orchestrate_request(make_request(), node_registry, adapter_registry)
+    )
 
     assert actual is result
 
@@ -61,10 +77,11 @@ def test_orchestrate_request_returns_selected_adapter_result() -> None:
 def test_orchestrate_request_passes_request_to_selected_adapter() -> None:
     result = ClusterResult(content="Hi", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
-    registry = AdapterRegistry([adapter])
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
     request = make_request("Original prompt")
 
-    asyncio.run(orchestrate_request(request, registry))
+    asyncio.run(orchestrate_request(request, node_registry, adapter_registry))
 
     assert adapter.chat_requests == [request]
 
@@ -80,9 +97,12 @@ def test_orchestrate_request_uses_first_matching_adapter() -> None:
         [Capability(name="chat")],
         ClusterResult(content="second", adapter="second"),
     )
-    registry = AdapterRegistry([first, second])
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["first"])])
+    adapter_registry = AdapterRegistry([first, second])
 
-    result = asyncio.run(orchestrate_request(make_request(), registry))
+    result = asyncio.run(
+        orchestrate_request(make_request(), node_registry, adapter_registry)
+    )
 
     assert result.adapter == "first"
     assert len(first.chat_requests) == 1
@@ -95,9 +115,14 @@ def test_orchestrate_request_propagates_no_matching_adapter_error() -> None:
         [Capability(name="summarization")],
         ClusterResult(content="", adapter="adapter"),
     )
-    registry = AdapterRegistry([adapter])
+    node_registry = NodeRegistry(
+        [make_node([Capability(name="summarization")], ["adapter"])]
+    )
+    adapter_registry = AdapterRegistry([adapter])
 
     with pytest.raises(NoMatchingAdapterError):
-        asyncio.run(orchestrate_request(make_request(), registry))
+        asyncio.run(
+            orchestrate_request(make_request(), node_registry, adapter_registry)
+        )
 
     assert adapter.chat_requests == []

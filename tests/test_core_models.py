@@ -7,6 +7,8 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
     RequestConstraints,
 )
 
@@ -41,6 +43,27 @@ def test_adapter_health_can_explain_unavailability() -> None:
 
     assert health.available is False
     assert health.reason == "runtime is not reachable"
+
+
+def test_node_description_keeps_minimal_static_node_shape() -> None:
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["ollama"],
+    )
+
+    assert node.model_dump() == {
+        "id": "local",
+        "name": "Local node",
+        "availability": "available",
+        "health": {"healthy": True, "reason": None},
+        "capabilities": [{"name": "chat"}],
+        "adapters": ["ollama"],
+    }
+    assert "models" not in NodeDescription.model_fields
 
 
 def test_cluster_result_keeps_runtime_details_minimal() -> None:

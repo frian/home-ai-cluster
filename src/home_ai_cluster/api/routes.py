@@ -2,7 +2,10 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
-from home_ai_cluster.api.wiring import create_phase1_registry
+from home_ai_cluster.api.wiring import (
+    create_phase1_adapter_registry,
+    create_phase1_node_registry,
+)
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -26,10 +29,15 @@ async def chat(request: ChatRequest) -> ClusterResult:
         messages=request.messages,
         capability=Capability(name=request.capability),
     )
-    registry = create_phase1_registry()
+    node_registry = create_phase1_node_registry()
+    adapter_registry = create_phase1_adapter_registry()
 
     try:
-        return await orchestrate_request(cluster_request, registry)
+        return await orchestrate_request(
+            cluster_request,
+            node_registry,
+            adapter_registry,
+        )
     except RuntimeAdapterUnavailableError as exc:
         raise HTTPException(
             status_code=503,

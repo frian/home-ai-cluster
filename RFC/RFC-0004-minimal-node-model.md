@@ -10,15 +10,22 @@ Author: frian
 
 Home AI Cluster should define a minimal node model before introducing real multi-machine behavior.
 
-A node represents a machine or process that can provide AI work to the cluster.
+A node is a cluster-visible description of a machine or process that can provide one or more AI capabilities through one or more runtime adapters.
 
-The node model should describe what the cluster needs to know in order to route requests by capability, while avoiding unnecessary system inspection, distributed behavior, discovery, persistence, or configuration complexity.
-
-For the next implementation steps, a node may still be static and local.
-
-The important decision is conceptual:
+For the next implementation steps, a node may still be static and local. The important rule is:
 
 > The code may still be fake in distribution, but it should not be fake in architecture.
+
+The minimal node model should include only:
+
+* `id`;
+* `name`;
+* `availability`;
+* `health`;
+* `capabilities`;
+* `adapters`.
+
+Model information is useful, but it is not part of the minimal node model. For now, model selection remains an adapter concern.
 
 ## Problem
 
@@ -34,17 +41,17 @@ HTTP request
   -> normalized response
 ```
 
-The project also already has a runtime adapter boundary.
+The project also has a runtime adapter boundary.
 
 However, the node concept is still mostly implicit.
 
-RFC-0001 defines nodes as one of the core concepts of the system, and the roadmap points toward a future proof of:
+RFC-0001 defines nodes as one of the core concepts of the system, and the roadmap points toward the first real proof:
 
 ```text
 One endpoint. Two machines. One routed request.
 ```
 
-Before the project can introduce real agents, registration, discovery, or node-to-orchestrator communication, it needs a small shared definition of what a node is.
+Before the project introduces agents, registration, discovery, or node-to-orchestrator communication, it needs a small shared definition of what a node is.
 
 Without a minimal node model, future code may accidentally confuse:
 
@@ -59,15 +66,13 @@ That would make the project harder to keep capability-centered, privacy-first, a
 
 ## Goals
 
-This RFC should define the smallest useful node model for Home AI Cluster.
-
-It should:
+This RFC should:
 
 * define what a node represents;
 * define the minimal information a node may expose;
 * preserve capability-based routing;
 * keep runtime-specific details behind adapters;
-* support a single-machine Phase 1 implementation;
+* support the current single-machine Phase 1 implementation;
 * prepare for a later two-machine proof;
 * avoid premature distributed-system complexity;
 * avoid unnecessary system inspection;
@@ -103,7 +108,7 @@ This RFC only defines the minimal node description that early code should be all
 
 Home AI Cluster should define a node as:
 
-> A node is a cluster-visible description of a machine or process that can provide one or more AI capabilities through one or more runtime adapters.
+> A cluster-visible description of a machine or process that can provide one or more AI capabilities through one or more runtime adapters.
 
 For now, a node description should be static and small.
 
@@ -116,8 +121,7 @@ A minimal node description should include:
 * `availability`;
 * `health`;
 * `capabilities`;
-* `adapters`;
-* `models`.
+* `adapters`.
 
 The exact Python model names may be decided during implementation, but the concepts should remain visible.
 
@@ -131,17 +135,11 @@ For Phase 1, the local node may use an id such as:
 local
 ```
 
-The id is not a global identity system.
-
-It is not a cryptographic identity.
-
-It is not a discovery name.
+The id is not a global identity system, a cryptographic identity, or a discovery name.
 
 It is only the identifier the orchestrator can use in routing decisions and results.
 
-A node should also have a human-readable `name`.
-
-For Phase 1, this may be simple, such as:
+A node should also have a human-readable `name`, such as:
 
 ```text
 Local node
@@ -226,21 +224,25 @@ The node may say:
 
 The core should not need to know how Ollama provides that chat capability.
 
-### Models
+### Model information
 
-A node may expose available models when that information is useful for transparency or future routing.
+Model information is useful for inspection, debugging, user control, and future routing decisions.
 
-For Phase 1, this may be a small list such as:
+However, model information should not be part of the minimal node model.
 
-```text
-llama3.2
-```
+Models are runtime-specific implementation details.
 
-However, models must remain implementation details.
+For Phase 1, model selection remains an adapter concern.
 
-The router should not become model-centered.
+A node should announce what it can do.
 
-A model list should help explain or inspect what a node can provide, but it should not replace capabilities as the primary routing concept.
+An adapter may know which models make that possible.
+
+A later RFC may define how nodes or adapters expose available models when that becomes necessary for routing, inspection, or user control.
+
+Until then, the minimal node model should not require a `models` field.
+
+This keeps early routing capability-centered instead of model-centered.
 
 ### Privacy boundaries
 
@@ -283,8 +285,7 @@ A possible Phase 1 node description could be:
   "availability": "available",
   "health": "healthy",
   "capabilities": ["chat"],
-  "adapters": ["ollama"],
-  "models": ["llama3.2"]
+  "adapters": ["ollama"]
 }
 ```
 
@@ -379,6 +380,14 @@ Models are replaceable implementation details.
 
 Capabilities remain the primary routing abstraction.
 
+### Include models in the minimal node model
+
+This would make inspection easier and would reflect what the current Ollama adapter uses internally.
+
+It is rejected for the minimal node model because it could make early routing look model-centered.
+
+Model information is useful, but it belongs behind adapters until a later RFC defines how models should be exposed for inspection, routing, or user control.
+
 ### Define a full agent protocol now
 
 This would move faster toward Phase 2.
@@ -420,6 +429,10 @@ That structure is acceptable only if implementation remains boring:
 * no network protocol is required;
 * no persistence is required.
 
+Keeping model information out of the minimal node model also has a trade-off.
+
+It makes early inspection less detailed, but it keeps the core model cleaner and protects capability-based routing.
+
 ## Impact
 
 This RFC affects future implementation work around:
@@ -444,8 +457,8 @@ The following questions remain open:
 
 * Should `availability` and `health` be separate models or one simple status?
 * Should adapter capabilities live on the node, the adapter, or both?
-* Should model names be included in the default API response?
-* Should model information be optional in the node description?
+* When should model information be exposed for inspection or routing?
+* Should model information be exposed by nodes, adapters, or a separate inspection endpoint?
 * When should hardware information become useful enough to expose?
 * What is the smallest future agent responsibility around node announcement?
 * When should node ids become stable across restarts?

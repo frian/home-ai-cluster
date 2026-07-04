@@ -89,6 +89,80 @@ def test_route_request_selects_first_available_node_and_adapter() -> None:
     )
 
 
+def test_route_request_selects_available_static_node_with_requested_capability() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("adapter", [chat])
+    node = make_node("local", [chat], ["adapter"], availability="available")
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is node
+    assert decision.adapter is adapter
+    assert decision.capability == chat
+
+
+def test_route_request_ignores_unavailable_static_node() -> None:
+    chat = Capability(name="chat")
+    unavailable = StubAdapter("unavailable", [chat])
+    available = StubAdapter("available", [chat])
+    unavailable_node = make_node(
+        "unavailable",
+        [chat],
+        ["unavailable"],
+        availability="unavailable",
+    )
+    available_node = make_node("available", [chat], ["available"])
+    node_registry = NodeRegistry([unavailable_node, available_node])
+    adapter_registry = AdapterRegistry([unavailable, available])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is available_node
+    assert decision.adapter is available
+
+
+def test_route_request_fails_when_only_unavailable_static_node_matches() -> None:
+    chat = Capability(name="chat")
+    node_registry = NodeRegistry(
+        [
+            make_node(
+                "local",
+                [chat],
+                ["adapter"],
+                availability="unavailable",
+            )
+        ]
+    )
+    adapter_registry = AdapterRegistry([StubAdapter("adapter", [chat])])
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="No available node provides capability: chat",
+    ):
+        route_request(make_request(chat), node_registry, adapter_registry)
+
+
+def test_route_request_explanation_preserves_availability_boundary() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("adapter", [chat])
+    unavailable_node = make_node(
+        "unavailable",
+        [chat],
+        ["adapter"],
+        availability="unavailable",
+    )
+    available_node = make_node("available", [chat], ["adapter"])
+    node_registry = NodeRegistry([unavailable_node, available_node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is available_node
+    assert decision.reason == EXPECTED_ROUTING_REASON
+
+
 def test_route_request_explains_successful_selection() -> None:
     chat = Capability(name="chat")
     adapter = StubAdapter("adapter", [chat])

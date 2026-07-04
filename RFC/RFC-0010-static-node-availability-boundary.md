@@ -1,6 +1,6 @@
 # RFC-0010: Static Node Availability Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-04
 
@@ -262,4 +262,21 @@ must reference this RFC and define a new boundary.
 
 ## Decision
 
-Pending.
+Accepted.
+
+For Phase 2, Home AI Cluster defines node availability as static declared
+routing eligibility.
+
+Availability is part of the static node announcement and is manually declared
+for now.
+
+Only nodes whose availability is `available` are considered by routing.
+
+Nodes whose availability is `unknown` or `unavailable` are not considered by
+routing.
+
+Availability is not node health, adapter health, runtime availability, runtime
+probing, discovery state, or dynamic node state.
+
+Future dynamic availability, runtime-derived availability, health-based
+routing, or discovery-based availability require separate RFCs.

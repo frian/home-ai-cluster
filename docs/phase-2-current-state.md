@@ -97,8 +97,15 @@ document that an available static node with the requested capability can be
 selected, an unavailable static node is ignored, and routing fails clearly when
 no available node matches.
 
+Router tests also cover the runtime adapter selection boundary. They document
+that routing only considers adapters declared by the selected node, registry
+adapters that are not declared by the selected node are not selected, missing
+declared adapters fail clearly, declared adapters without the requested
+capability fail clearly, and routing explanations remain runtime-neutral.
+
 Route tests exercise the FastAPI app in-process through `httpx.AsyncClient`
-with `ASGITransport`. They use test doubles for node lookup and runtime adapters rather than calling a real runtime adapter.
+with `ASGITransport`. They use test doubles for node lookup and runtime
+adapters rather than calling a real runtime adapter.
 
 These tests document the current implementation state. They do not introduce
 node or cluster networking, discovery, persistence, distributed behavior, or a

@@ -90,6 +90,19 @@ Runtime-specific details remain behind adapters, including endpoint URLs,
 request formats, model naming, runtime process state, and runtime-specific
 errors.
 
+## Current test coverage
+
+Router tests cover static node availability as routing eligibility. They
+document that an available static node with the requested capability can be
+selected, an unavailable static node is ignored, and routing fails clearly when
+no available node matches.
+
+Route tests exercise the FastAPI app in-process through `httpx.AsyncClient`
+with `ASGITransport`. They use test doubles for node lookup and runtime adapters rather than calling a real runtime adapter.
+
+These tests document the current implementation state. They do not introduce
+networking, discovery, persistence, distributed behavior, or a new public API.
+
 ## Still out of scope
 
 Phase 2 currently does not include:

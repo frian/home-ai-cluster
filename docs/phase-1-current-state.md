@@ -8,6 +8,18 @@ It is descriptive, not architectural.
 
 It records what currently exists so future changes can be reviewed against the accepted RFCs.
 
+## Accepted RFC references
+
+This current state should be read against:
+
+- `RFC/RFC-0001-minimal-system-shape.md`;
+- `RFC/RFC-0002-phase-1-implementation-stack.md`;
+- `RFC/RFC-0003-runtime-adapter-interface.md`;
+- `RFC/RFC-0004-minimal-node-model.md`;
+- `RFC/RFC-0005-routing-explanation-boundary.md`;
+- `RFC/RFC-0006-node-health-boundary.md`;
+- `RFC/RFC-0007-runtime-availability-boundary.md`.
+
 ## Current shape
 
 Home AI Cluster currently exposes a custom `POST /v1/chat` endpoint.

@@ -4,6 +4,7 @@ from collections.abc import Iterable
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.core.models import Capability, NodeDescription
+from home_ai_cluster.core.node import node_supports_capability
 
 
 class AdapterRegistry:
@@ -55,5 +56,5 @@ class NodeRegistry:
         return [
             node
             for node in self._nodes
-            if node.availability == "available" and capability in node.capabilities
+            if node_supports_capability(node, capability)
         ]

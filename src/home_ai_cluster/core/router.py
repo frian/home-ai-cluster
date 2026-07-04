@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.core.models import Capability, ClusterRequest, NodeDescription
+from home_ai_cluster.core.node import node_declared_adapter_names
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
 
@@ -30,7 +31,7 @@ def route_request(
     nodes = node_registry.nodes_for(request.capability)
 
     for node in nodes:
-        for adapter_name in node.adapters:
+        for adapter_name in node_declared_adapter_names(node):
             adapter = adapter_registry.adapter_named(adapter_name)
             if adapter is not None and request.capability in adapter.capabilities():
                 return RoutingDecision(

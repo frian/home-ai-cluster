@@ -5,6 +5,9 @@ Status: Draft
 This document describes the Phase 2 starting state after acceptance of the
 Phase 2 node boundary.
 
+It is a historical starting-state snapshot. The newer current Phase 2 state is
+documented in [docs/phase-2-current-state.md](phase-2-current-state.md).
+
 It is descriptive, not normative.
 
 It records what currently exists so future changes can be reviewed against the

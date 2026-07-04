@@ -1,14 +1,14 @@
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.api.wiring import (
-    create_phase1_adapter_registry,
-    create_phase1_node_registry,
     create_static_local_node_announcement,
+    create_static_local_node_registry,
+    create_static_runtime_adapter_registry,
 )
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 
 
-def test_create_phase1_adapter_registry_registers_ollama_adapter() -> None:
-    registry = create_phase1_adapter_registry()
+def test_create_static_runtime_adapter_registry_registers_ollama_adapter() -> None:
+    registry = create_static_runtime_adapter_registry()
 
     adapters = registry.list_adapters()
 
@@ -30,8 +30,8 @@ def test_create_static_local_node_announcement_returns_explicit_declaration() ->
     assert "models" not in NodeDescription.model_fields
 
 
-def test_create_phase1_node_registry_registers_static_local_node() -> None:
-    registry = create_phase1_node_registry()
+def test_create_static_local_node_registry_registers_static_local_node() -> None:
+    registry = create_static_local_node_registry()
     announcement = create_static_local_node_announcement()
 
     nodes = registry.list_nodes()

@@ -1,4 +1,4 @@
-"""Temporary Phase 1 API wiring."""
+"""Temporary static API wiring for the current Phase 2 prototype."""
 
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
@@ -17,11 +17,11 @@ def create_static_local_node_announcement() -> NodeDescription:
     )
 
 
-def create_phase1_node_registry() -> NodeRegistry:
-    """Create the temporary single-node registry for Phase 1."""
+def create_static_local_node_registry() -> NodeRegistry:
+    """Create the temporary static local node registry."""
     return NodeRegistry([create_static_local_node_announcement()])
 
 
-def create_phase1_adapter_registry() -> AdapterRegistry:
-    """Create the temporary single-adapter registry for Phase 1."""
+def create_static_runtime_adapter_registry() -> AdapterRegistry:
+    """Create the temporary static runtime adapter registry."""
     return AdapterRegistry([OllamaAdapter()])

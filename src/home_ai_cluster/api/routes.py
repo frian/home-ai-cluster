@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.wiring import (
-    create_phase1_adapter_registry,
-    create_phase1_node_registry,
+    create_static_local_node_registry,
+    create_static_runtime_adapter_registry,
 )
 from home_ai_cluster.core.models import (
     Capability,
@@ -29,8 +29,8 @@ async def chat(request: ChatRequest) -> ClusterResult:
         messages=request.messages,
         capability=Capability(name=request.capability),
     )
-    node_registry = create_phase1_node_registry()
-    adapter_registry = create_phase1_adapter_registry()
+    node_registry = create_static_local_node_registry()
+    adapter_registry = create_static_runtime_adapter_registry()
 
     try:
         return await orchestrate_request(

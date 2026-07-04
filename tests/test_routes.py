@@ -94,10 +94,14 @@ def post_chat(payload: dict[str, object]) -> httpx.Response:
 def use_test_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     from home_ai_cluster.api import routes
 
-    monkeypatch.setattr(routes, "create_phase1_adapter_registry", create_test_registry)
     monkeypatch.setattr(
         routes,
-        "create_phase1_node_registry",
+        "create_static_runtime_adapter_registry",
+        create_test_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
         create_test_node_registry,
     )
 
@@ -162,12 +166,12 @@ def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
 
     monkeypatch.setattr(
         routes,
-        "create_phase1_adapter_registry",
+        "create_static_runtime_adapter_registry",
         create_unavailable_registry,
     )
     monkeypatch.setattr(
         routes,
-        "create_phase1_node_registry",
+        "create_static_local_node_registry",
         create_test_node_registry,
     )
     response = post_chat(
@@ -188,12 +192,12 @@ def test_chat_endpoint_hides_runtime_specific_unavailable_details(
 
     monkeypatch.setattr(
         routes,
-        "create_phase1_adapter_registry",
+        "create_static_runtime_adapter_registry",
         create_runtime_specific_unavailable_registry,
     )
     monkeypatch.setattr(
         routes,
-        "create_phase1_node_registry",
+        "create_static_local_node_registry",
         create_test_node_registry,
     )
     response = post_chat(

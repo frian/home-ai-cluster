@@ -1,4 +1,4 @@
-"""Static registries for Phase 1 orchestration."""
+"""Static in-memory registries for the current Phase 2 prototype."""
 
 from collections.abc import Iterable
 

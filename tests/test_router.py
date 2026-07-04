@@ -26,12 +26,14 @@ class StubAdapter:
         self._name = name
         self._capabilities = capabilities
         self.chat_was_called = False
+        self.health_was_called = False
 
     @property
     def name(self) -> str:
         return self._name
 
     def health(self) -> AdapterHealth:
+        self.health_was_called = True
         return AdapterHealth(available=True)
 
     def capabilities(self) -> list[Capability]:
@@ -54,12 +56,15 @@ def make_node(
     capabilities: list[Capability],
     adapters: list[str],
     availability: str = "available",
+    healthy: bool | None = None,
 ) -> NodeDescription:
     return NodeDescription(
         id=node_id,
         name=f"{node_id} node",
         availability=availability,  # type: ignore[arg-type]
-        health=NodeHealth(healthy=availability == "available"),
+        health=NodeHealth(
+            healthy=availability == "available" if healthy is None else healthy
+        ),
         capabilities=capabilities,
         adapters=adapters,
     )
@@ -122,6 +127,31 @@ def test_route_request_uses_node_registry_order_for_matches() -> None:
 
     assert decision.node is first_node
     assert decision.adapter is first
+
+
+def test_route_request_does_not_filter_by_node_health() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("adapter", [chat])
+    node = make_node("local", [chat], ["adapter"], healthy=False)
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is node
+    assert decision.adapter is adapter
+
+
+def test_route_request_does_not_preflight_adapter_health() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("adapter", [chat])
+    node = make_node("local", [chat], ["adapter"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert adapter.health_was_called is False
 
 
 def test_route_request_returns_requested_capability() -> None:

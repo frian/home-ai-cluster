@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early Phase 1 prototype.
+Status: early Phase 2 prototype.
 
 For project context, read:
 
@@ -10,21 +10,27 @@ For project context, read:
 * `FOUNDATIONS.md`
 * `ROADMAP.md`
 * `RFC/`
+* `docs/phase-2-current-state.md`
 * `docs/phase-1-current-state.md`
 
-## Current Phase 1 shape
+## Current Phase 2 shape
 
-Phase 1 currently runs as a single local process.
+Phase 2 currently runs as a single local process.
 
 Requests go through one static local node and one Ollama runtime adapter.
 
-The static node is an internal routing concept. It does not add distributed behavior, discovery, registration, a node protocol, or a public API change.
+The static local node announcement is explicit in wiring code, and node
+availability is static declared routing eligibility. Node health remains
+descriptive, and runtime availability remains adapter-call-time behavior.
 
-For the detailed current Phase 1 state, see `docs/phase-1-current-state.md`.
+For the detailed current Phase 2 state, see
+`docs/phase-2-current-state.md`.
+
+For the earlier Phase 1 state, see `docs/phase-1-current-state.md`.
 
 ## Run locally
 
-This is an early Phase 1 prototype.
+This is an early Phase 2 prototype.
 
 Prerequisites:
 

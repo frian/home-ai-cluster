@@ -1,0 +1,117 @@
+# Phase 2 Current State
+
+Status: Draft
+
+This document describes the current Phase 2 implementation state.
+
+It is descriptive, not a new architectural decision. Accepted RFCs remain the
+source of architectural decisions.
+
+## Accepted RFC references
+
+This current state should be read against:
+
+- [RFC-0004: Minimal node model](../RFC/RFC-0004-minimal-node-model.md);
+- [RFC-0006: Node Health Boundary](../RFC/RFC-0006-node-health-boundary.md);
+- [RFC-0007: Runtime Availability Boundary](../RFC/RFC-0007-runtime-availability-boundary.md);
+- [RFC-0008: Phase 2 Node Boundary](../RFC/RFC-0008-phase-2-node-boundary.md);
+- [RFC-0009: Static Local Node Announcement Boundary](../RFC/RFC-0009-static-local-node-announcement-boundary.md);
+- [RFC-0010: Static Node Availability Boundary](../RFC/RFC-0010-static-node-availability-boundary.md).
+
+## Current shape
+
+Phase 2 currently remains:
+
+- single-process;
+- local;
+- static;
+- non-distributed.
+
+The current flow is:
+
+```text
+API request
+  -> core orchestrator
+  -> router
+  -> static local node
+  -> runtime adapter
+  -> normalized cluster result
+```
+
+There are no remote nodes, node transports, discovery mechanisms, registration
+protocols, or independent node lifecycles in the current implementation.
+
+## Current node boundary
+
+The node boundary is explicit.
+
+Static node boundary helpers exist and make the cluster-facing node description
+visible in code.
+
+The static local node announcement is explicit in wiring code. For now, the
+announcement is manually declared. It describes cluster-facing metadata only,
+including node identity, display name, availability, descriptive health,
+declared capabilities, and declared adapter names.
+
+The node announcement is not discovered dynamically, derived from live runtime
+probing, owned by runtime adapters, or loaded from a file-based configuration
+format.
+
+## Current availability semantics
+
+Node availability means static declared routing eligibility.
+
+Availability is part of the static node announcement and is manually declared
+for now.
+
+Current routing behavior is:
+
+- nodes with `availability == "available"` are considered by routing;
+- nodes with `availability == "unknown"` are not considered by routing;
+- nodes with `availability == "unavailable"` are not considered by routing.
+
+Availability is not node health, adapter health, runtime availability, runtime
+probing, discovery state, or dynamic node state.
+
+## Current health and runtime boundaries
+
+Node health is descriptive only.
+
+Node health does not drive routing, fallback, retries, polling, supervision, or
+adapter selection.
+
+Adapter health is not preflighted during routing.
+
+Runtime availability remains adapter-call-time behavior. If a selected runtime
+adapter cannot reach or use its runtime, the adapter normalizes the
+runtime-specific failure before it reaches the public API boundary.
+
+Runtime-specific details remain behind adapters, including endpoint URLs,
+request formats, model naming, runtime process state, and runtime-specific
+errors.
+
+## Still out of scope
+
+Phase 2 currently does not include:
+
+- remote nodes;
+- node HTTP API;
+- discovery;
+- registration protocol;
+- daemon or agent process;
+- runtime probing;
+- fallback;
+- retries;
+- health polling;
+- runtime supervision;
+- file-based config;
+- database;
+- dashboard;
+- Docker;
+- API compatibility layer;
+- model inventory;
+- model placement automation;
+- public API changes.
+
+Those remain outside the current implementation unless a future accepted RFC
+defines their boundary.

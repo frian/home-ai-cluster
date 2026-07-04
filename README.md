@@ -10,6 +10,7 @@ For project context, read:
 * `FOUNDATIONS.md`
 * `ROADMAP.md`
 * `RFC/`
+* `docs/phase-1-current-state.md`
 
 ## Current Phase 1 shape
 
@@ -18,6 +19,8 @@ Phase 1 currently runs as a single local process.
 Requests go through one static local node and one Ollama runtime adapter.
 
 The static node is an internal routing concept. It does not add distributed behavior, discovery, registration, a node protocol, or a public API change.
+
+For the detailed current Phase 1 state, see `docs/phase-1-current-state.md`.
 
 ## Run locally
 

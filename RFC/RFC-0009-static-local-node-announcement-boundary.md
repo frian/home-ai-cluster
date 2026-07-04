@@ -1,6 +1,6 @@
 # RFC-0009: Static Local Node Announcement Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-04
 
@@ -274,4 +274,12 @@ adapter-owned node metadata without a separate accepted RFC.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will treat the Phase 2 static local node announcement as an
+explicit local declaration.
+
+For now, that declaration may be constructed in-process by wiring code.
+
+It is not discovered dynamically, derived from live runtime probing, owned by
+runtime adapters, or loaded from a file-based configuration format yet.

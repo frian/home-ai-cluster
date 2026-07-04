@@ -114,7 +114,7 @@ def test_node_registry_lists_static_nodes_in_order() -> None:
     assert registry.list_nodes() == [first, second]
 
 
-def test_node_registry_returns_available_nodes_by_capability() -> None:
+def test_node_registry_returns_only_available_nodes_by_capability() -> None:
     chat = Capability(name="chat")
     available = NodeDescription(
         id="local",
@@ -123,6 +123,14 @@ def test_node_registry_returns_available_nodes_by_capability() -> None:
         health=NodeHealth(healthy=True),
         capabilities=[chat],
         adapters=["ollama"],
+    )
+    unknown = NodeDescription(
+        id="unknown",
+        name="Unknown node",
+        availability="unknown",
+        health=NodeHealth(healthy=False, reason="not checked"),
+        capabilities=[chat],
+        adapters=["unknown"],
     )
     unavailable = NodeDescription(
         id="offline",
@@ -140,7 +148,7 @@ def test_node_registry_returns_available_nodes_by_capability() -> None:
         capabilities=[Capability(name="code")],
         adapters=["code"],
     )
-    registry = NodeRegistry([available, unavailable, code_only])
+    registry = NodeRegistry([available, unknown, unavailable, code_only])
 
     assert registry.nodes_for(chat) == [available]
 

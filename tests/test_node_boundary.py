@@ -36,6 +36,13 @@ def test_unavailable_node_does_not_support_capability() -> None:
     assert node_supports_capability(node, chat) is False
 
 
+def test_unknown_node_does_not_support_capability() -> None:
+    chat = Capability(name="chat")
+    node = make_node(availability="unknown", capabilities=[chat])
+
+    assert node_supports_capability(node, chat) is False
+
+
 def test_unhealthy_available_node_still_supports_capability() -> None:
     chat = Capability(name="chat")
     node = make_node(healthy=False, capabilities=[chat])

@@ -1,5 +1,7 @@
+import asyncio
+
+import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.models import (
@@ -74,6 +76,20 @@ def create_test_node_registry() -> NodeRegistry:
     )
 
 
+async def post_chat_async(payload: dict[str, object]) -> httpx.Response:
+    transport = httpx.ASGITransport(app=create_app())
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        return await client.post("/v1/chat", json=payload)
+
+
+def post_chat(payload: dict[str, object]) -> httpx.Response:
+    return asyncio.run(post_chat_async(payload))
+
+
 @pytest.fixture
 def use_test_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     from home_ai_cluster.api import routes
@@ -87,11 +103,8 @@ def use_test_registry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> None:
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/v1/chat",
-        json={
+    response = post_chat(
+        {
             "messages": [{"role": "user", "content": "Hello"}],
             "capability": "chat",
         },
@@ -111,11 +124,8 @@ def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> N
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/v1/chat",
-        json={
+    response = post_chat(
+        {
             "messages": [
                 {"role": "user", "content": "First"},
                 {"role": "assistant", "content": "Middle"},
@@ -132,11 +142,8 @@ def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:
 def test_chat_endpoint_rejects_unsupported_capability(
     use_test_registry: None,
 ) -> None:
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/v1/chat",
-        json={
+    response = post_chat(
+        {
             "messages": [{"role": "user", "content": "Hello"}],
             "capability": "embeddings",
         },
@@ -163,11 +170,8 @@ def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
         "create_phase1_node_registry",
         create_test_node_registry,
     )
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/v1/chat",
-        json={
+    response = post_chat(
+        {
             "messages": [{"role": "user", "content": "Hello"}],
             "capability": "chat",
         },
@@ -192,11 +196,8 @@ def test_chat_endpoint_hides_runtime_specific_unavailable_details(
         "create_phase1_node_registry",
         create_test_node_registry,
     )
-    client = TestClient(create_app())
-
-    response = client.post(
-        "/v1/chat",
-        json={
+    response = post_chat(
+        {
             "messages": [{"role": "user", "content": "Hello"}],
             "capability": "chat",
         },

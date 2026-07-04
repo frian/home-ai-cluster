@@ -175,6 +175,21 @@ def test_route_request_explains_successful_selection() -> None:
     assert decision.reason == EXPECTED_ROUTING_REASON
 
 
+def test_route_request_explanation_stays_runtime_neutral() -> None:
+    chat = Capability(name="chat")
+    adapter = StubAdapter("ollama", [chat])
+    node = make_node("local", [chat], ["ollama"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([adapter])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.reason == EXPECTED_ROUTING_REASON
+    assert "ollama" not in decision.reason
+    assert "model" not in decision.reason
+    assert "http" not in decision.reason
+
+
 def test_route_request_uses_node_adapter_order_for_matches() -> None:
     chat = Capability(name="chat")
     first = StubAdapter("first", [chat])
@@ -186,6 +201,34 @@ def test_route_request_uses_node_adapter_order_for_matches() -> None:
     decision = route_request(make_request(chat), node_registry, adapter_registry)
 
     assert decision.adapter is second
+
+
+def test_route_request_only_considers_adapters_declared_by_selected_node() -> None:
+    chat = Capability(name="chat")
+    undeclared = StubAdapter("undeclared", [chat])
+    declared = StubAdapter("declared", [chat])
+    node = make_node("local", [chat], ["declared"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([undeclared, declared])
+
+    decision = route_request(make_request(chat), node_registry, adapter_registry)
+
+    assert decision.node is node
+    assert decision.adapter is declared
+
+
+def test_route_request_does_not_select_undeclared_registry_adapter() -> None:
+    chat = Capability(name="chat")
+    undeclared = StubAdapter("undeclared", [chat])
+    node = make_node("local", [chat], ["missing"])
+    node_registry = NodeRegistry([node])
+    adapter_registry = AdapterRegistry([undeclared])
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="No adapter provides capability on available node: chat",
+    ):
+        route_request(make_request(chat), node_registry, adapter_registry)
 
 
 def test_route_request_uses_node_registry_order_for_matches() -> None:
@@ -279,5 +322,22 @@ def test_route_request_fails_when_node_adapter_is_missing() -> None:
     node_registry = NodeRegistry([make_node("local", [chat], ["missing"])])
     adapter_registry = AdapterRegistry([StubAdapter("adapter", [chat])])
 
-    with pytest.raises(NoMatchingAdapterError, match="chat"):
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="No adapter provides capability on available node: chat",
+    ):
+        route_request(make_request(chat), node_registry, adapter_registry)
+
+
+def test_route_request_fails_when_declared_adapter_lacks_requested_capability() -> None:
+    chat = Capability(name="chat")
+    node_registry = NodeRegistry([make_node("local", [chat], ["adapter"])])
+    adapter_registry = AdapterRegistry(
+        [StubAdapter("adapter", [Capability(name="code")])]
+    )
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="No adapter provides capability on available node: chat",
+    ):
         route_request(make_request(chat), node_registry, adapter_registry)

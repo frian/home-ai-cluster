@@ -75,17 +75,24 @@ Goal:
 
 Define what a node is.
 
-A node should be able to announce basic information about itself, including availability, supported capabilities, available runtimes, and basic health.
+A node should be represented by an explicit cluster-facing description,
+including availability, supported capabilities, declared adapter names, and
+basic health.
 
 Expected outcomes:
 
-* minimal agent process;
+* static local node announcement;
 * node identity;
 * node health;
 * capability announcement;
-* basic registration with the orchestrator.
+* static in-memory node and adapter registries.
 
-This phase proves that machines can describe what they can do.
+This phase starts by keeping the implementation single-process, local, static,
+and non-distributed. It does not introduce an agent process, node discovery, or
+a registration protocol yet.
+
+This phase prepares the project to prove that machines can describe what they
+can do.
 
 ---
 

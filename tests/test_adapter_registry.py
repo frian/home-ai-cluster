@@ -36,7 +36,7 @@ def test_registry_starts_empty() -> None:
     assert registry.adapters_for(Capability(name="chat")) == []
 
 
-def test_registry_lists_registered_adapters_in_order() -> None:
+def test_registry_lists_contained_adapters_in_order() -> None:
     first = StubAdapter("first", [Capability(name="chat")])
     second = StubAdapter("second", [Capability(name="code")])
     registry = AdapterRegistry()

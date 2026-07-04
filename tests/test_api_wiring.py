@@ -7,7 +7,7 @@ from home_ai_cluster.api.wiring import (
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 
 
-def test_create_static_runtime_adapter_registry_registers_ollama_adapter() -> None:
+def test_create_static_runtime_adapter_registry_contains_ollama_adapter() -> None:
     registry = create_static_runtime_adapter_registry()
 
     adapters = registry.list_adapters()
@@ -30,7 +30,7 @@ def test_create_static_local_node_announcement_returns_explicit_declaration() ->
     assert "models" not in NodeDescription.model_fields
 
 
-def test_create_static_local_node_registry_registers_static_local_node() -> None:
+def test_create_static_local_node_registry_contains_static_local_node() -> None:
     registry = create_static_local_node_registry()
     announcement = create_static_local_node_announcement()
 

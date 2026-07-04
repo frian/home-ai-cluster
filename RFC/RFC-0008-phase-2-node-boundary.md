@@ -98,7 +98,9 @@ A node is the cluster-visible boundary around one execution environment.
 
 For now, a node remains represented by a static description.
 
-The orchestrator and router may reason about nodes through their declared capabilities, availability, health, and adapters.
+The orchestrator and router may use declared capabilities, availability, and adapter names for the current minimal routing behavior.
+
+Node health remains descriptive state and must not drive routing unless a later RFC allows it.
 
 They must not depend on runtime-specific details hidden behind adapters.
 
@@ -177,13 +179,14 @@ fallback routing
 
 Routing remains capability-centered.
 
-The router may select a node and adapter based on:
+The router may continue using the current minimal selection behavior, such as:
 
 - requested capability;
 - static node availability;
 - node adapter list;
-- adapter capabilities;
-- registration order.
+- adapter capabilities.
+
+Current registration order may remain an implementation detail, but this RFC does not define a long-term scheduling policy.
 
 The router must not start doing the following as a consequence of this RFC:
 
@@ -275,7 +278,7 @@ The transport mechanism should be decided separately.
 
 Discovery is explicitly out of scope.
 
-Static configuration remains enough for the next step.
+A static local node description remains enough for the next step.
 
 ## Compatibility with accepted RFCs
 

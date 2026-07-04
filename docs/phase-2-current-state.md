@@ -101,7 +101,8 @@ Route tests exercise the FastAPI app in-process through `httpx.AsyncClient`
 with `ASGITransport`. They use test doubles for node lookup and runtime adapters rather than calling a real runtime adapter.
 
 These tests document the current implementation state. They do not introduce
-networking, discovery, persistence, distributed behavior, or a new public API.
+node or cluster networking, discovery, persistence, distributed behavior, or a
+new public API.
 
 ## Still out of scope
 

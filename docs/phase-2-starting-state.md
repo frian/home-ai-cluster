@@ -24,14 +24,14 @@ This starting state should be read against:
 - `RFC/RFC-0007-runtime-availability-boundary.md`;
 - `RFC/RFC-0008-phase-2-node-boundary.md`.
 
-## Current shape
+## Historical starting shape
 
-Phase 2 starts from a single-process implementation.
+At this snapshot, Phase 2 started from a single-process implementation.
 
 There is still one static local node. The implementation has not introduced a
 remote node process, a node transport, or independent node lifecycle behavior.
 
-The current flow remains:
+The flow at this point remained:
 
 ```text
 API request
@@ -46,7 +46,7 @@ The node boundary is now explicit through static helpers. Those helpers make
 the boundary visible in code without changing the operational shape of the
 system.
 
-## Current node boundary
+## Historical node boundary
 
 The static node description remains the cluster-visible representation of the
 local execution environment.
@@ -54,8 +54,8 @@ local execution environment.
 The `NodeRegistry` filters nodes by availability and requested capability only.
 Node health is not part of routing selection.
 
-The router uses adapter names declared by the selected node. It then selects a
-registered runtime adapter with a matching name and requested capability.
+The router uses adapter names declared by the selected node. It then selects an
+in-memory runtime adapter with a matching name and requested capability.
 
 Node health remains descriptive state. It can describe the node, but it does
 not drive routing, fallback, retries, polling, supervision, or adapter
@@ -67,7 +67,7 @@ state, model files, or runtime-specific failures.
 
 ## Deliberately not included
 
-Phase 2 currently does not include:
+At this snapshot, Phase 2 did not include:
 
 - remote nodes;
 - a node HTTP API;

@@ -1,4 +1,4 @@
-"""Naive capability routing for Phase 1 orchestration."""
+"""Minimal capability routing for static Phase 2 orchestration."""
 
 from dataclasses import dataclass
 

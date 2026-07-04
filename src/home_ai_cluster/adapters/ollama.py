@@ -12,7 +12,7 @@ from home_ai_cluster.core.models import (
 
 
 class OllamaAdapter:
-    """Minimal Ollama adapter for Phase 1 chat requests."""
+    """Minimal Ollama runtime adapter for local chat requests."""
 
     def __init__(
         self,

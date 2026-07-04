@@ -1,4 +1,4 @@
-"""Minimal core orchestration for Phase 1 requests."""
+"""Minimal core orchestration for static local requests."""
 
 from home_ai_cluster.core.models import ClusterRequest, ClusterResult
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry

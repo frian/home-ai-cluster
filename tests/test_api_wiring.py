@@ -2,8 +2,9 @@ from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.api.wiring import (
     create_phase1_adapter_registry,
     create_phase1_node_registry,
+    create_static_local_node_announcement,
 )
-from home_ai_cluster.core.models import Capability, NodeDescription
+from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 
 
 def test_create_phase1_adapter_registry_registers_ollama_adapter() -> None:
@@ -17,12 +18,26 @@ def test_create_phase1_adapter_registry_registers_ollama_adapter() -> None:
     assert registry.adapters_for(Capability(name="chat")) == adapters
 
 
+def test_create_static_local_node_announcement_returns_explicit_declaration() -> None:
+    announcement = create_static_local_node_announcement()
+
+    assert announcement.id == "local"
+    assert announcement.name == "Local node"
+    assert announcement.availability == "available"
+    assert announcement.health == NodeHealth(healthy=True)
+    assert announcement.capabilities == [Capability(name="chat")]
+    assert announcement.adapters == ["ollama"]
+    assert "models" not in NodeDescription.model_fields
+
+
 def test_create_phase1_node_registry_registers_static_local_node() -> None:
     registry = create_phase1_node_registry()
+    announcement = create_static_local_node_announcement()
 
     nodes = registry.list_nodes()
 
     assert len(nodes) == 1
+    assert nodes[0] == announcement
     assert nodes[0].model_dump() == {
         "id": "local",
         "name": "Local node",

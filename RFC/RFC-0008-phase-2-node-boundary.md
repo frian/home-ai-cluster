@@ -1,6 +1,6 @@
 # RFC-0008: Phase 2 Node Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-04
 

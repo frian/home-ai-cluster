@@ -89,7 +89,7 @@ def test_route_request_selects_first_available_node_and_adapter() -> None:
     )
 
 
-def test_route_request_selects_available_static_node_with_requested_capability() -> None:
+def test_route_request_selects_available_static_node() -> None:
     chat = Capability(name="chat")
     adapter = StubAdapter("adapter", [chat])
     node = make_node("local", [chat], ["adapter"], availability="available")
@@ -132,6 +132,27 @@ def test_route_request_fails_when_only_unavailable_static_node_matches() -> None
                 [chat],
                 ["adapter"],
                 availability="unavailable",
+            )
+        ]
+    )
+    adapter_registry = AdapterRegistry([StubAdapter("adapter", [chat])])
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="No available node provides capability: chat",
+    ):
+        route_request(make_request(chat), node_registry, adapter_registry)
+
+
+def test_route_request_fails_when_only_unknown_static_node_matches() -> None:
+    chat = Capability(name="chat")
+    node_registry = NodeRegistry(
+        [
+            make_node(
+                "local",
+                [chat],
+                ["adapter"],
+                availability="unknown",
             )
         ]
     )

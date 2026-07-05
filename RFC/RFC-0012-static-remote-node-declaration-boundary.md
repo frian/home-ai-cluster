@@ -1,6 +1,6 @@
 # RFC-0012: Static Remote Node Declaration Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-05
 
@@ -415,4 +415,15 @@ fallback, retries, or health polling must be proposed separately.
 
 ## Decision
 
-Pending.
+Accepted.
+
+For the next step toward the two-machine proof, a non-local node may be
+considered by the orchestrator only if it is manually and statically declared as
+an allowed cluster member.
+
+That declaration is the trust boundary for considering the node, but it is not
+discovery, registration, reachability proof, health proof, runtime probing,
+transport design, configuration file design, or remote execution
+implementation.
+
+Unknown or undeclared machines must never be considered.

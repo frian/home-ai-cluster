@@ -1,6 +1,6 @@
 # RFC-0011: Minimal Agent Shape
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-05
 
@@ -367,4 +367,13 @@ separate RFC that changes it.
 
 ## Decision
 
-Pending.
+Accepted.
+
+For Phase 2, an agent is the minimal local boundary responsible for
+representing one execution environment to the cluster through an explicit static
+node announcement.
+
+It is not yet a daemon, protocol endpoint, discovery participant, runtime
+supervisor, configuration system, or source of runtime-derived node metadata.
+
+Phase 2 may continue without a separate `Agent` object in code.

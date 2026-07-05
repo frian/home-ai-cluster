@@ -1,6 +1,6 @@
 # RFC-0013: Minimal Remote Transport Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-05
 
@@ -457,4 +457,19 @@ or prompt and response logging must be proposed separately.
 
 ## Decision
 
-Pending.
+Accepted.
+
+A remote transport boundary is the narrow boundary that may carry a normalized
+cluster request from the orchestrator to a selected manually and statically
+declared remote node boundary and return either a normalized cluster result or
+a normalized transport or runtime failure.
+
+The boundary may only be used after routing has selected a manually declared
+remote node.
+
+It does not choose a concrete protocol, define HTTP endpoints, node public API,
+authentication, daemon lifecycle, discovery, registration, dynamic
+configuration, retries, fallback, health probing, runtime supervision, or
+remote execution implementation.
+
+Unknown or undeclared machines must never be contacted.

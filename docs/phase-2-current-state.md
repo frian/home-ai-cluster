@@ -18,7 +18,8 @@ This current state should be read against:
 - [RFC-0009: Static Local Node Announcement Boundary](../RFC/RFC-0009-static-local-node-announcement-boundary.md);
 - [RFC-0010: Static Node Availability Boundary](../RFC/RFC-0010-static-node-availability-boundary.md);
 - [RFC-0011: Minimal Agent Shape](../RFC/RFC-0011-minimal-agent-shape.md);
-- [RFC-0012: Static Remote Node Declaration Boundary](../RFC/RFC-0012-static-remote-node-declaration-boundary.md).
+- [RFC-0012: Static Remote Node Declaration Boundary](../RFC/RFC-0012-static-remote-node-declaration-boundary.md);
+- [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md).
 
 ## Current shape
 
@@ -47,6 +48,12 @@ Phase 2 now has an accepted static remote node declaration boundary, but the
 current implementation still has no remote nodes, transport, discovery,
 registration, config file, reachability proof, remote execution, or
 trust/authentication mechanism.
+
+Phase 2 now has an accepted minimal remote transport boundary, but the current
+implementation still has no remote transport, concrete protocol, HTTP endpoint,
+node public API, authentication model, daemon lifecycle, discovery,
+registration, dynamic configuration, retries, fallback, health probing, runtime
+supervision, or remote execution.
 
 Phase 2 has an accepted minimal agent boundary, but the current implementation
 does not include a separate `Agent` object, daemon, protocol endpoint, discovery

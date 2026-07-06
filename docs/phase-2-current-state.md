@@ -37,7 +37,9 @@ The current flow is:
 API request
   -> core orchestrator
   -> router
-  -> static local node
+  -> routing decision
+  -> execution helper
+  -> local execution path
   -> runtime adapter
   -> normalized cluster result
 ```
@@ -70,6 +72,36 @@ Phase 2 has an accepted minimal agent boundary, but the current implementation
 does not include a separate `Agent` object, daemon, protocol endpoint, discovery
 participant, runtime supervisor, configuration system, or runtime-derived
 metadata source.
+
+## Current remote-preparation seams
+
+The current implementation has small remote-preparation seams that describe
+boundaries without implementing remote behavior.
+
+`RemoteTransport` exists only as a protocol boundary for carrying normalized
+cluster objects. `RemoteTransportError` exists as a generic normalized transport
+failure boundary.
+
+`RemoteNodeDeclaration` represents a manually and statically declared remote
+node. It keeps `transport_address` as transport metadata separate from
+`NodeDescription`; the address is not node identity, proof of trust, discovery,
+or registration. `RemoteNodeDeclarationRegistry` is a static in-memory holder
+for those declarations.
+
+`remote_declaration_for_routing_decision()` can resolve a declaration by the
+selected `decision.node.id`.
+
+None of these seams are wired into routing, orchestration, API routes, HTTP
+transport, or remote execution.
+
+## Current execution seam
+
+`execute_routing_decision()` is the current post-routing execution entry point.
+It currently delegates to `execute_local_routing_decision()`.
+
+`execute_local_routing_decision()` calls the selected local adapter.
+
+There is no remote execution branch yet.
 
 ## Current node boundary
 
@@ -136,6 +168,18 @@ capability fail clearly, and routing explanations remain runtime-neutral.
 Route tests exercise the FastAPI app in-process through `httpx.AsyncClient`
 with `ASGITransport`. They use test doubles for node lookup and runtime
 adapters rather than calling a real runtime adapter.
+
+Remote transport boundary tests cover the `RemoteTransport` protocol shape and
+`RemoteTransportError` propagation.
+
+Remote node tests cover remote node declarations and the static in-memory remote
+node declaration registry.
+
+Executor tests cover the explicit local execution path after routing.
+
+Execution target helper tests cover resolving a remote node declaration from a
+selected routing decision without calling adapters, transport, routing, or
+execution behavior.
 
 These tests document the current implementation state. They do not introduce
 node or cluster networking, discovery, persistence, distributed behavior, or a

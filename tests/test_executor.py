@@ -3,7 +3,10 @@ import asyncio
 import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
-from home_ai_cluster.core.executor import execute_routing_decision
+from home_ai_cluster.core.executor import (
+    execute_local_routing_decision,
+    execute_routing_decision,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -72,7 +75,28 @@ def make_decision(adapter: RecordingAdapter) -> RoutingDecision:
     )
 
 
-def test_execute_routing_decision_passes_exact_request_to_selected_adapter() -> None:
+def test_execute_local_routing_decision_passes_exact_request_to_selected_adapter() -> None:
+    adapter = RecordingAdapter()
+    request = make_request()
+
+    asyncio.run(execute_local_routing_decision(request, make_decision(adapter)))
+
+    assert adapter.chat_requests == [request]
+    assert adapter.chat_requests[0] is request
+
+
+def test_execute_local_routing_decision_returns_exact_adapter_result() -> None:
+    result = ClusterResult(content="Hello", adapter="adapter")
+    adapter = RecordingAdapter(result=result)
+
+    actual = asyncio.run(
+        execute_local_routing_decision(make_request(), make_decision(adapter))
+    )
+
+    assert actual is result
+
+
+def test_execute_routing_decision_delegates_to_local_execution_path() -> None:
     adapter = RecordingAdapter()
     request = make_request()
 
@@ -80,17 +104,6 @@ def test_execute_routing_decision_passes_exact_request_to_selected_adapter() -> 
 
     assert adapter.chat_requests == [request]
     assert adapter.chat_requests[0] is request
-
-
-def test_execute_routing_decision_returns_exact_adapter_result() -> None:
-    result = ClusterResult(content="Hello", adapter="adapter")
-    adapter = RecordingAdapter(result=result)
-
-    actual = asyncio.run(
-        execute_routing_decision(make_request(), make_decision(adapter))
-    )
-
-    assert actual is result
 
 
 def test_execute_routing_decision_does_not_inspect_remote_declarations() -> None:
@@ -112,6 +125,18 @@ def test_execute_routing_decision_does_not_require_remote_transport() -> None:
 
     assert result.adapter == "adapter"
     assert not hasattr(adapter, "send")
+
+
+def test_execute_local_routing_decision_propagates_adapter_errors() -> None:
+    error = RuntimeAdapterUnavailableError("adapter failed")
+    adapter = RecordingAdapter(error=error)
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as raised:
+        asyncio.run(
+            execute_local_routing_decision(make_request(), make_decision(adapter))
+        )
+
+    assert raised.value is error
 
 
 def test_execute_routing_decision_propagates_adapter_errors() -> None:

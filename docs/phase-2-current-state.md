@@ -19,7 +19,8 @@ This current state should be read against:
 - [RFC-0010: Static Node Availability Boundary](../RFC/RFC-0010-static-node-availability-boundary.md);
 - [RFC-0011: Minimal Agent Shape](../RFC/RFC-0011-minimal-agent-shape.md);
 - [RFC-0012: Static Remote Node Declaration Boundary](../RFC/RFC-0012-static-remote-node-declaration-boundary.md);
-- [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md).
+- [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md);
+- [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md).
 
 ## Current shape
 
@@ -54,6 +55,16 @@ implementation still has no remote transport, concrete protocol, HTTP endpoint,
 node public API, authentication model, daemon lifecycle, discovery,
 registration, dynamic configuration, retries, fallback, health probing, runtime
 supervision, or remote execution.
+
+Phase 2 now has an accepted minimal concrete transport protocol. RFC-0014
+chooses manual local-network HTTP as the first concrete transport/protocol
+boundary, using the internal endpoint `POST /internal/cluster/request` to carry
+normalized cluster requests and return normalized cluster results or normalized
+failures. That endpoint may only be used for manually and statically declared
+remote nodes. Unknown or undeclared machines must never be contacted. The
+current implementation still has no remote transport or remote execution, and
+RFC-0014 does not define discovery, registration, authentication, TLS, retries,
+fallback, health probing, daemon lifecycle, streaming, or a public node API.
 
 Phase 2 has an accepted minimal agent boundary, but the current implementation
 does not include a separate `Agent` object, daemon, protocol endpoint, discovery

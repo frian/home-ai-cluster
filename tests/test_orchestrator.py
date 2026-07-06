@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 
 import pytest
 
@@ -83,6 +84,25 @@ def test_orchestrate_request_passes_request_to_selected_adapter() -> None:
 
     asyncio.run(orchestrate_request(request, node_registry, adapter_registry))
 
+    assert adapter.chat_requests == [request]
+
+
+def test_orchestrate_request_remains_local_only_without_remote_execution_dependencies() -> None:
+    result = ClusterResult(content="Hi from local", adapter="adapter")
+    adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
+    request = make_request("Local-only prompt")
+
+    actual = asyncio.run(orchestrate_request(request, node_registry, adapter_registry))
+
+    signature = inspect.signature(orchestrate_request)
+    assert list(signature.parameters) == [
+        "request",
+        "node_registry",
+        "adapter_registry",
+    ]
+    assert actual is result
     assert adapter.chat_requests == [request]
 
 

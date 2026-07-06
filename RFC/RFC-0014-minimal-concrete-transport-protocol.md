@@ -1,6 +1,6 @@
 # RFC-0014: Minimal Concrete Transport Protocol
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-06
 
@@ -477,4 +477,25 @@ proposed separately.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster accepts manual local-network HTTP as the first concrete remote
+transport protocol.
+
+The accepted internal endpoint is:
+
+```text
+POST /internal/cluster/request
+```
+
+This endpoint carries normalized cluster requests and returns normalized cluster
+results or normalized failures.
+
+It may only be used for manually and statically declared remote nodes.
+
+Unknown or undeclared machines must never be contacted.
+
+This does not implement remote execution.
+
+It does not define discovery, registration, authentication, TLS, retries,
+fallback, health probing, daemon lifecycle, streaming, or a public node API.

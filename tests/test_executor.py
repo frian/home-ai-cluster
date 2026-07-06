@@ -5,6 +5,7 @@ import pytest
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.executor import (
     execute_local_routing_decision,
+    execute_remote_routing_decision,
     execute_routing_decision,
 )
 from home_ai_cluster.core.models import (
@@ -16,6 +17,8 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_transport import RemoteTransportError
 from home_ai_cluster.core.router import RoutingDecision
 
 
@@ -48,6 +51,34 @@ class RecordingAdapter:
         return self._result
 
 
+class FakeRemoteTransport:
+    def __init__(
+        self,
+        result: ClusterResult | None = None,
+        error: RemoteTransportError | None = None,
+    ) -> None:
+        self._result = result or ClusterResult(
+            content="remote result",
+            adapter="remote-adapter",
+        )
+        self._error = error
+        self.requests: list[ClusterRequest] = []
+        self.declarations: list[RemoteNodeDeclaration] = []
+
+    async def send(
+        self,
+        request: ClusterRequest,
+        declaration: RemoteNodeDeclaration,
+    ) -> ClusterResult:
+        self.requests.append(request)
+        self.declarations.append(declaration)
+
+        if self._error is not None:
+            raise self._error
+
+        return self._result
+
+
 def make_request() -> ClusterRequest:
     return ClusterRequest(
         messages=[ChatMessage(role="user", content="Hello")],
@@ -72,6 +103,13 @@ def make_decision(adapter: RecordingAdapter) -> RoutingDecision:
         adapter=adapter,
         capability=Capability(name="chat"),
         reason="test decision",
+    )
+
+
+def make_declaration() -> RemoteNodeDeclaration:
+    return RemoteNodeDeclaration(
+        node=make_node(),
+        transport_address="http://remote-node.local:8000",
     )
 
 
@@ -125,6 +163,89 @@ def test_execute_routing_decision_does_not_require_remote_transport() -> None:
 
     assert result.adapter == "adapter"
     assert not hasattr(adapter, "send")
+
+
+def test_execute_remote_routing_decision_passes_exact_request_to_transport() -> None:
+    transport = FakeRemoteTransport()
+    request = make_request()
+
+    asyncio.run(
+        execute_remote_routing_decision(
+            request,
+            make_decision(RecordingAdapter()),
+            make_declaration(),
+            transport,
+        )
+    )
+
+    assert transport.requests == [request]
+    assert transport.requests[0] is request
+
+
+def test_execute_remote_routing_decision_passes_exact_declaration_to_transport() -> None:
+    transport = FakeRemoteTransport()
+    declaration = make_declaration()
+
+    asyncio.run(
+        execute_remote_routing_decision(
+            make_request(),
+            make_decision(RecordingAdapter()),
+            declaration,
+            transport,
+        )
+    )
+
+    assert transport.declarations == [declaration]
+    assert transport.declarations[0] is declaration
+
+
+def test_execute_remote_routing_decision_returns_exact_transport_result() -> None:
+    result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
+    transport = FakeRemoteTransport(result=result)
+
+    actual = asyncio.run(
+        execute_remote_routing_decision(
+            make_request(),
+            make_decision(RecordingAdapter()),
+            make_declaration(),
+            transport,
+        )
+    )
+
+    assert actual is result
+
+
+def test_execute_remote_routing_decision_propagates_transport_errors() -> None:
+    error = RemoteTransportError("remote transport failed")
+    transport = FakeRemoteTransport(error=error)
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(
+            execute_remote_routing_decision(
+                make_request(),
+                make_decision(RecordingAdapter()),
+                make_declaration(),
+                transport,
+            )
+        )
+
+    assert raised.value is error
+
+
+def test_execute_remote_routing_decision_does_not_call_selected_local_adapter() -> None:
+    adapter = RecordingAdapter()
+    transport = FakeRemoteTransport()
+
+    asyncio.run(
+        execute_remote_routing_decision(
+            make_request(),
+            make_decision(adapter),
+            make_declaration(),
+            transport,
+        )
+    )
+
+    assert adapter.chat_requests == []
 
 
 def test_execute_local_routing_decision_propagates_adapter_errors() -> None:

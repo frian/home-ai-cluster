@@ -97,8 +97,15 @@ selected routing decision node. When a matching declaration exists, it delegates
 to `execute_remote_routing_decision()`. When no matching declaration exists, it
 delegates to `execute_local_routing_decision()`.
 
-This helper is not wired into routing, orchestration, API routes, HTTP
-transport, or the active execution path.
+`orchestrate_request_with_declared_remote()` is an explicit opt-in
+orchestration helper for future remote wiring. It routes the request using the
+existing `route_request()` flow, then executes the resulting `RoutingDecision`
+through `execute_declared_routing_decision()`. When no matching
+`RemoteNodeDeclaration` exists, it uses local execution. When a matching
+declaration exists, it uses the provided `RemoteTransport`.
+
+These helpers are not wired into API routes, HTTP transport, or the active
+`/v1/chat` execution path.
 
 ## Current execution seam
 
@@ -117,6 +124,20 @@ remote wiring. It is not the active execution path.
 
 The active `/v1/chat` behavior is unchanged and remains local-only through
 `execute_routing_decision()`.
+
+## Current orchestration seam
+
+`orchestrate_request()` remains the active local-only orchestrator path. It
+routes the request with `route_request()` and executes the selected routing
+decision through `execute_routing_decision()`.
+
+`orchestrate_request_with_declared_remote()` composes the existing routing flow
+with the explicit declared execution helper. It requires a
+`RemoteNodeDeclarationRegistry` and `RemoteTransport` from the caller. It is a
+prepared seam for future explicit remote wiring, not active behavior.
+
+The active `/v1/chat` route does not call
+`orchestrate_request_with_declared_remote()`.
 
 ## Current node boundary
 
@@ -195,6 +216,9 @@ current local-only `execute_routing_decision()` entry point, the explicit remote
 transport execution helper, and the explicit declared execution helper's local
 and remote branches.
 
+Orchestrator tests cover the active local-only `orchestrate_request()` path and
+the explicit declared remote orchestration helper's local and remote branches.
+
 Execution target helper tests cover resolving a remote node declaration from a
 selected routing decision without calling adapters, transport, routing, or
 execution behavior.
@@ -208,7 +232,7 @@ new public API.
 Phase 2 currently does not include:
 
 - remote nodes;
-- remote execution active in the orchestrator;
+- remote execution active in `/v1/chat`;
 - HTTP transport implementation;
 - `POST /internal/cluster/request` endpoint;
 - node HTTP API;

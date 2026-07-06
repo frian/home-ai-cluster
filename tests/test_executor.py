@@ -4,6 +4,7 @@ import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.executor import (
+    execute_declared_routing_decision,
     execute_local_routing_decision,
     execute_remote_routing_decision,
     execute_routing_decision,
@@ -17,7 +18,10 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
-from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_node import (
+    RemoteNodeDeclaration,
+    RemoteNodeDeclarationRegistry,
+)
 from home_ai_cluster.core.remote_transport import RemoteTransportError
 from home_ai_cluster.core.router import RoutingDecision
 
@@ -86,10 +90,10 @@ def make_request() -> ClusterRequest:
     )
 
 
-def make_node() -> NodeDescription:
+def make_node(node_id: str = "local") -> NodeDescription:
     return NodeDescription(
-        id="local",
-        name="Local node",
+        id=node_id,
+        name=f"{node_id} node",
         availability="available",
         health=NodeHealth(healthy=True),
         capabilities=[Capability(name="chat")],
@@ -106,10 +110,10 @@ def make_decision(adapter: RecordingAdapter) -> RoutingDecision:
     )
 
 
-def make_declaration() -> RemoteNodeDeclaration:
+def make_declaration(node_id: str = "local") -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
-        node=make_node(),
-        transport_address="http://remote-node.local:8000",
+        node=make_node(node_id),
+        transport_address=f"http://{node_id}.local:8000",
     )
 
 
@@ -245,6 +249,55 @@ def test_execute_remote_routing_decision_does_not_call_selected_local_adapter() 
         )
     )
 
+    assert adapter.chat_requests == []
+
+
+def test_execute_declared_routing_decision_uses_local_execution_without_matching_declaration() -> None:
+    adapter = RecordingAdapter()
+    transport = FakeRemoteTransport()
+    request = make_request()
+    registry = RemoteNodeDeclarationRegistry([make_declaration("other")])
+
+    result = asyncio.run(
+        execute_declared_routing_decision(
+            request,
+            make_decision(adapter),
+            registry,
+            transport,
+        )
+    )
+
+    assert result.adapter == "adapter"
+    assert adapter.chat_requests == [request]
+    assert adapter.chat_requests[0] is request
+    assert transport.requests == []
+
+
+def test_execute_declared_routing_decision_uses_remote_transport_for_matching_declaration() -> None:
+    adapter = RecordingAdapter()
+    transport_result = ClusterResult(
+        content="Hello from declared remote",
+        adapter="remote-adapter",
+    )
+    transport = FakeRemoteTransport(result=transport_result)
+    request = make_request()
+    declaration = make_declaration("local")
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    result = asyncio.run(
+        execute_declared_routing_decision(
+            request,
+            make_decision(adapter),
+            registry,
+            transport,
+        )
+    )
+
+    assert result is transport_result
+    assert transport.requests == [request]
+    assert transport.requests[0] is request
+    assert transport.declarations == [declaration]
+    assert transport.declarations[0] is declaration
     assert adapter.chat_requests == []
 
 

@@ -12,8 +12,15 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
-from home_ai_cluster.core.orchestrator import orchestrate_request
+from home_ai_cluster.core.orchestrator import (
+    orchestrate_request,
+    orchestrate_request_with_declared_remote,
+)
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.core.remote_node import (
+    RemoteNodeDeclaration,
+    RemoteNodeDeclarationRegistry,
+)
 from home_ai_cluster.core.router import NoMatchingAdapterError
 
 
@@ -44,6 +51,22 @@ class RecordingAdapter:
         return self._result
 
 
+class FakeRemoteTransport:
+    def __init__(self, result: ClusterResult) -> None:
+        self._result = result
+        self.requests: list[ClusterRequest] = []
+        self.declarations: list[RemoteNodeDeclaration] = []
+
+    async def send(
+        self,
+        request: ClusterRequest,
+        declaration: RemoteNodeDeclaration,
+    ) -> ClusterResult:
+        self.requests.append(request)
+        self.declarations.append(declaration)
+        return self._result
+
+
 def make_request(content: str = "Hello") -> ClusterRequest:
     return ClusterRequest(
         messages=[ChatMessage(role="user", content=content)],
@@ -59,6 +82,20 @@ def make_node(capabilities: list[Capability], adapters: list[str]) -> NodeDescri
         health=NodeHealth(healthy=True),
         capabilities=capabilities,
         adapters=adapters,
+    )
+
+
+def make_remote_declaration(node_id: str = "local") -> RemoteNodeDeclaration:
+    return RemoteNodeDeclaration(
+        node=NodeDescription(
+            id=node_id,
+            name=f"{node_id} node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="chat")],
+            adapters=["adapter"],
+        ),
+        transport_address=f"http://{node_id}.local:8000",
     )
 
 
@@ -104,6 +141,60 @@ def test_orchestrate_request_remains_local_only_without_remote_execution_depende
     ]
     assert actual is result
     assert adapter.chat_requests == [request]
+
+
+def test_orchestrate_request_with_declared_remote_uses_local_execution_without_matching_declaration() -> None:
+    result = ClusterResult(content="Hi from local", adapter="adapter")
+    adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
+    remote_registry = RemoteNodeDeclarationRegistry([make_remote_declaration("other")])
+    remote_transport = FakeRemoteTransport(
+        ClusterResult(content="Hi from remote", adapter="remote-adapter")
+    )
+    request = make_request("Local declared remote path")
+
+    actual = asyncio.run(
+        orchestrate_request_with_declared_remote(
+            request,
+            node_registry,
+            adapter_registry,
+            remote_registry,
+            remote_transport,
+        )
+    )
+
+    assert actual is result
+    assert adapter.chat_requests == [request]
+    assert remote_transport.requests == []
+    assert remote_transport.declarations == []
+
+
+def test_orchestrate_request_with_declared_remote_uses_remote_transport_for_matching_declaration() -> None:
+    local_result = ClusterResult(content="Hi from local", adapter="adapter")
+    remote_result = ClusterResult(content="Hi from remote", adapter="remote-adapter")
+    adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
+    declaration = make_remote_declaration("local")
+    remote_registry = RemoteNodeDeclarationRegistry([declaration])
+    remote_transport = FakeRemoteTransport(remote_result)
+    request = make_request("Remote declared path")
+
+    actual = asyncio.run(
+        orchestrate_request_with_declared_remote(
+            request,
+            node_registry,
+            adapter_registry,
+            remote_registry,
+            remote_transport,
+        )
+    )
+
+    assert actual is remote_result
+    assert adapter.chat_requests == []
+    assert remote_transport.requests == [request]
+    assert remote_transport.declarations == [declaration]
 
 
 def test_orchestrate_request_uses_first_matching_adapter() -> None:

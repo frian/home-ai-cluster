@@ -2,7 +2,8 @@
 
 from typing import Protocol
 
-from home_ai_cluster.core.models import ClusterRequest, ClusterResult, NodeDescription
+from home_ai_cluster.core.models import ClusterRequest, ClusterResult
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 
 
 class RemoteTransportError(Exception):
@@ -10,12 +11,12 @@ class RemoteTransportError(Exception):
 
 
 class RemoteTransport(Protocol):
-    """Boundary for carrying a normalized request to a selected remote node."""
+    """Boundary for carrying a normalized request to a declared remote node."""
 
     async def send(
         self,
         request: ClusterRequest,
-        node: NodeDescription,
+        declaration: RemoteNodeDeclaration,
     ) -> ClusterResult:
-        """Send a normalized cluster request to a selected node."""
+        """Send a normalized request to a manually declared remote node."""
         ...

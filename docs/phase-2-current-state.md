@@ -91,17 +91,32 @@ for those declarations.
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
 
-None of these seams are wired into routing, orchestration, API routes, HTTP
-transport, or remote execution.
+`execute_declared_routing_decision()` is an explicit opt-in execution helper
+for future remote wiring. It resolves a `RemoteNodeDeclaration` for the
+selected routing decision node. When a matching declaration exists, it delegates
+to `execute_remote_routing_decision()`. When no matching declaration exists, it
+delegates to `execute_local_routing_decision()`.
+
+This helper is not wired into routing, orchestration, API routes, HTTP
+transport, or the active execution path.
 
 ## Current execution seam
 
 `execute_routing_decision()` is the current post-routing execution entry point.
-It currently delegates to `execute_local_routing_decision()`.
+It currently delegates only to `execute_local_routing_decision()`.
 
 `execute_local_routing_decision()` calls the selected local adapter.
 
-There is no remote execution branch yet.
+`execute_remote_routing_decision()` delegates to an explicit
+`RemoteTransport.send(request, declaration)` call.
+
+`execute_declared_routing_decision()` can choose between the explicit local and
+remote execution helpers based on whether the selected routing decision node has
+a matching remote declaration. This is a prepared seam for future explicit
+remote wiring. It is not the active execution path.
+
+The active `/v1/chat` behavior is unchanged and remains local-only through
+`execute_routing_decision()`.
 
 ## Current node boundary
 
@@ -175,7 +190,10 @@ Remote transport boundary tests cover the `RemoteTransport` protocol shape and
 Remote node tests cover remote node declarations and the static in-memory remote
 node declaration registry.
 
-Executor tests cover the explicit local execution path after routing.
+Executor tests cover the explicit local execution path after routing, the
+current local-only `execute_routing_decision()` entry point, the explicit remote
+transport execution helper, and the explicit declared execution helper's local
+and remote branches.
 
 Execution target helper tests cover resolving a remote node declaration from a
 selected routing decision without calling adapters, transport, routing, or
@@ -190,19 +208,29 @@ new public API.
 Phase 2 currently does not include:
 
 - remote nodes;
+- remote execution active in the orchestrator;
+- HTTP transport implementation;
+- `POST /internal/cluster/request` endpoint;
 - node HTTP API;
+- public node API;
 - discovery;
 - registration protocol;
+- remote node routing;
 - daemon or agent process;
 - runtime probing;
 - fallback;
 - retries;
+- fallback or retry policy;
 - health polling;
 - runtime supervision;
 - file-based config;
+- config loading;
+- auth or TLS;
+- streaming;
 - database;
 - dashboard;
 - Docker;
+- OpenAI-compatible API;
 - API compatibility layer;
 - model inventory;
 - model placement automation;

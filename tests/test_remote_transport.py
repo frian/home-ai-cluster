@@ -1,7 +1,9 @@
 import asyncio
 import inspect
+import json
 from typing import get_type_hints
 
+import httpx
 import pytest
 
 from home_ai_cluster.core.models import (
@@ -14,8 +16,10 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import (
+    HttpRemoteTransport,
     RemoteTransport,
     RemoteTransportError,
+    internal_cluster_request_url,
 )
 
 
@@ -69,10 +73,12 @@ def make_node() -> NodeDescription:
     )
 
 
-def make_declaration() -> RemoteNodeDeclaration:
+def make_declaration(
+    transport_address: str = "http://remote-node.local:8000",
+) -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
         node=make_node(),
-        transport_address="http://remote-node.local:8000",
+        transport_address=transport_address,
     )
 
 
@@ -129,7 +135,9 @@ def test_remote_transport_returns_cluster_result() -> None:
     result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
     transport = FakeRemoteTransport(result=result)
 
-    actual = asyncio.run(_send_remote(transport, make_request(), make_declaration()))
+    actual = asyncio.run(
+        _send_remote(transport, make_request(), make_declaration())
+    )
 
     assert actual is result
 
@@ -152,3 +160,127 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
     assert hints["request"] is ClusterRequest
     assert hints["declaration"] is RemoteNodeDeclaration
     assert hints["return"] is ClusterResult
+
+
+def test_internal_cluster_request_url_uses_declaration_transport_address() -> None:
+    declaration = make_declaration("http://remote-node.local:8000")
+
+    assert internal_cluster_request_url(declaration) == (
+        "http://remote-node.local:8000/internal/cluster/request"
+    )
+
+
+def test_internal_cluster_request_url_ignores_trailing_slash() -> None:
+    declaration = make_declaration("http://remote-node.local:8000/")
+
+    assert internal_cluster_request_url(declaration) == (
+        "http://remote-node.local:8000/internal/cluster/request"
+    )
+
+
+def test_http_remote_transport_posts_normalized_cluster_request() -> None:
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(
+            200,
+            json={"content": "Hello from HTTP", "adapter": "remote-adapter"},
+        )
+
+    transport = httpx.MockTransport(handler)
+
+    async def run() -> ClusterResult:
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result == ClusterResult(
+        content="Hello from HTTP",
+        adapter="remote-adapter",
+    )
+    assert len(captured_requests) == 1
+    assert captured_requests[0].method == "POST"
+    assert str(captured_requests[0].url) == (
+        "http://remote-node.local:8000/internal/cluster/request"
+    )
+    assert json.loads(captured_requests[0].content) == {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "capability": {"name": "chat"},
+        "constraints": {
+            "local_only": True,
+            "prefer_fast_response": False,
+            "min_context_size": None,
+        },
+    }
+
+
+def test_http_remote_transport_returns_normalized_cluster_result() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "content": "Hello",
+                "adapter": "remote-adapter",
+                "model": "model",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+
+    async def run() -> ClusterResult:
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result == ClusterResult(
+        content="Hello",
+        adapter="remote-adapter",
+        model="model",
+    )
+
+
+def test_http_remote_transport_raises_normalized_error_for_http_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"detail": "unavailable"})
+
+    transport = httpx.MockTransport(handler)
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=transport) as client:
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "HTTP remote transport could not send request"
+
+
+def test_http_remote_transport_raises_normalized_error_for_invalid_result() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"content": "missing adapter"})
+
+    transport = httpx.MockTransport(handler)
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=transport) as client:
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "HTTP remote transport returned invalid result"

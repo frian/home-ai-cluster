@@ -1,6 +1,6 @@
 # RFC-0015: Static Remote Declaration Source Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-07
 
@@ -261,4 +261,15 @@ It does not make the system distributed.
 
 ## Decision
 
-Pending.
+Accepted.
+
+For the next implementation step, static remote declarations may only come from
+explicit caller-owned code and remain in memory.
+
+Callers may construct `RemoteNodeDeclaration` values directly, place them in a
+`RemoteNodeDeclarationRegistry`, and pass that registry into explicit opt-in
+orchestration seams.
+
+This decision does not introduce configuration files, configuration loading,
+environment-variable loading, discovery, registration, persistence,
+daemon-owned registry state, or active `/v1/chat` remote execution.

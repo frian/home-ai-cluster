@@ -230,6 +230,67 @@ def test_orchestrate_request_with_built_remote_registry_matches_manual_registry(
     assert remote_transport.declarations == [declaration]
 
 
+def test_orchestrate_request_with_declared_remote_can_target_distinct_remote_node() -> (
+    None
+):
+    local_result = ClusterResult(content="Hi from local", adapter="local-adapter")
+    remote_result = ClusterResult(content="Hi from remote-a", adapter="remote-adapter")
+    local_adapter = RecordingAdapter(
+        "local-adapter",
+        [Capability(name="chat")],
+        local_result,
+    )
+    remote_routing_adapter = RecordingAdapter(
+        "remote-adapter",
+        [Capability(name="chat")],
+        remote_result,
+    )
+    remote_node = NodeDescription(
+        id="remote-a",
+        name="Remote A",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["remote-adapter"],
+    )
+    declaration = RemoteNodeDeclaration(
+        node=remote_node,
+        transport_address="http://remote-a.local:8000",
+    )
+    node_registry = NodeRegistry(
+        [
+            remote_node,
+            make_node([Capability(name="chat")], ["local-adapter"]),
+        ]
+    )
+    adapter_registry = AdapterRegistry([local_adapter, remote_routing_adapter])
+    remote_registry = build_remote_node_declaration_registry([declaration])
+    remote_transport = FakeRemoteTransport(remote_result)
+    request = make_request("Remote A declared path")
+
+    actual = asyncio.run(
+        orchestrate_request_with_declared_remote(
+            request,
+            node_registry,
+            adapter_registry,
+            remote_registry,
+            remote_transport,
+        )
+    )
+
+    assert list(inspect.signature(orchestrate_request).parameters) == [
+        "request",
+        "node_registry",
+        "adapter_registry",
+    ]
+    assert actual is remote_result
+    assert local_adapter.chat_requests == []
+    assert remote_routing_adapter.chat_requests == []
+    assert remote_transport.requests == [request]
+    assert remote_transport.declarations == [declaration]
+    assert remote_transport.declarations[0].node.id == "remote-a"
+
+
 def test_orchestrate_request_with_declared_http_remote_uses_http_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

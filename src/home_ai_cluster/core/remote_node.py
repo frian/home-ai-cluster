@@ -42,3 +42,10 @@ class RemoteNodeDeclarationRegistry:
                 return declaration
 
         return None
+
+
+def build_remote_node_declaration_registry(
+    declarations: Iterable[RemoteNodeDeclaration],
+) -> RemoteNodeDeclarationRegistry:
+    """Build an in-memory registry from explicit caller-owned declarations."""
+    return RemoteNodeDeclarationRegistry(declarations)

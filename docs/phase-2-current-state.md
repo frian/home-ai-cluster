@@ -44,19 +44,18 @@ API request
   -> normalized cluster result
 ```
 
-There are no remote nodes, node transports, discovery mechanisms, registration
-protocols, or independent node lifecycles in the current implementation.
+There are no remote nodes, discovery mechanisms, registration protocols, or
+independent node lifecycles in the current implementation.
 
 Phase 2 now has an accepted static remote node declaration boundary, but the
-current implementation still has no remote nodes, transport, discovery,
-registration, config file, reachability proof, remote execution, or
-trust/authentication mechanism.
+current implementation still has no remote nodes, discovery, registration,
+config file, reachability proof, active remote execution, or trust mechanism.
 
-Phase 2 now has an accepted minimal remote transport boundary, but the current
-implementation still has no remote transport implementation, active concrete
-client transport, node public API, authentication model, daemon lifecycle,
+Phase 2 now has an accepted minimal remote transport boundary and a concrete
+HTTP transport implementation. The implementation remains opt-in and un-wired:
+there is no active remote execution, node public API, daemon lifecycle,
 discovery, registration, dynamic configuration, retries, fallback, health
-probing, runtime supervision, or remote execution.
+probing, runtime supervision, or active remote routing.
 
 Phase 2 now has an accepted minimal concrete transport protocol. RFC-0014
 chooses manual local-network HTTP as the first concrete transport/protocol
@@ -64,10 +63,10 @@ boundary, using the internal endpoint `POST /internal/cluster/request` to carry
 normalized cluster requests and return normalized cluster results or normalized
 failures. That endpoint may only be used for manually and statically declared
 remote nodes. Unknown or undeclared machines must never be contacted. The
-current implementation now exposes that endpoint as a thin local handler, but it
-still has no HTTP transport implementation or remote execution. RFC-0014 does
-not define discovery, registration, authentication, TLS, retries, fallback,
-health probing, daemon lifecycle, streaming, or a public node API.
+current implementation exposes that endpoint as a thin local handler and has an
+opt-in `HttpRemoteTransport` client implementation, but it still has no active
+remote execution. RFC-0014 does not define discovery, registration, retries,
+fallback, health probing, daemon lifecycle, streaming, or a public node API.
 
 Phase 2 has an accepted minimal agent boundary, but the current implementation
 does not include a separate `Agent` object, daemon, protocol endpoint, discovery
@@ -77,11 +76,21 @@ metadata source.
 ## Current remote-preparation seams
 
 The current implementation has small remote-preparation seams that describe
-boundaries without implementing remote behavior.
+boundaries without activating remote behavior.
 
-`RemoteTransport` exists only as a protocol boundary for carrying normalized
+`RemoteTransport` exists as the protocol boundary for carrying normalized
 cluster objects. `RemoteTransportError` exists as a generic normalized transport
 failure boundary.
+
+`HttpRemoteTransport` is the concrete RFC-0014 HTTP transport implementation. It
+posts a normalized `ClusterRequest` to the declared node's
+`POST /internal/cluster/request` endpoint and validates the response as a
+normalized `ClusterResult`. HTTP failures and invalid result payloads are raised
+as `RemoteTransportError`.
+
+`HttpRemoteTransport` receives an existing `httpx.AsyncClient` from its caller.
+It does not own client lifecycle, configuration loading, discovery, retries,
+fallback, or health probing.
 
 `RemoteNodeDeclaration` represents a manually and statically declared remote
 node. It keeps `transport_address` as transport metadata separate from
@@ -105,8 +114,8 @@ through `execute_declared_routing_decision()`. When no matching
 `RemoteNodeDeclaration` exists, it uses local execution. When a matching
 declaration exists, it uses the provided `RemoteTransport`.
 
-These helpers are not wired into API routes, HTTP transport, or the active
-`/v1/chat` execution path.
+These helpers are not wired into API routes or the active `/v1/chat` execution
+path.
 
 ## Current execution seam
 
@@ -151,9 +160,8 @@ uses the same static local wiring as `/v1/chat`, calls the active local-only
 
 The internal endpoint does not activate remote execution. It does not call
 `orchestrate_request_with_declared_remote()`. It does not perform remote node
-lookup, HTTP client transport, discovery, registration, authentication, TLS,
-retry, fallback, health probing, daemon lifecycle, streaming, or runtime
-supervision.
+lookup, discovery, registration, retry, fallback, health probing, daemon
+lifecycle, streaming, or runtime supervision.
 
 ## Current node boundary
 
@@ -222,8 +230,9 @@ with `ASGITransport`. They use test doubles for node lookup and runtime
 adapters rather than calling a real runtime adapter. They cover both the public
 `/v1/chat` route and the internal `POST /internal/cluster/request` route.
 
-Remote transport boundary tests cover the `RemoteTransport` protocol shape and
-`RemoteTransportError` propagation.
+Remote transport boundary tests cover the `RemoteTransport` protocol shape,
+`RemoteTransportError` propagation, the `HttpRemoteTransport` request shape,
+result validation, and normalized HTTP transport failures.
 
 Remote node tests cover remote node declarations and the static in-memory remote
 node declaration registry.
@@ -241,8 +250,8 @@ selected routing decision without calling adapters, transport, routing, or
 execution behavior.
 
 These tests document the current implementation state. They do not introduce
-node or cluster networking, discovery, persistence, distributed behavior, or a
-new public API.
+active node or cluster networking, discovery, persistence, distributed behavior,
+or a new public API.
 
 ## Still out of scope
 
@@ -250,7 +259,6 @@ Phase 2 currently does not include:
 
 - remote nodes;
 - remote execution active in `/v1/chat`;
-- HTTP transport implementation;
 - active remote execution through `POST /internal/cluster/request`;
 - node HTTP API;
 - public node API;
@@ -266,7 +274,6 @@ Phase 2 currently does not include:
 - runtime supervision;
 - file-based config;
 - config loading;
-- auth or TLS;
 - streaming;
 - database;
 - dashboard;

@@ -114,6 +114,11 @@ through `execute_declared_routing_decision()`. When no matching
 `RemoteNodeDeclaration` exists, it uses local execution. When a matching
 declaration exists, it uses the provided `RemoteTransport`.
 
+`orchestrate_request_with_declared_http_remote()` is an explicit opt-in
+orchestration helper for future HTTP remote wiring. It receives an existing
+`httpx.AsyncClient` from the caller, wraps it in `HttpRemoteTransport`, and then
+uses `orchestrate_request_with_declared_remote()`.
+
 These helpers are not wired into API routes or the active `/v1/chat` execution
 path.
 
@@ -146,8 +151,15 @@ with the explicit declared execution helper. It requires a
 `RemoteNodeDeclarationRegistry` and `RemoteTransport` from the caller. It is a
 prepared seam for future explicit remote wiring, not active behavior.
 
+`orchestrate_request_with_declared_http_remote()` composes the declared remote
+orchestration helper with the concrete `HttpRemoteTransport`. It requires a
+`RemoteNodeDeclarationRegistry` and an existing `httpx.AsyncClient` from the
+caller. It does not own HTTP client lifecycle, configuration loading, discovery,
+registration, retries, fallback, or health probing.
+
 The active `/v1/chat` route does not call
-`orchestrate_request_with_declared_remote()`.
+`orchestrate_request_with_declared_remote()` or
+`orchestrate_request_with_declared_http_remote()`.
 
 ## Current internal endpoint
 
@@ -248,8 +260,10 @@ current local-only `execute_routing_decision()` entry point, the explicit remote
 transport execution helper, and the explicit declared execution helper's local
 and remote branches.
 
-Orchestrator tests cover the active local-only `orchestrate_request()` path and
-the explicit declared remote orchestration helper's local and remote branches.
+Orchestrator tests cover the active local-only `orchestrate_request()` path, the
+explicit declared remote orchestration helper's local and remote branches, and
+the explicit declared HTTP remote orchestration helper's composition of
+`HttpRemoteTransport` with a caller-provided `httpx.AsyncClient`.
 
 Execution target helper tests cover resolving a remote node declaration from a
 selected routing decision without calling adapters, transport, routing, or

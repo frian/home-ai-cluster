@@ -45,14 +45,17 @@ class HttpRemoteTransport:
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise RemoteTransportError("HTTP remote transport could not send request") from exc
+            message = "HTTP remote transport could not send request"
+            raise RemoteTransportError(message) from exc
 
         try:
             return ClusterResult.model_validate(response.json())
         except (ValueError, ValidationError) as exc:
-            raise RemoteTransportError("HTTP remote transport returned invalid result") from exc
+            message = "HTTP remote transport returned invalid result"
+            raise RemoteTransportError(message) from exc
 
 
 def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
     """Return the RFC-0014 internal request endpoint for a declaration."""
-    return f"{declaration.transport_address.rstrip('/')}/internal/cluster/request"
+    address = declaration.transport_address.rstrip("/")
+    return f"{address}/internal/cluster/request"

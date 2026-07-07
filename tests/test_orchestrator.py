@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 
+import httpx
 import pytest
 
 from home_ai_cluster.core.models import (
@@ -23,6 +24,7 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclarationRegistry,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
+from home_ai_cluster.main import create_app
 
 
 class RecordingAdapter:
@@ -242,6 +244,88 @@ def test_orchestrate_request_with_declared_http_remote_uses_http_transport(
     assert clients == [http_client]
     assert created_transports[0].requests == [request]
     assert created_transports[0].declarations == [declaration]
+
+
+def test_orchestrate_request_with_declared_http_remote_reaches_internal_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    endpoint_result = ClusterResult(
+        content="Hi from internal endpoint",
+        adapter="endpoint-adapter",
+    )
+    endpoint_adapter = RecordingAdapter(
+        "endpoint-adapter",
+        [Capability(name="chat")],
+        endpoint_result,
+    )
+
+    def create_endpoint_adapter_registry() -> AdapterRegistry:
+        return AdapterRegistry([endpoint_adapter])
+
+    def create_endpoint_node_registry() -> NodeRegistry:
+        return NodeRegistry(
+            [make_node([Capability(name="chat")], ["endpoint-adapter"])]
+        )
+
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        create_endpoint_adapter_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_endpoint_node_registry,
+    )
+    declared_address = "http://declared-remote.test"
+    request = make_request("Remote declared HTTP path")
+    local_result = ClusterResult(content="Hi from local", adapter="adapter")
+    local_adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([local_adapter])
+    declaration = make_remote_declaration("local")
+    declaration.transport_address = declared_address
+    remote_registry = RemoteNodeDeclarationRegistry([declaration])
+    app = create_app()
+    captured_requests: list[tuple[str, str, str | None]] = []
+
+    @app.middleware("http")
+    async def capture_request(request, call_next):
+        captured_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("host"),
+            )
+        )
+        return await call_next(request)
+
+    async def run() -> ClusterResult:
+        transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url=declared_address,
+        ) as client:
+            return await orchestrate_request_with_declared_http_remote(
+                request,
+                node_registry,
+                adapter_registry,
+                remote_registry,
+                client,
+            )
+
+    result = asyncio.run(run())
+
+    assert isinstance(result, ClusterResult)
+    assert result == endpoint_result
+    assert local_adapter.chat_requests == []
+    assert endpoint_adapter.chat_requests == [request]
+    assert captured_requests == [
+        ("POST", "/internal/cluster/request", "declared-remote.test")
+    ]
 
 
 def test_orchestrate_request_uses_first_matching_adapter() -> None:

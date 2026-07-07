@@ -135,7 +135,9 @@ def test_remote_transport_returns_cluster_result() -> None:
     result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
     transport = FakeRemoteTransport(result=result)
 
-    actual = asyncio.run(_send_remote(transport, make_request(), make_declaration()))
+    actual = asyncio.run(
+        _send_remote(transport, make_request(), make_declaration())
+    )
 
     assert actual is result
 
@@ -197,7 +199,10 @@ def test_http_remote_transport_posts_normalized_cluster_request() -> None:
 
     result = asyncio.run(run())
 
-    assert result == ClusterResult(content="Hello from HTTP", adapter="remote-adapter")
+    assert result == ClusterResult(
+        content="Hello from HTTP",
+        adapter="remote-adapter",
+    )
     assert len(captured_requests) == 1
     assert captured_requests[0].method == "POST"
     assert str(captured_requests[0].url) == (
@@ -218,7 +223,11 @@ def test_http_remote_transport_returns_normalized_cluster_result() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
-            json={"content": "Hello", "adapter": "remote-adapter", "model": "model"},
+            json={
+                "content": "Hello",
+                "adapter": "remote-adapter",
+                "model": "model",
+            },
         )
 
     transport = httpx.MockTransport(handler)
@@ -247,7 +256,10 @@ def test_http_remote_transport_raises_normalized_error_for_http_failure() -> Non
 
     async def run() -> None:
         async with httpx.AsyncClient(transport=transport) as client:
-            await HttpRemoteTransport(client).send(make_request(), make_declaration())
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
 
     with pytest.raises(RemoteTransportError) as raised:
         asyncio.run(run())
@@ -263,7 +275,10 @@ def test_http_remote_transport_raises_normalized_error_for_invalid_result() -> N
 
     async def run() -> None:
         async with httpx.AsyncClient(transport=transport) as client:
-            await HttpRemoteTransport(client).send(make_request(), make_declaration())
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
 
     with pytest.raises(RemoteTransportError) as raised:
         asyncio.run(run())

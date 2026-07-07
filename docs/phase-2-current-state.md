@@ -53,10 +53,10 @@ registration, config file, reachability proof, remote execution, or
 trust/authentication mechanism.
 
 Phase 2 now has an accepted minimal remote transport boundary, but the current
-implementation still has no remote transport, concrete protocol, HTTP endpoint,
-node public API, authentication model, daemon lifecycle, discovery,
-registration, dynamic configuration, retries, fallback, health probing, runtime
-supervision, or remote execution.
+implementation still has no remote transport implementation, active concrete
+client transport, node public API, authentication model, daemon lifecycle,
+discovery, registration, dynamic configuration, retries, fallback, health
+probing, runtime supervision, or remote execution.
 
 Phase 2 now has an accepted minimal concrete transport protocol. RFC-0014
 chooses manual local-network HTTP as the first concrete transport/protocol
@@ -64,9 +64,10 @@ boundary, using the internal endpoint `POST /internal/cluster/request` to carry
 normalized cluster requests and return normalized cluster results or normalized
 failures. That endpoint may only be used for manually and statically declared
 remote nodes. Unknown or undeclared machines must never be contacted. The
-current implementation still has no remote transport or remote execution, and
-RFC-0014 does not define discovery, registration, authentication, TLS, retries,
-fallback, health probing, daemon lifecycle, streaming, or a public node API.
+current implementation now exposes that endpoint as a thin local handler, but it
+still has no HTTP transport implementation or remote execution. RFC-0014 does
+not define discovery, registration, authentication, TLS, retries, fallback,
+health probing, daemon lifecycle, streaming, or a public node API.
 
 Phase 2 has an accepted minimal agent boundary, but the current implementation
 does not include a separate `Agent` object, daemon, protocol endpoint, discovery
@@ -139,6 +140,21 @@ prepared seam for future explicit remote wiring, not active behavior.
 The active `/v1/chat` route does not call
 `orchestrate_request_with_declared_remote()`.
 
+## Current internal endpoint
+
+`POST /internal/cluster/request` exists as the minimal RFC-0014 internal
+transport endpoint shape.
+
+For now, it is a thin local handler. It accepts a normalized `ClusterRequest`,
+uses the same static local wiring as `/v1/chat`, calls the active local-only
+`orchestrate_request()` path, and returns a normalized `ClusterResult`.
+
+The internal endpoint does not activate remote execution. It does not call
+`orchestrate_request_with_declared_remote()`. It does not perform remote node
+lookup, HTTP client transport, discovery, registration, authentication, TLS,
+retry, fallback, health probing, daemon lifecycle, streaming, or runtime
+supervision.
+
 ## Current node boundary
 
 The node boundary is explicit.
@@ -203,7 +219,8 @@ capability fail clearly, and routing explanations remain runtime-neutral.
 
 Route tests exercise the FastAPI app in-process through `httpx.AsyncClient`
 with `ASGITransport`. They use test doubles for node lookup and runtime
-adapters rather than calling a real runtime adapter.
+adapters rather than calling a real runtime adapter. They cover both the public
+`/v1/chat` route and the internal `POST /internal/cluster/request` route.
 
 Remote transport boundary tests cover the `RemoteTransport` protocol shape and
 `RemoteTransportError` propagation.
@@ -234,7 +251,7 @@ Phase 2 currently does not include:
 - remote nodes;
 - remote execution active in `/v1/chat`;
 - HTTP transport implementation;
-- `POST /internal/cluster/request` endpoint;
+- active remote execution through `POST /internal/cluster/request`;
 - node HTTP API;
 - public node API;
 - discovery;

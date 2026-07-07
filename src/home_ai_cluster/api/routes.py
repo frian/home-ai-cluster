@@ -23,12 +23,9 @@ class ChatRequest(BaseModel):
     capability: str = Field(min_length=1)
 
 
-@router.post("/v1/chat", response_model=ClusterResult)
-async def chat(request: ChatRequest) -> ClusterResult:
-    cluster_request = ClusterRequest(
-        messages=request.messages,
-        capability=Capability(name=request.capability),
-    )
+async def handle_static_local_cluster_request(
+    cluster_request: ClusterRequest,
+) -> ClusterResult:
     node_registry = create_static_local_node_registry()
     adapter_registry = create_static_runtime_adapter_registry()
 
@@ -48,3 +45,18 @@ async def chat(request: ChatRequest) -> ClusterResult:
             status_code=404,
             detail=f"No adapter provides capability: {cluster_request.capability.name}",
         ) from exc
+
+
+@router.post("/v1/chat", response_model=ClusterResult)
+async def chat(request: ChatRequest) -> ClusterResult:
+    cluster_request = ClusterRequest(
+        messages=request.messages,
+        capability=Capability(name=request.capability),
+    )
+
+    return await handle_static_local_cluster_request(cluster_request)
+
+
+@router.post("/internal/cluster/request", response_model=ClusterResult)
+async def internal_cluster_request(request: ClusterRequest) -> ClusterResult:
+    return await handle_static_local_cluster_request(request)

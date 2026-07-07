@@ -117,7 +117,7 @@ def make_declaration(node_id: str = "local") -> RemoteNodeDeclaration:
     )
 
 
-def test_execute_local_routing_decision_passes_exact_request_to_selected_adapter() -> None:
+def test_execute_local_routing_decision_passes_exact_request() -> None:
     adapter = RecordingAdapter()
     request = make_request()
 
@@ -186,7 +186,7 @@ def test_execute_remote_routing_decision_passes_exact_request_to_transport() -> 
     assert transport.requests[0] is request
 
 
-def test_execute_remote_routing_decision_passes_exact_declaration_to_transport() -> None:
+def test_execute_remote_routing_decision_passes_exact_declaration() -> None:
     transport = FakeRemoteTransport()
     declaration = make_declaration()
 
@@ -252,7 +252,7 @@ def test_execute_remote_routing_decision_does_not_call_selected_local_adapter() 
     assert adapter.chat_requests == []
 
 
-def test_execute_declared_routing_decision_uses_local_execution_without_matching_declaration() -> None:
+def test_execute_declared_routing_decision_uses_local_without_declaration() -> None:
     adapter = RecordingAdapter()
     transport = FakeRemoteTransport()
     request = make_request()
@@ -273,7 +273,7 @@ def test_execute_declared_routing_decision_uses_local_execution_without_matching
     assert transport.requests == []
 
 
-def test_execute_declared_routing_decision_uses_remote_transport_for_matching_declaration() -> None:
+def test_execute_declared_routing_decision_uses_remote_transport() -> None:
     adapter = RecordingAdapter()
     transport_result = ClusterResult(
         content="Hello from declared remote",

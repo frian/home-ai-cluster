@@ -124,7 +124,7 @@ def test_orchestrate_request_passes_request_to_selected_adapter() -> None:
     assert adapter.chat_requests == [request]
 
 
-def test_orchestrate_request_remains_local_only_without_remote_execution_dependencies() -> None:
+def test_orchestrate_request_remains_local_only() -> None:
     result = ClusterResult(content="Hi from local", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
@@ -143,7 +143,7 @@ def test_orchestrate_request_remains_local_only_without_remote_execution_depende
     assert adapter.chat_requests == [request]
 
 
-def test_orchestrate_request_with_declared_remote_uses_local_execution_without_matching_declaration() -> None:
+def test_orchestrate_request_with_declared_remote_uses_local_execution() -> None:
     result = ClusterResult(content="Hi from local", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
@@ -170,7 +170,7 @@ def test_orchestrate_request_with_declared_remote_uses_local_execution_without_m
     assert remote_transport.declarations == []
 
 
-def test_orchestrate_request_with_declared_remote_uses_remote_transport_for_matching_declaration() -> None:
+def test_orchestrate_request_with_declared_remote_uses_remote_transport() -> None:
     local_result = ClusterResult(content="Hi from local", adapter="adapter")
     remote_result = ClusterResult(content="Hi from remote", adapter="remote-adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)

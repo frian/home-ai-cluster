@@ -14,6 +14,7 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
+    orchestrate_request_with_declared_http_remote,
     orchestrate_request_with_declared_remote,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -195,6 +196,52 @@ def test_orchestrate_request_with_declared_remote_uses_remote_transport() -> Non
     assert adapter.chat_requests == []
     assert remote_transport.requests == [request]
     assert remote_transport.declarations == [declaration]
+
+
+def test_orchestrate_request_with_declared_http_remote_uses_http_transport(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.core import orchestrator as orchestrator_module
+
+    local_result = ClusterResult(content="Hi from local", adapter="adapter")
+    remote_result = ClusterResult(content="Hi from remote", adapter="remote-adapter")
+    adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
+    declaration = make_remote_declaration("local")
+    remote_registry = RemoteNodeDeclarationRegistry([declaration])
+    request = make_request("Remote declared HTTP path")
+    http_client = object()
+    clients: list[object] = []
+    created_transports: list[FakeRemoteTransport] = []
+
+    class CapturingHttpRemoteTransport(FakeRemoteTransport):
+        def __init__(self, client: object) -> None:
+            super().__init__(remote_result)
+            clients.append(client)
+            created_transports.append(self)
+
+    monkeypatch.setattr(
+        orchestrator_module,
+        "HttpRemoteTransport",
+        CapturingHttpRemoteTransport,
+    )
+
+    actual = asyncio.run(
+        orchestrate_request_with_declared_http_remote(
+            request,
+            node_registry,
+            adapter_registry,
+            remote_registry,
+            http_client,
+        )
+    )
+
+    assert actual is remote_result
+    assert adapter.chat_requests == []
+    assert clients == [http_client]
+    assert created_transports[0].requests == [request]
+    assert created_transports[0].declarations == [declaration]
 
 
 def test_orchestrate_request_uses_first_matching_adapter() -> None:

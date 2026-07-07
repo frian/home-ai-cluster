@@ -87,7 +87,7 @@ def test_empty_remote_node_declaration_registry_returns_empty_list() -> None:
     assert registry.list_declarations() == []
 
 
-def test_remote_node_declaration_registry_lists_declarations_in_insertion_order() -> None:
+def test_remote_node_declaration_registry_preserves_order() -> None:
     first = make_declaration("first")
     second = make_declaration("second")
 

@@ -29,9 +29,7 @@ class TestChatAdapter:
 
     async def chat(self, request: ClusterRequest) -> ClusterResult:
         user_messages = [
-            message.content
-            for message in request.messages
-            if message.role == "user"
+            message.content for message in request.messages if message.role == "user"
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 

@@ -71,9 +71,7 @@ class TestChatAdapter:
 
     async def chat(self, request: ClusterRequest) -> ClusterResult:
         user_messages = [
-            message.content
-            for message in request.messages
-            if message.role == "user"
+            message.content for message in request.messages if message.role == "user"
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 
@@ -179,9 +177,7 @@ def test_remote_transport_returns_cluster_result() -> None:
     result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
     transport = FakeRemoteTransport(result=result)
 
-    actual = asyncio.run(
-        _send_remote(transport, make_request(), make_declaration())
-    )
+    actual = asyncio.run(_send_remote(transport, make_request(), make_declaration()))
 
     assert actual is result
 
@@ -349,20 +345,38 @@ def test_http_remote_transport_can_call_internal_cluster_request_endpoint(
         messages=[ChatMessage(role="user", content="Hello over ASGI")],
         capability=Capability(name="chat"),
     )
+    declared_address = "http://declared-remote.test"
     declaration = RemoteNodeDeclaration(
         node=make_node(),
-        transport_address="http://testserver",
+        transport_address=declared_address,
     )
+    app = create_app()
+    captured_requests: list[tuple[str, str, str | None]] = []
+
+    @app.middleware("http")
+    async def capture_internal_request(request, call_next):
+        captured_requests.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("host"),
+            )
+        )
+        return await call_next(request)
 
     async def run() -> ClusterResult:
-        transport = httpx.ASGITransport(app=create_app())
+        transport = httpx.ASGITransport(app=app)
 
         async with httpx.AsyncClient(
             transport=transport,
-            base_url="http://testserver",
+            base_url=declared_address,
         ) as client:
             return await HttpRemoteTransport(client).send(request, declaration)
 
     result = asyncio.run(run())
 
+    assert isinstance(result, ClusterResult)
     assert result == ClusterResult(content="Hello over ASGI", adapter="test")
+    assert captured_requests == [
+        ("POST", "/internal/cluster/request", "declared-remote.test")
+    ]

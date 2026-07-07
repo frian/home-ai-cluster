@@ -54,7 +54,5 @@ class NodeRegistry:
     def nodes_for(self, capability: Capability) -> list[NodeDescription]:
         """Return available nodes that provide the requested capability."""
         return [
-            node
-            for node in self._nodes
-            if node_supports_capability(node, capability)
+            node for node in self._nodes if node_supports_capability(node, capability)
         ]

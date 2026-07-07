@@ -265,6 +265,13 @@ explicit declared remote orchestration helper's local and remote branches, and
 the explicit declared HTTP remote orchestration helper's composition of
 `HttpRemoteTransport` with a caller-provided `httpx.AsyncClient`.
 
+Orchestrator tests also include an in-process proof for the full explicit HTTP
+remote orchestration seam. That proof exercises
+`orchestrate_request_with_declared_http_remote()` through `HttpRemoteTransport`
+and the internal `POST /internal/cluster/request` endpoint using
+`httpx.ASGITransport`, without real network I/O or active `/v1/chat` remote
+wiring.
+
 Execution target helper tests cover resolving a remote node declaration from a
 selected routing decision without calling adapters, transport, routing, or
 execution behavior.

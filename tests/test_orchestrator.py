@@ -22,6 +22,7 @@ from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
+    build_remote_node_declaration_registry,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
 from home_ai_cluster.main import create_app
@@ -183,6 +184,35 @@ def test_orchestrate_request_with_declared_remote_uses_remote_transport() -> Non
     remote_registry = RemoteNodeDeclarationRegistry([declaration])
     remote_transport = FakeRemoteTransport(remote_result)
     request = make_request("Remote declared path")
+
+    actual = asyncio.run(
+        orchestrate_request_with_declared_remote(
+            request,
+            node_registry,
+            adapter_registry,
+            remote_registry,
+            remote_transport,
+        )
+    )
+
+    assert actual is remote_result
+    assert adapter.chat_requests == []
+    assert remote_transport.requests == [request]
+    assert remote_transport.declarations == [declaration]
+
+
+def test_orchestrate_request_with_built_remote_registry_matches_manual_registry() -> (
+    None
+):
+    local_result = ClusterResult(content="Hi from local", adapter="adapter")
+    remote_result = ClusterResult(content="Hi from remote", adapter="remote-adapter")
+    adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)
+    node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
+    adapter_registry = AdapterRegistry([adapter])
+    declaration = make_remote_declaration("local")
+    remote_registry = build_remote_node_declaration_registry([declaration])
+    remote_transport = FakeRemoteTransport(remote_result)
+    request = make_request("Remote declared path through built registry")
 
     actual = asyncio.run(
         orchestrate_request_with_declared_remote(

@@ -5,6 +5,7 @@ from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
+    build_remote_node_declaration_registry,
 )
 
 
@@ -132,3 +133,42 @@ def test_remote_node_declaration_registry_lookup_does_not_imply_behavior() -> No
     assert not hasattr(registry, "register")
     assert not hasattr(registry, "discover")
     assert not hasattr(registry, "connect")
+
+
+def test_build_remote_node_declaration_registry_uses_explicit_declarations() -> None:
+    first = make_declaration("first")
+    second = make_declaration("second")
+
+    registry = build_remote_node_declaration_registry([first, second])
+
+    assert registry.list_declarations() == [first, second]
+
+
+def test_built_remote_node_declaration_registry_matches_manual_registry() -> None:
+    first = make_declaration("first")
+    second = make_declaration("second")
+
+    built_registry = build_remote_node_declaration_registry((first, second))
+    manual_registry = RemoteNodeDeclarationRegistry([first, second])
+
+    assert built_registry.list_declarations() == manual_registry.list_declarations()
+    assert built_registry.declaration_for_node_id("second") is second
+    assert built_registry.declaration_for_node_id(
+        "second"
+    ) is manual_registry.declaration_for_node_id("second")
+    assert built_registry.declaration_for_node_id("unknown") is None
+
+
+def test_build_remote_node_declaration_registry_does_not_imply_external_sources() -> (
+    None
+):
+    registry = build_remote_node_declaration_registry([make_declaration()])
+
+    assert not hasattr(registry, "load")
+    assert not hasattr(registry, "load_config")
+    assert not hasattr(registry, "load_environment")
+    assert not hasattr(registry, "discover")
+    assert not hasattr(registry, "persist")
+    assert not hasattr(registry, "register")
+    assert not hasattr(registry, "route")
+    assert not hasattr(registry, "chat")

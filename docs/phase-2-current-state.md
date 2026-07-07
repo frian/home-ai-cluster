@@ -20,7 +20,8 @@ This current state should be read against:
 - [RFC-0011: Minimal Agent Shape](../RFC/RFC-0011-minimal-agent-shape.md);
 - [RFC-0012: Static Remote Node Declaration Boundary](../RFC/RFC-0012-static-remote-node-declaration-boundary.md);
 - [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md);
-- [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md).
+- [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md);
+- [RFC-0015: Static Remote Declaration Source Boundary](../RFC/RFC-0015-static-remote-declaration-source-boundary.md).
 
 ## Current shape
 
@@ -97,6 +98,13 @@ node. It keeps `transport_address` as transport metadata separate from
 `NodeDescription`; the address is not node identity, proof of trust, discovery,
 or registration. `RemoteNodeDeclarationRegistry` is a static in-memory holder
 for those declarations.
+
+`build_remote_node_declaration_registry(...)` can assemble an in-memory
+`RemoteNodeDeclarationRegistry` from explicit caller-owned
+`RemoteNodeDeclaration` values. This supports the existing opt-in orchestration
+seams without adding config loading, environment loading, discovery,
+registration, persistence, daemon-owned registry state, API route changes, or
+`/v1/chat` remote activation.
 
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.

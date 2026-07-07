@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.core.models import (
+    AdapterHealth,
     Capability,
     ChatMessage,
     ClusterRequest,
@@ -14,6 +15,7 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import (
     HttpRemoteTransport,
@@ -21,6 +23,7 @@ from home_ai_cluster.core.remote_transport import (
     RemoteTransportError,
     internal_cluster_request_url,
 )
+from home_ai_cluster.main import create_app
 
 
 class FakeRemoteTransport:
@@ -55,6 +58,28 @@ class FakeRemoteTransport:
         return self._result
 
 
+class TestChatAdapter:
+    @property
+    def name(self) -> str:
+        return "test"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="chat")]
+
+    async def chat(self, request: ClusterRequest) -> ClusterResult:
+        user_messages = [
+            message.content
+            for message in request.messages
+            if message.role == "user"
+        ]
+        content = user_messages[-1] if user_messages else request.messages[-1].content
+
+        return ClusterResult(content=content, adapter=self.name)
+
+
 def make_request() -> ClusterRequest:
     return ClusterRequest(
         messages=[ChatMessage(role="user", content="Hello")],
@@ -73,6 +98,17 @@ def make_node() -> NodeDescription:
     )
 
 
+def make_test_node() -> NodeDescription:
+    return NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["test"],
+    )
+
+
 def make_declaration(
     transport_address: str = "http://remote-node.local:8000",
 ) -> RemoteNodeDeclaration:
@@ -80,6 +116,14 @@ def make_declaration(
         node=make_node(),
         transport_address=transport_address,
     )
+
+
+def create_test_adapter_registry() -> AdapterRegistry:
+    return AdapterRegistry([TestChatAdapter()])
+
+
+def create_test_node_registry() -> NodeRegistry:
+    return NodeRegistry([make_test_node()])
 
 
 async def _send_remote(
@@ -284,3 +328,41 @@ def test_http_remote_transport_raises_normalized_error_for_invalid_result() -> N
         asyncio.run(run())
 
     assert str(raised.value) == "HTTP remote transport returned invalid result"
+
+
+def test_http_remote_transport_can_call_internal_cluster_request_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        create_test_adapter_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_test_node_registry,
+    )
+    request = ClusterRequest(
+        messages=[ChatMessage(role="user", content="Hello over ASGI")],
+        capability=Capability(name="chat"),
+    )
+    declaration = RemoteNodeDeclaration(
+        node=make_node(),
+        transport_address="http://testserver",
+    )
+
+    async def run() -> ClusterResult:
+        transport = httpx.ASGITransport(app=create_app())
+
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return await HttpRemoteTransport(client).send(request, declaration)
+
+    result = asyncio.run(run())
+
+    assert result == ClusterResult(content="Hello over ASGI", adapter="test")

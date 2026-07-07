@@ -232,7 +232,13 @@ adapters rather than calling a real runtime adapter. They cover both the public
 
 Remote transport boundary tests cover the `RemoteTransport` protocol shape,
 `RemoteTransportError` propagation, the `HttpRemoteTransport` request shape,
-result validation, and normalized HTTP transport failures.
+result validation, normalized HTTP transport failures, and an in-process
+transport-to-endpoint proof through `httpx.ASGITransport`.
+
+The in-process transport-to-endpoint proof verifies that `HttpRemoteTransport`
+uses the declared `RemoteNodeDeclaration.transport_address`, posts to
+`POST /internal/cluster/request`, exercises the FastAPI app without real network
+I/O, and returns a normalized `ClusterResult`.
 
 Remote node tests cover remote node declarations and the static in-memory remote
 node declaration registry.

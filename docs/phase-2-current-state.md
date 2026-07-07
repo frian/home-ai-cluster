@@ -273,6 +273,11 @@ explicit declared remote orchestration helper's local and remote branches, and
 the explicit declared HTTP remote orchestration helper's composition of
 `HttpRemoteTransport` with a caller-provided `httpx.AsyncClient`.
 
+Orchestrator tests also prove that the explicit opt-in declared remote
+orchestration seam can target a statically declared remote node with an id
+distinct from the local node id, using a caller-owned declaration registry and a
+provided `RemoteTransport`.
+
 Orchestrator tests also include an in-process proof for the full explicit HTTP
 remote orchestration seam. That proof exercises
 `orchestrate_request_with_declared_http_remote()` through `HttpRemoteTransport`

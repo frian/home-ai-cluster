@@ -1,6 +1,6 @@
 # RFC-0018: Explicit Selected Candidate Orchestration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-08
 
@@ -287,4 +287,31 @@ It does not introduce distributed behavior.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will use a narrow explicit opt-in orchestration boundary for
+consuming an already selected routing candidate.
+
+The accepted boundary keeps candidate discovery, candidate selection, and
+execution separate. It consumes caller-provided selected candidate intent; it
+does not create a new routing policy.
+
+For a local selected candidate, selected candidate orchestration may execute
+through the existing local execution boundary and must not require a
+`RemoteTransport`.
+
+For a declared remote selected candidate, selected candidate orchestration must
+require an explicit caller-provided `RemoteTransport` and must execute only
+through the existing declared remote execution boundary.
+
+The boundary must fail explicitly for missing or invalid selections, and for
+declared remote selections without a caller-provided `RemoteTransport`.
+
+The boundary must not re-run discovery, re-run selection, call
+`route_request(...)`, change `RoutingDecision`, retry another candidate, or
+fall back to another candidate after execution failure.
+
+This decision does not change `/v1/chat`, does not change active
+`orchestrate_request(...)`, does not change active execution, does not activate
+remote routing, does not activate remote execution by default, and does not
+introduce distributed behavior.

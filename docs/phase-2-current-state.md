@@ -128,6 +128,20 @@ local runtime adapter, call adapters, call transports, perform network I/O,
 change `route_request()`, change `RoutingDecision`, change execution behavior,
 wire orchestration, or activate `/v1/chat` remote execution.
 
+`LocalRoutingCandidate` is a local adapter-backed candidate wrapper around the
+existing `RoutingDecision`. `RoutingCandidates` is an opt-in candidate
+collection that can expose a local routing candidate and a declared remote
+routing candidate side by side. `routing_candidates_for_request(...)` discovers
+the local candidate through the existing `route_request(...)` flow and the
+declared remote candidate through
+`declared_remote_routing_candidate_for_request(...)`.
+
+`routing_candidates_for_request(...)` does not select a routing policy, choose
+local over remote, choose remote over local, execute candidates, call adapters,
+call transports, perform network I/O, change `route_request()`, change
+`RoutingDecision`, change orchestration, change execution, or activate
+`/v1/chat` remote behavior.
+
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
 
@@ -292,6 +306,13 @@ Remote node tests also cover declared remote routing candidate selection,
 including first eligible declaration selection, returned node, declaration,
 capability, and reason, no-match behavior, `unknown` and `unavailable`
 filtering, no local adapter requirement, and declaration order preservation.
+
+Routing candidate tests cover local candidate discovery, declared remote
+candidate discovery, returning both candidate families, preserving declared
+remote candidate discovery when local routing fails, not requiring declared
+remote adapter names to resolve locally, no local adapter execution, no remote
+transport usage, and unchanged active `orchestrate_request(...)` and
+`route_request(...)` behavior.
 
 Executor tests cover the explicit local execution path after routing, the
 current local-only `execute_routing_decision()` entry point, the explicit remote

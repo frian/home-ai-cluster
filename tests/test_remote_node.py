@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 from pydantic import ValidationError
 
@@ -9,10 +11,13 @@ from home_ai_cluster.core.models import (
     NodeHealth,
 )
 from home_ai_cluster.core.remote_node import (
+    DECLARED_REMOTE_ROUTING_REASON,
+    DeclaredRemoteRoutingCandidate,
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
     build_remote_node_declaration_registry,
     declared_remote_declarations_for_request,
+    declared_remote_routing_candidate_for_request,
 )
 
 
@@ -266,3 +271,112 @@ def test_declared_remote_declarations_for_request_preserves_declaration_order() 
     eligible = declared_remote_declarations_for_request(make_request(), registry)
 
     assert eligible == [first, second]
+
+
+def test_declared_remote_routing_candidate_selects_first_eligible_declaration() -> None:
+    ignored = make_declaration(
+        "ignored",
+        capabilities=[Capability(name="embedding")],
+    )
+    selected = make_declaration("selected")
+    later = make_declaration("later")
+    registry = RemoteNodeDeclarationRegistry([ignored, selected, later])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate == DeclaredRemoteRoutingCandidate(
+        node=selected.node,
+        declaration=selected,
+        capability=Capability(name="chat"),
+        reason=DECLARED_REMOTE_ROUTING_REASON,
+    )
+
+
+def test_declared_remote_routing_candidate_includes_declaration_node() -> None:
+    declaration = make_declaration()
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is not None
+    assert candidate.node is declaration.node
+
+
+def test_declared_remote_routing_candidate_includes_selected_declaration() -> None:
+    declaration = make_declaration()
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is not None
+    assert candidate.declaration is declaration
+
+
+def test_declared_remote_routing_candidate_includes_requested_capability() -> None:
+    capability = Capability(name="chat")
+    registry = RemoteNodeDeclarationRegistry([make_declaration()])
+
+    candidate = declared_remote_routing_candidate_for_request(
+        make_request(capability),
+        registry,
+    )
+
+    assert candidate is not None
+    assert candidate.capability == capability
+
+
+def test_declared_remote_routing_candidate_reason_names_remote_eligibility() -> None:
+    registry = RemoteNodeDeclarationRegistry([make_declaration()])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is not None
+    assert "declared remote routing eligibility" in candidate.reason
+
+
+def test_declared_remote_routing_candidate_returns_none_for_missing_capability() -> (
+    None
+):
+    declaration = make_declaration(
+        capabilities=[Capability(name="embedding")],
+    )
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is None
+
+
+def test_declared_remote_routing_candidate_ignores_unknown_and_unavailable() -> None:
+    unknown = make_declaration("unknown", availability="unknown")
+    unavailable = make_declaration("unavailable", availability="unavailable")
+    available = make_declaration("available")
+    registry = RemoteNodeDeclarationRegistry([unknown, unavailable, available])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is not None
+    assert candidate.declaration is available
+
+
+def test_declared_remote_routing_candidate_does_not_require_local_adapter() -> None:
+    declaration = make_declaration(adapters=["remote-only-adapter"])
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    signature = inspect.signature(declared_remote_routing_candidate_for_request)
+    assert list(signature.parameters) == ["request", "remote_registry"]
+    assert candidate is not None
+    assert candidate.declaration is declaration
+
+
+def test_declared_remote_routing_candidate_preserves_declaration_order() -> None:
+    first = make_declaration("first")
+    second = make_declaration("second")
+    registry = RemoteNodeDeclarationRegistry([first, second])
+
+    candidate = declared_remote_routing_candidate_for_request(make_request(), registry)
+
+    assert candidate is not None
+    assert candidate.declaration is first

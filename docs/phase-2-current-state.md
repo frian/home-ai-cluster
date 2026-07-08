@@ -7,6 +7,28 @@ This document describes the current Phase 2 implementation state.
 It is descriptive, not a new architectural decision. Accepted RFCs remain the
 source of architectural decisions.
 
+## Phase 2 routing selection checkpoint
+
+Phase 2 now has a complete opt-in preparation chain for declared remote routing
+candidates:
+
+- declared remote eligibility;
+- declared remote routing candidate discovery;
+- candidate composition beside local routing candidates;
+- explicit opt-in candidate selection.
+
+This chain remains preparation only. Candidate discovery, candidate selection,
+and execution remain separate. Selection does not execute, call adapters, call
+transports, or perform network I/O.
+
+The active `/v1/chat` path remains local-only. `route_request(...)`,
+`RoutingDecision`, active orchestration, and active execution remain unchanged.
+Remote routing and remote execution remain explicit opt-in seams only, not
+active default behavior.
+
+The next architectural question is not decided here: whether and how a future
+explicit orchestration seam may consume a selected candidate.
+
 ## Accepted RFC references
 
 This current state should be read against:
@@ -22,7 +44,8 @@ This current state should be read against:
 - [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md);
 - [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md);
 - [RFC-0015: Static Remote Declaration Source Boundary](../RFC/RFC-0015-static-remote-declaration-source-boundary.md);
-- [RFC-0016: Declared Remote Routing Eligibility Boundary](../RFC/RFC-0016-declared-remote-routing-eligibility.md).
+- [RFC-0016: Declared Remote Routing Eligibility Boundary](../RFC/RFC-0016-declared-remote-routing-eligibility.md);
+- [RFC-0017: Explicit Routing Candidate Selection](../RFC/RFC-0017-routing-candidate-selection.md).
 
 ## Current shape
 

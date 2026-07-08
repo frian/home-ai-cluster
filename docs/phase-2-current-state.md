@@ -21,7 +21,8 @@ This current state should be read against:
 - [RFC-0012: Static Remote Node Declaration Boundary](../RFC/RFC-0012-static-remote-node-declaration-boundary.md);
 - [RFC-0013: Minimal Remote Transport Boundary](../RFC/RFC-0013-minimal-remote-transport-boundary.md);
 - [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md);
-- [RFC-0015: Static Remote Declaration Source Boundary](../RFC/RFC-0015-static-remote-declaration-source-boundary.md).
+- [RFC-0015: Static Remote Declaration Source Boundary](../RFC/RFC-0015-static-remote-declaration-source-boundary.md);
+- [RFC-0016: Declared Remote Routing Eligibility Boundary](../RFC/RFC-0016-declared-remote-routing-eligibility.md).
 
 ## Current shape
 
@@ -105,6 +106,15 @@ for those declarations.
 seams without adding config loading, environment loading, discovery,
 registration, persistence, daemon-owned registry state, API route changes, or
 `/v1/chat` remote activation.
+
+`declared_remote_declarations_for_request(...)` can identify declared remote
+declarations eligible for a request from a caller-owned
+`RemoteNodeDeclarationRegistry`. Eligibility is based on the declaration's node
+supporting the requested capability and being statically available. It does not
+use `AdapterRegistry`, require a local runtime adapter, call adapters, call
+transports, perform network I/O, change `route_request()`, change
+`RoutingDecision`, change execution behavior, or activate `/v1/chat` remote
+execution.
 
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
@@ -260,8 +270,11 @@ uses the declared `RemoteNodeDeclaration.transport_address`, posts to
 `POST /internal/cluster/request`, exercises the FastAPI app without real network
 I/O, and returns a normalized `ClusterResult`.
 
-Remote node tests cover remote node declarations and the static in-memory remote
-node declaration registry.
+Remote node tests cover remote node declarations, the static in-memory remote
+node declaration registry, and declared remote eligibility. Declared remote
+eligibility tests cover an available matching declaration, missing capability,
+`unknown` availability, `unavailable` availability, no local adapter
+requirement, and declaration order preservation.
 
 Executor tests cover the explicit local execution path after routing, the
 current local-only `execute_routing_decision()` entry point, the explicit remote

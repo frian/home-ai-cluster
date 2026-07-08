@@ -116,6 +116,18 @@ transports, perform network I/O, change `route_request()`, change
 `RoutingDecision`, change execution behavior, or activate `/v1/chat` remote
 execution.
 
+`DeclaredRemoteRoutingCandidate` is a declared-remote-specific routing
+candidate shape. It is separate from the existing local `RoutingDecision` and
+carries the selected node, selected declaration, requested capability, and
+reason.
+
+`declared_remote_routing_candidate_for_request(...)` selects the first eligible
+declared remote declaration for a request and returns `None` when no declared
+remote declaration is eligible. It does not require `AdapterRegistry`, require a
+local runtime adapter, call adapters, call transports, perform network I/O,
+change `route_request()`, change `RoutingDecision`, change execution behavior,
+wire orchestration, or activate `/v1/chat` remote execution.
+
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
 
@@ -275,6 +287,11 @@ node declaration registry, and declared remote eligibility. Declared remote
 eligibility tests cover an available matching declaration, missing capability,
 `unknown` availability, `unavailable` availability, no local adapter
 requirement, and declaration order preservation.
+
+Remote node tests also cover declared remote routing candidate selection,
+including first eligible declaration selection, returned node, declaration,
+capability, and reason, no-match behavior, `unknown` and `unavailable`
+filtering, no local adapter requirement, and declaration order preservation.
 
 Executor tests cover the explicit local execution path after routing, the
 current local-only `execute_routing_decision()` entry point, the explicit remote

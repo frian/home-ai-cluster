@@ -4,7 +4,8 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel, Field
 
-from home_ai_cluster.core.models import NodeDescription
+from home_ai_cluster.core.models import ClusterRequest, NodeDescription
+from home_ai_cluster.core.node import node_supports_capability
 
 
 class RemoteNodeDeclaration(BaseModel):
@@ -49,3 +50,15 @@ def build_remote_node_declaration_registry(
 ) -> RemoteNodeDeclarationRegistry:
     """Build an in-memory registry from explicit caller-owned declarations."""
     return RemoteNodeDeclarationRegistry(declarations)
+
+
+def declared_remote_declarations_for_request(
+    request: ClusterRequest,
+    remote_registry: RemoteNodeDeclarationRegistry,
+) -> list[RemoteNodeDeclaration]:
+    """Return declared remote declarations eligible for the requested capability."""
+    return [
+        declaration
+        for declaration in remote_registry.list_declarations()
+        if node_supports_capability(declaration.node, request.capability)
+    ]

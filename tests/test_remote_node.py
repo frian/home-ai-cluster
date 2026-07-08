@@ -1,28 +1,57 @@
 import pytest
 from pydantic import ValidationError
 
-from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
+from home_ai_cluster.core.models import (
+    Capability,
+    ChatMessage,
+    ClusterRequest,
+    NodeDescription,
+    NodeHealth,
+)
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
     build_remote_node_declaration_registry,
+    declared_remote_declarations_for_request,
 )
 
 
-def make_node(node_id: str = "remote") -> NodeDescription:
-    return NodeDescription(
-        id=node_id,
-        name=f"{node_id} node",
-        availability="available",
-        health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat")],
-        adapters=["remote-adapter"],
+def make_request(capability: Capability | None = None) -> ClusterRequest:
+    return ClusterRequest(
+        messages=[ChatMessage(role="user", content="Hello")],
+        capability=capability or Capability(name="chat"),
     )
 
 
-def make_declaration(node_id: str = "remote") -> RemoteNodeDeclaration:
+def make_node(
+    node_id: str = "remote",
+    capabilities: list[Capability] | None = None,
+    availability: str = "available",
+    adapters: list[str] | None = None,
+) -> NodeDescription:
+    return NodeDescription(
+        id=node_id,
+        name=f"{node_id} node",
+        availability=availability,  # type: ignore[arg-type]
+        health=NodeHealth(healthy=True),
+        capabilities=capabilities or [Capability(name="chat")],
+        adapters=adapters or ["remote-adapter"],
+    )
+
+
+def make_declaration(
+    node_id: str = "remote",
+    capabilities: list[Capability] | None = None,
+    availability: str = "available",
+    adapters: list[str] | None = None,
+) -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
-        node=make_node(node_id),
+        node=make_node(
+            node_id,
+            capabilities=capabilities,
+            availability=availability,
+            adapters=adapters,
+        ),
         transport_address=f"http://{node_id}.local:8000",
     )
 
@@ -172,3 +201,68 @@ def test_build_remote_node_declaration_registry_does_not_imply_external_sources(
     assert not hasattr(registry, "register")
     assert not hasattr(registry, "route")
     assert not hasattr(registry, "chat")
+
+
+def test_declared_remote_declarations_for_request_returns_available_match() -> None:
+    declaration = make_declaration()
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == [declaration]
+
+
+def test_declared_remote_declarations_for_request_ignores_missing_capability() -> None:
+    declaration = make_declaration(
+        capabilities=[Capability(name="embedding")],
+    )
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == []
+
+
+def test_declared_remote_declarations_for_request_ignores_unknown_declaration() -> None:
+    declaration = make_declaration(availability="unknown")
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == []
+
+
+def test_declared_remote_declarations_for_request_ignores_unavailable_declaration() -> (
+    None
+):
+    declaration = make_declaration(availability="unavailable")
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == []
+
+
+def test_declared_remote_declarations_for_request_does_not_require_local_adapter() -> (
+    None
+):
+    declaration = make_declaration(adapters=["remote-only-adapter"])
+    registry = RemoteNodeDeclarationRegistry([declaration])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == [declaration]
+
+
+def test_declared_remote_declarations_for_request_preserves_declaration_order() -> None:
+    first = make_declaration("first")
+    ignored = make_declaration(
+        "ignored",
+        capabilities=[Capability(name="embedding")],
+    )
+    second = make_declaration("second")
+    registry = RemoteNodeDeclarationRegistry([first, ignored, second])
+
+    eligible = declared_remote_declarations_for_request(make_request(), registry)
+
+    assert eligible == [first, second]

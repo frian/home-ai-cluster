@@ -1,6 +1,6 @@
 # RFC-0016: Declared Remote Routing Eligibility Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-08
 
@@ -375,4 +375,26 @@ It does not mark any remote node as automatically executable.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will distinguish local routing eligibility from declared remote
+routing eligibility.
+
+Local routing eligibility remains adapter-backed through the local
+`AdapterRegistry`.
+
+Declared remote routing eligibility may be declaration-backed when the caller
+explicitly provides a `RemoteNodeDeclarationRegistry`, the node appears in that
+registry, the node declares the requested capability, and the node is
+statically available.
+
+Declared remote routing eligibility does not require the remote node's adapter
+name to resolve to a locally executable runtime adapter.
+
+Remote execution remains behind `RemoteTransport`.
+
+This decision does not activate remote execution in `/v1/chat`.
+
+This decision does not introduce config loading, discovery, registration,
+persistence, daemon-owned registry state, public node APIs, retries, fallback,
+health probing, or automatic remote execution.

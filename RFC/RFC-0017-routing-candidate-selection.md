@@ -1,6 +1,6 @@
 # RFC-0017: Explicit Routing Candidate Selection
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-08
 
@@ -270,4 +270,22 @@ It does not introduce distributed behavior.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will use an explicit opt-in routing candidate selection boundary
+for choosing between already-discovered local and declared remote routing
+candidates.
+
+The accepted initial selection modes are:
+
+- `local-only`;
+- `declared-remote-only`;
+- `prefer-local`;
+- `prefer-declared-remote`.
+
+These modes express caller intent for candidate selection only. They do not
+activate remote routing or remote execution, do not change `/v1/chat`, do not
+change `route_request()`, do not change `RoutingDecision`, and do not define
+runtime fallback after failed execution.
+
+Candidate discovery, candidate selection, and execution remain separate steps.

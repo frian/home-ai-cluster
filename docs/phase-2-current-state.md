@@ -142,6 +142,17 @@ call transports, perform network I/O, change `route_request()`, change
 `RoutingDecision`, change orchestration, change execution, or activate
 `/v1/chat` remote behavior.
 
+`RoutingCandidateSelectionMode` defines the accepted RFC-0017 opt-in selection
+modes: `local-only`, `declared-remote-only`, `prefer-local`, and
+`prefer-declared-remote`. `SelectedRoutingCandidate` represents one selected
+candidate family and preserves the mode used for selection.
+`select_routing_candidate(...)` selects one already-discovered local or
+declared remote routing candidate according to explicit caller intent and
+returns no selected candidate when the chosen mode cannot match. It is opt-in
+only. It does not discover candidates, execute candidates, call adapters, call
+transports, perform network I/O, change `/v1/chat`, change `route_request()`,
+change `RoutingDecision`, change orchestration, or change execution.
+
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
 
@@ -313,6 +324,11 @@ remote candidate discovery when local routing fails, not requiring declared
 remote adapter names to resolve locally, no local adapter execution, no remote
 transport usage, and unchanged active `orchestrate_request(...)` and
 `route_request(...)` behavior.
+
+Routing candidate selection tests cover each accepted selection mode,
+missing-candidate behavior, single-family selected results, selected mode
+preservation, no local adapter execution, no remote transport usage, and
+unchanged active `orchestrate_request(...)` and `route_request(...)` behavior.
 
 Executor tests cover the explicit local execution path after routing, the
 current local-only `execute_routing_decision()` entry point, the explicit remote

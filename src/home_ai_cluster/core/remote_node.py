@@ -1,11 +1,16 @@
 """Static remote node declaration model."""
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 
-from home_ai_cluster.core.models import ClusterRequest, NodeDescription
+from home_ai_cluster.core.models import Capability, ClusterRequest, NodeDescription
 from home_ai_cluster.core.node import node_supports_capability
+
+DECLARED_REMOTE_ROUTING_REASON = (
+    "Selected first declared remote routing eligibility candidate."
+)
 
 
 class RemoteNodeDeclaration(BaseModel):
@@ -45,6 +50,16 @@ class RemoteNodeDeclarationRegistry:
         return None
 
 
+@dataclass(frozen=True)
+class DeclaredRemoteRoutingCandidate:
+    """A declared remote routing candidate selected without local adapters."""
+
+    node: NodeDescription
+    declaration: RemoteNodeDeclaration
+    capability: Capability
+    reason: str
+
+
 def build_remote_node_declaration_registry(
     declarations: Iterable[RemoteNodeDeclaration],
 ) -> RemoteNodeDeclarationRegistry:
@@ -62,3 +77,22 @@ def declared_remote_declarations_for_request(
         for declaration in remote_registry.list_declarations()
         if node_supports_capability(declaration.node, request.capability)
     ]
+
+
+def declared_remote_routing_candidate_for_request(
+    request: ClusterRequest,
+    remote_registry: RemoteNodeDeclarationRegistry,
+) -> DeclaredRemoteRoutingCandidate | None:
+    """Return the first declared remote routing candidate for the request."""
+    declarations = declared_remote_declarations_for_request(request, remote_registry)
+
+    if not declarations:
+        return None
+
+    declaration = declarations[0]
+    return DeclaredRemoteRoutingCandidate(
+        node=declaration.node,
+        declaration=declaration,
+        capability=request.capability,
+        reason=DECLARED_REMOTE_ROUTING_REASON,
+    )

@@ -1,6 +1,6 @@
 # RFC-0021: Explicit Static Remote Proof Wiring
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-09
 
@@ -331,4 +331,25 @@ OpenAI-compatible API, cloud execution, or production deployment.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The RFC-0020 Phase 3 proof uses explicit static remote proof wiring.
+
+The wiring is caller-owned, static, and in memory.
+
+`/v1/chat` may use this wiring only when explicitly enabled by process setup.
+Without explicit setup, `/v1/chat` remains local-only.
+
+This is wiring, not a new routing policy.
+
+Remote routing and remote execution are not enabled by default.
+
+Unknown or undeclared machines must never be contacted.
+
+This decision does not introduce config loading, persistence, dynamic
+discovery, registration, daemon-owned registry state, retries, fallback,
+health probing, scoring, scheduling, Docker, Kubernetes, dashboard, database,
+OpenAI-compatible API, cloud execution, or production deployment.
+
+Failure remains explicit. No retry or fallback occurs after selected remote
+failure.

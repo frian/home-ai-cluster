@@ -1,6 +1,6 @@
 # RFC-0019: Phase 2 Closeout and Phase 3 Entry
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-09
 
@@ -353,4 +353,35 @@ state, fallback, health probing, scoring, or scheduling.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Phase 2 is considered a prepared architecture checkpoint, not active
+distributed behavior.
+
+The prepared opt-in chain is:
+
+```text
+declared remote eligibility
+  -> declared remote routing candidate discovery
+  -> candidate composition beside local routing candidates
+  -> explicit opt-in candidate selection
+  -> explicit opt-in selected candidate orchestration
+  -> existing execution boundaries
+```
+
+The active path remains unchanged:
+
+```text
+/v1/chat
+  -> active orchestrate_request(...)
+  -> route_request(...)
+  -> local adapter execution
+```
+
+Remote routing is not enabled by default. Remote execution is not enabled by
+default.
+
+Phase 3 work requires a separate accepted RFC before introducing real
+two-machine active behavior, active remote routing, active remote execution,
+dynamic discovery, registration, config loading, persistence, daemon-owned
+registry state, fallback, health probing, scoring, or scheduling.

@@ -31,6 +31,34 @@ The active `/v1/chat` path remains local-only. `route_request(...)`,
 Remote routing and remote execution remain explicit opt-in seams only, not
 active default behavior.
 
+## Phase 2 selected candidate execution checkpoint
+
+After RFC-0018, Phase 2 has a prepared opt-in chain for selected candidate
+execution:
+
+1. declared remote eligibility;
+2. declared remote routing candidate discovery;
+3. candidate composition beside local routing candidates;
+4. explicit opt-in candidate selection;
+5. explicit opt-in selected candidate orchestration;
+6. execution through existing boundaries.
+
+This checkpoint is preparation only. The active `/v1/chat` path remains
+unchanged. Active `orchestrate_request(...)` remains unchanged.
+`route_request(...)` remains unchanged. `RoutingDecision` remains unchanged.
+Active execution remains unchanged. Remote routing is not enabled by default.
+Remote execution is not enabled by default.
+
+The system remains single-process, local, static, and explicit opt-in for
+remote seams. There is still no dynamic discovery, registration, config
+loading, persistence, daemon-owned registry state, retry behavior, fallback
+after selected candidate failure, health probing, scoring, or scheduling.
+
+What this checkpoint does not decide: it does not decide the next architectural
+step, introduce a routing policy, or activate remote behavior. It does not
+decide dynamic discovery, registration, config loading, persistence, fallback,
+health probing, scoring, or scheduling.
+
 ## Accepted RFC references
 
 This current state should be read against:

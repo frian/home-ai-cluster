@@ -15,19 +15,21 @@ candidates:
 - declared remote eligibility;
 - declared remote routing candidate discovery;
 - candidate composition beside local routing candidates;
-- explicit opt-in candidate selection.
+- explicit opt-in candidate selection;
+- explicit opt-in selected candidate orchestration;
+- existing execution boundaries.
 
 This chain remains preparation only. Candidate discovery, candidate selection,
-and execution remain separate. Selection does not execute, call adapters, call
-transports, or perform network I/O.
+selected candidate orchestration, and execution remain separate. Selection does
+not execute, call adapters, call transports, or perform network I/O. Selected
+candidate orchestration consumes an already selected candidate; it does not
+perform discovery, compose candidates, perform selection, or call
+`route_request(...)`.
 
 The active `/v1/chat` path remains local-only. `route_request(...)`,
 `RoutingDecision`, active orchestration, and active execution remain unchanged.
 Remote routing and remote execution remain explicit opt-in seams only, not
 active default behavior.
-
-The next architectural question is not decided here: whether and how a future
-explicit orchestration seam may consume a selected candidate.
 
 ## Accepted RFC references
 
@@ -45,7 +47,8 @@ This current state should be read against:
 - [RFC-0014: Minimal Concrete Transport Protocol](../RFC/RFC-0014-minimal-concrete-transport-protocol.md);
 - [RFC-0015: Static Remote Declaration Source Boundary](../RFC/RFC-0015-static-remote-declaration-source-boundary.md);
 - [RFC-0016: Declared Remote Routing Eligibility Boundary](../RFC/RFC-0016-declared-remote-routing-eligibility.md);
-- [RFC-0017: Explicit Routing Candidate Selection](../RFC/RFC-0017-routing-candidate-selection.md).
+- [RFC-0017: Explicit Routing Candidate Selection](../RFC/RFC-0017-routing-candidate-selection.md);
+- [RFC-0018: Explicit Selected Candidate Orchestration](../RFC/RFC-0018-selected-candidate-orchestration.md).
 
 ## Current shape
 
@@ -176,6 +179,26 @@ only. It does not discover candidates, execute candidates, call adapters, call
 transports, perform network I/O, change `/v1/chat`, change `route_request()`,
 change `RoutingDecision`, change orchestration, or change execution.
 
+`orchestrate_request_with_selected_candidate(...)` implements RFC-0018 as an
+explicit opt-in helper for consuming an already selected
+`SelectedRoutingCandidate`. It does not perform discovery, perform candidate
+composition, perform selection, or call `route_request(...)`.
+
+When the selected candidate is local,
+`orchestrate_request_with_selected_candidate(...)` executes through the
+existing local execution boundary. It does not require `RemoteTransport`.
+
+When the selected candidate is declared remote,
+`orchestrate_request_with_selected_candidate(...)` requires an explicit
+`RemoteTransport` and executes through the existing declared remote execution
+boundary. A declared remote selected candidate without `RemoteTransport` fails
+explicitly.
+
+Missing or invalid selected candidates fail explicitly. The helper does not
+retry another candidate and does not fall back after failure. It is not wired
+into API routes or the active `/v1/chat` path, and it does not enable remote
+routing or remote execution by default.
+
 `remote_declaration_for_routing_decision()` can resolve a declaration by the
 selected `decision.node.id`.
 
@@ -210,6 +233,10 @@ It currently delegates only to `execute_local_routing_decision()`.
 `execute_remote_routing_decision()` delegates to an explicit
 `RemoteTransport.send(request, declaration)` call.
 
+`execute_declared_remote_routing_candidate()` delegates an already selected
+declared remote routing candidate to an explicit
+`RemoteTransport.send(request, declaration)` call.
+
 `execute_declared_routing_decision()` can choose between the explicit local and
 remote execution helpers based on whether the selected routing decision node has
 a matching remote declaration. This is a prepared seam for future explicit
@@ -235,8 +262,18 @@ orchestration helper with the concrete `HttpRemoteTransport`. It requires a
 caller. It does not own HTTP client lifecycle, configuration loading, discovery,
 registration, retries, fallback, or health probing.
 
+`orchestrate_request_with_selected_candidate()` consumes an already selected
+`SelectedRoutingCandidate`. It does not perform candidate discovery, candidate
+composition, candidate selection, or routing. Local selected candidates use the
+existing local execution boundary. Declared remote selected candidates require
+an explicit `RemoteTransport` and use the existing declared remote execution
+boundary. Missing or invalid selections and missing remote transport for
+declared remote selections fail explicitly. The helper does not retry or
+fallback after failure.
+
 The active `/v1/chat` route does not call
-`orchestrate_request_with_declared_remote()` or
+`orchestrate_request_with_selected_candidate()`,
+`orchestrate_request_with_declared_remote()`, or
 `orchestrate_request_with_declared_http_remote()`.
 
 ## Current internal endpoint

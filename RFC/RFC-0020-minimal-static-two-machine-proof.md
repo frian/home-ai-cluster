@@ -1,6 +1,6 @@
 # RFC-0020: Minimal Static Two-Machine Proof
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-09
 
@@ -349,4 +349,25 @@ scheduling, Docker, Kubernetes, dashboard, database, or OpenAI-compatible API.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The first Phase 3 proof is:
+
+```text
+One endpoint. Two machines. One routed request.
+```
+
+For that proof, `/v1/chat` may route to one manually declared remote node only
+when remote routing is explicitly enabled by caller-owned setup or
+configuration.
+
+The proof remains static, explicit, local-first, and privacy-first.
+
+Remote routing and remote execution are not enabled by default.
+
+Unknown or undeclared machines must never be contacted.
+
+This decision does not introduce dynamic discovery, registration, persistence,
+daemon-owned registry state, retries, fallback, health probing, scoring,
+scheduling, Docker, Kubernetes, dashboard, database, OpenAI-compatible API,
+cloud execution, or implicit remote behavior.

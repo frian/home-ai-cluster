@@ -26,9 +26,7 @@ identifier `declared-remote`, one HTTP remote transport, and an application with
 The proof uses `declared-remote-only` selection and is limited to two machines
 reachable on the same trusted local area network.
 
-The proof process uses the standard server defaults `127.0.0.1:8000`, while
-allowing ordinary explicit server host and port arguments when LAN access to the
-proof endpoint is required.
+The proof process uses the fixed development binding `127.0.0.1:8000`.
 
 The default application remains local-only.
 
@@ -48,7 +46,7 @@ Tests can construct this setup directly, but an operator cannot yet start a
 real proof process through a small supported repository entrypoint.
 
 The remaining decisions are the process boundary, command interface, remote
-node identity, selection mode, HTTP client lifetime, server defaults, and
+node identity, selection mode, HTTP client lifetime, server binding, and
 network boundary.
 
 ## Goals
@@ -110,7 +108,7 @@ Its process setup will:
 6. construct `StaticRemoteProofWiring` in memory;
 7. use `RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY`;
 8. create the FastAPI application through `create_app(...)` with that wiring;
-9. use standard server defaults `127.0.0.1:8000`;
+9. bind the proof process to `127.0.0.1:8000`;
 10. close the HTTP client when the application process shuts down.
 
 The receiving machine continues to expose `/internal/cluster/request`, which
@@ -198,21 +196,18 @@ setups.
 
 ## Server Binding
 
-The proof process uses the standard development defaults:
+The proof process binds to:
 
 ```text
 127.0.0.1:8000
 ```
 
-These defaults avoid exposing the endpoint on the LAN unless the operator
-explicitly chooses a different server binding outside the proof command.
+The fixed loopback binding avoids exposing the proof endpoint on the LAN. The
+operator sends the test request from the initiating machine, while the outgoing
+remote transport crosses the LAN to the declared machine.
 
-This RFC does not add host or port options to the proof command. The first proof
-command therefore owns only remote proof wiring, not general server
-configuration.
-
-A later implementation may expose ordinary server binding separately if needed,
-but that is outside this RFC.
+The first proof command does not expose host or port options. General server
+binding is separate from the remote proof wiring decision.
 
 ## HTTP Client Lifetime
 
@@ -263,8 +258,8 @@ The fixed command and node identifier avoid premature general configuration.
 The explicit address preserves caller ownership. `declared-remote-only` keeps
 the proof honest. Process-owned HTTP resources avoid hidden global state.
 
-The loopback server default preserves local-first behavior without turning the
-proof command into a general server launcher.
+The fixed loopback binding preserves the local-first startup boundary and keeps
+server configuration outside the first proof command.
 
 ## Alternatives Considered
 
@@ -301,15 +296,15 @@ routing CLI.
 Rejected. The proof should fail rather than silently cease proving remote
 execution when no remote candidate exists.
 
-### Bind to `0.0.0.0` by default
+### Bind to `0.0.0.0`
 
-Rejected. A default LAN-wide bind would weaken the local-first and privacy-first
-startup boundary.
+Rejected. A LAN-wide bind is unnecessary because the proof request can originate
+on the initiating machine.
 
-### Add host and port options to the proof command
+### Add host and port options
 
-Rejected for this RFC. The first proof command decides remote proof wiring, not
-a general server command interface.
+Rejected for this RFC. The proof command decides remote proof wiring, not a
+general server command interface.
 
 ### Use Tailscale or another overlay network
 
@@ -328,9 +323,8 @@ inconvenience is intentional for a temporary static proof.
 A fixed remote identifier is less flexible than user-defined naming. The first
 proof does not require that flexibility.
 
-The loopback server default means the proof endpoint is local to the initiating
-machine. That preserves the safer default and is sufficient when the operator
-sends the test request from that machine.
+The fixed loopback binding means the proof request must originate on the
+initiating machine. That constraint is acceptable and preserves a safer default.
 
 `declared-remote-only` means the proof process cannot serve locally when the
 remote machine is unavailable. This is desirable because no fallback policy has
@@ -371,7 +365,7 @@ The declared remote node uses the fixed identifier `declared-remote`.
 The command constructs caller-owned static in-memory proof wiring, uses
 `declared-remote-only`, and owns the HTTP client for the process lifetime.
 
-The proof process uses the fixed development binding `127.0.0.1:8000`.
+The proof process binds to `127.0.0.1:8000`.
 
 The proof is limited to two machines on the same trusted LAN. VPNs, overlay
 networks, cross-site execution, and untrusted networks are outside this proof.

@@ -1,6 +1,6 @@
 # RFC-0024: Phase 3 Closeout and Phase 4 Entry
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-11
 
@@ -239,4 +239,23 @@ RFC does not rewrite roadmap semantics.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Phase 3 is formally closed as the first real static two-machine proof
+checkpoint.
+
+The guiding milestone has been demonstrated:
+
+> One endpoint. Two machines. One routed request.
+
+The existing static proof remains an explicit, manually configured proof path.
+The ordinary application remains local-only by default.
+
+Phase 4 is not started by this decision. Any Phase 4 implementation, including
+capability-based routing behavior, requires a separate accepted RFC before
+implementation begins.
+
+This decision does not introduce automatic routing, fallback, retry,
+health-aware routing, scoring, scheduling, discovery, registration,
+persistence, authentication, verified remote identity, or production
+deployment.

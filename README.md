@@ -81,3 +81,8 @@ If Ollama is not running, `/v1/chat` returns HTTP 503:
 ```
 
 Start Ollama and make sure the `llama3.2` model is available.
+
+## Run the static two-machine proof
+
+For the explicit RFC-0022 LAN-only proof, follow
+`docs/static-two-machine-proof.md`.

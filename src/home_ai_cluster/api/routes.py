@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
 from home_ai_cluster.api.wiring import (
+    StaticRemoteProofWiring,
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
 )
@@ -47,14 +49,31 @@ async def handle_static_local_cluster_request(
         ) from exc
 
 
+async def handle_chat_cluster_request(
+    cluster_request: ClusterRequest,
+    static_remote_proof_wiring: StaticRemoteProofWiring | None,
+) -> ClusterResult:
+    """Use explicit proof wiring when present, otherwise preserve local-only behavior."""
+    if static_remote_proof_wiring is None:
+        return await handle_static_local_cluster_request(cluster_request)
+
+    return await orchestrate_static_remote_proof(
+        cluster_request,
+        static_remote_proof_wiring,
+    )
+
+
 @router.post("/v1/chat", response_model=ClusterResult)
-async def chat(request: ChatRequest) -> ClusterResult:
+async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     cluster_request = ClusterRequest(
         messages=request.messages,
         capability=Capability(name=request.capability),
     )
 
-    return await handle_static_local_cluster_request(cluster_request)
+    return await handle_chat_cluster_request(
+        cluster_request,
+        http_request.app.state.static_remote_proof_wiring,
+    )
 
 
 @router.post("/internal/cluster/request", response_model=ClusterResult)

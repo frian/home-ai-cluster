@@ -55,6 +55,7 @@ class OllamaAdapter:
             async with httpx.AsyncClient(
                 base_url=self.base_url,
                 transport=self._transport,
+                timeout=None,
             ) as client:
                 response = await client.post(
                     "/api/chat",

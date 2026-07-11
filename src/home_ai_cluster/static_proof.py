@@ -1,7 +1,8 @@
 """Explicit process entrypoint for the RFC-0022 two-machine proof."""
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 import httpx
@@ -70,6 +71,14 @@ def create_static_proof_app(
 ) -> FastAPI:
     """Construct the explicit caller-owned proof application."""
     process_client = client or httpx.AsyncClient()
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await process_client.aclose()
+
     wiring = build_static_remote_proof_wiring(
         node_registry=create_static_local_node_registry(),
         adapter_registry=create_static_runtime_adapter_registry(),
@@ -77,9 +86,8 @@ def create_static_proof_app(
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
     )
-    app = create_app(static_remote_proof_wiring=wiring)
+    app = create_app(static_remote_proof_wiring=wiring, lifespan=lifespan)
     app.state.static_proof_http_client = process_client
-    app.add_event_handler("shutdown", process_client.aclose)
     return app
 
 

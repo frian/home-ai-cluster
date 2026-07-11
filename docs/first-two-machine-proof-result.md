@@ -182,3 +182,74 @@ Use the operator runbook:
 
 The proof must remain limited to two manually prepared machines on the same
 trusted local network.
+
+## Result attribution and cold-model rerun
+
+Date: 2026-07-11
+
+This section extends the original proof record. It describes later implemented
+behavior and an observed rerun; it does not introduce a new architectural
+decision.
+
+### Result attribution
+
+PR #137 implemented accepted RFC-0023 result node attribution. Successful
+`ClusterResult` values now require `node_id`. Runtime adapters return
+runtime-owned result data without cluster node identity; the selected-candidate
+execution boundary creates the successful cluster result and attributes it to
+the selected cluster-facing node.
+
+For declared remote execution, the caller-owned declaration is authoritative.
+The remote response identity, transport URL, and IP address are not
+authoritative node identities. The proof declaration therefore reports:
+
+```json
+{
+  "node_id": "declared-remote"
+}
+```
+
+### Cold-model timeout incident
+
+After result attribution was implemented, a cold Ollama model on the Windows
+receiver caused the internal endpoint to return `503 Service Unavailable`.
+The direct local Windows endpoint and Ollama API were otherwise functional.
+A cold Ollama request could legitimately take longer than approximately five
+seconds; warming the model allowed the proof to succeed and identified an
+implicit HTTPX default timeout in the client owned by `OllamaAdapter.chat()`.
+
+This was separate from the earlier timeout incident recorded above. The earlier
+change removed an accidental timeout from the proof-owned HTTP transport client
+on the calling machine. The later issue was in the Ollama adapter's
+asynchronous inference client on the receiving machine.
+
+PR #138 changed only the adapter-owned chat client to use `timeout=None`.
+The synchronous `/api/version` health client remained unchanged. The correction
+added no retry, fallback, timeout configuration surface, global HTTP policy,
+routing change, orchestration change, transport ownership change, or
+attribution change. The full validation suite passed with 206 tests.
+
+### Successful cold-model rerun
+
+The static two-machine proof was rerun without warming the model first. The
+Ubuntu portable caller used the explicit proof endpoint at
+`127.0.0.1:8000/v1/chat`; the Windows 11 Pro Dell OptiPlex receiver at
+`192.168.0.55` ran Ollama with the adapter configuration `llama3.2`.
+Installed `llama3.2:latest` and `llama3.2:1b` variants were observed to refer
+to the same 1.2B Q8_0 model data.
+
+The cold request completed in approximately ten seconds and returned
+`HTTP/1.1 200 OK`. Its normalized result included:
+
+```json
+{
+  "adapter": "ollama",
+  "model": "llama3.2",
+  "node_id": "declared-remote"
+}
+```
+
+The model did not follow the requested wording exactly. That answer-quality
+detail does not affect the architectural proof: a slow cold local model
+completed through the explicit static two-machine path without an accidental
+client timeout.

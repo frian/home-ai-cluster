@@ -33,12 +33,13 @@ class RoutingCandidates:
 
 
 class RoutingCandidateSelectionMode(StrEnum):
-    """Explicit caller intent for opt-in routing candidate selection."""
+    """Selection ownership or explicit caller intent for opt-in candidates."""
 
     LOCAL_ONLY = "local-only"
     DECLARED_REMOTE_ONLY = "declared-remote-only"
     PREFER_LOCAL = "prefer-local"
     PREFER_DECLARED_REMOTE = "prefer-declared-remote"
+    AUTOMATIC_CAPABILITY = "automatic-capability"
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,45 @@ class SelectedRoutingCandidate:
     local: LocalRoutingCandidate | None
     declared_remote: DeclaredRemoteRoutingCandidate | None
     mode: RoutingCandidateSelectionMode
+
+
+class AutomaticCapabilitySelectionOutcomeRule(StrEnum):
+    """Deterministic outcome rules for automatic capability selection."""
+
+    LOCAL_ONLY = "local-only"
+    LOCAL_PRECEDENCE = "local-precedence"
+    DECLARED_REMOTE_ONLY = "declared-remote-only"
+    NO_SELECTABLE_CANDIDATE = "no-selectable-candidate"
+
+
+class NoSelectableCandidateReason(StrEnum):
+    """Reasons why automatic capability selection could not choose a candidate."""
+
+    NO_MATCHING_CANDIDATE = "no-matching-candidate"
+    LOCAL_ONLY_EXCLUDED_DECLARED_REMOTE = "local-only-excluded-declared-remote"
+
+
+@dataclass(frozen=True)
+class AutomaticCapabilitySelectionExplanation:
+    """Internal facts describing one automatic capability-selection outcome."""
+
+    requested_capability_name: str
+    local_matched: bool
+    declared_remote_matched: bool
+    local_selectable: bool
+    declared_remote_selectable: bool
+    local_only_excluded_declared_remote: bool
+    selected_node_id: str | None
+    outcome_rule: AutomaticCapabilitySelectionOutcomeRule
+    no_selectable_candidate_reason: NoSelectableCandidateReason | None
+
+
+@dataclass(frozen=True)
+class AutomaticCapabilitySelection:
+    """A cluster-owned automatic selection and its internal explanation facts."""
+
+    selected: SelectedRoutingCandidate | None
+    explanation: AutomaticCapabilitySelectionExplanation
 
 
 def routing_candidates_for_request(
@@ -132,3 +172,85 @@ def select_routing_candidate(
         return None
 
     return None
+
+
+def select_automatic_capability_routing_candidate(
+    request: ClusterRequest,
+    candidates: RoutingCandidates,
+) -> AutomaticCapabilitySelection:
+    """Apply the cluster-owned automatic capability-selection policy.
+
+    This pure policy is distinct from caller-directed selection modes.  It gives
+    a selectable local candidate fixed precedence and allows a declared remote
+    candidate only when the request does not require local-only execution.
+    """
+    local_matched = candidates.local is not None
+    declared_remote_matched = candidates.declared_remote is not None
+    local_selectable = local_matched
+    local_only_excluded_declared_remote = (
+        declared_remote_matched and request.constraints.local_only
+    )
+    declared_remote_selectable = (
+        declared_remote_matched and not request.constraints.local_only
+    )
+
+    if local_selectable:
+        outcome_rule = (
+            AutomaticCapabilitySelectionOutcomeRule.LOCAL_PRECEDENCE
+            if declared_remote_selectable
+            else AutomaticCapabilitySelectionOutcomeRule.LOCAL_ONLY
+        )
+        selected = SelectedRoutingCandidate(
+            local=candidates.local,
+            declared_remote=None,
+            mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        )
+        explanation = AutomaticCapabilitySelectionExplanation(
+            requested_capability_name=request.capability.name,
+            local_matched=local_matched,
+            declared_remote_matched=declared_remote_matched,
+            local_selectable=True,
+            declared_remote_selectable=declared_remote_selectable,
+            local_only_excluded_declared_remote=local_only_excluded_declared_remote,
+            selected_node_id=candidates.local.decision.node.id,
+            outcome_rule=outcome_rule,
+            no_selectable_candidate_reason=None,
+        )
+        return AutomaticCapabilitySelection(selected=selected, explanation=explanation)
+
+    if declared_remote_selectable:
+        selected = SelectedRoutingCandidate(
+            local=None,
+            declared_remote=candidates.declared_remote,
+            mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        )
+        explanation = AutomaticCapabilitySelectionExplanation(
+            requested_capability_name=request.capability.name,
+            local_matched=local_matched,
+            declared_remote_matched=declared_remote_matched,
+            local_selectable=False,
+            declared_remote_selectable=True,
+            local_only_excluded_declared_remote=False,
+            selected_node_id=candidates.declared_remote.node.id,
+            outcome_rule=AutomaticCapabilitySelectionOutcomeRule.DECLARED_REMOTE_ONLY,
+            no_selectable_candidate_reason=None,
+        )
+        return AutomaticCapabilitySelection(selected=selected, explanation=explanation)
+
+    reason = (
+        NoSelectableCandidateReason.LOCAL_ONLY_EXCLUDED_DECLARED_REMOTE
+        if local_only_excluded_declared_remote
+        else NoSelectableCandidateReason.NO_MATCHING_CANDIDATE
+    )
+    explanation = AutomaticCapabilitySelectionExplanation(
+        requested_capability_name=request.capability.name,
+        local_matched=local_matched,
+        declared_remote_matched=declared_remote_matched,
+        local_selectable=False,
+        declared_remote_selectable=False,
+        local_only_excluded_declared_remote=local_only_excluded_declared_remote,
+        selected_node_id=None,
+        outcome_rule=AutomaticCapabilitySelectionOutcomeRule.NO_SELECTABLE_CANDIDATE,
+        no_selectable_candidate_reason=reason,
+    )
+    return AutomaticCapabilitySelection(selected=None, explanation=explanation)

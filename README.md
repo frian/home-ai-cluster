@@ -10,6 +10,7 @@ For project context, read:
 * `FOUNDATIONS.md`
 * `ROADMAP.md`
 * `RFC/`
+* `docs/first-two-machine-proof-result.md`
 * `docs/phase-2-current-state.md`
 * `docs/phase-1-current-state.md`
 
@@ -86,3 +87,6 @@ Start Ollama and make sure the `llama3.2` model is available.
 
 For the explicit RFC-0022 LAN-only proof, follow
 `docs/static-two-machine-proof.md`.
+
+The first successful real two-machine execution is recorded in
+`docs/first-two-machine-proof-result.md`.

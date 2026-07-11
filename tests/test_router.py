@@ -5,9 +5,9 @@ from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
     ClusterRequest,
-    ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import (
@@ -39,9 +39,9 @@ class StubAdapter:
     def capabilities(self) -> list[Capability]:
         return list(self._capabilities)
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_was_called = True
-        return ClusterResult(content="", adapter=self.name)
+        return RuntimeResult(content="", adapter=self.name)
 
 
 def make_request(capability: Capability) -> ClusterRequest:

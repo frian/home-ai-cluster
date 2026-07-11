@@ -12,6 +12,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.orchestrator import (
     InvalidSelectedRoutingCandidateError,
@@ -41,10 +42,10 @@ from home_ai_cluster.core.routing_candidates import (
 class RecordingAdapter:
     def __init__(
         self,
-        result: ClusterResult | None = None,
+        result: RuntimeResult | None = None,
         error: RuntimeAdapterUnavailableError | None = None,
     ) -> None:
-        self._result = result or ClusterResult(content="Local hello", adapter="local")
+        self._result = result or RuntimeResult(content="Local hello", adapter="local")
         self._error = error
         self.chat_requests: list[ClusterRequest] = []
 
@@ -58,7 +59,7 @@ class RecordingAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_requests.append(request)
 
         if self._error is not None:
@@ -76,6 +77,7 @@ class RecordingRemoteTransport:
         self._result = result or ClusterResult(
             content="Remote hello",
             adapter="remote",
+            node_id="remote-response",
         )
         self._error = error
         self.requests: list[ClusterRequest] = []
@@ -167,7 +169,7 @@ def test_local_selected_candidate_executes_through_local_boundary(
 
     request = make_request()
     selected = make_selected_local()
-    result = ClusterResult(content="Boundary local", adapter="local")
+    result = ClusterResult(content="Boundary local", adapter="local", node_id="local")
     calls: list[tuple[ClusterRequest, RoutingDecision]] = []
 
     async def execute_local(
@@ -225,7 +227,9 @@ def test_declared_remote_selected_candidate_executes_through_remote_boundary(
     request = make_request()
     selected = make_selected_declared_remote()
     transport = RecordingRemoteTransport()
-    result = ClusterResult(content="Boundary remote", adapter="remote")
+    result = ClusterResult(
+        content="Boundary remote", adapter="remote", node_id="remote"
+    )
     calls: list[
         tuple[
             ClusterRequest,
@@ -395,7 +399,7 @@ def test_helper_does_not_retry_or_fallback_from_remote_failure() -> None:
 def test_helper_does_not_change_v1_chat_or_active_orchestrator() -> None:
     import home_ai_cluster.api.routes as routes
 
-    result = ClusterResult(content="Active local", adapter="local")
+    result = RuntimeResult(content="Active local", adapter="local")
     adapter = RecordingAdapter(result=result)
     node = make_node("local", adapter.name)
     request = make_request()
@@ -426,5 +430,6 @@ def test_helper_does_not_change_v1_chat_or_active_orchestrator() -> None:
         "node_registry",
         "adapter_registry",
     ]
-    assert actual is result
+    assert actual.content == result.content
+    assert actual.node_id == "local"
     assert adapter.chat_requests == [request]

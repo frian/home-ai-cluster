@@ -8,9 +8,9 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
-    ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.main import create_app
@@ -27,22 +27,22 @@ class TestChatAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         user_messages = [
             message.content for message in request.messages if message.role == "user"
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 
-        return ClusterResult(content=content, adapter=self.name)
+        return RuntimeResult(content=content, adapter=self.name)
 
 
 class UnavailableChatAdapter(TestChatAdapter):
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
 
 
 class RuntimeSpecificUnavailableChatAdapter(TestChatAdapter):
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         cause = RuntimeError("ollama connection refused on localhost:11434")
         raise RuntimeAdapterUnavailableError("ollama leaked detail") from cause
 
@@ -131,6 +131,7 @@ def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> N
         "content": "Hello",
         "adapter": "test",
         "model": None,
+        "node_id": "local",
     }
     assert "reason" not in response.json()
     assert "node" not in response.json()
@@ -242,6 +243,7 @@ def test_internal_cluster_request_endpoint_accepts_normalized_cluster_request(
         "content": "Hello internal",
         "adapter": "test",
         "model": None,
+        "node_id": "local",
     }
 
 

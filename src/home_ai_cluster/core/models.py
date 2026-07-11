@@ -59,9 +59,18 @@ class ClusterRequest(BaseModel):
     constraints: RequestConstraints = Field(default_factory=RequestConstraints)
 
 
-class ClusterResult(BaseModel):
-    """A normalized result returned from a runtime adapter."""
+class RuntimeResult(BaseModel):
+    """Runtime-specific result data produced by an adapter."""
 
     content: str
     adapter: str = Field(min_length=1)
     model: str | None = None
+
+
+class ClusterResult(BaseModel):
+    """A successful normalized result returned by the cluster."""
+
+    content: str
+    adapter: str = Field(min_length=1)
+    model: str | None = None
+    node_id: str = Field(min_length=1)

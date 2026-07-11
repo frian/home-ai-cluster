@@ -3,9 +3,9 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
-    ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
@@ -25,8 +25,8 @@ class StubAdapter:
     def capabilities(self) -> list[Capability]:
         return list(self._capabilities)
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
-        return ClusterResult(content="", adapter=self.name)
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        return RuntimeResult(content="", adapter=self.name)
 
 
 def test_registry_starts_empty() -> None:

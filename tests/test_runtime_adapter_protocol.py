@@ -4,7 +4,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
     ClusterRequest,
-    ClusterResult,
+    RuntimeResult,
 )
 
 
@@ -19,15 +19,15 @@ class InMemoryAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
-        return ClusterResult(
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        return RuntimeResult(
             content=request.messages[-1].content,
             adapter=self.name,
             model="test-model",
         )
 
 
-async def _send_chat(adapter: RuntimeAdapter) -> ClusterResult:
+async def _send_chat(adapter: RuntimeAdapter) -> RuntimeResult:
     request = ClusterRequest(
         messages=[ChatMessage(role="user", content="Hello")],
         capability=Capability(name="chat"),
@@ -51,7 +51,7 @@ def test_runtime_adapter_chat_returns_normalized_result() -> None:
 
     result = asyncio.run(_send_chat(adapter))
 
-    assert result == ClusterResult(
+    assert result == RuntimeResult(
         content="Hello",
         adapter="in-memory",
         model="test-model",

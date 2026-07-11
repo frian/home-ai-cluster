@@ -1,6 +1,6 @@
 # RFC-0025: Minimal Capability-Based Candidate Selection
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-11
 
@@ -363,4 +363,31 @@ static/manual remote declaration boundary.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Phase 4 begins with a distinct cluster-owned automatic capability-selection
+policy available only through an explicitly activated, caller-owned
+remote-capable composition path.  The existing exact `Capability(name)`
+representation remains sufficient.  Local and declared-remote discovery remain
+separate from selection, and request constraints determine selectability after
+discovery.
+
+Within this policy, `request.constraints.local_only == true` prevents declared
+remote selection, contact, and execution.  Select exactly one candidate when
+exactly one is selectable; when both local and declared remote are selectable,
+select local using fixed precedence.  That precedence is not scoring,
+health-aware routing, load or performance comparison, retry, or fallback.  If
+no candidate is selectable, fail before execution.  Execute exactly one
+selected candidate exactly once; execution failure does not trigger retry or
+fallback.
+
+The automatic policy owns deterministic internal explanation facts, but this
+RFC defines neither a public explanation schema nor a final internal
+representation.  Ordinary `/v1/chat` remains local-only and does not invoke
+declared-remote discovery, automatic capability selection, or remote
+transport.  The accepted RFC-0022 caller-directed proof path remains
+unchanged.
+
+Fallback, retry, health-aware routing, scoring, scheduling, discovery,
+registration, persistence, configuration design, authentication, trust, and
+richer capability modeling remain outside this decision.

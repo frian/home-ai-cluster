@@ -146,11 +146,22 @@ performance comparison.
 If `request.constraints.local_only` is `true`, a declared remote candidate may
 be discovered for explanation purposes but must not be selected, contacted,
 or executed.  Explicit activation of a remote-capable composition path does
-not override this request-level restriction.  A local candidate may still be
-selected.  If no local candidate is selectable, the policy reports no selectable
-candidate without contacting the declared remote node.  The default value
-remains `true`; an explicit opt-in composition path is necessary but not
-sufficient to allow remote execution.
+not override this request-level restriction.
+
+This rule is normative for the automatic capability-selection policy introduced
+by this RFC.  It does not retroactively change the accepted RFC-0022
+caller-directed `declared-remote-only` proof path.  That existing proof path
+currently predates request-constraint enforcement during candidate selection
+and remains unchanged by this RFC.  Whether `local_only` should become a
+uniform invariant across caller-directed and automatic policies requires a
+separate explicit decision.
+
+A local candidate may still be selected.  If no local candidate is selectable,
+including when the only discovered declared-remote candidate is excluded by
+`local_only`, the policy reports no selectable candidate before execution
+without contacting the declared remote node.  The default value remains `true`;
+an explicit opt-in composition path is necessary but not sufficient to allow
+remote execution.
 
 The following matrix is normative:
 

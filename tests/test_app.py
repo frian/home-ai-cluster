@@ -1,7 +1,6 @@
 import asyncio
 
 import httpx
-import pytest
 from fastapi import FastAPI
 
 from home_ai_cluster.api.wiring import build_static_remote_proof_wiring
@@ -84,6 +83,33 @@ def make_static_remote_proof_wiring(
     )
 
 
+def post(app: FastAPI, path: str, payload: dict[str, object]) -> httpx.Response:
+    async def send() -> httpx.Response:
+        asgi_transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=asgi_transport,
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(path, json=payload)
+
+    return asyncio.run(send())
+
+
+def chat_payload() -> dict[str, object]:
+    return {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "capability": "chat",
+    }
+
+
+def internal_cluster_request_payload() -> dict[str, object]:
+    return {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "capability": {"name": "chat"},
+    }
+
+
 def test_create_app_returns_fastapi_application() -> None:
     app = create_app()
 
@@ -108,15 +134,13 @@ def test_create_app_accepts_static_remote_proof_wiring() -> None:
     assert transport.declarations == []
 
 
-def test_create_app_with_static_remote_proof_wiring_keeps_chat_local_only(
-    monkeypatch: pytest.MonkeyPatch,
+def test_chat_without_static_remote_proof_wiring_remains_local_only(
+    monkeypatch,
 ) -> None:
     from home_ai_cluster.api import routes
 
     adapter = RecordingAdapter()
     transport = RecordingRemoteTransport()
-    wiring = make_static_remote_proof_wiring(transport, adapter)
-    app = create_app(static_remote_proof_wiring=wiring)
 
     monkeypatch.setattr(
         routes,
@@ -129,25 +153,66 @@ def test_create_app_with_static_remote_proof_wiring_keeps_chat_local_only(
         lambda: AdapterRegistry([adapter]),
     )
 
-    async def post_chat() -> httpx.Response:
-        asgi_transport = httpx.ASGITransport(app=app)
-
-        async with httpx.AsyncClient(
-            transport=asgi_transport,
-            base_url="http://testserver",
-        ) as client:
-            return await client.post(
-                "/v1/chat",
-                json={
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "capability": "chat",
-                },
-            )
-
-    response = asyncio.run(post_chat())
+    response = post(create_app(), "/v1/chat", chat_payload())
 
     assert response.status_code == 200
     assert response.json()["adapter"] == "recording"
     assert len(adapter.chat_requests) == 1
     assert transport.requests == []
     assert transport.declarations == []
+
+
+def test_chat_with_static_remote_proof_wiring_uses_explicit_remote_candidate() -> None:
+    adapter = RecordingAdapter()
+    transport = RecordingRemoteTransport()
+    wiring = make_static_remote_proof_wiring(transport, adapter)
+
+    response = post(
+        create_app(static_remote_proof_wiring=wiring),
+        "/v1/chat",
+        chat_payload(),
+    )
+
+    expected_request = ClusterRequest(
+        messages=[{"role": "user", "content": "Hello"}],
+        capability=Capability(name="chat"),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["adapter"] == "remote"
+    assert adapter.chat_requests == []
+    assert transport.requests == [expected_request]
+    assert transport.declarations == [make_remote_declaration()]
+
+
+def test_internal_cluster_request_remains_local_with_remote_proof_wiring(
+    monkeypatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    local_adapter = RecordingAdapter()
+    remote_transport = RecordingRemoteTransport()
+    wiring = make_static_remote_proof_wiring(remote_transport)
+
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry([make_node("local")]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([local_adapter]),
+    )
+
+    response = post(
+        create_app(static_remote_proof_wiring=wiring),
+        "/internal/cluster/request",
+        internal_cluster_request_payload(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["adapter"] == "recording"
+    assert len(local_adapter.chat_requests) == 1
+    assert remote_transport.requests == []
+    assert remote_transport.declarations == []

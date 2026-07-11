@@ -52,7 +52,11 @@ def test_static_proof_app_closes_process_http_client_on_shutdown() -> None:
     client = httpx.AsyncClient()
     app = create_static_proof_app("http://192.168.1.20:8000", client=client)
 
-    asyncio.run(app.router.shutdown())
+    async def run_lifespan() -> None:
+        async with app.router.lifespan_context(app):
+            assert not client.is_closed
+
+    asyncio.run(run_lifespan())
 
     assert client.is_closed
 

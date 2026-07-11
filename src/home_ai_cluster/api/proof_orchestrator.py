@@ -2,7 +2,9 @@
 
 from home_ai_cluster.api.wiring import StaticRemoteProofWiring
 from home_ai_cluster.core.models import ClusterRequest, ClusterResult
-from home_ai_cluster.core.orchestrator import orchestrate_request_with_selected_candidate
+from home_ai_cluster.core.orchestrator import (
+    orchestrate_request_with_selected_candidate,
+)
 from home_ai_cluster.core.routing_candidates import (
     routing_candidates_for_request,
     select_routing_candidate,

@@ -11,6 +11,9 @@ dependencies = [
     "uvicorn[standard]>=0.35.0",
 ]
 
+[project.scripts]
+home-ai-cluster-static-proof = "home_ai_cluster.static_proof:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.4.0",

@@ -10,6 +10,7 @@ from home_ai_cluster.static_proof import (
     PROOF_PORT,
     REMOTE_NODE_ID,
     create_static_proof_app,
+    create_static_proof_http_client,
     main,
     parse_args,
 )
@@ -29,6 +30,17 @@ def test_parse_args_accepts_and_normalizes_remote_address() -> None:
     args = parse_args(["http://192.168.1.20:8000/"])
 
     assert args.remote_address == "http://192.168.1.20:8000"
+
+
+def test_static_proof_http_client_has_no_request_timeout() -> None:
+    client = create_static_proof_http_client()
+
+    assert client.timeout.connect is None
+    assert client.timeout.read is None
+    assert client.timeout.write is None
+    assert client.timeout.pool is None
+
+    asyncio.run(client.aclose())
 
 
 def test_create_static_proof_app_builds_one_declared_remote() -> None:

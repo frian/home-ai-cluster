@@ -64,13 +64,18 @@ def create_remote_declaration(address: str) -> RemoteNodeDeclaration:
     )
 
 
+def create_static_proof_http_client() -> httpx.AsyncClient:
+    """Create the proof-owned client without an accidental model read timeout."""
+    return httpx.AsyncClient(timeout=None)
+
+
 def create_static_proof_app(
     address: str,
     *,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct the explicit caller-owned proof application."""
-    process_client = client or httpx.AsyncClient()
+    process_client = client or create_static_proof_http_client()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:

@@ -1,6 +1,6 @@
 # RFC-0023: Result Node Attribution
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-11
 
@@ -8,26 +8,26 @@ Author: @frian
 
 ## Summary
 
-A successful cluster result must identify the cluster-facing node whose selected
-routing candidate produced that result.
+Every successful normalized cluster result must identify the cluster-facing node
+whose selected routing candidate produced that result.
 
-The attribution is represented by one required string field:
+The attribution is represented by one required field:
 
 ```text
-node_id
+node_id: str
 ```
 
-The orchestration and execution boundary assigns this value from the selected
-routing candidate. Runtime adapters and remote transports do not choose or infer
-node identity.
+The selected-candidate execution boundary assigns this value from the candidate
+that it actually executes. Runtime adapters and remote transports do not choose,
+infer, or authoritatively report cluster node identity.
 
 For a local selected candidate, `node_id` is the selected local node id. For a
 declared remote selected candidate, `node_id` is the selected remote
 declaration's node id.
 
 This RFC adds visible node attribution only. It does not add a routing
-explanation object, execution history, trust protocol, remote identity proof, or
-observability subsystem.
+explanation object, execution history, failure attribution, remote identity
+proof, or observability subsystem.
 
 ## Problem
 
@@ -40,23 +40,23 @@ This leaves the final Phase 3 roadmap outcome incomplete:
 
 > visible explanation of which node handled the request.
 
-Adapter and model names are not sufficient node attribution. Two nodes may use
-the same adapter and model, and the project is explicitly engine-independent.
+Adapter and model names are not sufficient node attribution. Multiple nodes may
+use the same adapter and model, and the project is explicitly engine-independent.
 
-The project therefore needs one small, stable answer to this question:
+The project needs one small and stable answer to this question:
 
 > Which selected cluster node produced this successful result?
 
 Without an explicit rule, future implementations could attach machine names,
-transport addresses, runtime names, self-reported remote identities, or
+transport addresses, runtime names, remote self-reported identities, or
 orchestrator-selected identities inconsistently.
 
 ## Goals
 
-This RFC should:
+This RFC must:
 
 - make the handling node visible in every successful cluster result;
-- use the existing cluster node identity model;
+- use the existing cluster-facing node identity;
 - keep attribution independent from machine names, addresses, models, and
   runtime engines;
 - define which boundary owns attribution;
@@ -68,33 +68,29 @@ This RFC should:
 
 This RFC does not define:
 
-- a structured routing explanation;
-- a routing decision trace;
-- request history;
-- logging or metrics;
-- a dashboard or status view;
+- a structured routing explanation or decision trace;
+- failure attribution;
+- request history, logging, metrics, or a dashboard;
 - remote identity authentication or cryptographic proof;
 - node registration or discovery;
 - transport address exposure;
 - machine hostnames or display names in results;
 - adapter or model selection policy;
 - retries or fallback;
-- multi-node execution;
-- delegated or nested execution attribution;
-- user-configurable response metadata;
+- multi-node or delegated execution;
 - an OpenAI-compatible response format.
 
 ## Proposal
 
 ### Required result field
 
-The normalized successful cluster result includes one required field:
+Every successful normalized cluster result includes:
 
 ```text
 node_id: str
 ```
 
-A representative response is:
+A representative result is:
 
 ```json
 {
@@ -106,7 +102,7 @@ A representative response is:
 ```
 
 `node_id` uses the existing cluster-facing node identifier. It is not a machine
-hostname, transport address, adapter name, model name, or human-readable label.
+hostname, transport address, adapter name, model name, or display label.
 
 ### Attribution meaning
 
@@ -116,21 +112,21 @@ hostname, transport address, adapter name, model name, or human-readable label.
 > execution produced this result.
 
 This is routing attribution within the orchestrator's known cluster model. It is
-not a claim that the remote machine has independently authenticated or proven
-that identity.
+not a claim that a remote machine independently authenticated or proved that
+identity.
 
 ### Attribution authority
 
 The boundary executing an already selected routing candidate owns result node
 attribution.
 
-It must assign `node_id` from the selected candidate that it actually executes:
+It must assign `node_id` from the candidate that it actually executes:
 
 - local selected candidate: use the selected local node id;
 - declared remote selected candidate: use the selected declaration's node id.
 
-The selected candidate is the authority because it is the explicit
-cluster-facing identity chosen before execution.
+The selected candidate is authoritative for attribution because it is the
+explicit cluster-facing identity chosen before execution.
 
 ### Adapter responsibility
 
@@ -140,13 +136,11 @@ result data such as content, adapter name, and model name.
 Runtime adapters must not:
 
 - choose a cluster node id;
-- derive a node id from the runtime;
-- derive a node id from the machine hostname;
+- derive a node id from the runtime or hostname;
 - derive a node id from configuration outside the selected candidate;
 - decide whether execution was local or remote.
 
-This preserves engine independence and keeps cluster identity outside runtime
-integration code.
+This keeps cluster identity outside engine-specific integration code.
 
 ### Transport responsibility
 
@@ -161,33 +155,32 @@ Remote transports must not:
 - rewrite routing policy;
 - retry or fall back to another node.
 
-The caller's selected remote declaration remains the cluster-facing attribution
-authority for that execution.
+The caller-owned selected remote declaration remains the cluster-facing
+attribution authority for that execution.
 
 ### Successful results only
 
-This RFC defines attribution for successful cluster results.
+This RFC defines attribution only for successful `ClusterResult` values.
 
-A failed request does not need to manufacture a successful result solely to
-carry `node_id`. Failure visibility and structured failure attribution remain
-outside this RFC.
+A failed request does not manufacture a successful result solely to carry
+`node_id`. Failure visibility and structured failure attribution remain outside
+this RFC.
 
 ### No fallback ambiguity
 
-The current selected-candidate orchestration performs no retry and no fallback.
+Current selected-candidate orchestration performs no retry and no fallback.
 Therefore one successful result corresponds to one selected candidate and one
 `node_id`.
 
-If future RFCs introduce retries, fallback, delegated execution, or multi-node
-workflows, they must revisit whether one `node_id` remains sufficient.
+Future RFCs introducing retry, fallback, delegated execution, or multi-node
+workflows must revisit whether one `node_id` remains sufficient.
 
 ## Rationale
 
 ### Use the existing node id
 
-The project already has an explicit cluster-facing node identity. Reusing that
-identity is smaller and clearer than introducing a second result-specific node
-identifier.
+The project already has an explicit cluster-facing node identity. Reusing it is
+smaller and clearer than introducing a second result-specific identifier.
 
 It also avoids coupling attribution to unstable or private infrastructure data
 such as hostnames, IP addresses, runtime process ids, or model names.
@@ -195,104 +188,101 @@ such as hostnames, IP addresses, runtime process ids, or model names.
 ### Attribute from the selected candidate
 
 The selected candidate is already the explicit orchestration decision consumed
-by execution. It is therefore the narrowest existing source of truth for which
-cluster node the orchestrator asked to handle the request.
+by execution. It is the narrowest existing source of truth for which cluster
+node the orchestrator asked to handle the request.
 
-Assigning attribution there keeps the rule deterministic and identical across
-local and declared remote execution.
+Assigning attribution at that boundary keeps the rule deterministic and
+consistent across local and declared remote execution.
 
-### Do not let adapters own node identity
+### Keep adapters engine-specific
 
 Adapters are engine-specific. Allowing them to choose node identity would mix
-cluster architecture with runtime details and weaken engine independence.
+cluster architecture with runtime details and weaken engine independence. The
+same adapter may run on multiple nodes.
 
-The same adapter may run on multiple nodes, so adapter identity cannot reliably
-identify the handling node.
-
-### Do not infer identity from transport addresses
+### Keep transport metadata separate from identity
 
 Addresses are transport metadata, not node identity. They may change while node
 identity remains stable, and exposing them would unnecessarily leak network
 details.
 
-### Do not trust remote self-reporting yet
+### Do not claim remote identity trust
 
 The current LAN-only proof has no authentication, registration, or remote
-identity protocol. Treating a self-reported remote node id as authoritative
-would imply a trust guarantee the architecture does not provide.
+identity protocol. Treating remote self-reporting as authoritative would imply a
+trust guarantee the architecture does not provide.
 
 Using the caller-owned static declaration is consistent with the accepted
 manual declaration model and does not pretend to solve remote trust.
 
 ### Keep the response flat
 
-A single `node_id` field is sufficient for the Phase 3 requirement. A nested
-routing explanation object would introduce vocabulary and compatibility surface
-before the project has a real need for it.
+A single required `node_id` field is sufficient for the Phase 3 requirement. A
+nested routing explanation object would add vocabulary and compatibility surface
+before the project needs it.
 
 ## Alternatives considered
 
 ### Keep adapter and model only
 
-Rejected because adapter and model names do not identify a cluster node. Several
-nodes may expose the same runtime combination.
+Rejected because adapter and model names do not identify a cluster node.
 
 ### Add a human-readable machine name
 
-Rejected because machine names are not stable cluster identity, may expose
-private infrastructure details, and are not sufficient for deterministic
-attribution.
+Rejected because machine names are not stable cluster identity and may expose
+private infrastructure details.
 
 ### Add the remote transport address
 
 Rejected because transport addresses are not node identity and should not become
-part of the user-facing result contract.
+part of the result contract.
 
 ### Let the receiving node report its own id
 
 Rejected for this phase because there is no accepted remote identity or trust
-protocol. The receiving process may also use a local-only node id that differs
-from the caller's static declaration.
+protocol. The receiver may also use a local-only id different from the caller's
+static declaration.
 
 ### Let the transport add the node id
 
-Rejected because transport should carry execution data, not own routing
+Rejected because transport carries execution data; it does not own routing
 identity. Attribution must work the same way for local and remote candidates.
 
-### Add an optional `node_id`
+### Make `node_id` optional
 
-Rejected because optional attribution would preserve the current ambiguity and
-would not reliably satisfy the Phase 3 visibility requirement.
+Rejected because optional attribution preserves the current ambiguity and does
+not reliably satisfy the Phase 3 visibility requirement.
 
-### Add a structured `routing` or `execution` object
+### Add a structured routing or execution object
 
 Rejected as premature. One required field is enough for the current proof and
-keeps future routing explanation decisions open.
+keeps future routing-explanation decisions open.
 
-### Add a full node description to every result
+### Add a full node description
 
-Rejected because it duplicates registry data, expands the response contract,
-and exposes metadata not required for attribution.
+Rejected because it duplicates registry data, expands the result contract, and
+exposes metadata not needed for attribution.
 
 ## Trade-offs
 
-This proposal makes successful results self-attributing within the
+This decision makes successful results self-attributing within the
 orchestrator's cluster model and completes the minimal Phase 3 visibility goal.
 
 It adds one required field to the normalized result contract. Existing result
-construction and tests must therefore provide a node id.
+construction, tests, examples, and prototype callers must provide or handle a
+node id.
 
 The attribution represents the orchestrator-selected cluster identity, not a
 cryptographically proven physical executor. This limitation is deliberate and
 must remain explicit.
 
-The flat field will not describe retries, fallback chains, delegated execution,
-or multi-node workflows. Those features do not exist in the current system and
-should not shape the first attribution model.
+The flat field cannot describe retries, fallback chains, delegated execution, or
+multi-node workflows. Those features do not exist in the current system and
+must not shape the first attribution model.
 
 ## Impact
 
-If accepted, implementation work will need to:
+Implementation work must:
 
 - add required `node_id` attribution to successful normalized results;
 - assign it at local selected-candidate execution;
@@ -300,17 +290,13 @@ If accepted, implementation work will need to:
 - keep runtime adapters independent from node identity;
 - keep transport addresses out of the public result;
 - update API response examples and tests;
-- repeat the static two-machine proof and confirm that the response visibly
-  identifies `declared-remote`;
-- update the Phase 3 current-state documentation after implementation.
+- repeat the static two-machine proof and confirm that the result identifies
+  `declared-remote`;
+- update Phase 3 current-state documentation after implementation.
 
 This RFC does not activate remote routing by default. The ordinary application
 remains local-only, and the explicit proof process remains caller-owned and
 opt-in.
-
-The result contract changes, so internal tests and prototype callers must be
-updated. The project is still an early prototype and does not promise stable
-external compatibility.
 
 ## Open questions
 
@@ -321,4 +307,18 @@ fallback, delegation, multi-node workflows, or authenticated remote identity.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Every successful normalized `ClusterResult` must contain a required `node_id`
+string.
+
+`node_id` is the cluster-facing id of the selected routing candidate whose
+execution produced the successful result.
+
+The selected-candidate execution boundary assigns this value from the candidate
+it actually executes. Runtime adapters and remote transports do not own node
+attribution.
+
+This RFC covers successful results only. Failure attribution, structured routing
+explanations, retries, fallback, delegated execution, multi-node workflows, and
+authenticated remote identity remain outside its scope.

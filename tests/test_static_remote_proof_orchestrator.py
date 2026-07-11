@@ -93,9 +93,7 @@ def make_wiring(
     adapter = RecordingAdapter()
     transport = RecordingRemoteTransport()
     wiring = build_static_remote_proof_wiring(
-        node_registry=NodeRegistry(
-            [make_node("local", adapter.name, local_capability)]
-        ),
+        node_registry=NodeRegistry([make_node("local", adapter.name, local_capability)]),
         adapter_registry=AdapterRegistry([adapter]),
         remote_declaration=make_remote_declaration(remote_capability),
         remote_transport=transport,

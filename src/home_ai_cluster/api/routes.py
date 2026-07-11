@@ -53,7 +53,7 @@ async def handle_chat_cluster_request(
     cluster_request: ClusterRequest,
     static_remote_proof_wiring: StaticRemoteProofWiring | None,
 ) -> ClusterResult:
-    """Use explicit proof wiring when present, otherwise preserve local-only behavior."""
+    """Use explicit proof wiring or preserve local-only behavior."""
     if static_remote_proof_wiring is None:
         return await handle_static_local_cluster_request(cluster_request)
 

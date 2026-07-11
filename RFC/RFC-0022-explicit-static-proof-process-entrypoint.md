@@ -1,6 +1,6 @@
 # RFC-0022: Explicit Static Proof Process Entrypoint
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-11
 
@@ -8,26 +8,29 @@ Author: frian
 
 ## Summary
 
-Home AI Cluster now has the accepted static two-machine proof architecture and
-an opt-in `/v1/chat` integration, but no executable process setup constructs the
-HTTP proof wiring outside tests.
+Home AI Cluster has the accepted static two-machine proof architecture and an
+opt-in `/v1/chat` integration, but it still needs one executable process setup
+for a real proof outside tests.
 
-This RFC proposes one dedicated proof-only process entrypoint.
+This RFC accepts one dedicated proof-only command:
 
-The entrypoint requires the operator to provide exactly one remote transport
-address explicitly on the command line. It constructs one manually declared
-remote node, one HTTP remote transport, and an application with
+```text
+home-ai-cluster-static-proof
+```
+
+The command requires exactly one remote transport address as a command-line
+argument. It constructs one manually declared remote node with the fixed node
+identifier `declared-remote`, one HTTP remote transport, and an application with
 `StaticRemoteProofWiring` enabled.
 
-The first proof is limited to two machines reachable on the same trusted local
-area network.
+The proof uses `declared-remote-only` selection and is limited to two machines
+reachable on the same trusted local area network.
 
-The proof entrypoint uses `declared-remote-only` selection so a request sent to
-its `/v1/chat` endpoint visibly crosses the declared remote boundary.
+The proof process uses the standard server defaults `127.0.0.1:8000`, while
+allowing ordinary explicit server host and port arguments when LAN access to the
+proof endpoint is required.
 
 The default application remains local-only.
-
-This RFC does not introduce a general configuration system.
 
 ## Problem
 
@@ -38,40 +41,32 @@ One endpoint. Two machines. One routed request.
 ```
 
 RFC-0021 accepts explicit caller-owned in-memory proof wiring. The repository
-now contains the required wiring, orchestration, HTTP transport, and explicit
+contains the required wiring, orchestration, HTTP transport, and explicit
 `/v1/chat` opt-in integration.
 
-However, the ordinary application still starts with no proof wiring:
-
-```text
-create_app()
-  -> no StaticRemoteProofWiring
-  -> /v1/chat remains local-only
-```
-
-Tests can construct proof wiring directly, but an operator cannot yet start a
+Tests can construct this setup directly, but an operator cannot yet start a
 real proof process through a small supported repository entrypoint.
 
-Choosing how the process receives the remote address, who owns the HTTP client,
-which candidate selection mode demonstrates the proof, and which network
-boundary the proof assumes are architectural setup decisions. They should be
-explicit before implementation.
+The remaining decisions are the process boundary, command interface, remote
+node identity, selection mode, HTTP client lifetime, server defaults, and
+network boundary.
 
 ## Goals
 
-This RFC should:
+This RFC:
 
-- define the smallest executable process setup for the static two-machine proof;
-- keep the ordinary application local-only;
-- require explicit operator intent before remote routing is enabled;
-- require exactly one manually declared remote node;
-- require the remote transport address explicitly at process startup;
-- limit the first proof to two machines on the same trusted LAN;
-- reuse `StaticRemoteProofWiring` and the accepted orchestration seams;
-- use the existing HTTP remote transport boundary;
-- make the remote proof obvious and deterministic;
-- give the proof process clear ownership of HTTP client lifetime;
-- remain local-first, privacy-first, engine-independent, and boring.
+- defines the smallest executable setup for the static two-machine proof;
+- keeps the ordinary application local-only;
+- requires explicit operator intent before remote routing is enabled;
+- requires exactly one manually declared remote node;
+- requires its transport address explicitly at process startup;
+- gives that node the fixed proof identifier `declared-remote`;
+- limits the first proof to two machines on the same trusted LAN;
+- reuses `StaticRemoteProofWiring` and the accepted orchestration seams;
+- uses the existing HTTP remote transport boundary;
+- uses deterministic `declared-remote-only` selection;
+- gives the proof process clear ownership of HTTP client lifetime;
+- remains local-first, privacy-first, engine-independent, and boring.
 
 ## Non-goals
 
@@ -80,55 +75,54 @@ This RFC does not:
 - define a general configuration format;
 - load configuration files;
 - read remote membership from environment variables;
-- introduce persistence;
-- introduce dynamic discovery;
-- introduce registration;
+- introduce persistence, discovery, or registration;
 - introduce daemon-owned mutable registry state;
-- introduce retries;
-- introduce fallback after remote failure;
-- introduce health probing;
-- introduce scoring or scheduling;
+- introduce retries or fallback after remote failure;
+- introduce health probing, scoring, or scheduling;
 - introduce multiple remote nodes;
 - introduce authentication or encryption policy;
-- support remote access through VPNs or overlay networks, including Tailscale;
-- support cross-site execution or execution across untrusted networks;
-- introduce Docker or Kubernetes;
-- introduce a dashboard;
-- introduce a database;
-- introduce an OpenAI-compatible API;
-- introduce cloud execution;
+- support VPNs or overlay networks, including Tailscale;
+- support cross-site execution or untrusted networks;
+- introduce Docker, Kubernetes, a dashboard, or a database;
+- introduce an OpenAI-compatible API or cloud execution;
 - replace the default application entrypoint;
 - define production deployment.
 
 ## Proposal
 
-Home AI Cluster should add one dedicated proof-only process entrypoint.
+Home AI Cluster will add one dedicated proof-only process entrypoint exposed as:
 
-The entrypoint is separate from the default local-only application startup. It
+```text
+home-ai-cluster-static-proof
+```
+
+The command is separate from the default local-only application startup and
 must be invoked explicitly by the operator.
 
-Its process setup should:
+Its process setup will:
 
 1. require one remote transport address as a command-line argument;
-2. require that the declared remote address be reachable on the same trusted LAN;
-3. construct one manual `RemoteNodeDeclaration` for the `chat` capability;
+2. require the operator to choose an address reachable on the same trusted LAN;
+3. construct one `RemoteNodeDeclaration` with node id `declared-remote` and the
+   `chat` capability;
 4. create one process-owned `httpx.AsyncClient`;
 5. wrap that client in `HttpRemoteTransport`;
 6. construct `StaticRemoteProofWiring` in memory;
 7. use `RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY`;
 8. create the FastAPI application through `create_app(...)` with that wiring;
-9. close the HTTP client when the application process shuts down.
+9. run with standard defaults `127.0.0.1:8000` unless the operator explicitly
+   provides ordinary server host or port arguments;
+10. close the HTTP client when the application process shuts down.
 
-The proof entrypoint should expose the same `/v1/chat` endpoint as the default
-application. The receiving machine continues to expose
-`/internal/cluster/request`, which remains strictly local.
+The receiving machine continues to expose `/internal/cluster/request`, which
+remains strictly local.
 
-The resulting proof path is:
+The proof path is:
 
 ```text
-operator starts explicit proof entrypoint
-  -> required remote LAN address argument
-  -> one manual remote declaration
+operator starts home-ai-cluster-static-proof
+  -> required remote LAN address
+  -> fixed declared-remote node declaration
   -> process-owned HttpRemoteTransport
   -> create_app(static_remote_proof_wiring=...)
   -> /v1/chat
@@ -137,7 +131,7 @@ operator starts explicit proof entrypoint
   -> local adapter execution on receiving machine
 ```
 
-Without this dedicated entrypoint, the existing application remains:
+Without this dedicated entrypoint, the application remains:
 
 ```text
 create_app()
@@ -150,68 +144,94 @@ create_app()
 Remote routing must not be enabled by importing the package, constructing the
 default application, or starting the existing application entrypoint.
 
-The proof process starts only through an explicit proof command.
+The proof starts only through `home-ai-cluster-static-proof`.
 
-The remote address must be supplied directly by the operator at startup. The
-first proof should not infer it, discover it, read it from a registry, or load it
-from a configuration file.
+The remote address must be supplied directly by the operator. The proof must
+not infer it, discover it, read it from a registry, or load it from a
+configuration file.
 
-A command-line argument is chosen because it is visible, temporary, caller-owned,
-and requires no configuration format or persistence.
+A command-line argument is visible, temporary, caller-owned, and requires no
+configuration format or persistence.
 
 The address is transport metadata. It is not discovery, identity, registration,
 or proof of trust.
+
+## Remote Node Identity
+
+The first proof uses the fixed remote node identifier:
+
+```text
+declared-remote
+```
+
+A second command-line argument for node identity would add no useful proof
+value. The fixed identifier makes logs, tests, and the operator runbook stable
+without creating a general node naming interface.
+
+The transport address remains separate from node identity.
 
 ## Network Boundary
 
 The first executable proof is limited to two machines reachable on the same
 trusted local area network.
 
-The operator supplies a LAN-reachable transport address for the manually
-declared remote node. The entrypoint does not discover the network, verify LAN
-membership, or infer trust from an address. The LAN restriction is an operator
-and runbook boundary for this first proof.
+The operator supplies a LAN-reachable transport address. The entrypoint does
+not discover the network, verify LAN membership, or infer trust from an
+address. The LAN restriction is an operator and runbook boundary.
 
 VPNs, overlay networks such as Tailscale, cross-site routing, and untrusted
-networks are outside this RFC. They may be evaluated later as separate transport
-and trust-boundary work without changing the accepted routing architecture.
+networks remain separate future transport and trust-boundary work.
 
 ## Selection Mode
 
-The first executable proof should use `declared-remote-only`.
+The proof command uses `declared-remote-only` and does not expose a
+selection-mode option.
 
 This makes the proof unambiguous:
 
-- a successful response demonstrates that the request crossed the declared
-  remote boundary;
+- success demonstrates that the request crossed the declared remote boundary;
 - local eligibility cannot hide a broken remote setup;
 - no runtime fallback occurs;
 - remote failure remains visible.
 
 Other accepted selection modes remain available to tests and future explicit
-setups, but this proof entrypoint should not expose a selection-mode option.
-Doing so would add unnecessary surface area to the first proof.
+setups.
+
+## Server Binding
+
+The proof process uses the standard development defaults:
+
+```text
+127.0.0.1:8000
+```
+
+These defaults avoid exposing the endpoint on the LAN unless the operator
+explicitly chooses to do so.
+
+The command may pass through ordinary explicit host and port arguments for the
+server process. This is process binding, not cluster configuration, discovery,
+or membership.
+
+A first-machine proof that must accept requests from another LAN device will
+therefore require an explicit LAN bind such as `0.0.0.0` or the machine's LAN
+address.
 
 ## HTTP Client Lifetime
 
 The proof process owns the `httpx.AsyncClient` used by `HttpRemoteTransport`.
 
-The client should be created as part of explicit application process setup and
-closed during application shutdown.
-
-It must not be a hidden module-global client.
+The client is created during explicit process setup and closed during
+application shutdown. It must not be a hidden module-global client.
 
 The exact FastAPI lifespan implementation is an implementation detail, provided
 that ownership and shutdown remain explicit and testable.
 
 ## Failure Behavior
 
-Startup should fail explicitly when the required remote address is missing or
-invalid for constructing the manual declaration.
+Startup fails explicitly when the required remote address is missing or cannot
+construct the manual declaration.
 
-Runtime remote transport failure remains explicit.
-
-The proof entrypoint must not:
+Runtime remote transport failure remains explicit. The proof command must not:
 
 - retry the remote request;
 - fall back to local execution;
@@ -219,137 +239,140 @@ The proof entrypoint must not:
 - contact another address;
 - hide an invalid remote response.
 
-Existing explicit transport and orchestration errors remain the source of truth.
-Any HTTP response mapping beyond the current behavior is a separate decision.
+Existing transport and orchestration errors remain the source of truth. Richer
+HTTP error mapping is a separate decision.
 
 ## Privacy and Trust Boundaries
 
 The ordinary application remains local-only.
 
 Request contents may cross a machine boundary only when the operator explicitly
-starts the proof entrypoint with one manually supplied LAN address.
+starts the proof command with one manually supplied LAN address.
 
-Only the manually declared remote node may be contacted.
+Only `declared-remote` may be contacted. Unknown or undeclared machines must
+never be contacted.
 
-Unknown or undeclared machines must never be contacted.
-
-The first proof assumes that both machines are on the same trusted LAN. This
-reduces the number of transport and security variables being tested, but it does
-not make reachability equivalent to trust.
-
-The operator remains responsible for choosing the declared machine and trusted
-LAN boundary used for the proof.
+The trusted-LAN constraint reduces transport and security variables, but does
+not make reachability equivalent to trust. The operator remains responsible for
+choosing the declared machine and LAN boundary.
 
 ## Rationale
 
-A dedicated command-line proof entrypoint is the smallest boring bridge between
-the accepted architecture and a real two-machine demonstration.
+A dedicated command is the smallest boring bridge between the accepted
+architecture and a real two-machine demonstration.
 
-Restricting the first proof to a trusted LAN keeps the demonstration focused on
-the cluster architecture rather than overlay networking, cross-site routing,
-identity, or additional security policy.
+The fixed command and node identifier avoid premature general configuration.
+The explicit address preserves caller ownership. `declared-remote-only` keeps
+the proof honest. Process-owned HTTP resources avoid hidden global state.
 
-It avoids committing the project to a configuration file, environment-variable
-schema, service manager integration, deployment system, or discovery protocol.
-
-Using `declared-remote-only` keeps the proof honest. Success means remote
-execution worked. Failure remains visible instead of being masked by local
-fallback.
-
-Explicit process ownership of the HTTP client avoids hidden global resources and
-makes shutdown behavior understandable.
+The standard loopback default preserves local-first behavior, while explicit
+host and port arguments permit the LAN demonstration without defining a new
+configuration system.
 
 ## Alternatives Considered
 
 ### Load a configuration file
 
-Rejected for the first proof. This would require decisions about format,
-location, validation, precedence, and compatibility.
+Rejected. This would require decisions about format, location, validation,
+precedence, and compatibility.
 
 ### Read the remote address from an environment variable
 
-Rejected for this proof entrypoint. It is less visible at invocation and begins
-to define an implicit configuration interface. Environment-based configuration
-may be reconsidered separately.
+Rejected for this proof. It is less visible at invocation and begins to define
+an implicit configuration interface.
 
-### Hard-code a remote address in the repository
+### Require a remote node id argument
 
-Rejected. Repository code must not contain one operator's machine address, and a
-hard-coded address weakens the explicit caller-owned boundary.
+Rejected. The first proof has exactly one declared remote node, and a fixed
+`declared-remote` identifier is sufficient.
+
+### Hard-code a remote address
+
+Rejected. Repository code must not contain one operator's machine address.
 
 ### Extend the default application entrypoint
 
-Rejected. The default must remain local-only. Remote proof behavior should be
-visibly separate and explicitly invoked.
+Rejected. The default must remain local-only.
 
-### Expose all selection modes as command-line options
+### Expose all selection modes
 
-Rejected for the first proof. The objective is to demonstrate one remote routed
-request, not to create a general routing CLI.
+Rejected. The objective is one obvious remote routed request, not a general
+routing CLI.
 
 ### Use `prefer-declared-remote`
 
-Rejected for this proof entrypoint. Although deterministic selection prefers the
-remote candidate, it can select local when no remote candidate exists. The first
-proof should fail rather than silently cease proving remote execution.
+Rejected. The proof should fail rather than silently cease proving remote
+execution when no remote candidate exists.
 
-### Use Tailscale or another overlay network for the first proof
+### Bind to `0.0.0.0` by default
 
-Rejected for this RFC. An overlay network would add identity, addressing,
-service availability, ACL, and cross-network trust questions that are not needed
-to validate the first two-machine routing proof.
+Rejected. A default LAN-wide bind would weaken the local-first and privacy-first
+startup boundary. LAN exposure must be explicit.
 
-### Let callers provide an already-created HTTP client
+### Use Tailscale or another overlay network
 
-Useful for tests and library-level composition, but insufficient as the complete
-process decision. A supported process entrypoint still needs explicit lifetime
-ownership.
+Rejected for the first proof. It would add identity, addressing, service
+availability, ACL, and cross-network trust questions.
 
 ## Trade-offs
 
-A dedicated proof command duplicates a small amount of process startup logic.
-That duplication is acceptable because it protects the default local-only path
-and avoids premature general configuration.
+The dedicated command duplicates a small amount of startup logic. That is
+acceptable because it protects the default local-only path and avoids premature
+general configuration.
 
-A command-line remote address is less convenient than persistent configuration.
-That inconvenience is intentional for a temporary static proof.
+A command-line address is less convenient than persistent configuration. That
+inconvenience is intentional for a temporary static proof.
 
-Limiting the first proof to one trusted LAN makes the initial demonstration less
-flexible. That constraint is acceptable because it keeps network topology and
-trust assumptions boring and inspectable.
+A fixed remote identifier is less flexible than user-defined naming. The first
+proof does not require that flexibility.
 
-Using `declared-remote-only` means the proof process cannot serve locally when
-the remote machine is unavailable. This is desirable because the proof should
-remain honest and no fallback policy has been accepted.
+The loopback server default requires an explicit bind for LAN clients. That
+extra step preserves a safer default.
 
-This entrypoint is not production deployment. It is a deliberately narrow bridge
-to validate the architecture on two real machines.
+`declared-remote-only` means the proof process cannot serve locally when the
+remote machine is unavailable. This is desirable because no fallback policy has
+been accepted.
 
 ## Impact
 
-If accepted, implementation may add:
+Implementation may add:
 
-- one dedicated proof process module or command;
-- explicit construction of one manual remote declaration;
+- the `home-ai-cluster-static-proof` command;
+- one proof process module;
+- a fixed `declared-remote` declaration;
 - explicit HTTP client and transport lifetime management;
-- tests for startup wiring, default-local isolation, selected remote execution,
-  and client shutdown;
-- a short LAN-only operator runbook for the two-machine proof.
+- ordinary explicit host and port server arguments;
+- tests for startup wiring, default-local isolation, remote execution, and
+  client shutdown;
+- a short LAN-only operator runbook.
 
 The default application behavior does not change.
 
-No configuration file, persistence, discovery, registration, retry, fallback,
-health probing, scoring, scheduling, dashboard, database, container platform,
-overlay network, cross-site execution, or cloud execution is introduced.
+No general configuration, persistence, discovery, registration, retry,
+fallback, health probing, scheduling, overlay network, cross-site execution, or
+production deployment is introduced.
 
 ## Open Questions
 
-- What exact command name should expose the proof entrypoint?
-- Should the proof entrypoint use a fixed remote node identifier such as
-  `declared-remote`, or require a second explicit command-line argument?
-- Should host and port for the proof process itself remain standard server
-  arguments or use fixed development defaults?
+None for this RFC.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The first executable static two-machine proof uses the dedicated
+`home-ai-cluster-static-proof` command.
+
+The operator must explicitly provide exactly one remote LAN transport address.
+The declared remote node uses the fixed identifier `declared-remote`.
+
+The command constructs caller-owned static in-memory proof wiring, uses
+`declared-remote-only`, and owns the HTTP client for the process lifetime.
+
+The server defaults to `127.0.0.1:8000`. LAN exposure requires an explicit host
+or port argument.
+
+The proof is limited to two machines on the same trusted LAN. VPNs, overlay
+networks, cross-site execution, and untrusted networks are outside this proof.
+
+The default application remains local-only. No retry or fallback is introduced.

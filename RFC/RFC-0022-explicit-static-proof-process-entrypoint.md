@@ -110,8 +110,7 @@ Its process setup will:
 6. construct `StaticRemoteProofWiring` in memory;
 7. use `RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY`;
 8. create the FastAPI application through `create_app(...)` with that wiring;
-9. run with standard defaults `127.0.0.1:8000` unless the operator explicitly
-   provides ordinary server host or port arguments;
+9. use standard server defaults `127.0.0.1:8000`;
 10. close the HTTP client when the application process shuts down.
 
 The receiving machine continues to expose `/internal/cluster/request`, which
@@ -206,15 +205,14 @@ The proof process uses the standard development defaults:
 ```
 
 These defaults avoid exposing the endpoint on the LAN unless the operator
-explicitly chooses to do so.
+explicitly chooses a different server binding outside the proof command.
 
-The command may pass through ordinary explicit host and port arguments for the
-server process. This is process binding, not cluster configuration, discovery,
-or membership.
+This RFC does not add host or port options to the proof command. The first proof
+command therefore owns only remote proof wiring, not general server
+configuration.
 
-A first-machine proof that must accept requests from another LAN device will
-therefore require an explicit LAN bind such as `0.0.0.0` or the machine's LAN
-address.
+A later implementation may expose ordinary server binding separately if needed,
+but that is outside this RFC.
 
 ## HTTP Client Lifetime
 
@@ -265,9 +263,8 @@ The fixed command and node identifier avoid premature general configuration.
 The explicit address preserves caller ownership. `declared-remote-only` keeps
 the proof honest. Process-owned HTTP resources avoid hidden global state.
 
-The standard loopback default preserves local-first behavior, while explicit
-host and port arguments permit the LAN demonstration without defining a new
-configuration system.
+The loopback server default preserves local-first behavior without turning the
+proof command into a general server launcher.
 
 ## Alternatives Considered
 
@@ -307,7 +304,12 @@ execution when no remote candidate exists.
 ### Bind to `0.0.0.0` by default
 
 Rejected. A default LAN-wide bind would weaken the local-first and privacy-first
-startup boundary. LAN exposure must be explicit.
+startup boundary.
+
+### Add host and port options to the proof command
+
+Rejected for this RFC. The first proof command decides remote proof wiring, not
+a general server command interface.
 
 ### Use Tailscale or another overlay network
 
@@ -326,8 +328,9 @@ inconvenience is intentional for a temporary static proof.
 A fixed remote identifier is less flexible than user-defined naming. The first
 proof does not require that flexibility.
 
-The loopback server default requires an explicit bind for LAN clients. That
-extra step preserves a safer default.
+The loopback server default means the proof endpoint is local to the initiating
+machine. That preserves the safer default and is sufficient when the operator
+sends the test request from that machine.
 
 `declared-remote-only` means the proof process cannot serve locally when the
 remote machine is unavailable. This is desirable because no fallback policy has
@@ -341,7 +344,6 @@ Implementation may add:
 - one proof process module;
 - a fixed `declared-remote` declaration;
 - explicit HTTP client and transport lifetime management;
-- ordinary explicit host and port server arguments;
 - tests for startup wiring, default-local isolation, remote execution, and
   client shutdown;
 - a short LAN-only operator runbook.
@@ -369,8 +371,7 @@ The declared remote node uses the fixed identifier `declared-remote`.
 The command constructs caller-owned static in-memory proof wiring, uses
 `declared-remote-only`, and owns the HTTP client for the process lifetime.
 
-The server defaults to `127.0.0.1:8000`. LAN exposure requires an explicit host
-or port argument.
+The proof process uses the fixed development binding `127.0.0.1:8000`.
 
 The proof is limited to two machines on the same trusted LAN. VPNs, overlay
 networks, cross-site execution, and untrusted networks are outside this proof.

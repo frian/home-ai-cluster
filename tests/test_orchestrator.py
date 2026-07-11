@@ -12,6 +12,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
@@ -33,7 +34,7 @@ class RecordingAdapter:
         self,
         name: str,
         capabilities: list[Capability],
-        result: ClusterResult,
+        result: RuntimeResult,
     ) -> None:
         self._name = name
         self._capabilities = capabilities
@@ -50,7 +51,7 @@ class RecordingAdapter:
     def capabilities(self) -> list[Capability]:
         return list(self._capabilities)
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_requests.append(request)
         return self._result
 
@@ -104,9 +105,7 @@ def make_remote_declaration(node_id: str = "local") -> RemoteNodeDeclaration:
 
 
 def test_orchestrate_request_returns_selected_adapter_result() -> None:
-    result = ClusterResult(
-        content="Hi", adapter="adapter", model="model", node_id="adapter-result"
-    )
+    result = RuntimeResult(content="Hi", adapter="adapter", model="model")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
     adapter_registry = AdapterRegistry([adapter])
@@ -121,7 +120,7 @@ def test_orchestrate_request_returns_selected_adapter_result() -> None:
 
 
 def test_orchestrate_request_passes_request_to_selected_adapter() -> None:
-    result = ClusterResult(content="Hi", adapter="adapter", node_id="adapter-result")
+    result = RuntimeResult(content="Hi", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
     adapter_registry = AdapterRegistry([adapter])
@@ -133,9 +132,7 @@ def test_orchestrate_request_passes_request_to_selected_adapter() -> None:
 
 
 def test_orchestrate_request_remains_local_only() -> None:
-    result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    result = RuntimeResult(content="Hi from local", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
     adapter_registry = AdapterRegistry([adapter])
@@ -155,9 +152,7 @@ def test_orchestrate_request_remains_local_only() -> None:
 
 
 def test_orchestrate_request_with_declared_remote_uses_local_execution() -> None:
-    result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    result = RuntimeResult(content="Hi from local", adapter="adapter")
     adapter = RecordingAdapter("adapter", [Capability(name="chat")], result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
     adapter_registry = AdapterRegistry([adapter])
@@ -189,9 +184,7 @@ def test_orchestrate_request_with_declared_remote_uses_local_execution() -> None
 
 
 def test_orchestrate_request_with_declared_remote_uses_remote_transport() -> None:
-    local_result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    local_result = RuntimeResult(content="Hi from local", adapter="adapter")
     remote_result = ClusterResult(
         content="Hi from remote", adapter="remote-adapter", node_id="remote-response"
     )
@@ -223,9 +216,7 @@ def test_orchestrate_request_with_declared_remote_uses_remote_transport() -> Non
 def test_orchestrate_request_with_built_remote_registry_matches_manual_registry() -> (
     None
 ):
-    local_result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    local_result = RuntimeResult(content="Hi from local", adapter="adapter")
     remote_result = ClusterResult(
         content="Hi from remote", adapter="remote-adapter", node_id="remote-response"
     )
@@ -257,9 +248,7 @@ def test_orchestrate_request_with_built_remote_registry_matches_manual_registry(
 def test_orchestrate_request_with_declared_remote_can_target_distinct_remote_node() -> (
     None
 ):
-    local_result = ClusterResult(
-        content="Hi from local", adapter="local-adapter", node_id="adapter-result"
-    )
+    local_result = RuntimeResult(content="Hi from local", adapter="local-adapter")
     remote_result = ClusterResult(
         content="Hi from remote-a", adapter="remote-adapter", node_id="remote-response"
     )
@@ -325,9 +314,7 @@ def test_orchestrate_request_with_declared_http_remote_uses_http_transport(
 ) -> None:
     from home_ai_cluster.core import orchestrator as orchestrator_module
 
-    local_result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    local_result = RuntimeResult(content="Hi from local", adapter="adapter")
     remote_result = ClusterResult(
         content="Hi from remote", adapter="remote-adapter", node_id="remote-response"
     )
@@ -376,10 +363,9 @@ def test_orchestrate_request_with_declared_http_remote_reaches_internal_endpoint
 ) -> None:
     from home_ai_cluster.api import routes
 
-    endpoint_result = ClusterResult(
+    endpoint_result = RuntimeResult(
         content="Hi from internal endpoint",
         adapter="endpoint-adapter",
-        node_id="receiving-local-node",
     )
     endpoint_adapter = RecordingAdapter(
         "endpoint-adapter",
@@ -407,9 +393,7 @@ def test_orchestrate_request_with_declared_http_remote_reaches_internal_endpoint
     )
     declared_address = "http://declared-remote.test"
     request = make_request("Remote declared HTTP path")
-    local_result = ClusterResult(
-        content="Hi from local", adapter="adapter", node_id="adapter-result"
-    )
+    local_result = RuntimeResult(content="Hi from local", adapter="adapter")
     local_adapter = RecordingAdapter("adapter", [Capability(name="chat")], local_result)
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["adapter"])])
     adapter_registry = AdapterRegistry([local_adapter])
@@ -462,12 +446,12 @@ def test_orchestrate_request_uses_first_matching_adapter() -> None:
     first = RecordingAdapter(
         "first",
         [Capability(name="chat")],
-        ClusterResult(content="first", adapter="first", node_id="adapter-result"),
+        RuntimeResult(content="first", adapter="first"),
     )
     second = RecordingAdapter(
         "second",
         [Capability(name="chat")],
-        ClusterResult(content="second", adapter="second", node_id="adapter-result"),
+        RuntimeResult(content="second", adapter="second"),
     )
     node_registry = NodeRegistry([make_node([Capability(name="chat")], ["first"])])
     adapter_registry = AdapterRegistry([first, second])
@@ -485,7 +469,7 @@ def test_orchestrate_request_propagates_no_matching_adapter_error() -> None:
     adapter = RecordingAdapter(
         "adapter",
         [Capability(name="summarization")],
-        ClusterResult(content="", adapter="adapter", node_id="adapter-result"),
+        RuntimeResult(content="", adapter="adapter"),
     )
     node_registry = NodeRegistry(
         [make_node([Capability(name="summarization")], ["adapter"])]

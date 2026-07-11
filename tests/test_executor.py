@@ -17,6 +17,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
@@ -29,12 +30,10 @@ from home_ai_cluster.core.router import RoutingDecision
 class RecordingAdapter:
     def __init__(
         self,
-        result: ClusterResult | None = None,
+        result: RuntimeResult | None = None,
         error: RuntimeAdapterUnavailableError | None = None,
     ) -> None:
-        self._result = result or ClusterResult(
-            content="result", adapter="adapter", node_id="adapter-result"
-        )
+        self._result = result or RuntimeResult(content="result", adapter="adapter")
         self._error = error
         self.chat_requests: list[ClusterRequest] = []
 
@@ -48,7 +47,7 @@ class RecordingAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_requests.append(request)
 
         if self._error is not None:
@@ -134,7 +133,7 @@ def test_execute_local_routing_decision_passes_exact_request() -> None:
 
 
 def test_execute_local_routing_decision_attributes_selected_local_node() -> None:
-    result = ClusterResult(content="Hello", adapter="adapter", node_id="adapter-result")
+    result = RuntimeResult(content="Hello", adapter="adapter")
     adapter = RecordingAdapter(result=result)
 
     actual = asyncio.run(

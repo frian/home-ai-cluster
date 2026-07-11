@@ -56,23 +56,21 @@ async def orchestrate_request_with_selected_candidate(
         )
 
     if selected.local is not None:
-        result = await execute_local_routing_decision(
+        return await execute_local_routing_decision(
             request,
             selected.local.decision,
         )
-        return result.model_copy(update={"node_id": selected.local.decision.node.id})
 
     if remote_transport is None:
         raise MissingRemoteTransportError(
             "Declared remote selected candidate requires RemoteTransport"
         )
 
-    result = await execute_declared_remote_routing_candidate(
+    return await execute_declared_remote_routing_candidate(
         request,
         selected.declared_remote,
         remote_transport,
     )
-    return result.model_copy(update={"node_id": selected.declared_remote.node.id})
 
 
 async def orchestrate_request_with_declared_remote(

@@ -11,6 +11,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.orchestrator import orchestrate_request
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -36,12 +37,10 @@ class RecordingAdapter:
     def __init__(
         self,
         name: str = "local-adapter",
-        result: ClusterResult | None = None,
+        result: RuntimeResult | None = None,
     ) -> None:
         self._name = name
-        self._result = result or ClusterResult(
-            content="Hello", adapter=name, node_id="adapter-result"
-        )
+        self._result = result or RuntimeResult(content="Hello", adapter=name)
         self.chat_requests: list[ClusterRequest] = []
 
     @property
@@ -54,7 +53,7 @@ class RecordingAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_requests.append(request)
         return self._result
 
@@ -265,9 +264,7 @@ def test_select_routing_candidate_does_not_use_remote_transports() -> None:
 
 
 def test_select_routing_candidate_does_not_change_orchestrate_request() -> None:
-    result = ClusterResult(
-        content="Hi", adapter="local-adapter", node_id="adapter-result"
-    )
+    result = RuntimeResult(content="Hi", adapter="local-adapter")
     adapter = RecordingAdapter(result=result)
     node = make_node("local", ["local-adapter"])
 

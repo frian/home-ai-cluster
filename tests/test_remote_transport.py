@@ -14,6 +14,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
@@ -70,15 +71,13 @@ class TestChatAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         user_messages = [
             message.content for message in request.messages if message.role == "user"
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 
-        return ClusterResult(
-            content=content, adapter=self.name, node_id="adapter-result"
-        )
+        return RuntimeResult(content=content, adapter=self.name)
 
 
 def make_request() -> ClusterRequest:

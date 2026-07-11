@@ -20,6 +20,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
@@ -44,11 +45,9 @@ class RecordingAdapter:
     def capabilities(self) -> list[Capability]:
         return [Capability(name="chat")]
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_requests.append(request)
-        return ClusterResult(
-            content="local result", adapter=self.name, node_id="adapter-result"
-        )
+        return RuntimeResult(content="local result", adapter=self.name)
 
 
 class RecordingRemoteTransport:

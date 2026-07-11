@@ -109,6 +109,35 @@ def test_ollama_adapter_chat_returns_cluster_result_from_ollama_response() -> No
     assert not hasattr(result, "node_id")
 
 
+def test_ollama_adapter_chat_client_has_no_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_kwargs: dict[str, object] = {}
+
+    class CapturingAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            created_kwargs.update(kwargs)
+
+        async def __aenter__(self) -> "CapturingAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, path: str, *, json: dict[str, object]) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"message": {"role": "assistant", "content": "Hi"}},
+                request=httpx.Request("POST", "http://localhost:11434/api/chat"),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", CapturingAsyncClient)
+
+    asyncio.run(OllamaAdapter().chat(make_request()))
+
+    assert created_kwargs["timeout"] is None
+
+
 def test_ollama_adapter_chat_translates_http_failure_to_adapter_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)

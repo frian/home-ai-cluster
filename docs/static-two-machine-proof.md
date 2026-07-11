@@ -48,10 +48,16 @@ uv run uvicorn home_ai_cluster.main:app --host 0.0.0.0 --port 8000
 This starts the ordinary application. Its `/internal/cluster/request` endpoint
 executes locally and does not re-enter remote routing.
 
-From the calling machine, verify that the receiving process is reachable:
+From the calling machine, verify that the receiving process is reachable by
+sending one request through the ordinary public endpoint:
 
 ```sh
-curl -s http://192.168.1.20:8000/health
+curl -s http://192.168.1.20:8000/v1/chat \
+  -H 'content-type: application/json' \
+  -d '{
+    "messages": [{"role": "user", "content": "Reply with exactly: receiving machine works"}],
+    "capability": "chat"
+  }'
 ```
 
 If a host firewall is enabled, allow TCP port `8000` only from the trusted LAN
@@ -73,6 +79,10 @@ The proof process binds only to:
 
 It constructs exactly one manual remote declaration with node id
 `declared-remote` and uses `declared-remote-only` selection.
+
+The proof-owned HTTP client does not impose a model response timeout. This
+avoids treating a slow first model load as a transport failure. The process
+still performs no retry and no fallback.
 
 ## 3. Send one request
 

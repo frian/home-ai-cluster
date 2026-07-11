@@ -36,7 +36,9 @@ class RecordingAdapter:
     ) -> None:
         self._name = name
         self._capabilities = capabilities
-        self._result = result or ClusterResult(content="Hello", adapter=name)
+        self._result = result or ClusterResult(
+            content="Hello", adapter=name, node_id="adapter-result"
+        )
         self.chat_requests: list[ClusterRequest] = []
 
     @property
@@ -66,7 +68,9 @@ class RecordingRemoteTransport:
     ) -> ClusterResult:
         self.requests.append(request)
         self.declarations.append(declaration)
-        return ClusterResult(content="Remote hello", adapter="remote")
+        return ClusterResult(
+            content="Remote hello", adapter="remote", node_id="remote-response"
+        )
 
 
 def make_request(capability: Capability | None = None) -> ClusterRequest:
@@ -235,7 +239,9 @@ def test_helper_does_not_call_remote_transports() -> None:
 
 def test_helper_does_not_change_orchestrate_request_signature_or_behavior() -> None:
     chat = Capability(name="chat")
-    result = ClusterResult(content="Hi", adapter="local-adapter")
+    result = ClusterResult(
+        content="Hi", adapter="local-adapter", node_id="adapter-result"
+    )
     adapter = RecordingAdapter("local-adapter", [chat], result)
     node = make_node("local", [chat], ["local-adapter"])
 
@@ -252,7 +258,8 @@ def test_helper_does_not_change_orchestrate_request_signature_or_behavior() -> N
         "node_registry",
         "adapter_registry",
     ]
-    assert actual is result
+    assert actual.content == result.content
+    assert actual.node_id == "local"
     assert adapter.chat_requests == [make_request(chat)]
 
 

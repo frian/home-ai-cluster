@@ -46,7 +46,9 @@ class RecordingAdapter:
 
     async def chat(self, request: ClusterRequest) -> ClusterResult:
         self.chat_requests.append(request)
-        return ClusterResult(content="local result", adapter=self.name)
+        return ClusterResult(
+            content="local result", adapter=self.name, node_id="adapter-result"
+        )
 
 
 class RecordingRemoteTransport:
@@ -61,7 +63,9 @@ class RecordingRemoteTransport:
     ) -> ClusterResult:
         self.requests.append(request)
         self.declarations.append(declaration)
-        return ClusterResult(content="remote result", adapter="remote")
+        return ClusterResult(
+            content="remote result", adapter="remote", node_id="remote-response"
+        )
 
 
 def make_node(node_id: str, adapter_name: str = "recording") -> NodeDescription:

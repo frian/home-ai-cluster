@@ -18,7 +18,13 @@ async def execute_local_routing_decision(
     decision: RoutingDecision,
 ) -> ClusterResult:
     """Execute the selected local adapter for a routing decision."""
-    return await decision.adapter.chat(request)
+    result = await decision.adapter.chat(request)
+    return ClusterResult(
+        content=result.content,
+        adapter=result.adapter,
+        model=result.model,
+        node_id=decision.node.id,
+    )
 
 
 async def execute_routing_decision(
@@ -36,7 +42,8 @@ async def execute_remote_routing_decision(
     transport: RemoteTransport,
 ) -> ClusterResult:
     """Execute a routing decision through an explicit remote transport."""
-    return await transport.send(request, declaration)
+    result = await transport.send(request, declaration)
+    return result.model_copy(update={"node_id": declaration.node.id})
 
 
 async def execute_declared_remote_routing_candidate(
@@ -45,7 +52,8 @@ async def execute_declared_remote_routing_candidate(
     transport: RemoteTransport,
 ) -> ClusterResult:
     """Execute a declared remote candidate through explicit remote transport."""
-    return await transport.send(request, candidate.declaration)
+    result = await transport.send(request, candidate.declaration)
+    return result.model_copy(update={"node_id": candidate.node.id})
 
 
 async def execute_declared_routing_decision(

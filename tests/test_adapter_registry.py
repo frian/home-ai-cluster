@@ -26,7 +26,7 @@ class StubAdapter:
         return list(self._capabilities)
 
     async def chat(self, request: ClusterRequest) -> ClusterResult:
-        return ClusterResult(content="", adapter=self.name)
+        return ClusterResult(content="", adapter=self.name, node_id="adapter-result")
 
 
 def test_registry_starts_empty() -> None:

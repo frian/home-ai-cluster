@@ -35,6 +35,7 @@ class FakeRemoteTransport:
         self._result = result or ClusterResult(
             content="remote result",
             adapter="remote-adapter",
+            node_id="remote-response",
         )
         self._error = error
         self.requests: list[ClusterRequest] = []
@@ -75,7 +76,9 @@ class TestChatAdapter:
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 
-        return ClusterResult(content=content, adapter=self.name)
+        return ClusterResult(
+            content=content, adapter=self.name, node_id="adapter-result"
+        )
 
 
 def make_request() -> ClusterRequest:
@@ -174,7 +177,9 @@ def test_remote_transport_can_access_declaration_node() -> None:
 
 
 def test_remote_transport_returns_cluster_result() -> None:
-    result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
+    result = ClusterResult(
+        content="Hello from remote", adapter="remote-adapter", node_id="remote-response"
+    )
     transport = FakeRemoteTransport(result=result)
 
     actual = asyncio.run(_send_remote(transport, make_request(), make_declaration()))
@@ -225,7 +230,11 @@ def test_http_remote_transport_posts_normalized_cluster_request() -> None:
         captured_requests.append(request)
         return httpx.Response(
             200,
-            json={"content": "Hello from HTTP", "adapter": "remote-adapter"},
+            json={
+                "content": "Hello from HTTP",
+                "adapter": "remote-adapter",
+                "node_id": "receiving-local-node",
+            },
         )
 
     transport = httpx.MockTransport(handler)
@@ -242,6 +251,7 @@ def test_http_remote_transport_posts_normalized_cluster_request() -> None:
     assert result == ClusterResult(
         content="Hello from HTTP",
         adapter="remote-adapter",
+        node_id="receiving-local-node",
     )
     assert len(captured_requests) == 1
     assert captured_requests[0].method == "POST"
@@ -267,6 +277,7 @@ def test_http_remote_transport_returns_normalized_cluster_result() -> None:
                 "content": "Hello",
                 "adapter": "remote-adapter",
                 "model": "model",
+                "node_id": "receiving-local-node",
             },
         )
 
@@ -285,6 +296,7 @@ def test_http_remote_transport_returns_normalized_cluster_result() -> None:
         content="Hello",
         adapter="remote-adapter",
         model="model",
+        node_id="receiving-local-node",
     )
 
 
@@ -376,7 +388,9 @@ def test_http_remote_transport_can_call_internal_cluster_request_endpoint(
     result = asyncio.run(run())
 
     assert isinstance(result, ClusterResult)
-    assert result == ClusterResult(content="Hello over ASGI", adapter="test")
+    assert result == ClusterResult(
+        content="Hello over ASGI", adapter="test", node_id="local"
+    )
     assert captured_requests == [
         ("POST", "/internal/cluster/request", "declared-remote.test")
     ]

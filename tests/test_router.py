@@ -41,7 +41,7 @@ class StubAdapter:
 
     async def chat(self, request: ClusterRequest) -> ClusterResult:
         self.chat_was_called = True
-        return ClusterResult(content="", adapter=self.name)
+        return ClusterResult(content="", adapter=self.name, node_id="adapter-result")
 
 
 def make_request(capability: Capability) -> ClusterRequest:

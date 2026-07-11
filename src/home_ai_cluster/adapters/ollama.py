@@ -7,7 +7,7 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
-    ClusterResult,
+    RuntimeResult,
 )
 
 
@@ -45,7 +45,7 @@ class OllamaAdapter:
 
         return AdapterHealth(available=True)
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         messages = [
             {"role": message.role, "content": message.content}
             for message in request.messages
@@ -73,4 +73,8 @@ class OllamaAdapter:
         body = response.json()
         content = body.get("message", {}).get("content", "")
 
-        return ClusterResult(content=content, adapter=self.name, model=self.model)
+        return RuntimeResult(
+            content=content,
+            adapter=self.name,
+            model=self.model,
+        )

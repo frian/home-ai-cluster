@@ -39,7 +39,9 @@ class RecordingAdapter:
         result: ClusterResult | None = None,
     ) -> None:
         self._name = name
-        self._result = result or ClusterResult(content="Hello", adapter=name)
+        self._result = result or ClusterResult(
+            content="Hello", adapter=name, node_id="adapter-result"
+        )
         self.chat_requests: list[ClusterRequest] = []
 
     @property
@@ -69,7 +71,9 @@ class RecordingRemoteTransport:
     ) -> ClusterResult:
         self.requests.append(request)
         self.declarations.append(declaration)
-        return ClusterResult(content="Remote hello", adapter="remote")
+        return ClusterResult(
+            content="Remote hello", adapter="remote", node_id="remote-response"
+        )
 
 
 def make_request() -> ClusterRequest:
@@ -261,7 +265,9 @@ def test_select_routing_candidate_does_not_use_remote_transports() -> None:
 
 
 def test_select_routing_candidate_does_not_change_orchestrate_request() -> None:
-    result = ClusterResult(content="Hi", adapter="local-adapter")
+    result = ClusterResult(
+        content="Hi", adapter="local-adapter", node_id="adapter-result"
+    )
     adapter = RecordingAdapter(result=result)
     node = make_node("local", ["local-adapter"])
 
@@ -278,7 +284,8 @@ def test_select_routing_candidate_does_not_change_orchestrate_request() -> None:
         "node_registry",
         "adapter_registry",
     ]
-    assert actual is result
+    assert actual.content == result.content
+    assert actual.node_id == "local"
     assert adapter.chat_requests == [make_request()]
 
 

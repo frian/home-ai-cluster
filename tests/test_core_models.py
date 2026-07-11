@@ -66,9 +66,12 @@ def test_node_description_keeps_minimal_static_node_shape() -> None:
     assert "models" not in NodeDescription.model_fields
 
 
-def test_cluster_result_keeps_runtime_details_minimal() -> None:
-    result = ClusterResult(content="Hello", adapter="test-runtime")
+def test_cluster_result_requires_node_attribution() -> None:
+    result = ClusterResult(
+        content="Hello", adapter="test-runtime", node_id="selected-node"
+    )
 
     assert result.content == "Hello"
     assert result.adapter == "test-runtime"
     assert result.model is None
+    assert result.node_id == "selected-node"

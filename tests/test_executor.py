@@ -32,7 +32,9 @@ class RecordingAdapter:
         result: ClusterResult | None = None,
         error: RuntimeAdapterUnavailableError | None = None,
     ) -> None:
-        self._result = result or ClusterResult(content="result", adapter="adapter")
+        self._result = result or ClusterResult(
+            content="result", adapter="adapter", node_id="adapter-result"
+        )
         self._error = error
         self.chat_requests: list[ClusterRequest] = []
 
@@ -64,6 +66,7 @@ class FakeRemoteTransport:
         self._result = result or ClusterResult(
             content="remote result",
             adapter="remote-adapter",
+            node_id="remote-response",
         )
         self._error = error
         self.requests: list[ClusterRequest] = []
@@ -101,9 +104,12 @@ def make_node(node_id: str = "local") -> NodeDescription:
     )
 
 
-def make_decision(adapter: RecordingAdapter) -> RoutingDecision:
+def make_decision(
+    adapter: RecordingAdapter,
+    node_id: str = "local",
+) -> RoutingDecision:
     return RoutingDecision(
-        node=make_node(),
+        node=make_node(node_id),
         adapter=adapter,
         capability=Capability(name="chat"),
         reason="test decision",
@@ -127,15 +133,17 @@ def test_execute_local_routing_decision_passes_exact_request() -> None:
     assert adapter.chat_requests[0] is request
 
 
-def test_execute_local_routing_decision_returns_exact_adapter_result() -> None:
-    result = ClusterResult(content="Hello", adapter="adapter")
+def test_execute_local_routing_decision_attributes_selected_local_node() -> None:
+    result = ClusterResult(content="Hello", adapter="adapter", node_id="adapter-result")
     adapter = RecordingAdapter(result=result)
 
     actual = asyncio.run(
         execute_local_routing_decision(make_request(), make_decision(adapter))
     )
 
-    assert actual is result
+    assert actual.content == result.content
+    assert actual.adapter == result.adapter
+    assert actual.node_id == "local"
 
 
 def test_execute_routing_decision_delegates_to_local_execution_path() -> None:
@@ -203,8 +211,10 @@ def test_execute_remote_routing_decision_passes_exact_declaration() -> None:
     assert transport.declarations[0] is declaration
 
 
-def test_execute_remote_routing_decision_returns_exact_transport_result() -> None:
-    result = ClusterResult(content="Hello from remote", adapter="remote-adapter")
+def test_execute_remote_routing_decision_uses_declaration_node_id() -> None:
+    result = ClusterResult(
+        content="Hello from remote", adapter="remote-adapter", node_id="remote-response"
+    )
     transport = FakeRemoteTransport(result=result)
 
     actual = asyncio.run(
@@ -216,7 +226,9 @@ def test_execute_remote_routing_decision_returns_exact_transport_result() -> Non
         )
     )
 
-    assert actual is result
+    assert actual.content == result.content
+    assert actual.adapter == result.adapter
+    assert actual.node_id == "local"
 
 
 def test_execute_remote_routing_decision_propagates_transport_errors() -> None:
@@ -278,22 +290,27 @@ def test_execute_declared_routing_decision_uses_remote_transport() -> None:
     transport_result = ClusterResult(
         content="Hello from declared remote",
         adapter="remote-adapter",
+        node_id="remote-response",
     )
     transport = FakeRemoteTransport(result=transport_result)
     request = make_request()
-    declaration = make_declaration("local")
+    declaration = make_declaration("declared-remote")
+    declaration.transport_address = "http://192.0.2.7:8000"
     registry = RemoteNodeDeclarationRegistry([declaration])
 
     result = asyncio.run(
         execute_declared_routing_decision(
             request,
-            make_decision(adapter),
+            make_decision(adapter, "declared-remote"),
             registry,
             transport,
         )
     )
 
-    assert result is transport_result
+    assert result.content == transport_result.content
+    assert result.node_id == "declared-remote"
+    assert result.node_id != declaration.transport_address
+    assert result.node_id != transport_result.node_id
     assert transport.requests == [request]
     assert transport.requests[0] is request
     assert transport.declarations == [declaration]

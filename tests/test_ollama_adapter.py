@@ -11,7 +11,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
     ClusterRequest,
-    ClusterResult,
+    RuntimeResult,
 )
 
 
@@ -101,11 +101,12 @@ def test_ollama_adapter_chat_returns_cluster_result_from_ollama_response() -> No
 
     result = asyncio.run(adapter.chat(make_request()))
 
-    assert result == ClusterResult(
+    assert result == RuntimeResult(
         content="Hello back",
         adapter="ollama",
         model="llama3.2",
     )
+    assert not hasattr(result, "node_id")
 
 
 def test_ollama_adapter_chat_translates_http_failure_to_adapter_error() -> None:

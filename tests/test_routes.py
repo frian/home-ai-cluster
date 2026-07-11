@@ -33,7 +33,9 @@ class TestChatAdapter:
         ]
         content = user_messages[-1] if user_messages else request.messages[-1].content
 
-        return ClusterResult(content=content, adapter=self.name)
+        return ClusterResult(
+            content=content, adapter=self.name, node_id="adapter-result"
+        )
 
 
 class UnavailableChatAdapter(TestChatAdapter):
@@ -131,6 +133,7 @@ def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> N
         "content": "Hello",
         "adapter": "test",
         "model": None,
+        "node_id": "local",
     }
     assert "reason" not in response.json()
     assert "node" not in response.json()
@@ -242,6 +245,7 @@ def test_internal_cluster_request_endpoint_accepts_normalized_cluster_request(
         "content": "Hello internal",
         "adapter": "test",
         "model": None,
+        "node_id": "local",
     }
 
 

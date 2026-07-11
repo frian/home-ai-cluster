@@ -6,7 +6,7 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
-    ClusterResult,
+    RuntimeResult,
 )
 
 
@@ -30,6 +30,6 @@ class RuntimeAdapter(Protocol):
         """Return capabilities currently provided by the adapter."""
         ...
 
-    async def chat(self, request: ClusterRequest) -> ClusterResult:
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
         """Execute a normalized chat request."""
         ...

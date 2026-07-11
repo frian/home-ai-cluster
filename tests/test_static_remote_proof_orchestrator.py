@@ -104,9 +104,7 @@ def make_wiring(
 
 
 def test_local_only_selects_and_executes_local_candidate() -> None:
-    wiring, adapter, transport = make_wiring(
-        RoutingCandidateSelectionMode.LOCAL_ONLY
-    )
+    wiring, adapter, transport = make_wiring(RoutingCandidateSelectionMode.LOCAL_ONLY)
     request = make_request()
 
     result = asyncio.run(orchestrate_static_remote_proof(request, wiring))
@@ -132,9 +130,7 @@ def test_declared_remote_only_selects_and_executes_remote_candidate() -> None:
 
 
 def test_prefer_local_is_deterministic_selection_not_runtime_fallback() -> None:
-    wiring, adapter, transport = make_wiring(
-        RoutingCandidateSelectionMode.PREFER_LOCAL
-    )
+    wiring, adapter, transport = make_wiring(RoutingCandidateSelectionMode.PREFER_LOCAL)
 
     result = asyncio.run(orchestrate_static_remote_proof(make_request(), wiring))
 

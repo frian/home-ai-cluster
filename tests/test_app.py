@@ -103,6 +103,13 @@ def chat_payload() -> dict[str, object]:
     }
 
 
+def internal_cluster_request_payload() -> dict[str, object]:
+    return {
+        "messages": [{"role": "user", "content": "Hello"}],
+        "capability": {"name": "chat"},
+    }
+
+
 def test_create_app_returns_fastapi_application() -> None:
     app = create_app()
 
@@ -201,7 +208,7 @@ def test_internal_cluster_request_remains_local_with_remote_proof_wiring(
     response = post(
         create_app(static_remote_proof_wiring=wiring),
         "/internal/cluster/request",
-        chat_payload(),
+        internal_cluster_request_payload(),
     )
 
     assert response.status_code == 200

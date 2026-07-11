@@ -92,8 +92,9 @@ def make_wiring(
 ) -> tuple[object, RecordingAdapter, RecordingRemoteTransport]:
     adapter = RecordingAdapter()
     transport = RecordingRemoteTransport()
+    local_node = make_node("local", adapter.name, local_capability)
     wiring = build_static_remote_proof_wiring(
-        node_registry=NodeRegistry([make_node("local", adapter.name, local_capability)]),
+        node_registry=NodeRegistry([local_node]),
         adapter_registry=AdapterRegistry([adapter]),
         remote_declaration=make_remote_declaration(remote_capability),
         remote_transport=transport,

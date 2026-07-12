@@ -13,7 +13,9 @@ from home_ai_cluster.automatic_proof import (
     main,
     parse_args,
 )
+from home_ai_cluster.core.models import ClusterRequest, ClusterResult
 from home_ai_cluster.core.remote_transport import RemoteTransportError
+from home_ai_cluster.main import create_app
 
 
 def test_automatic_proof_requires_one_absolute_http_address() -> None:
@@ -131,3 +133,39 @@ def test_proof_chat_failure_attempts_remote_once_without_fallback() -> None:
 
     asyncio.run(run())
     assert attempts == 1
+
+
+def test_ordinary_chat_remains_local_only_without_proof_orchestrator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    requests: list[ClusterRequest] = []
+
+    async def record_local_request(request: ClusterRequest) -> ClusterResult:
+        requests.append(request)
+        return ClusterResult(content="local", adapter="test", node_id="local")
+
+    monkeypatch.setattr(
+        routes, "handle_static_local_cluster_request", record_local_request
+    )
+
+    async def run() -> httpx.Response:
+        app = create_app()
+        assert app.state.automatic_proof_orchestrator is None
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://ordinary"
+        ) as client:
+            return await client.post(
+                "/v1/chat",
+                json={
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "capability": "chat",
+                },
+            )
+
+    response = asyncio.run(run())
+    assert response.status_code == 200
+    assert response.json()["node_id"] == "local"
+    assert len(requests) == 1
+    assert requests[0].constraints.local_only is True

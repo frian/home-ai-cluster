@@ -13,7 +13,12 @@ from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport, RemoteTransport
 from home_ai_cluster.core.router import route_request
-from home_ai_cluster.core.routing_candidates import SelectedRoutingCandidate
+from home_ai_cluster.core.routing_candidates import (
+    AutomaticCapabilitySelectionExplanation,
+    SelectedRoutingCandidate,
+    routing_candidates_for_request,
+    select_automatic_capability_routing_candidate,
+)
 
 
 class InvalidSelectedRoutingCandidateError(Exception):
@@ -22,6 +27,16 @@ class InvalidSelectedRoutingCandidateError(Exception):
 
 class MissingRemoteTransportError(Exception):
     """Raised when declared remote execution lacks an explicit transport."""
+
+
+class NoSelectableRoutingCandidateError(Exception):
+    """Raised when automatic capability selection cannot select a candidate."""
+
+    def __init__(self, explanation: AutomaticCapabilitySelectionExplanation) -> None:
+        super().__init__(
+            "Automatic capability selection produced no selectable candidate"
+        )
+        self.explanation = explanation
 
 
 async def orchestrate_request(
@@ -70,6 +85,32 @@ async def orchestrate_request_with_selected_candidate(
         request,
         selected.declared_remote,
         remote_transport,
+    )
+
+
+async def orchestrate_request_with_automatic_capability_selection(
+    request: ClusterRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry,
+    remote_transport: RemoteTransport,
+) -> ClusterResult:
+    """Compose explicit candidate discovery, automatic selection, and execution."""
+    candidates = routing_candidates_for_request(
+        request,
+        node_registry,
+        adapter_registry,
+        remote_registry,
+    )
+    selection = select_automatic_capability_routing_candidate(request, candidates)
+
+    if selection.selected is None:
+        raise NoSelectableRoutingCandidateError(selection.explanation)
+
+    return await orchestrate_request_with_selected_candidate(
+        request,
+        selection.selected,
+        remote_transport=remote_transport,
     )
 
 

@@ -80,11 +80,17 @@ home-ai-cluster-explain-routing
 
 The command is the sole operator-facing surface selected by this RFC. It is not
 an HTTP endpoint, response header, daemon, or dashboard. One explicit
-invocation supplies or constructs exactly one `ClusterRequest` within an
-explicit operator-owned composition and returns one structured explanation to
-the operator. The precise command argument and serialization syntax are an
-implementation detail, but they must not become a general configuration,
-selection-mode, or remote-permission interface.
+invocation evaluates exactly one request within one explicit operator-owned
+composition and returns one structured explanation to the operator.
+
+The precise command argument spelling remains an implementation detail, but a
+future implementation must construct one `ClusterRequest` and must not:
+
+- introduce a persistent or general configuration format;
+- introduce caller-directed selection modes;
+- authorize remote execution; or
+- accept prompt or message content when capability and constraints are
+  sufficient for explanation.
 
 The command may use the same static local registries and caller-owned
 declared-remote registry available to an explicit RFC-0025 composition. A
@@ -125,28 +131,81 @@ fallback semantics, and keeps selection separate from execution. It also makes
 the outcome deterministic and directly testable. This RFC does not solve how a
 future mutable system might change between an explanation and a later request.
 
-### Returned facts and privacy boundary
+### Structured stdout contract and privacy boundary
 
 The command must reuse the explanation facts owned by RFC-0025 rather than
-creating a second routing explanation model. Its structured result must expose
-only the following minimum facts, expressed using the existing accepted
-semantics:
+creating a second routing explanation model. When it successfully evaluates a
+request, it writes exactly one JSON object to stdout. That object has exactly
+these stable top-level fields, all of which are always present:
 
-- `requested_capability`;
-- `matched_candidate_families` for local and declared-remote candidates;
-- `selectable_candidate_families` after request constraints;
-- `excluded_candidate_families`, including declared remote when `local_only`
-  excludes it;
-- `selected_candidate_family`, when selection succeeds;
-- `selected_node_id`, when selection succeeds;
-- `outcome_rule`; and
-- `failure_reason`, when selection does not succeed.
+```text
+requested_capability
+matched_candidate_families
+selectable_candidate_families
+excluded_candidate_families
+selected_candidate_family
+selected_node_id
+outcome_rule
+failure_reason
+```
+
+`requested_capability`, candidate-family values, `selected_node_id`,
+`outcome_rule`, and `failure_reason` are strings when present. The three
+candidate-family fields are JSON arrays of strings and use empty arrays when
+no family has that property. `selected_candidate_family`, `selected_node_id`,
+and `failure_reason` use JSON `null` when not applicable.
+
+The candidate-family strings are `local` and `declared-remote`, matching the
+two RFC-0025 candidate families. `outcome_rule` and `failure_reason` reuse
+the existing RFC-0025 values. In particular, established values include
+`local-only`, `local-precedence`, `declared-remote-only`, and
+`no-selectable-candidate` for `outcome_rule`, and
+`no-matching-candidate` and `local-only-excluded-declared-remote` for
+`failure_reason`.
 
 The selected candidate family is derived from the existing selected candidate;
 the remaining fields are direct representations or minimal groupings of
 RFC-0025's existing deterministic facts. A no-matching-candidate or
-no-selectable-candidate outcome must still return the facts available for that
-outcome. It must not be converted into execution fallback.
+no-selectable-candidate outcome still writes this object with the facts
+available for that outcome. It must not be converted into execution fallback.
+
+Human-oriented diagnostics and invalid-invocation errors go to stderr, never
+into the structured stdout object. The command exits with status `0` whenever
+it successfully produces a routing explanation, including a valid
+no-selection outcome. A non-zero exit status is reserved for invalid invocation
+or failure to construct or evaluate the requested explanation. No selection is
+domain data, not command failure.
+
+The following are normative examples using the established RFC-0025 values.
+A selected declared-remote candidate is represented as:
+
+```json
+{
+  "requested_capability": "chat",
+  "matched_candidate_families": ["declared-remote"],
+  "selectable_candidate_families": ["declared-remote"],
+  "excluded_candidate_families": [],
+  "selected_candidate_family": "declared-remote",
+  "selected_node_id": "declared-remote",
+  "outcome_rule": "declared-remote-only",
+  "failure_reason": null
+}
+```
+
+A no-selection outcome caused by `local_only=true` is represented as:
+
+```json
+{
+  "requested_capability": "chat",
+  "matched_candidate_families": ["declared-remote"],
+  "selectable_candidate_families": [],
+  "excluded_candidate_families": ["declared-remote"],
+  "selected_candidate_family": null,
+  "selected_node_id": null,
+  "outcome_rule": "no-selectable-candidate",
+  "failure_reason": "local-only-excluded-declared-remote"
+}
+```
 
 The explanation must not contain prompt or message content, model output,
 secrets, transport credentials, full transport URLs, runtime logs, request
@@ -273,6 +332,11 @@ general remote-routing control plane.
 Future implementation is acceptable only when all of the following are true:
 
 - one explicit operator-facing invocation returns a structured explanation;
+- that explanation is exactly one stdout JSON object with all eight stable
+  top-level fields and the required JSON types and `null` values;
+- valid no-selection outcomes return structured stdout and exit status `0`;
+- invalid invocation and evaluation failure use non-zero exit status and do
+  not turn diagnostics into structured routing output;
 - no local adapter executes;
 - no remote execution transport call occurs;
 - no prompt content appears in the explanation;
@@ -284,10 +348,6 @@ Future implementation is acceptable only when all of the following are true:
 
 ## Open questions
 
-- What smallest command input and output serialization best represents one
-  `ClusterRequest` without becoming a configuration format?
-- Which stable field names should a future implementation use while preserving
-  the RFC-0025 facts exactly?
 - Should a later RFC expose this same explanation through a different
   operator-facing surface after compatibility and privacy requirements are
   established?

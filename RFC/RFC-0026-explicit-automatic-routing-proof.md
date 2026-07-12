@@ -1,6 +1,6 @@
 # RFC-0026: Explicit Automatic Routing Proof Process
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-12
 
@@ -121,7 +121,7 @@ path.
 
 ### Request permission and HTTP entrypoint
 
-The proof process may expose the existing `/v1/chat` route through its
+The proof process exposes the existing `/v1/chat` route through its
 proof-only application composition, following RFC-0022. For every proof
 request, it explicitly constructs `local_only=false`.
 
@@ -272,4 +272,4 @@ The proof succeeds only when all of the following are observed:
 
 ## Decision
 
-Pending.
+Accepted.

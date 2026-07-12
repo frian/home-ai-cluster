@@ -2,8 +2,8 @@
 
 Status: Draft
 
-This document describes the current Phase 4 implementation state after merged
-PRs #142 and #143. It is descriptive, not a new architectural decision.
+This document describes the current Phase 4 implementation state. It is
+descriptive, not a new architectural decision.
 Accepted RFCs remain the source of architectural decisions.
 
 ## Status
@@ -21,9 +21,10 @@ records why the demonstrated proof does not yet satisfy every current roadmap
 outcome.
 
 Accepted RFC-0027 is implemented by the explicit
-`home-ai-cluster-explain-routing` command. It reports an explanation without
-candidate execution; ordinary `/v1/chat` remains unchanged, and fallback
-remains postponed.
+`home-ai-cluster-explain-routing` command. Operator-facing routing explanation
+is now demonstrated without candidate execution through the stable JSON
+contract. Ordinary `/v1/chat` remains unchanged, and fallback remains
+postponed.
 
 ## Accepted decision
 
@@ -97,12 +98,12 @@ general routing or configuration surface was introduced.
 - configuration design;
 - authentication and trust;
 - richer capability modeling;
-- ordinary `/v1/chat` activation; and
+- ordinary `/v1/chat` activation.
 
 ## Next architectural question
 
-The next Phase 4 architectural question remains undecided and requires an RFC
-before implementation.
+The next Phase 4 architectural question is the smallest fallback semantics.
+It remains undecided and requires an RFC before implementation.
 
 ## Accepted RFC references
 

@@ -21,7 +21,9 @@ This assessment uses the Phase 4 goal and expected outcomes in
 first Phase 4 increment in
 [RFC-0025](../RFC/RFC-0025-minimal-capability-based-candidate-selection.md),
 and the automatic-proof boundary in
-[RFC-0026](../RFC/RFC-0026-explicit-automatic-routing-proof.md).
+[RFC-0026](../RFC/RFC-0026-explicit-automatic-routing-proof.md), and the
+operator-facing explanation boundary in
+[RFC-0027](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md).
 
 The implementation and tests on `main` include the RFC-0025 automatic
 selection and orchestration modules and their test coverage. Merged PR #147
@@ -30,6 +32,8 @@ two-machine result in
 [Automatic Routing Two-Machine Proof Result](automatic-routing-two-machine-proof-result.md).
 The prior static Phase 3 proof is recorded in
 [First Two-Machine Proof Result](first-two-machine-proof-result.md).
+Merged PR #151 implements the accepted RFC-0027
+`home-ai-cluster-explain-routing` command and its focused tests.
 
 ## Phase 4 roadmap criteria
 
@@ -107,20 +111,28 @@ semantics.
 
 ### Basic explanation of routing decisions
 
-**Classification: Partially demonstrated.**
+**Classification: Demonstrated.**
 
 RFC-0025 requires deterministic internal explanation facts: requested
 capability, matched and selectable candidate families, `local_only` exclusion,
 selected node, outcome rule, and no-selectable-candidate reason. The
-implementation and its tests provide those internal facts.
+implementation and its tests provide those internal facts. Accepted RFC-0027
+now exposes them through the explicit local
+`home-ai-cluster-explain-routing` command.
 
-The same accepted RFC explicitly excludes a public explanation field or HTTP
-contract change. RFC-0026 permits proof evidence and a recorded result but
-adds no public routing explanation. The current-state document explicitly
-postpones public routing explanation. Therefore the internal decision facts
-partially demonstrate the outcome, while a public or operator-facing basic
-explanation remains postponed and needs an RFC before its interface or
-exposure is defined.
+For each successful command evaluation, the command writes one structured JSON
+object with the eight stable RFC-0027 fields. It covers deterministic selection
+and no-selection outcomes, including `local_only` exclusion and no matching
+candidates, without candidate execution. Its tests cover the distinct current
+routing outcomes, the JSON and exit-status contract, absence of prompt input,
+and the fact that no adapter, transport, or selected-candidate execution path
+is entered. The command is operator-facing while preserving the privacy
+boundary: it returns routing facts, not prompt content, model output, history,
+tracing, or metrics.
+
+This does not attach explanation to ordinary `/v1/chat` or create production
+observability. Those are not required to demonstrate the roadmap's basic
+explanation outcome, and ordinary `/v1/chat` remains unchanged.
 
 ## Demonstrated results beyond the minimum criteria
 
@@ -133,13 +145,16 @@ exposure is defined.
 - The real RFC-0026 proof established: `One endpoint. Two machines. One
   automatically routed request.` It included successful remote Ollama
   execution and left ordinary local-only behavior unchanged.
+- The RFC-0027 command provides an explicit no-execution explanation of the
+  same RFC-0025 selection facts through a stable operator-facing JSON contract.
 
 ## Remaining gaps
 
-The roadmap's fallback outcome is explicitly postponed. Public or
-operator-facing routing explanation is also postponed; internal facts do not
-by themselves provide that interface. In addition, ordinary `/v1/chat` remains
-outside the automatic remote-capable composition by accepted design.
+The roadmap's fallback outcome is explicitly postponed. RFC-0025 still defines
+exactly-once execution with no retry or fallback, and no accepted decision
+defines availability, failure classification, or fallback semantics. RFC-0027
+does not change execution semantics. Ordinary `/v1/chat` also remains outside
+the automatic remote-capable composition by accepted design.
 
 These gaps do not invalidate the demonstrated RFC-0025/RFC-0026 proof. They
 do prevent the proof from serving as evidence that every current roadmap
@@ -154,11 +169,11 @@ simple exact-name capability model, `local_only` request constraint, matching
 and selectability, deterministic automatic selection, exactly-once execution,
 internal explanation facts, and a real automatic two-machine result.
 
-The current roadmap also expects fallback when a node is unavailable and a
-basic routing explanation. Fallback is explicitly postponed by the accepted
-current increment and current-state record. Explanation is only internally
-demonstrated; its public or operator-facing form is explicitly postponed. No
-accepted decision formally redefines the roadmap's Phase 4 completion criteria.
+The current roadmap still expects fallback when a node is unavailable.
+Operator-facing basic routing explanation is now demonstrated by accepted and
+implemented RFC-0027. Fallback remains explicitly postponed by the accepted
+current increment and current-state record. No accepted decision formally
+redefines the roadmap's Phase 4 completion criteria.
 
 ## Consequences of the conclusion
 
@@ -167,17 +182,17 @@ narrow automatic-routing capability, not as Phase 4 closure. The roadmap and
 accepted RFCs should remain unchanged by this assessment.
 
 Future work must distinguish implementation of already accepted decisions from
-new architectural work. Fallback, retry, health-aware availability, and public
-routing explanation require an RFC before implementation because they change
-routing, failure, or public-boundary semantics.
+new architectural work. Fallback, retry, and health-aware availability require
+an RFC before implementation because they change routing and failure semantics.
 
 ## Architectural boundary
 
 This assessment does not decide whether ordinary `/v1/chat` should gain
 automatic routing, what fallback policy should be, how availability should be
-determined, or how explanations should be exposed. Those remain architectural
-questions. RFC-0025's no-fallback rule is the accepted boundary for its narrow
-increment, not a permanent rejection of fallback.
+determined, or how an explanation might be attached to ordinary requests.
+Those remain architectural questions. RFC-0025's no-fallback rule is the
+accepted boundary for its narrow increment, not a permanent rejection of
+fallback.
 
 ## References
 
@@ -185,6 +200,7 @@ increment, not a permanent rejection of fallback.
 - [RFC-0024: Phase 3 Closeout and Phase 4 Entry](../RFC/RFC-0024-phase-3-closeout-and-phase-4-entry.md)
 - [RFC-0025: Minimal Capability-Based Candidate Selection](../RFC/RFC-0025-minimal-capability-based-candidate-selection.md)
 - [RFC-0026: Explicit Automatic Routing Proof](../RFC/RFC-0026-explicit-automatic-routing-proof.md)
+- [RFC-0027: Minimal Operator-Facing Routing Explanation](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md)
 - [Phase 4 Current State](phase-4-current-state.md)
 - [Automatic Routing Two-Machine Proof Result](automatic-routing-two-machine-proof-result.md)
 - [First Two-Machine Proof Result](first-two-machine-proof-result.md)

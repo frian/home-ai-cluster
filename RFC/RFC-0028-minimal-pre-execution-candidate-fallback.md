@@ -14,6 +14,11 @@ In one dedicated proof-only composition, RFC-0025 automatic capability selection
 
 If, and only if, that selected local candidate reports a narrowly classified unavailability failure before useful execution may have begun, the orchestrator may execute the already discovered declared-remote candidate once.
 
+This RFC satisfies the roadmap fallback outcome only for one explicitly defined
+candidate-unavailability condition; it does not define general node
+availability. Failure to establish a local runtime connection does not prove
+that the machine or node itself is unavailable.
+
 The fallback behavior is therefore:
 
 ```text
@@ -30,6 +35,10 @@ The Phase 4 roadmap includes:
 
 > fallback when a node is unavailable
 
+For this increment, that roadmap wording is satisfied only by one explicitly
+defined candidate-unavailability condition. It does not define general node
+availability, node health, probing, or a conclusion that a machine is down.
+
 The current accepted routing increment deliberately does not implement that outcome.
 
 RFC-0025 discovers local and declared-remote candidates, applies request constraints, automatically selects exactly one candidate, and executes that candidate exactly once. An execution failure remains visible and does not cause retry or fallback.
@@ -38,7 +47,9 @@ That behavior was necessary to establish deterministic automatic selection witho
 
 The project now needs the smallest explicit answer to the following question:
 
-> What should happen when the automatically selected candidate is known to be unavailable before useful execution begins, while another already discovered and selectable candidate exists?
+> What should happen when the automatically selected local runtime connection
+> cannot be established before request transmission can begin, while another
+> already discovered and selectable candidate exists?
 
 A broad fallback mechanism would introduce unresolved questions about retries, timeouts, health, duplicate execution, idempotency, ordering, and ordinary application activation.
 
@@ -58,7 +69,8 @@ This RFC should:
 * preserve deterministic execution and attribution;
 * keep the behavior inside a dedicated proof-only composition;
 * allow a real two-machine proof; and
-* provide enough execution facts to prove that the initial candidate and fallback candidate were each attempted at most once.
+* require focused proof and test evidence that each allowed candidate attempt
+  occurs at most once.
 
 ## Non-goals
 
@@ -155,6 +167,10 @@ candidate unavailable before useful execution began
 
 This condition means the implementation can affirmatively determine that the selected candidate did not accept the request for useful runtime execution and did not produce a useful result.
 
+It is a candidate-execution condition only. It is not general node
+availability, does not establish node health, and does not prove that the
+machine itself is unavailable.
+
 The condition must be represented explicitly.
 
 The orchestrator must not infer it from an arbitrary exception, generic timeout, error message, HTTP status, or broad exception hierarchy.
@@ -165,9 +181,20 @@ All unclassified or ambiguous failures remain ordinary visible failures without 
 
 ### Eligible first implementation condition
 
-For the first implementation and proof, the only eligible concrete condition should be failure to establish the local runtime connection before the runtime receives the request.
+For the first implementation and proof, the only eligible concrete condition
+should be failure to establish the local runtime connection before request
+transmission can begin.
 
-The local runtime adapter may translate that specific condition into a cluster-owned pre-execution unavailability signal.
+The current broad `RuntimeAdapterUnavailableError` semantics are not sufficient
+and must not be reused unchanged as the fallback trigger. The current Ollama
+adapter maps every `httpx.HTTPError` to that error, including connection
+failures, timeouts, HTTP status failures, and other ambiguous cases.
+
+The implementation must introduce either a new narrow cluster-owned signal or
+an explicitly refined outcome. Its only first allowed adapter mapping is
+failure to establish the local runtime connection before request transmission
+can begin. Every other case currently represented by
+`RuntimeAdapterUnavailableError` remains a visible failure without fallback.
 
 The core must depend only on the cluster-owned semantic signal.
 
@@ -177,7 +204,7 @@ The adapter translation is intentionally narrow.
 
 It must not classify the following as safely unavailable:
 
-* connection or read timeout after connection establishment;
+* any timeout, including connection or read timeout;
 * HTTP status errors;
 * malformed or incomplete responses;
 * connection loss after request transmission may have begun;
@@ -260,26 +287,28 @@ There is no further fallback, retry, recovery, or masking.
 
 The system must not return a successful local-looking result after remote fallback failure.
 
-### Execution explanation facts
+### Proof and test evidence
 
 RFC-0027 remains a no-execution explanation of RFC-0025 selection and is unchanged.
 
 Because fallback depends on execution, its facts do not belong in `home-ai-cluster-explain-routing`.
 
-The fallback orchestration should produce a small deterministic internal execution explanation containing at least:
+This RFC does not require a new execution-explanation object or stable
+representation. Focused tests and the dedicated proof process must instead
+provide the minimum deterministic evidence of:
 
-* initially selected candidate family;
-* whether an eligible pre-execution unavailability condition occurred;
-* whether fallback was attempted;
-* fallback candidate family, when attempted;
-* final executing node id on success;
-* final failure stage on failure.
+* initial local selection;
+* one local attempt;
+* the narrow eligible pre-execution condition;
+* one declared-remote fallback attempt;
+* no rediscovery;
+* no reselection;
+* no retry; and
+* final node attribution or visible failure.
 
-These facts must not contain prompt or response content.
-
-This RFC does not define persistence, logging, tracing, metrics, or a change to `ClusterResult`.
-
-The dedicated proof process may expose or record the minimum operator-visible evidence needed to demonstrate the fallback path, but it must not create a general observability interface.
+This evidence must not log or persist prompt or response contents. It does not
+authorize persistence, logging, tracing, metrics, or a change to
+`ClusterResult`.
 
 ### Dedicated proof-only process
 
@@ -321,7 +350,11 @@ The ordinary application must remain unchanged and local-only.
 
 ## Rationale
 
-This proposal satisfies the remaining Phase 4 roadmap outcome without creating a general resilience subsystem.
+This proposal satisfies the remaining Phase 4 roadmap outcome only for one
+explicitly defined candidate-unavailability condition. It does not define
+general node availability or a general resilience subsystem. Failure to
+establish the local runtime connection does not prove that the node or machine
+is unavailable.
 
 It reuses the existing candidate collection and RFC-0025 initial selection rather than adding a second routing policy.
 
@@ -444,8 +477,14 @@ The RFC is implemented and demonstrated only when all of the following are true:
 * the proof request has `local_only=false`;
 * RFC-0025 selects local through fixed local precedence;
 * local execution is attempted exactly once;
-* the local failure is the one accepted pre-execution unavailability condition;
-* the failure is translated through an adapter boundary into a cluster-owned semantic signal;
+* the local failure is only failure to establish the local runtime connection
+  before request transmission can begin;
+* the failure is translated through an adapter boundary into a new narrow
+  cluster-owned signal or explicitly refined outcome, not the current broad
+  `RuntimeAdapterUnavailableError` semantics reused unchanged;
+* every other existing `RuntimeAdapterUnavailableError` case, including
+  timeouts, HTTP status failures, and ambiguous failures, remains visible
+  without fallback;
 * the already discovered declared-remote candidate is executed exactly once;
 * candidates are not rediscovered;
 * automatic selection is not rerun;
@@ -454,9 +493,16 @@ The RFC is implemented and demonstrated only when all of the following are true:
 * no third execution occurs;
 * successful fallback returns `node_id=declared-remote`;
 * ambiguous failures do not trigger fallback;
-* `local_only=true` prevents remote fallback contact and execution;
-* no prompt or response logging is added;
-* focused tests prove attempt counts and excluded failure classes;
+* `local_only=true` prevents all remote contact and execution, including
+  fallback;
+* focused tests and the dedicated proof demonstrate initial local selection,
+  one local attempt, the narrow eligible condition, one declared-remote
+  fallback attempt, no rediscovery, no reselection, no retry, and final node
+  attribution or visible failure;
+* this RFC satisfies the roadmap fallback outcome only for the explicitly
+  defined candidate-unavailability condition and does not define general node
+  availability;
+* no prompt or response contents are logged or persisted;
 * a real two-machine fallback proof succeeds; and
 * the proof result is recorded without claiming broader resilience behavior.
 

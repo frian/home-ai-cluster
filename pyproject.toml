@@ -14,6 +14,7 @@ dependencies = [
 [project.scripts]
 home-ai-cluster-static-proof = "home_ai_cluster.static_proof:main"
 home-ai-cluster-automatic-proof = "home_ai_cluster.automatic_proof:main"
+home-ai-cluster-explain-routing = "home_ai_cluster.routing_explanation:main"
 
 [dependency-groups]
 dev = [

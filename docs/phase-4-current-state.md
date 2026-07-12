@@ -16,6 +16,10 @@ Phase 4 is not complete. A real two-machine RFC-0025/RFC-0026 proof succeeded
 on 2026-07-12; it returned HTTP 200 from Ollama model `llama3.2` with
 `node_id=declared-remote`.
 
+The evidence-based [Phase 4 Completion Assessment](phase-4-completion-assessment.md)
+records why the demonstrated proof does not yet satisfy every current roadmap
+outcome.
+
 ## Accepted decision
 
 RFC-0025 defines a small, cluster-owned automatic capability-selection policy:

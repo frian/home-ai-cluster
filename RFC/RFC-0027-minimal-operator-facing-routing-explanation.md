@@ -1,6 +1,6 @@
 # RFC-0027: Minimal Operator-Facing Routing Explanation
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-07-12
 
@@ -354,4 +354,16 @@ Future implementation is acceptable only when all of the following are true:
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will provide one explicit local
+`home-ai-cluster-explain-routing` command. It will explain routing without
+candidate execution and write exactly one structured JSON object containing the
+eight stable routing explanation fields defined by this RFC to stdout.
+
+The command exits with status `0` for valid selection and valid no-selection
+explanations. Invalid invocation or failure to construct or evaluate an
+explanation uses stderr and a non-zero exit status.
+
+This decision does not change ordinary `/v1/chat`, `ClusterResult`, the
+RFC-0025 routing policy, the RFC-0026 proof behavior, retry, or fallback.

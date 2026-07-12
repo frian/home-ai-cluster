@@ -20,6 +20,11 @@ The evidence-based [Phase 4 Completion Assessment](phase-4-completion-assessment
 records why the demonstrated proof does not yet satisfy every current roadmap
 outcome.
 
+Accepted RFC-0027 is implemented by the explicit
+`home-ai-cluster-explain-routing` command. It reports an explanation without
+candidate execution; ordinary `/v1/chat` remains unchanged, and fallback
+remains postponed.
+
 ## Accepted decision
 
 RFC-0025 defines a small, cluster-owned automatic capability-selection policy:
@@ -93,7 +98,6 @@ general routing or configuration surface was introduced.
 - authentication and trust;
 - richer capability modeling;
 - ordinary `/v1/chat` activation; and
-- public routing explanation.
 
 ## Next architectural question
 
@@ -105,3 +109,4 @@ before implementation.
 - [RFC-0022: Explicit Static Proof Process Entrypoint](../RFC/RFC-0022-explicit-static-proof-process-entrypoint.md)
 - [RFC-0024: Phase 3 Closeout and Phase 4 Entry](../RFC/RFC-0024-phase-3-closeout-and-phase-4-entry.md)
 - [RFC-0025: Minimal Capability-Based Candidate Selection](../RFC/RFC-0025-minimal-capability-based-candidate-selection.md)
+- [RFC-0027: Minimal Operator-Facing Routing Explanation](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md)

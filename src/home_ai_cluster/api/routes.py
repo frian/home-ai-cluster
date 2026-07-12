@@ -13,6 +13,7 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    RequestConstraints,
 )
 from home_ai_cluster.core.orchestrator import orchestrate_request
 from home_ai_cluster.core.router import NoMatchingAdapterError
@@ -65,10 +66,19 @@ async def handle_chat_cluster_request(
 
 @router.post("/v1/chat", response_model=ClusterResult)
 async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
+    automatic_proof_orchestrator = http_request.app.state.automatic_proof_orchestrator
     cluster_request = ClusterRequest(
         messages=request.messages,
         capability=Capability(name=request.capability),
+        constraints=(
+            RequestConstraints(local_only=False)
+            if automatic_proof_orchestrator
+            else RequestConstraints()
+        ),
     )
+
+    if automatic_proof_orchestrator:
+        return await automatic_proof_orchestrator(cluster_request)
 
     return await handle_chat_cluster_request(
         cluster_request,

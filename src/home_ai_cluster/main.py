@@ -14,6 +14,7 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="Home AI Cluster", lifespan=lifespan)
     app.state.static_remote_proof_wiring = static_remote_proof_wiring
+    app.state.automatic_proof_orchestrator = None
     app.include_router(router)
     return app
 

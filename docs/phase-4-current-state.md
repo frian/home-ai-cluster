@@ -9,10 +9,12 @@ Accepted RFCs remain the source of architectural decisions.
 ## Status
 
 Phase 4 has begun. Accepted RFC-0025 is implemented in an explicit internal
-composition seam.
+composition seam, and accepted RFC-0026 is implemented as a dedicated
+proof-only automatic-routing process by PR #147.
 
-Phase 4 is not complete. No real two-machine proof of the RFC-0025 automatic
-capability-selection behavior has yet been recorded.
+Phase 4 is not complete. A real two-machine RFC-0025/RFC-0026 proof succeeded
+on 2026-07-12; it returned HTTP 200 from Ollama model `llama3.2` with
+`node_id=declared-remote`.
 
 ## Accepted decision
 
@@ -64,13 +66,13 @@ explicit caller-owned composition
 - A declaration, address, or transport instance alone does not activate remote
   routing.
 
-## What has not been proved yet
+## Recorded automatic-routing proof
 
-No real two-machine proof of RFC-0025 automatic capability selection has yet
-been recorded.
-
-The implementation is covered by in-memory tests, but no operator-facing or
-proof-process invocation has been decided or implemented.
+PR #147 added the dedicated proof-only automatic-routing process. Its real
+two-machine execution is recorded in
+[Automatic Routing Two-Machine Proof Result](automatic-routing-two-machine-proof-result.md).
+Ordinary `/v1/chat` remains local-only, RFC-0022 remains unchanged, and no
+general routing or configuration surface was introduced.
 
 ## Explicitly postponed
 
@@ -91,12 +93,8 @@ proof-process invocation has been decided or implemented.
 
 ## Next architectural question
 
-> What is the smallest explicit operator-owned way to invoke and prove
-> RFC-0025 automatic capability routing without changing ordinary `/v1/chat`?
-
-Answering this question requires a new RFC before implementation. This document
-does not propose a final interface, configuration format, endpoint, command, or
-process design.
+The next Phase 4 architectural question remains undecided and requires an RFC
+before implementation.
 
 ## Accepted RFC references
 

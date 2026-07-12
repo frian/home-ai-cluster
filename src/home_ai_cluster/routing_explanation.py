@@ -33,6 +33,8 @@ LOCAL_NODE_ID = "local"
 DECLARED_REMOTE_NODE_ID = "declared-remote"
 LOCAL_ADAPTER_NAME = "routing-explanation"
 EXPLANATION_MESSAGE_CONTENT = "Routing explanation"
+# ClusterRequest currently requires one ChatMessage. This placeholder is not
+# operator input, is not used for selection, and is never returned in output.
 
 
 class ExplanationOnlyAdapter(RuntimeAdapter):
@@ -40,7 +42,6 @@ class ExplanationOnlyAdapter(RuntimeAdapter):
 
     def __init__(self, capability: Capability) -> None:
         self._capability = capability
-        self.chat_calls = 0
 
     @property
     def name(self) -> str:
@@ -53,8 +54,7 @@ class ExplanationOnlyAdapter(RuntimeAdapter):
         return [self._capability]
 
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
-        self.chat_calls += 1
-        raise AssertionError("routing explanation must not execute an adapter")
+        raise RuntimeError("routing explanation adapter is not executable")
 
 
 def capability_name(value: str) -> str:

@@ -2,13 +2,44 @@ import json
 
 import pytest
 
+from home_ai_cluster.adapters.base import RuntimeAdapter
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ClusterRequest,
+    RuntimeResult,
+)
+from home_ai_cluster.core.routing_candidates import AutomaticCapabilitySelection
 from home_ai_cluster.routing_explanation import (
-    ExplanationOnlyAdapter,
+    LOCAL_ADAPTER_NAME,
     create_request,
     discover_and_select,
     evaluate_explanation,
     main,
+    project_explanation,
 )
+
+
+class RecordingAdapter(RuntimeAdapter):
+    """Test-only adapter spy proving explanation never executes local runtime work."""
+
+    def __init__(self, capability: Capability) -> None:
+        self._capability = capability
+        self.chat_calls = 0
+
+    @property
+    def name(self) -> str:
+        return LOCAL_ADAPTER_NAME
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [self._capability]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_calls += 1
+        raise AssertionError("routing explanation must not execute an adapter")
 
 
 @pytest.mark.parametrize(
@@ -69,7 +100,10 @@ from home_ai_cluster.routing_explanation import (
             },
         ),
         (
-            "declared remote excluded by local-only",
+            # RFC-0027's two no-selection requirements are one concrete
+            # RFC-0025 outcome: local_only excludes the sole declared remote.
+            "matching declared remote exists but none is selectable because "
+            "local_only excludes it",
             True,
             False,
             True,
@@ -98,22 +132,6 @@ from home_ai_cluster.routing_explanation import (
                 "selected_node_id": None,
                 "outcome_rule": "no-selectable-candidate",
                 "failure_reason": "no-matching-candidate",
-            },
-        ),
-        (
-            "matching candidate but none selectable",
-            True,
-            False,
-            True,
-            {
-                "requested_capability": "chat",
-                "matched_candidate_families": ["declared-remote"],
-                "selectable_candidate_families": [],
-                "excluded_candidate_families": ["declared-remote"],
-                "selected_candidate_family": None,
-                "selected_node_id": None,
-                "outcome_rule": "no-selectable-candidate",
-                "failure_reason": "local-only-excluded-declared-remote",
             },
         ),
     ],
@@ -186,9 +204,47 @@ def test_invalid_invocation_uses_stderr_and_nonzero_exit(
     assert captured.err
 
 
-def test_discovery_and_selection_do_not_execute_the_local_adapter() -> None:
+def test_discovery_and_selection_stop_before_any_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.core import executor, orchestrator, remote_transport
+
     request = create_request("chat", local_only=False)
-    adapter = ExplanationOnlyAdapter(request.capability)
+    adapter = RecordingAdapter(request.capability)
+    execution_calls: list[str] = []
+    transport_creations: list[object] = []
+
+    async def record_selected_execution(*args: object, **kwargs: object) -> None:
+        execution_calls.append("selected")
+
+    async def record_local_execution(*args: object, **kwargs: object) -> None:
+        execution_calls.append("local")
+
+    async def record_remote_execution(*args: object, **kwargs: object) -> None:
+        execution_calls.append("remote")
+
+    class RecordingHttpRemoteTransport:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            transport_creations.append((args, kwargs))
+
+    monkeypatch.setattr(
+        orchestrator,
+        "orchestrate_request_with_selected_candidate",
+        record_selected_execution,
+    )
+    monkeypatch.setattr(
+        executor, "execute_local_routing_decision", record_local_execution
+    )
+    monkeypatch.setattr(
+        executor,
+        "execute_declared_remote_routing_candidate",
+        record_remote_execution,
+    )
+    monkeypatch.setattr(
+        remote_transport,
+        "HttpRemoteTransport",
+        RecordingHttpRemoteTransport,
+    )
 
     selection = discover_and_select(
         request,
@@ -197,6 +253,10 @@ def test_discovery_and_selection_do_not_execute_the_local_adapter() -> None:
         local_adapter=adapter,
     )
 
+    assert isinstance(selection, AutomaticCapabilitySelection)
     assert selection.selected is not None
     assert selection.selected.local is not None
+    assert project_explanation(selection)["selected_node_id"] == "local"
     assert adapter.chat_calls == 0
+    assert execution_calls == []
+    assert transport_creations == []

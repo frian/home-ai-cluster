@@ -35,8 +35,9 @@ fallback for ordinary application traffic.
 
 - Ollama running with `llama3.2`.
 
-The two machines communicated over the local network. No discovery,
-registration, VPN, overlay network, or general configuration surface was used.
+The two machines communicated over the local network. No dynamic network
+discovery, registration service, VPN, overlay network, or general
+configuration surface was used.
 
 ## Remote readiness check
 
@@ -93,18 +94,19 @@ The calling machine returned `HTTP/1.1 200 OK` with:
 
 ## What this proves
 
-The observed run demonstrates the one RFC-0028 condition: candidate/runtime
-endpoint connection unavailability before request transmission caused the
-dedicated proof process to use the already discovered declared-remote
-candidate. The Windows candidate executed through Ollama with `llama3.2`, and
-the successful result retained caller-owned `node_id="declared-remote"`
-attribution.
+The real two-machine run directly observed a successful `HTTP/1.1 200 OK`,
+Windows Ollama execution with `llama3.2`, and final caller-owned
+`node_id="declared-remote"` attribution through the dedicated proof-only
+endpoint.
 
-Focused automated tests demonstrate the associated implementation invariants:
-discovery occurs once, automatic selection occurs once, local execution is
-attempted once, declared-remote fallback execution is attempted once, and no
-retry, rediscovery, reselection, concurrent execution, or third execution is
-performed.
+The implemented adapter and orchestration boundaries, together with focused
+automated tests, establish the narrower execution facts: the deliberately
+unavailable local runtime endpoint is classified as candidate/runtime endpoint
+connection unavailability before request transmission; discovery and automatic
+selection occur once; local and declared-remote execution are each attempted
+once; and no retry, rediscovery, reselection, concurrent execution, or third
+execution occurs. The declared-remote candidate used for that one fallback is
+the candidate retained from the original discovery.
 
 Ordinary `/v1/chat` remains unchanged and local-only outside this explicit
 proof process.

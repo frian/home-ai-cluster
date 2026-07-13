@@ -149,8 +149,8 @@ This investigation must not:
 
 ## Next step
 
-Gather official and directly observed evidence for the three candidate categories,
-then use that evidence to draft RFC-0030.
+Gather official and directly observed evidence for the three candidate
+categories, then use that evidence to draft RFC-0030.
 
 ## Scope and validation
 

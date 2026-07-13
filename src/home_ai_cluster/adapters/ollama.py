@@ -2,7 +2,10 @@
 
 import httpx
 
-from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -66,6 +69,10 @@ class OllamaAdapter:
                     },
                 )
                 response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeConnectionUnavailableBeforeRequestError(
+                "Runtime connection unavailable before request transmission",
+            ) from exc
         except httpx.HTTPError as exc:
             raise RuntimeAdapterUnavailableError(
                 "Runtime adapter unavailable",

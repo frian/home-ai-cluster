@@ -14,6 +14,10 @@ class RuntimeAdapterUnavailableError(Exception):
     """Raised when a runtime adapter cannot complete a request."""
 
 
+class RuntimeConnectionUnavailableBeforeRequestError(RuntimeAdapterUnavailableError):
+    """Raised when a runtime connection cannot be established before sending."""
+
+
 class RuntimeAdapter(Protocol):
     """Small boundary between the core and a specific AI runtime."""
 

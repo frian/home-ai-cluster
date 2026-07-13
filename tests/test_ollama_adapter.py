@@ -4,7 +4,10 @@ import json
 import httpx
 import pytest
 
-from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.core.models import (
     AdapterHealth,
@@ -138,17 +141,49 @@ def test_ollama_adapter_chat_client_has_no_timeout(
     assert created_kwargs["timeout"] is None
 
 
-def test_ollama_adapter_chat_translates_http_failure_to_adapter_error() -> None:
+def test_ollama_adapter_chat_translates_connection_failure_before_sending() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == (
+        "Runtime connection unavailable before request transmission"
+    )
+    assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [
+        httpx.ConnectTimeout,
+        httpx.ReadTimeout,
+        httpx.WriteTimeout,
+        httpx.PoolTimeout,
+        httpx.WriteError,
+        httpx.ReadError,
+        httpx.RemoteProtocolError,
+    ],
+)
+def test_ollama_adapter_chat_does_not_translate_ambiguous_transport_failures(
+    error_type: type[httpx.HTTPError],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type("transport failed", request=request)
 
     adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
 
     with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
         asyncio.run(adapter.chat(make_request()))
 
-    assert str(exc_info.value) == "Runtime adapter unavailable"
-    assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+    assert not isinstance(
+        exc_info.value,
+        RuntimeConnectionUnavailableBeforeRequestError,
+    )
+    assert isinstance(exc_info.value.__cause__, error_type)
 
 
 def test_ollama_adapter_chat_translates_non_2xx_response_to_adapter_error() -> None:
@@ -165,4 +200,8 @@ def test_ollama_adapter_chat_translates_non_2xx_response_to_adapter_error() -> N
         asyncio.run(adapter.chat(make_request()))
 
     assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert not isinstance(
+        exc_info.value,
+        RuntimeConnectionUnavailableBeforeRequestError,
+    )
     assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)

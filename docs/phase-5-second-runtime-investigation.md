@@ -27,7 +27,7 @@ The cluster-owned models crossing that boundary are currently:
 | Model | Actual fields and semantics |
 | --- | --- |
 | `ClusterRequest` | `messages: list[ChatMessage]`, `capability: Capability`, and `constraints: RequestConstraints`. `ChatMessage` has a constrained `role` (`system`, `user`, or `assistant`) and non-empty `content`. `RequestConstraints` has `local_only` (default `true`), `prefer_fast_response` (default `false`), and optional positive `min_context_size`. |
-| `RuntimeResult` | Non-empty `content`, non-empty `adapter`, and optional `model`. It contains no `node_id`; cluster execution boundaries own node attribution. |
+| `RuntimeResult` | `content: str`, non-empty `adapter`, and optional `model`. The current model does not require `content` to be non-empty. It contains no `node_id`; cluster execution boundaries own node attribution. |
 | `Capability` | Non-empty `name`. Matching currently uses this exact name. |
 | `AdapterHealth` | `available: bool` and optional `reason: str`. Current health is descriptive rather than a routing decision or cross-runtime comparison. |
 
@@ -151,3 +151,20 @@ This investigation must not:
 
 Gather official and directly observed evidence for the three candidate categories,
 then use that evidence to draft RFC-0030.
+
+## Scope and validation
+
+This investigation changes only:
+
+```text
+docs/phase-5-second-runtime-investigation.md
+```
+
+No runtime was selected, no architectural decision was made, and no source
+code, tests, dependencies, configuration, or accepted RFCs were changed.
+
+Validation:
+
+```text
+git diff --check
+```

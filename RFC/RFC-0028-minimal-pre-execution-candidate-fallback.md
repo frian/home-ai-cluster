@@ -1,6 +1,6 @@
 # RFC-0028: Minimal Pre-Execution Candidate Fallback
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-12
 
@@ -520,4 +520,30 @@ These questions may be resolved during implementation only if they do not change
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will permit one proof-only fallback from an initially selected
+local candidate to the already discovered and selectable declared-remote
+candidate.
+
+Fallback is allowed only when a narrow cluster-owned signal confirms that the
+local runtime connection could not be established before request transmission
+could begin.
+
+The existing broad `RuntimeAdapterUnavailableError` semantics must not be reused
+unchanged as the fallback trigger. Timeouts, HTTP status failures, ambiguous
+transport failures, runtime failures, and every condition that may occur after
+request transmission begins remain visible failures without fallback.
+
+The initial RFC-0025 selection remains authoritative. Candidates are discovered
+once, selection occurs once, the local candidate is attempted once, and the
+declared-remote fallback candidate may be attempted once. There is no retry,
+rediscovery, reselection, loop, concurrency, or further fallback.
+
+`local_only=true` continues to prohibit all remote contact and execution.
+Ordinary `/v1/chat` remains unchanged and local-only. Implementation must begin
+through a dedicated proof-only process.
+
+This decision satisfies the Phase 4 fallback roadmap outcome only for the
+explicitly defined candidate-unavailability condition. It does not define
+general node availability, health-aware routing, or general resilience.

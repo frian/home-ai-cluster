@@ -75,8 +75,9 @@ demonstrated outcomes are:
 * real two-machine automatic-routing and fallback proofs; and
 * authoritative caller-owned `declared-remote` node attribution.
 
-The real-machine proofs directly observed successful HTTP results, receiver
-runtime execution, and normalized caller-owned node attribution. The narrow
+The real-machine proofs directly observed successful HTTP results and
+normalized caller-owned node attribution. The direct remote readiness checks
+additionally observed receiver-side Ollama execution. The narrow
 pre-transmission connection classification and exact-attempt-count guarantees
 are established by the implemented adapter and orchestration boundaries and
 their focused automated tests.
@@ -170,8 +171,8 @@ unplanned resilience, availability, or remote-routing features.
 
 Requiring a Phase 5 RFC preserves engine independence without assuming that
 one adapter’s implementation details are already universal. It supports a
-boring proof: two local adapters, one shared capability, one clear adapter
-boundary, and evidence that the core does not depend on a runtime brand.
+boring proof: two explicit runtime adapters, one shared capability, one clear
+adapter boundary, and evidence that the core does not depend on a runtime brand.
 
 This follows local-first and privacy-first principles because it adds no cloud
 dependency, telemetry, prompt logging, or automatic remote movement. It also

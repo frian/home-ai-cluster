@@ -2,6 +2,9 @@
 
 import httpx
 
+from home_ai_cluster.adapters.base import (
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
     execute_declared_routing_decision,
@@ -111,6 +114,49 @@ async def orchestrate_request_with_automatic_capability_selection(
         request,
         selection.selected,
         remote_transport=remote_transport,
+    )
+
+
+async def orchestrate_request_with_automatic_capability_fallback(
+    request: ClusterRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry,
+    remote_transport: RemoteTransport,
+) -> ClusterResult:
+    """Execute the RFC-0028 proof-only local-to-declared-remote fallback."""
+    candidates = routing_candidates_for_request(
+        request,
+        node_registry,
+        adapter_registry,
+        remote_registry,
+    )
+    selection = select_automatic_capability_routing_candidate(request, candidates)
+
+    if selection.selected is None:
+        raise NoSelectableRoutingCandidateError(selection.explanation)
+
+    if selection.selected.local is None:
+        return await orchestrate_request_with_selected_candidate(
+            request,
+            selection.selected,
+            remote_transport=remote_transport,
+        )
+
+    try:
+        return await orchestrate_request_with_selected_candidate(
+            request,
+            selection.selected,
+            remote_transport=remote_transport,
+        )
+    except RuntimeConnectionUnavailableBeforeRequestError:
+        if request.constraints.local_only or candidates.declared_remote is None:
+            raise
+
+    return await execute_declared_remote_routing_candidate(
+        request,
+        candidates.declared_remote,
+        remote_transport,
     )
 
 

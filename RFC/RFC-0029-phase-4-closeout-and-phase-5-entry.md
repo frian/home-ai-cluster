@@ -1,6 +1,6 @@
 # RFC-0029: Phase 4 Closeout and Phase 5 Entry
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-13
 
@@ -237,4 +237,21 @@ concrete second runtime and the smallest shared adapter proof.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Phase 4 is formally closed as the demonstrated capability-based routing
+checkpoint.
+
+The existing automatic-routing, routing-explanation, and narrow fallback
+behaviors remain explicit proof-only mechanisms. Ordinary `/v1/chat` remains
+local-only and does not automatically activate remote routing or fallback.
+
+Phase 5 is not started by this decision. No Phase 5 implementation may begin
+until a separate RFC is accepted that selects one concrete second runtime and
+defines the smallest shared adapter implementation and proof needed to test the
+engine-independent boundary.
+
+This decision does not select a second runtime, declare the current adapter
+protocol final, authorize adapter implementation, or introduce plugin loading,
+model discovery, adapter scoring, configuration infrastructure, or broader
+runtime abstraction.

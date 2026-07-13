@@ -2,7 +2,7 @@
 
 Status: Assessment
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 This document is descriptive. It assesses the current roadmap, accepted RFCs,
 implementation, tests, and recorded proof results. It makes no architectural
@@ -23,7 +23,9 @@ first Phase 4 increment in
 and the automatic-proof boundary in
 [RFC-0026](../RFC/RFC-0026-explicit-automatic-routing-proof.md), and the
 operator-facing explanation boundary in
-[RFC-0027](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md).
+[RFC-0027](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md),
+and the narrow pre-execution fallback boundary in
+[RFC-0028](../RFC/RFC-0028-minimal-pre-execution-candidate-fallback.md).
 
 The implementation and tests on `main` include the RFC-0025 automatic
 selection and orchestration modules and their test coverage. Merged PR #147
@@ -34,6 +36,9 @@ The prior static Phase 3 proof is recorded in
 [First Two-Machine Proof Result](first-two-machine-proof-result.md).
 Merged PR #151 implements the accepted RFC-0027
 `home-ai-cluster-explain-routing` command and its focused tests.
+The dedicated RFC-0028 proof-only fallback process and its focused tests are
+implemented, and its successful real two-machine result is recorded in
+[RFC-0028 Two-Machine Fallback Proof Result](rfc-0028-two-machine-fallback-proof-result.md).
 
 ## Phase 4 roadmap criteria
 
@@ -94,20 +99,26 @@ proof demonstrates the sole selectable remote case on two machines.
 
 ### Fallback when a node is unavailable
 
-**Classification: Explicitly postponed.**
+**Classification: Demonstrated for the explicitly defined RFC-0028 condition.**
 
-The roadmap lists fallback as a Phase 4 expected outcome. However, accepted
-RFC-0025 deliberately requires exactly-once execution with no retry or
-fallback, including after selected remote execution failure. It does not
-permanently remove fallback from the project; it defines only the accepted
-current increment. The current-state document explicitly lists fallback,
-retry, and health-aware routing as postponed, and the RFC-0026 proof likewise
-proves no retry or fallback.
+RFC-0028 authorizes one proof-only direction: an initially selected local
+candidate may fall back once to the already discovered selectable
+declared-remote candidate only when the local runtime endpoint connection
+cannot be established before request transmission. The real two-machine proof
+demonstrates one matching local and one matching declared-remote `chat`
+candidate, `local_only=false`, RFC-0025 fixed local precedence, the narrow
+adapter signal, remote Ollama execution, and final
+`node_id=declared-remote` attribution.
 
-Consequently, fallback is not demonstrated and cannot be treated as satisfied
-by the proof's visible failure behavior. Defining future fallback requires an
-RFC because it determines execution, failure, availability, and routing
-semantics.
+Focused tests establish the associated exact-attempt invariants: discovery and
+automatic selection occur once; local and declared-remote execution occur once
+each; and there is no retry, rediscovery, reselection, concurrent execution,
+or third execution. They also preserve the privacy boundary: `local_only=true`
+prevents remote contact.
+
+This is not general availability or failure recovery. In particular, RFC-0028
+does not permit fallback for timeouts, HTTP failures, ambiguous transport
+failures, runtime failures, or ordinary application traffic.
 
 ### Basic explanation of routing decisions
 
@@ -147,43 +158,43 @@ explanation outcome, and ordinary `/v1/chat` remains unchanged.
   execution and left ordinary local-only behavior unchanged.
 - The RFC-0027 command provides an explicit no-execution explanation of the
   same RFC-0025 selection facts through a stable operator-facing JSON contract.
+- The RFC-0028 real proof established the one accepted pre-execution
+  local-to-declared-remote fallback condition without changing ordinary
+  `/v1/chat`.
 
-## Remaining gaps
+## Remaining limits
 
-The roadmap's fallback outcome is explicitly postponed. RFC-0025 still defines
-exactly-once execution with no retry or fallback, and no accepted decision
-defines availability, failure classification, or fallback semantics. RFC-0027
-does not change execution semantics. Ordinary `/v1/chat` also remains outside
-the automatic remote-capable composition by accepted design.
-
-These gaps do not invalidate the demonstrated RFC-0025/RFC-0026 proof. They
-do prevent the proof from serving as evidence that every current roadmap
-outcome is complete.
+The demonstrated fallback outcome is deliberately limited to the accepted
+candidate/runtime endpoint connection-unavailability condition before request
+transmission. General node availability, health-aware routing, timeout or HTTP
+error fallback, retry, high availability, fault tolerance, general resilience,
+and ordinary application fallback remain outside Phase 4's demonstrated
+increment.
 
 ## Assessment conclusion
 
-**Phase 4 is not complete.**
+**Phase 4 is complete.**
 
 The repository demonstrates the proven core of capability-based routing: a
 simple exact-name capability model, `local_only` request constraint, matching
 and selectability, deterministic automatic selection, exactly-once execution,
 internal explanation facts, and a real automatic two-machine result.
 
-The current roadmap still expects fallback when a node is unavailable.
-Operator-facing basic routing explanation is now demonstrated by accepted and
-implemented RFC-0027. Fallback remains explicitly postponed by the accepted
-current increment and current-state record. No accepted decision formally
-redefines the roadmap's Phase 4 completion criteria.
+The roadmap's simple capability model, request constraints, node matching,
+basic explanation, and fallback outcome are now demonstrated. The fallback
+outcome is satisfied only by RFC-0028's explicitly defined pre-execution
+candidate/runtime endpoint connection condition; it does not imply broader
+resilience behavior.
 
 ## Consequences of the conclusion
 
-The successful RFC-0026 proof should remain recorded as evidence for the
-narrow automatic-routing capability, not as Phase 4 closure. The roadmap and
-accepted RFCs should remain unchanged by this assessment.
+The successful RFC-0026 and RFC-0028 proofs together record the real-machine
+evidence for the currently accepted Phase 4 increments. The roadmap and
+accepted RFCs remain unchanged by this assessment.
 
-Future work must distinguish implementation of already accepted decisions from
-new architectural work. Fallback, retry, and health-aware availability require
-an RFC before implementation because they change routing and failure semantics.
+Future work beyond this phase must distinguish the narrow demonstrated fallback
+from new decisions about retry, health-aware availability, or broader failure
+handling, which require an RFC.
 
 ## Architectural boundary
 
@@ -201,6 +212,8 @@ fallback.
 - [RFC-0025: Minimal Capability-Based Candidate Selection](../RFC/RFC-0025-minimal-capability-based-candidate-selection.md)
 - [RFC-0026: Explicit Automatic Routing Proof](../RFC/RFC-0026-explicit-automatic-routing-proof.md)
 - [RFC-0027: Minimal Operator-Facing Routing Explanation](../RFC/RFC-0027-minimal-operator-facing-routing-explanation.md)
+- [RFC-0028: Minimal Pre-Execution Candidate Fallback](../RFC/RFC-0028-minimal-pre-execution-candidate-fallback.md)
 - [Phase 4 Current State](phase-4-current-state.md)
 - [Automatic Routing Two-Machine Proof Result](automatic-routing-two-machine-proof-result.md)
+- [RFC-0028 Two-Machine Fallback Proof Result](rfc-0028-two-machine-fallback-proof-result.md)
 - [First Two-Machine Proof Result](first-two-machine-proof-result.md)

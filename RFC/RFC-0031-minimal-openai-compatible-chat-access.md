@@ -180,7 +180,7 @@ On success, the endpoint returns one non-streaming compatibility response:
         "role": "assistant",
         "content": "..."
       },
-      "finish_reason": "stop"
+      "finish_reason": null
     }
   ]
 }
@@ -198,13 +198,13 @@ The fields have the following cluster-owned meanings:
 | `choices[0].index` | The fixed value `0`. |
 | `choices[0].message.role` | The fixed value `assistant`. |
 | `choices[0].message.content` | The actual normalized `ClusterResult.content`. |
-| `choices[0].finish_reason` | The fixed compatibility value `stop`, meaning the cluster successfully completed and is returning this non-streaming compatibility response. It is not a claim about a runtime-provided natural-stop reason. |
+| `choices[0].finish_reason` | The fixed value `null`, meaning Home AI Cluster does not currently know or preserve the runtime generation finish reason. |
 | `usage` | Omitted. The current cluster result has no token accounting, so the endpoint must not fabricate it. |
 
-The fixed `finish_reason` is deliberately a compatibility completion-state
-marker, not preserved runtime generation metadata. This is the first proof's
-limited compatibility claim. A future RFC may decide whether runtime finish
-semantics warrant a new cluster-owned result field.
+The `null` value deliberately makes no claim about why runtime generation
+ended. It is not a redefinition of an OpenAI finish reason. A future RFC may
+decide whether runtime finish semantics warrant a new cluster-owned result
+field.
 
 Adapter and node attribution remain present in `ClusterResult` and owned by the
 existing execution path, but the compatibility response adds no adapter, node,
@@ -292,12 +292,14 @@ the following:
    base URL using a placeholder bearer token.
 6. One raw HTTP request succeeds against loopback without an authorization
    header.
-7. `stream: true` and every unsupported field/value fail explicitly with the
+7. The official OpenAI Python client successfully parses the selected
+   `finish_reason: null` representation.
+8. `stream: true` and every unsupported field/value fail explicitly with the
    compatibility error envelope.
-8. Runtime unavailability translates without runtime-specific leakage.
-9. Prompts, responses, and authorization headers are not logged by default.
-10. Ordinary automated tests require no live runtime.
-11. A separate, opt-in local proof may use one already supported local runtime.
+9. Runtime unavailability translates without runtime-specific leakage.
+10. Prompts, responses, and authorization headers are not logged by default.
+11. Ordinary automated tests require no live runtime.
+12. A separate, opt-in local proof may use one already supported local runtime.
 
 ## Rationale
 
@@ -312,9 +314,14 @@ normalization, result attribution, and privacy/error boundaries.
 Using a fixed endpoint identifier avoids turning a compatibility field into a
 model-routing mechanism. Returning actual normalized model attribution when it
 is available preserves honesty; the fixed fallback tells the truth about the
-endpoint without inventing a concrete model. Likewise, the fixed
-`finish_reason` is explicit about its cluster-generated response-completion
-meaning rather than pretending the cluster preserved a runtime stop reason.
+endpoint without inventing a concrete model.
+
+On 2026-07-15, a disposable loopback HTTP server returned minimal successful
+chat-completion responses to the official OpenAI Python SDK 2.45.0, configured
+with a custom loopback base URL and placeholder API key. The SDK parsed both
+`"finish_reason": null` and an omitted `finish_reason` as `None`. This RFC
+selects the explicit `null` representation because it truthfully communicates
+that Home AI Cluster has not preserved the runtime generation finish reason.
 
 The compatibility route remains small and boring: one endpoint, text chat,
 one answer, and strict rejection. That is enough to make the Phase 6 roadmap
@@ -383,10 +390,9 @@ authentication will not work with the first proof. Strict rejection reduces
 convenience compared with permissive proxies.
 
 The response is also intentionally less complete than a broad OpenAI response:
-there is one choice and no usage; `finish_reason` has a documented
-cluster-generated compatibility meaning rather than runtime provenance; and
-the endpoint identifier may appear as the model fallback when actual normalized
-model attribution is unavailable.
+there is one choice and no usage; `finish_reason` is explicitly `null` because
+runtime provenance is unavailable; and the endpoint identifier may appear as
+the model fallback when actual normalized model attribution is unavailable.
 
 Those limits are acceptable because preserving cluster-owned routing,
 attribution, privacy, and engine independence is more important than

@@ -1,6 +1,6 @@
 # RFC-0030: Second Runtime Adapter Proof
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-15
 
@@ -379,4 +379,8 @@ The following require a new RFC if proposed later:
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will use `llama-server` as the concrete second runtime for
+the first Phase 5 multi-runtime adapter proof, under the scope and constraints
+defined by this RFC.

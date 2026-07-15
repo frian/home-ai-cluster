@@ -1,0 +1,282 @@
+import asyncio
+import json
+
+import httpx
+import pytest
+
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
+from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ChatMessage,
+    ClusterRequest,
+    RuntimeResult,
+)
+
+
+def make_request() -> ClusterRequest:
+    return ClusterRequest(
+        messages=[
+            ChatMessage(role="system", content="Be brief."),
+            ChatMessage(role="user", content="My name is André."),
+            ChatMessage(role="assistant", content="Hello, André."),
+        ],
+        capability=Capability(name="chat"),
+    )
+
+
+def test_llama_server_adapter_name_and_capabilities() -> None:
+    adapter = LlamaServerAdapter(model="phase-5-gemma")
+
+    assert adapter.name == "llama-server"
+    assert adapter.capabilities() == [Capability(name="chat")]
+
+
+def test_llama_server_adapter_health_returns_available_when_ready() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert request.url.path == "/health"
+        return httpx.Response(200, json={"status": "ok"})
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    assert adapter.health() == AdapterHealth(available=True)
+
+
+def test_llama_server_adapter_health_returns_unavailable_when_unreachable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    health = adapter.health()
+
+    assert health.available is False
+    assert health.reason is not None
+    assert "connection refused" in health.reason
+
+
+def test_llama_server_adapter_chat_translates_cluster_request() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Hello back"}},
+                ],
+                "model": "phase-5-gemma",
+            },
+        )
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    asyncio.run(adapter.chat(make_request()))
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {"role": "system", "content": "Be brief."},
+                {"role": "user", "content": "My name is André."},
+                {"role": "assistant", "content": "Hello, André."},
+            ],
+            "stream": False,
+        }
+    ]
+
+
+def test_llama_server_adapter_chat_normalizes_response_and_loaded_model() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"message": {"role": "assistant", "content": "Hello back"}},
+                ],
+                "model": "loaded-model",
+                "usage": {"prompt_tokens": 12},
+            },
+        )
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.chat(make_request()))
+
+    assert result == RuntimeResult(
+        content="Hello back",
+        adapter="llama-server",
+        model="loaded-model",
+    )
+    assert not hasattr(result, "node_id")
+    assert set(result.model_dump()) == {"content", "adapter", "model"}
+
+
+def test_llama_server_adapter_uses_configured_model_without_response_model() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "Hello back"}}]},
+        )
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.chat(make_request()))
+
+    assert result.model == "configured-model"
+
+
+def test_llama_server_adapter_chat_client_has_no_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_kwargs: dict[str, object] = {}
+
+    class CapturingAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            created_kwargs.update(kwargs)
+
+        async def __aenter__(self) -> "CapturingAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, path: str, *, json: dict[str, object]) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "Hi"}}]},
+                request=httpx.Request(
+                    "POST",
+                    "http://localhost:8080/v1/chat/completions",
+                ),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", CapturingAsyncClient)
+
+    asyncio.run(LlamaServerAdapter(model="phase-5-gemma").chat(make_request()))
+
+    assert created_kwargs["timeout"] is None
+
+
+def test_llama_server_adapter_translates_pre_request_connection_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == (
+        "Runtime connection unavailable before request transmission"
+    )
+    assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [
+        httpx.ConnectTimeout,
+        httpx.ReadTimeout,
+        httpx.WriteTimeout,
+        httpx.PoolTimeout,
+        httpx.WriteError,
+        httpx.ReadError,
+        httpx.RemoteProtocolError,
+    ],
+)
+def test_llama_server_adapter_chat_translates_ambiguous_transport_failures(
+    error_type: type[httpx.HTTPError],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type("transport failed", request=request)
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert not isinstance(
+        exc_info.value,
+        RuntimeConnectionUnavailableBeforeRequestError,
+    )
+    assert isinstance(exc_info.value.__cause__, error_type)
+
+
+def test_llama_server_adapter_chat_translates_non_2xx_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            503,
+            json={"error": {"message": "loading"}},
+            request=request,
+        )
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"choices": []},
+        {"choices": [{"message": {"content": 42}}]},
+        {"choices": [{"message": {"content": "Hello"}}], "model": 42},
+    ],
+)
+def test_llama_server_adapter_chat_translates_malformed_response(
+    body: object,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=body)
+
+    adapter = LlamaServerAdapter(
+        model="phase-5-gemma",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(adapter.chat(make_request()))
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert isinstance(
+        exc_info.value.__cause__,
+        (IndexError, KeyError, TypeError, ValueError),
+    )

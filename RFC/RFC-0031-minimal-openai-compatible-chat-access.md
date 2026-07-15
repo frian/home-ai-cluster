@@ -1,6 +1,6 @@
 # RFC-0031: Minimal OpenAI-Compatible Chat Access
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-15
 
@@ -428,4 +428,18 @@ evidence and, where architectural, a separate RFC:
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will add the minimal, loopback-only, non-streaming
+`POST /v1/chat/completions` compatibility endpoint under the exact scope and
+constraints defined by this RFC. It is a public-edge translation into the
+existing cluster-owned chat flow; `POST /v1/chat` remains unchanged.
+
+`model: "home-ai-cluster"` is an endpoint identifier, not a model, adapter,
+node, or routing selector. Only the strict plain-text, single-choice,
+non-streaming subset is accepted. `finish_reason` is `null` because the cluster
+does not currently preserve runtime finish provenance.
+
+Streaming, model listing, concrete model selection, real authentication,
+non-loopback access, tools, generation controls, and broader compatibility
+remain outside this decision.

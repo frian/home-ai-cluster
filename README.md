@@ -2,42 +2,58 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early Phase 2 prototype.
+Status: early prototype with completed proofs through Phase 6.
 
-For project context, read:
+Home AI Cluster explores how multiple personal machines and AI runtimes can be
+presented as one capability-centered local system:
+
+> Many machines. One AI.
+
+The current implementation remains intentionally small. The ordinary
+application is local and static by default, while explicit proof entry points
+exercise two-machine routing, fallback, a second runtime adapter, routing
+explanation, and minimal OpenAI-compatible access.
+
+## Project context
+
+Start with:
 
 * `VISION.md`
 * `FOUNDATIONS.md`
+* `PRINCIPLES.md`
+* `NON_GOALS.md`
 * `ROADMAP.md`
 * `RFC/`
+
+Useful proof and investigation records include:
+
 * `docs/first-two-machine-proof-result.md`
-* `docs/phase-2-current-state.md`
-* `docs/phase-1-current-state.md`
+* `docs/phase-6-openai-compatibility-proof.md`
+* `docs/phase-6-developer-tool-access-investigation.md`
+* `docs/phase-6-aider-access-proof.md`
 
-## Current Phase 2 shape
+## Current shape
 
-Phase 2 currently runs as a single local process.
+The normal FastAPI application:
 
-Requests go through one static local node and one Ollama runtime adapter.
+* runs as one local process;
+* exposes the cluster-native `POST /v1/chat` endpoint;
+* uses a static local node registry by default;
+* routes by capability, not by machine, adapter, or runtime-model name;
+* keeps runtime-specific behavior behind adapters;
+* returns cluster-owned node attribution;
+* does not enable distributed proof wiring automatically.
 
-The static local node announcement is explicit in wiring code, and node
-availability is static declared routing eligibility. Node health remains
-descriptive, and runtime availability remains adapter-call-time behavior.
+The repository currently contains Ollama and llama-server runtime adapters.
+Separate explicit proof commands exercise remote-node routing, automatic
+selection, fallback, and routing explanation. These proof paths do not turn the
+ordinary application into a general distributed deployment.
 
-For the detailed current Phase 2 state, see
-`docs/phase-2-current-state.md`.
+## Requirements
 
-For the earlier Phase 1 state, see `docs/phase-1-current-state.md`.
-
-## Run locally
-
-This is an early Phase 2 prototype.
-
-Prerequisites:
-
-* Python 3.13
+* Python 3.13 or 3.14
 * `uv`
-* Ollama installed and running locally
+* Ollama installed and running for the default local path
 * the default Ollama model used by the adapter, currently `llama3.2`
 
 Install dependencies:
@@ -46,7 +62,9 @@ Install dependencies:
 uv sync
 ```
 
-Run the FastAPI app:
+## Run the cluster-native endpoint
+
+Start the normal application:
 
 ```sh
 uv run uvicorn home_ai_cluster.main:app --reload
@@ -69,11 +87,13 @@ Example response shape:
 {
   "content": "...",
   "adapter": "ollama",
-  "model": "llama3.2"
+  "model": "llama3.2",
+  "node_id": "local"
 }
 ```
 
-If Ollama is not running, `/v1/chat` returns HTTP 503:
+If the selected runtime adapter is unavailable, `/v1/chat` returns HTTP 503
+without exposing runtime URLs or raw adapter errors:
 
 ```json
 {
@@ -81,12 +101,96 @@ If Ollama is not running, `/v1/chat` returns HTTP 503:
 }
 ```
 
-Start Ollama and make sure the `llama3.2` model is available.
+## Run the minimal OpenAI-compatible endpoint
 
-## Run the static two-machine proof
+RFC-0031 adds a dedicated compatibility process. It is separate from the normal
+application and binds only to loopback:
 
-For the explicit RFC-0022 LAN-only proof, follow
-`docs/static-two-machine-proof.md`.
+```sh
+uv run home-ai-cluster-openai-compatibility
+```
 
-The first successful real two-machine execution is recorded in
-`docs/first-two-machine-proof-result.md`.
+Its base URL is:
+
+```text
+http://127.0.0.1:8001/v1
+```
+
+It accepts the fixed endpoint identifier:
+
+```text
+home-ai-cluster
+```
+
+Example request:
+
+```sh
+curl -s http://127.0.0.1:8001/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d '{
+    "model": "home-ai-cluster",
+    "messages": [{"role": "user", "content": "Hello"}]
+  }'
+```
+
+This is a deliberately small compatibility surface. It supports non-streaming
+plain-text chat only. It does not provide general OpenAI API compatibility,
+model discovery, request-level runtime-model selection, tools, multimodal
+content, generation controls, LAN exposure, or real authentication.
+
+## Use Aider
+
+A real Aider v0.86.0 request has been proven against the compatibility endpoint
+without changing Home AI Cluster. The tested setup used only temporary
+client-side configuration:
+
+```yaml
+- name: openai/home-ai-cluster
+  edit_format: whole
+  use_temperature: false
+```
+
+With that model-settings file, Aider was configured with:
+
+* model `openai/home-ai-cluster`;
+* base URL `http://127.0.0.1:8001/v1`;
+* a non-secret placeholder API key;
+* streaming disabled.
+
+The proof observed exactly one `POST /v1/chat/completions` request containing
+only `messages` and `model`, followed by HTTP 200 and successful response
+parsing by Aider.
+
+See `docs/phase-6-aider-access-proof.md` for the exact tested scope and privacy
+constraints. The proof does not imply support for every Aider mode.
+
+## Two-machine proofs
+
+For the explicit RFC-0022 LAN-only proof, follow:
+
+```text
+docs/static-two-machine-proof.md
+```
+
+The first successful real two-machine execution is recorded in:
+
+```text
+docs/first-two-machine-proof-result.md
+```
+
+These proof paths are explicit and opt-in. They are not the default application
+configuration.
+
+## Project boundaries
+
+Home AI Cluster remains:
+
+* local-first;
+* privacy-first;
+* engine-independent;
+* capability-centered;
+* architecture-before-implementation.
+
+The project does not currently provide a dashboard, automatic discovery,
+Kubernetes deployment, a model catalogue, broad OpenAI API emulation, or a
+general production security model.

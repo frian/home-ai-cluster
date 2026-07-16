@@ -126,6 +126,13 @@ remote internal request, and final attribution to `remote-node`.
 
 Result: **Pass**.
 
+### Optional history inspection
+
+After the verification, `home-ai-cluster-history` returned an empty history.
+Therefore no remote URL, prompt, or generated response was retained.
+
+Result: **Pass**.
+
 ### Shutdown and restoration
 
 Shutdown followed the canonical order:
@@ -151,7 +158,7 @@ Result: **Pass**.
 6. Usable local execution remains local: **Pass**.
 7. Accepted local pre-request connection failure falls back once: **Pass**.
 8. Returned attribution identifies `remote-node`: **Pass**.
-9. Remote URL is absent from public responses and retained proof: **Pass**.
+9. Remote URL is absent from public responses, optional history, and retained proof: **Pass**.
 10. Shutdown and firewall handling follow canonical order: **Pass**.
 11. Historical proof command remains separate and unchanged: **Pass**.
 

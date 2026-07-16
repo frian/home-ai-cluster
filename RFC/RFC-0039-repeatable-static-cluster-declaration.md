@@ -69,7 +69,8 @@ This RFC should:
 - keep file selection explicit at process startup;
 - preserve the existing command name and ordinary process behavior;
 - preserve local-only operation as the shortest default path;
-- preserve RFC-0038 routing, adapter, fallback, lifecycle, and privacy boundaries;
+- preserve RFC-0038 routing, adapter, fallback, lifecycle, and privacy boundaries,
+  except for the narrow persistence change explicitly defined by this RFC;
 - perform parsing and structural validation before the application binds;
 - avoid network observation while loading the declaration;
 - avoid new runtime dependencies;
@@ -267,6 +268,13 @@ already accepted.
 ### Retention boundary
 
 The declaration is operator-owned local state.
+
+RFC-0038 required Home AI Cluster not to persist the supplied `remote_base_url`.
+For declaration mode only, this RFC intentionally replaces that rule by allowing
+the operator to persist the value in the explicitly selected local declaration
+file. Home AI Cluster itself must still not write, copy, or persist that value
+elsewhere. All RFC-0038 prohibitions on exposing it through public errors, logs,
+request history, routing explanations, or proof records remain unchanged.
 
 It is not intended to be committed with real private values. Repository examples,
 if later added, must use documentation-only addresses and placeholder node IDs.

@@ -159,7 +159,8 @@ The verified facts are:
   was usable;
 - one accepted local pre-request connection failure fell back exactly once to
   the declared remote node;
-- both distributed results carried cluster-owned remote node attribution;
+- the historical static proof result carried cluster-owned remote attribution;
+- the ordinary accepted fallback result carried `remote-node` attribution;
 - the calling processes were stopped before the receiving application;
 - the retained records respected the documented privacy boundary.
 

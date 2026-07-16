@@ -223,6 +223,37 @@ Success means:
 
 ---
 
+## Phase 9 — Repeatable static cluster declaration
+
+Goal:
+
+Make the verified ordinary static multi-node mode convenient to start repeatedly
+without changing its static architecture.
+
+Expected outcomes:
+
+* one explicit local cluster declaration;
+* one ordinary startup command;
+* static validation before startup;
+* no secret values in the retained declaration;
+* no discovery, supervision, or remote process control;
+* no automatic network observation while loading the declaration.
+
+This phase should reduce repeated command-line reconstruction while preserving
+operator ownership, explicit topology, local-first routing, and the accepted
+narrow fallback.
+
+The declaration format, location, precedence rules, validation behavior, and CLI
+relationship are architectural decisions and must be defined by an accepted RFC
+before implementation.
+
+Success means:
+
+> One operator can restart the same explicit static cluster without rebuilding
+> its declaration by hand.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

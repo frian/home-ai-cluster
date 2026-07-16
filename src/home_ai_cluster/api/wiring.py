@@ -1,4 +1,4 @@
-"""Temporary static API wiring for the current Phase 2 prototype."""
+"""Static API wiring for local and explicitly declared remote nodes."""
 
 from dataclasses import dataclass
 
@@ -14,13 +14,13 @@ from home_ai_cluster.core.remote_transport import RemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 
 
-class StaticRemoteProofWiringError(Exception):
-    """Raised when explicit static remote proof wiring is incomplete."""
+class StaticRemoteWiringError(Exception):
+    """Raised when explicit static remote wiring is incomplete."""
 
 
 @dataclass(frozen=True)
-class StaticRemoteProofWiring:
-    """Caller-owned in-memory wiring for the explicit static remote proof."""
+class StaticRemoteWiring:
+    """Caller-owned in-memory wiring for one explicit static remote node."""
 
     node_registry: NodeRegistry
     adapter_registry: AdapterRegistry
@@ -30,35 +30,59 @@ class StaticRemoteProofWiring:
 
     def __post_init__(self) -> None:
         if self.node_registry is None:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires a local node registry"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires a local node registry"
             )
 
         if self.adapter_registry is None:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires a local adapter registry"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires a local adapter registry"
             )
 
         if self.remote_registry is None:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires a remote declaration registry"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires a remote declaration registry"
             )
 
         if self.remote_transport is None:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires an explicit remote transport"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires an explicit remote transport"
             )
 
         if self.selection_mode is None:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires an explicit selection mode"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires an explicit selection mode"
             )
 
         declarations = self.remote_registry.list_declarations()
         if len(declarations) != 1:
-            raise StaticRemoteProofWiringError(
-                "Static remote proof wiring requires exactly one declared remote node"
+            raise StaticRemoteWiringError(
+                "Static remote wiring requires exactly one declared remote node"
             )
+
+
+def build_static_remote_wiring(
+    *,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_declaration: RemoteNodeDeclaration,
+    remote_transport: RemoteTransport,
+    selection_mode: RoutingCandidateSelectionMode,
+) -> StaticRemoteWiring:
+    """Build caller-owned in-memory wiring for one explicit remote node."""
+    return StaticRemoteWiring(
+        node_registry=node_registry,
+        adapter_registry=adapter_registry,
+        remote_registry=build_remote_node_declaration_registry([remote_declaration]),
+        remote_transport=remote_transport,
+        selection_mode=selection_mode,
+    )
+
+
+# Compatibility names preserve the accepted proof-only public seam while the
+# underlying composition becomes reusable by the ordinary RFC-0038 process.
+StaticRemoteProofWiringError = StaticRemoteWiringError
+StaticRemoteProofWiring = StaticRemoteWiring
 
 
 def build_static_remote_proof_wiring(
@@ -69,11 +93,11 @@ def build_static_remote_proof_wiring(
     remote_transport: RemoteTransport,
     selection_mode: RoutingCandidateSelectionMode,
 ) -> StaticRemoteProofWiring:
-    """Build caller-owned in-memory wiring for the explicit static proof."""
-    return StaticRemoteProofWiring(
+    """Build the accepted proof wiring through the proof-neutral composition."""
+    return build_static_remote_wiring(
         node_registry=node_registry,
         adapter_registry=adapter_registry,
-        remote_registry=build_remote_node_declaration_registry([remote_declaration]),
+        remote_declaration=remote_declaration,
         remote_transport=remote_transport,
         selection_mode=selection_mode,
     )

@@ -1,6 +1,6 @@
 # RFC-0038: Ordinary static multi-node mode
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -537,4 +537,4 @@ configuration, routing, lifecycle, discovery, or supervision behavior.
 
 ## Decision
 
-Proposed.
+Accepted.

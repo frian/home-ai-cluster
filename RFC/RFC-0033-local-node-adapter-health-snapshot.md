@@ -1,6 +1,6 @@
 # RFC-0033: Local Node and Adapter Health Snapshot
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -493,4 +493,4 @@ health, routability, or health-aware routing.
 
 ## Decision
 
-Pending.
+Accepted on 2026-07-16.

@@ -199,6 +199,30 @@ It should be transparent.
 
 ---
 
+## Phase 8 — Operable local cluster
+
+Goal:
+
+Make the existing static local cluster understandable and repeatable as an ordinary operator workflow.
+
+Expected outcomes:
+
+* one documented canonical operator workflow;
+* static validation of configured cluster facts;
+* one read-only operator preflight;
+* one repeatable two-machine runbook;
+* clear local-only and distributed-proof operation;
+* recovery guidance;
+* proof that the founding milestone can be reproduced from documented steps.
+
+This phase should improve operation of the existing static architecture without introducing process supervision, remote process control, automatic discovery, containers, a dashboard, or a new configuration format.
+
+Success means:
+
+> One operator can reproduce the existing two-machine milestone without reconstructing the procedure from repository knowledge.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

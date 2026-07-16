@@ -1,6 +1,6 @@
 # RFC-0039: Repeatable static cluster declaration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -476,4 +476,20 @@ architectural decision proposed here.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will support one explicitly selected local TOML declaration for
+the ordinary static multi-node process.
+
+The declaration contains exactly `remote_node_id` and `remote_base_url`, is read
+once at startup, and is selected through `--declaration <path>`.
+
+The existing inline RFC-0038 arguments remain supported as an independent mode.
+Declaration and inline topology arguments cannot be combined.
+
+No automatic discovery, precedence system, reload, network observation, secret
+handling, or generic configuration framework is introduced.
+
+For declaration mode only, this RFC permits the operator-owned local file to
+persist `remote_base_url`. Home AI Cluster must not persist or expose that value
+elsewhere.

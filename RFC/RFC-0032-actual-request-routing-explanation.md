@@ -1,6 +1,6 @@
 # RFC-0032: Actual Request Routing Explanation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -504,4 +504,4 @@ tracking, or a general observability framework.
 
 ## Decision
 
-Pending.
+Accepted on 2026-07-16.

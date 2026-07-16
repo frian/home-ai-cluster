@@ -3,12 +3,21 @@ import json
 
 import pytest
 
+import home_ai_cluster.actual_request_explanation as request_explanation
 from home_ai_cluster.actual_request_explanation import (
+    EXECUTION_FAILED_FAILURE,
+    INTERNAL_FAILURE_MESSAGE,
+    NO_SELECTABLE_CANDIDATE_FAILURE,
+    RUNTIME_UNAVAILABLE_FAILURE,
     create_request,
     evaluate_actual_request,
     main,
 )
-from home_ai_cluster.adapters.base import RuntimeAdapter
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapter,
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -17,12 +26,14 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RuntimeResult,
 )
+from home_ai_cluster.core.orchestrator import NoSelectableRoutingCandidateError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import build_remote_node_declaration_registry
 
 
 class RecordingAdapter(RuntimeAdapter):
-    def __init__(self) -> None:
+    def __init__(self, result: RuntimeResult | Exception) -> None:
+        self._result = result
         self.chat_calls = 0
         self.requests: list[ClusterRequest] = []
 
@@ -39,24 +50,47 @@ class RecordingAdapter(RuntimeAdapter):
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_calls += 1
         self.requests.append(request)
-        return RuntimeResult(
-            content="explained response",
-            adapter=self.name,
-            model="test-model",
-        )
+        if isinstance(self._result, Exception):
+            raise self._result
+        return self._result
 
 
-def create_local_registries() -> tuple[NodeRegistry, AdapterRegistry, RecordingAdapter]:
-    adapter = RecordingAdapter()
+def create_local_registries(
+    result: RuntimeResult | Exception,
+    *,
+    capability: str = "chat",
+) -> tuple[NodeRegistry, AdapterRegistry, RecordingAdapter]:
+    adapter = RecordingAdapter(result)
     node = NodeDescription(
         id="test-local",
         name="Test local node",
         availability="available",
         health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat")],
+        capabilities=[Capability(name=capability)],
         adapters=[adapter.name],
     )
     return NodeRegistry([node]), AdapterRegistry([adapter]), adapter
+
+
+def evaluate(
+    result: RuntimeResult | Exception,
+    *,
+    requested_capability: str = "chat",
+    node_capability: str = "chat",
+) -> tuple[dict[str, object], RecordingAdapter]:
+    nodes, adapters, adapter = create_local_registries(
+        result, capability=node_capability
+    )
+    account = asyncio.run(
+        evaluate_actual_request(
+            requested_capability,
+            "private prompt content",
+            node_registry=nodes,
+            adapter_registry=adapters,
+            remote_registry=build_remote_node_declaration_registry([]),
+        )
+    )
+    return account, adapter
 
 
 def test_create_request_preserves_message_and_local_only_default() -> None:
@@ -67,22 +101,16 @@ def test_create_request_preserves_message_and_local_only_default() -> None:
     assert request.constraints.local_only is True
 
 
-def test_evaluate_actual_request_selects_and_executes_exactly_once() -> None:
-    node_registry, adapter_registry, adapter = create_local_registries()
-
-    projection = asyncio.run(
-        evaluate_actual_request(
-            "chat",
-            "Hello",
-            node_registry=node_registry,
-            adapter_registry=adapter_registry,
-            remote_registry=build_remote_node_declaration_registry([]),
+def test_successful_account_has_the_structured_rfc_0034_projection() -> None:
+    account, adapter = evaluate(
+        RuntimeResult(
+            content="explained response", adapter="recording", model="test-model"
         )
     )
 
-    assert adapter.chat_calls == 1
-    assert len(adapter.requests) == 1
-    assert projection == {
+    assert list(account) == ["status", "routing", "result", "failure"]
+    assert account == {
+        "status": "succeeded",
         "routing": {
             "requested_capability": "chat",
             "matched_candidate_families": ["local"],
@@ -99,33 +127,225 @@ def test_evaluate_actual_request_selects_and_executes_exactly_once() -> None:
             "model": "test-model",
             "content": "explained response",
         },
+        "failure": None,
     }
+    assert adapter.chat_calls == 1
+    assert len(adapter.requests) == 1
 
 
-def test_main_writes_one_json_object(
+def test_no_selectable_candidate_preserves_exception_routing_and_does_not_execute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    select_once = request_explanation.select_automatic_capability_routing_candidate
+
+    def raise_no_selectable_candidate(
+        request: ClusterRequest, candidates: object
+    ) -> object:
+        selection = select_once(request, candidates)  # type: ignore[arg-type]
+        raise NoSelectableRoutingCandidateError(selection.explanation)
+
+    monkeypatch.setattr(
+        request_explanation,
+        "select_automatic_capability_routing_candidate",
+        raise_no_selectable_candidate,
+    )
+
+    account, adapter = evaluate(
+        RuntimeResult(content="unused", adapter="recording"),
+        requested_capability="vision",
+    )
+
+    assert account == {
+        "status": "failed",
+        "routing": {
+            "requested_capability": "vision",
+            "matched_candidate_families": [],
+            "selectable_candidate_families": [],
+            "excluded_candidate_families": [],
+            "selected_candidate_family": None,
+            "selected_node_id": None,
+            "outcome_rule": "no-selectable-candidate",
+            "failure_reason": "no-matching-candidate",
+        },
+        "result": None,
+        "failure": NO_SELECTABLE_CANDIDATE_FAILURE,
+    }
+    assert adapter.chat_calls == 0
+
+
+def test_evaluate_selects_and_executes_at_most_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    select = request_explanation.select_automatic_capability_routing_candidate
+    selections = 0
+
+    def record_selection(request: ClusterRequest, candidates: object) -> object:
+        nonlocal selections
+        selections += 1
+        return select(request, candidates)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        request_explanation,
+        "select_automatic_capability_routing_candidate",
+        record_selection,
+    )
+
+    account, adapter = evaluate(
+        RuntimeResult(content="response", adapter="recording")
+    )
+
+    assert account["status"] == "succeeded"
+    assert selections == 1
+    assert adapter.chat_calls == 1
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeAdapterUnavailableError("http://private-host authorization=secret"),
+        RuntimeConnectionUnavailableBeforeRequestError(
+            "http://private-host authorization=secret"
+        ),
+    ],
+)
+def test_runtime_unavailable_failures_keep_selection_without_leaking(
+    error: Exception,
+) -> None:
+    account, adapter = evaluate(error)
+
+    assert account["status"] == "failed"
+    assert account["routing"] == {
+        "requested_capability": "chat",
+        "matched_candidate_families": ["local"],
+        "selectable_candidate_families": ["local"],
+        "excluded_candidate_families": [],
+        "selected_candidate_family": "local",
+        "selected_node_id": "test-local",
+        "outcome_rule": "local-only",
+        "failure_reason": None,
+    }
+    assert account["result"] is None
+    assert account["failure"] == RUNTIME_UNAVAILABLE_FAILURE
+    assert "private-host" not in json.dumps(account)
+    assert "Runtime" not in json.dumps(account)
+    assert adapter.chat_calls == 1
+
+
+def test_unexpected_execution_failure_is_safely_normalized() -> None:
+    account, adapter = evaluate(
+        RuntimeError("private prompt content http://private-host token=secret")
+    )
+
+    assert account["status"] == "failed"
+    assert account["routing"]["selected_candidate_family"] == "local"
+    assert account["routing"]["selected_node_id"] == "test-local"
+    assert account["result"] is None
+    assert account["failure"] == EXECUTION_FAILED_FAILURE
+    serialized = json.dumps(account)
+    assert "private prompt content" not in serialized
+    assert "private-host" not in serialized
+    assert "RuntimeError" not in serialized
+    assert adapter.chat_calls == 1
+
+
+def test_evaluate_uses_default_local_registries_and_empty_remote_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    nodes, adapters, _ = create_local_registries(
+        RuntimeResult(content="response", adapter="recording")
+    )
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.create_static_local_node_registry",
+        lambda: calls.append("nodes") or nodes,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.create_static_runtime_adapter_registry",
+        lambda: calls.append("adapters") or adapters,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.build_remote_node_declaration_registry",
+        lambda declarations: calls.append("remotes")
+        or build_remote_node_declaration_registry(declarations),
+    )
+
+    account = asyncio.run(evaluate_actual_request("chat", "Hello"))
+
+    assert calls == ["nodes", "adapters", "remotes"]
+    assert account["status"] == "succeeded"
+
+
+@pytest.mark.parametrize(
+    "account, expected_exit",
+    [
+        (
+            {
+                "status": "succeeded",
+                "routing": {},
+                "result": {"content": "response"},
+                "failure": None,
+            },
+            0,
+        ),
+        (
+            {
+                "status": "failed",
+                "routing": {},
+                "result": None,
+                "failure": EXECUTION_FAILED_FAILURE,
+            },
+            1,
+        ),
+    ],
+)
+def test_main_emits_one_compact_account_with_expected_exit(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
+    account: dict[str, object],
+    expected_exit: int,
 ) -> None:
-    expected = {
-        "routing": {"selected_node_id": "test-local"},
-        "result": {"content": "response"},
-    }
-
     async def fake_evaluate(capability: str, message: str) -> dict[str, object]:
         assert capability == "chat"
         assert message == "Hello"
-        return expected
+        return account
 
     monkeypatch.setattr(
         "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
         fake_evaluate,
     )
 
-    main(["--capability", "chat", "--message", "Hello"])
+    if expected_exit:
+        with pytest.raises(SystemExit) as raised:
+            main(["--capability", "chat", "--message", "Hello"])
+        assert raised.value.code == expected_exit
+    else:
+        main(["--capability", "chat", "--message", "Hello"])
 
     captured = capsys.readouterr()
-    assert captured.out == json.dumps(expected) + "\n"
+    assert captured.out == json.dumps(account, separators=(",", ":")) + "\n"
     assert captured.err == ""
+
+
+def test_main_reports_safe_stderr_for_internal_account_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    async def fail_evaluation(capability: str, message: str) -> dict[str, object]:
+        raise RuntimeError("private prompt content http://private-host token=secret")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        fail_evaluation,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main(["--capability", "chat", "--message", "Hello"])
+
+    captured = capsys.readouterr()
+    assert raised.value.code != 0
+    assert captured.out == ""
+    assert captured.err == INTERNAL_FAILURE_MESSAGE + "\n"
 
 
 @pytest.mark.parametrize(

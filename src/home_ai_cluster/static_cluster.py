@@ -3,7 +3,6 @@
 import argparse
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from urllib.parse import urlsplit
 
 import httpx
 import uvicorn
@@ -19,29 +18,14 @@ from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app
+from home_ai_cluster.static_cluster_validation import (
+    LOCAL_NODE_ID,  # noqa: F401
+    remote_base_url,
+    remote_node_id,
+)
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 8000
-LOCAL_NODE_ID = "local"
-
-
-def remote_node_id(value: str) -> str:
-    """Validate one explicit cluster-owned remote node identifier."""
-    if not value.strip():
-        raise argparse.ArgumentTypeError("remote node id must not be empty")
-    if value == LOCAL_NODE_ID:
-        raise argparse.ArgumentTypeError("remote node id must differ from local")
-    return value
-
-
-def remote_base_url(value: str) -> str:
-    """Validate and normalize one explicit remote HTTP base URL."""
-    parsed = urlsplit(value)
-    if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
-        raise argparse.ArgumentTypeError(
-            "remote base URL must be an absolute http:// or https:// URL"
-        )
-    return value.rstrip("/")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

@@ -1,11 +1,12 @@
 """Local parsing for one RFC-0039 static cluster declaration."""
 
+import argparse
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from home_ai_cluster.static_cluster import remote_base_url, remote_node_id
+from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 _DECLARATION_KEYS = ("remote_node_id", "remote_base_url")
 _DECLARATION_KEY_SET = frozenset(_DECLARATION_KEYS)
@@ -81,7 +82,7 @@ def _validate_declaration_shape(document: dict[str, Any]) -> None:
 def _validated_remote_node_id(value: str, path: Path) -> str:
     try:
         return remote_node_id(value)
-    except Exception as exc:
+    except argparse.ArgumentTypeError as exc:
         raise StaticClusterDeclarationError(
             f"invalid remote node ID declaration: {path}"
         ) from exc
@@ -90,7 +91,7 @@ def _validated_remote_node_id(value: str, path: Path) -> str:
 def _validated_remote_base_url(value: str, path: Path) -> str:
     try:
         return remote_base_url(value)
-    except Exception as exc:
+    except argparse.ArgumentTypeError as exc:
         raise StaticClusterDeclarationError(
             f"invalid remote base URL declaration: {path}"
         ) from exc

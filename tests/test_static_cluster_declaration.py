@@ -3,11 +3,13 @@ from pathlib import Path
 
 import pytest
 
+from home_ai_cluster import static_cluster, static_cluster_declaration
 from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclaration,
     StaticClusterDeclarationError,
     load_static_cluster_declaration,
 )
+from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 
 def write_declaration(tmp_path: Path, content: str) -> Path:
@@ -21,6 +23,13 @@ def valid_declaration() -> str:
         'remote_node_id = "remote-node"\n'
         'remote_base_url = "http://192.0.2.10:8000"\n'
     )
+
+
+def test_static_cluster_and_declaration_share_neutral_validation() -> None:
+    assert static_cluster.remote_node_id is remote_node_id
+    assert static_cluster.remote_base_url is remote_base_url
+    assert static_cluster_declaration.remote_node_id is remote_node_id
+    assert static_cluster_declaration.remote_base_url is remote_base_url
 
 
 def test_loads_valid_static_cluster_declaration_without_network_use(

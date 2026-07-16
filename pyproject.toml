@@ -18,6 +18,7 @@ home-ai-cluster-fallback-proof = "home_ai_cluster.fallback_proof:main"
 home-ai-cluster-explain-routing = "home_ai_cluster.routing_explanation:main"
 home-ai-cluster-explain-request = "home_ai_cluster.actual_request_explanation:main"
 home-ai-cluster-openai-compatibility = "home_ai_cluster.openai_compatibility:main"
+home-ai-cluster-health = "home_ai_cluster.local_health_snapshot:main"
 
 [dependency-groups]
 dev = [

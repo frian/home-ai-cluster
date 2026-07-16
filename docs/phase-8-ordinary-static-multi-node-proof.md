@@ -8,7 +8,7 @@ Record operator verification of the ordinary static multi-node mode accepted by
 RFC-0038.
 
 This record is intentionally privacy-safe. It retains only repository revision,
-sanitzed command names, placeholder node identity, normalized observations, and
+sanitized command names, placeholder node identity, normalized observations, and
 pass/fail results.
 
 ## Verification basis

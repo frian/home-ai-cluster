@@ -100,11 +100,15 @@ http://127.0.0.1:8000/v1/chat
 
 From another terminal:
 
+Replace `<operator-supplied-message>` at invocation time. It is a placeholder;
+do not retain the supplied prompt or generated response in documentation or proof
+records.
+
 ```sh
 curl -s http://127.0.0.1:8000/v1/chat \
   -H 'content-type: application/json' \
   -d '{
-    "messages": [{"role": "user", "content": "Hello"}],
+    "messages": [{"role": "user", "content": "<operator-supplied-message>"}],
     "capability": "chat"
   }'
 ```
@@ -209,7 +213,7 @@ From the calling machine:
 curl -s http://<receiving-lan-address>:8000/v1/chat \
   -H 'content-type: application/json' \
   -d '{
-    "messages": [{"role": "user", "content": "Hello"}],
+    "messages": [{"role": "user", "content": "<operator-supplied-message>"}],
     "capability": "chat"
   }'
 ```
@@ -239,7 +243,7 @@ From another terminal on the calling machine:
 curl -s http://127.0.0.1:8000/v1/chat \
   -H 'content-type: application/json' \
   -d '{
-    "messages": [{"role": "user", "content": "Hello"}],
+    "messages": [{"role": "user", "content": "<operator-supplied-message>"}],
     "capability": "chat"
   }'
 ```
@@ -269,12 +273,12 @@ Do not reinterpret one layer's failure as another layer's result.
 
 ## Process and port ownership
 
-| Process | Purpose | Accepted exposure | Ownership |
+| Process | Purpose | Accepted port and exposure | Ownership |
 | --- | --- | --- | --- |
 | External AI runtime | Model execution | Runtime-specific | Operator-owned |
-| Ordinary Home AI Cluster application | Native local or receiving endpoint | Loopback by default; trusted-LAN bind only for explicit proof | Home AI Cluster process, manually started |
-| Static proof process | Calling-machine proof endpoint | Loopback only on accepted proof port | Home AI Cluster proof process, manually started |
-| OpenAI-compatible process | Optional compatibility access | Loopback only on its accepted port | Separate optional Home AI Cluster process |
+| Ordinary Home AI Cluster application | Native local or receiving endpoint | `8000`; loopback by default, with trusted-LAN binding only for explicit proof | Home AI Cluster process, manually started |
+| Static proof process | Calling-machine proof endpoint | `8000` on the calling machine loopback | Home AI Cluster proof process, manually started |
+| OpenAI-compatible process | Optional compatibility access | `8001`; loopback only | Separate optional Home AI Cluster process |
 
 This table does not imply supervision or automatic lifecycle management.
 

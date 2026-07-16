@@ -13,12 +13,14 @@ It records what currently exists so future changes can be reviewed against the a
 This current state should be read against the accepted RFC set, especially:
 
 - `RFC/RFC-0036-static-operator-preflight.md`;
-- `RFC/RFC-0037-canonical-operator-workflow.md`.
+- `RFC/RFC-0037-canonical-operator-workflow.md`;
+- `RFC/RFC-0038-ordinary-static-multi-node-mode.md`.
 
 The canonical operator documents are:
 
 - `docs/operator-workflow.md`;
-- `docs/phase-8-canonical-operator-workflow-proof.md`.
+- `docs/phase-8-canonical-operator-workflow-proof.md`;
+- `docs/phase-8-ordinary-static-multi-node-proof.md`.
 
 ## Current system shape
 
@@ -31,6 +33,7 @@ Home AI Cluster currently provides a static, local-first cluster architecture wi
 - routing explanations and request history without prompt logging by default;
 - a read-only health command;
 - a read-only static operator preflight;
+- one ordinary explicit static multi-node process;
 - one explicit static two-machine proof process;
 - an optional compatibility endpoint kept separate from the native endpoint.
 
@@ -59,6 +62,16 @@ operator request on the calling machine
   -> normalized cluster result with remote attribution
 ```
 
+The ordinary static multi-node flow is:
+
+```text
+operator request on the calling machine
+  -> ordinary static multi-node process
+  -> local candidate first
+  -> accepted narrow fallback to one declared remote candidate when eligible
+  -> normalized cluster result with cluster-owned attribution
+```
+
 ## Canonical operator workflow
 
 The shortest supported operator workflow is documented in:
@@ -67,10 +80,11 @@ The shortest supported operator workflow is documented in:
 docs/operator-workflow.md
 ```
 
-It defines exactly two modes:
+It defines exactly three modes:
 
 1. ordinary local-only operation;
-2. explicit two-machine proof operation.
+2. ordinary explicit static multi-node operation;
+3. explicit historical two-machine proof operation.
 
 The documented sequence covers preparation, preflight, health, startup, request execution, shutdown, recovery, process ownership, port ownership, and privacy boundaries.
 
@@ -81,6 +95,7 @@ The current operator-facing commands include:
 ```text
 home-ai-cluster-preflight
 home-ai-cluster-health
+home-ai-cluster-static-cluster
 home-ai-cluster-static-proof
 ```
 
@@ -96,13 +111,18 @@ It currently validates one rule:
 
 > Every adapter declared by a configured node resolves in the inspected adapter registry.
 
+For local-only invocation, it inspects the local declaration. When both explicit
+remote arguments are supplied, it also projects one declared remote node and
+checks both nodes' adapter names against the same inspected adapter registry.
+Neither mode does network or runtime observation.
+
 It does not:
 
 - contact a runtime;
 - inspect runtime health;
 - test a network path;
-- validate a supplied remote URL;
-- validate a remote declaration;
+- test a supplied remote URL or LAN path;
+- validate remote execution;
 - start or stop any process;
 - mutate configuration;
 - repair any condition.
@@ -148,6 +168,20 @@ This is the normal supported mode.
 
 The application, node registry, adapter registry, runtime adapter, and external runtime operate on one machine through loopback interfaces by default.
 
+### Ordinary explicit static multi-node operation
+
+This supported mode uses one calling-machine local node and one
+operator-declared remote node. The declaration remains process-local, routing is
+local-first with only the accepted narrow fallback, and all runtime and remote
+process lifecycle remains operator-owned.
+
+RFC-0038 repository implementation is complete. Real ordinary two-machine
+operator verification remains pending in:
+
+```text
+docs/phase-8-ordinary-static-multi-node-proof.md
+```
+
 ### Explicit two-machine proof operation
 
 This remains a deliberate proof-only mode.
@@ -164,6 +198,9 @@ It requires:
 
 The proof process does not turn the cluster into an automatically managed distributed system.
 
+The historical proof remains retained until ordinary static multi-node operator
+verification succeeds.
+
 ## Current lifecycle boundary
 
 Home AI Cluster does not own the lifecycle of external runtimes or remote application processes.
@@ -173,7 +210,7 @@ Current operation remains manual:
 - operators start required external runtimes;
 - operators run preflight and health;
 - operators start application processes;
-- operators provide the proof-specific remote endpoint;
+- operators provide any explicit remote endpoint required by the selected mode;
 - operators stop processes in the documented order;
 - operators remove temporary network exposure when applicable.
 
@@ -227,18 +264,10 @@ The current system does not include:
 - a generic runbook framework;
 - a new configuration format.
 
-## Questions exposed by real operation
+## Pending ordinary-mode verification
 
-The completed operator proof exposed practical questions for future investigation:
-
-- whether static multi-node configuration should become an ordinary supported mode;
-- whether the proof-specific process should remain separate from normal operation;
-- how much lifecycle assistance is useful without introducing supervision or remote control prematurely;
-- whether manually supplied remote endpoints remain acceptable for the next milestone;
-- which operational friction is worth addressing before discovery or automation is considered.
-
-These are investigation topics only.
-
-They do not introduce or imply an architectural decision.
-
-Any architectural change must follow the RFC process before implementation.
+The ordinary static multi-node repository implementation does not itself prove a
+real two-machine run. The pending scaffold requires operator verification of
+local-first behavior, the accepted narrow fallback, remote attribution,
+loopback binding, privacy boundaries, and manual shutdown order before any
+ordinary-mode success claim is made.

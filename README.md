@@ -33,8 +33,8 @@ Useful proof and investigation records include:
 * `docs/phase-6-aider-access-proof.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
-supported operator sequence. Its two-machine mode remains explicit proof-only
-operation.
+supported operator sequence. It covers ordinary local-only operation, ordinary
+explicit static multi-node operation, and historical proof-only operation.
 
 ## Current shape
 

@@ -1,6 +1,6 @@
 # RFC-0037: Canonical operator workflow
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -440,4 +440,6 @@ These questions do not block the documentation-only workflow.
 
 ## Decision
 
-Pending.
+Accepted on 2026-07-16.
+
+Home AI Cluster will define `docs/operator-workflow.md` as the canonical documentation-only operator workflow with exactly two supported modes: ordinary local-only operation and explicit two-machine proof operation. The workflow will order existing preparation, preflight, health, startup, request, shutdown, and recovery steps without changing command, endpoint, runtime, network, routing, configuration, or lifecycle behavior.

@@ -221,6 +221,41 @@ def test_static_cluster_falls_back_once_and_attributes_declared_remote_node() ->
     assert remote.declarations == wiring.remote_registry.list_declarations()
 
 
+def test_static_cluster_routes_call_neutral_static_remote_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    wiring, _, _ = make_wiring()
+    expected = ClusterResult(
+        content="routed result",
+        adapter="remote",
+        node_id="operator-remote",
+    )
+    calls: list[tuple[object, ...]] = []
+
+    async def neutral_fallback(*args: object) -> ClusterResult:
+        calls.append(args)
+        return expected
+
+    monkeypatch.setattr(
+        routes,
+        "orchestrate_request_with_static_remote_fallback",
+        neutral_fallback,
+    )
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 200
+    assert response.json()["node_id"] == "operator-remote"
+    assert len(calls) == 1
+    _, node_registry, adapter_registry, remote_registry, remote_transport = calls[0]
+    assert node_registry is wiring.node_registry
+    assert adapter_registry is wiring.adapter_registry
+    assert remote_registry is wiring.remote_registry
+    assert remote_transport is wiring.remote_transport
+
+
 def test_static_cluster_hides_remote_base_url_from_public_transport_failure() -> None:
     wiring, local, remote = make_wiring(
         local_error=RuntimeConnectionUnavailableBeforeRequestError("not connected"),

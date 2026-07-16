@@ -18,7 +18,7 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
-    orchestrate_request_with_automatic_capability_fallback,
+    orchestrate_request_with_static_remote_fallback,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
 
@@ -67,7 +67,7 @@ async def handle_chat_cluster_request(
         )
 
     if static_remote_wiring is not None:
-        return await orchestrate_request_with_automatic_capability_fallback(
+        return await orchestrate_request_with_static_remote_fallback(
             cluster_request,
             static_remote_wiring.node_registry,
             static_remote_wiring.adapter_registry,

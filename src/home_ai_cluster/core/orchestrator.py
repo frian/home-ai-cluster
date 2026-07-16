@@ -149,14 +149,14 @@ async def orchestrate_request_with_automatic_capability_selection(
     return outcome.result
 
 
-async def orchestrate_request_with_automatic_capability_fallback(
+async def orchestrate_request_with_static_remote_fallback(
     request: ClusterRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
 ) -> ClusterResult:
-    """Execute the RFC-0028 proof-only local-to-declared-remote fallback."""
+    """Execute the accepted local-to-declared-remote fallback once."""
     candidates = routing_candidates_for_request(
         request,
         node_registry,
@@ -188,6 +188,23 @@ async def orchestrate_request_with_automatic_capability_fallback(
     return await execute_declared_remote_routing_candidate(
         request,
         candidates.declared_remote,
+        remote_transport,
+    )
+
+
+async def orchestrate_request_with_automatic_capability_fallback(
+    request: ClusterRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry,
+    remote_transport: RemoteTransport,
+) -> ClusterResult:
+    """Preserve the RFC-0028 proof-facing fallback entry point."""
+    return await orchestrate_request_with_static_remote_fallback(
+        request,
+        node_registry,
+        adapter_registry,
+        remote_registry,
         remote_transport,
     )
 

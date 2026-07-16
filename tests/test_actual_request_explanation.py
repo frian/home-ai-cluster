@@ -6,6 +6,7 @@ import pytest
 import home_ai_cluster.actual_request_explanation as request_explanation
 from home_ai_cluster.actual_request_explanation import (
     EXECUTION_FAILED_FAILURE,
+    HISTORY_RECORDING_WARNING,
     INTERNAL_FAILURE_MESSAGE,
     NO_SELECTABLE_CANDIDATE_FAILURE,
     RUNTIME_UNAVAILABLE_FAILURE,
@@ -346,6 +347,123 @@ def test_main_reports_safe_stderr_for_internal_account_failure(
     assert raised.value.code != 0
     assert captured.out == ""
     assert captured.err == INTERNAL_FAILURE_MESSAGE + "\n"
+
+
+def test_main_does_not_record_history_without_explicit_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = {
+        "status": "succeeded",
+        "routing": {"requested_capability": "chat"},
+        "result": {"content": "response"},
+        "failure": None,
+    }
+
+    async def fake_evaluate(capability: str, message: str) -> dict[str, object]:
+        return account
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        fake_evaluate,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.record_account",
+        lambda _: pytest.fail("history recording must be opt-in"),
+    )
+
+    main(["--capability", "chat", "--message", "Hello"])
+
+    captured = capsys.readouterr()
+    assert captured.out == json.dumps(account, separators=(",", ":")) + "\n"
+    assert captured.err == ""
+    assert not (tmp_path / "home-ai-cluster").exists()
+
+
+def test_main_records_unchanged_account_with_explicit_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = {
+        "status": "succeeded",
+        "routing": {
+            "requested_capability": "chat",
+            "selected_candidate_family": "local",
+            "outcome_rule": "local-only",
+        },
+        "result": {"content": "response"},
+        "failure": None,
+    }
+
+    async def fake_evaluate(capability: str, message: str) -> dict[str, object]:
+        return account
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        fake_evaluate,
+    )
+
+    main(["--capability", "chat", "--message", "Hello", "--record-history"])
+
+    captured = capsys.readouterr()
+    assert captured.out == json.dumps(account, separators=(",", ":")) + "\n"
+    assert captured.err == ""
+    assert json.loads(
+        (tmp_path / "home-ai-cluster" / "request-history.jsonl").read_text(
+            encoding="utf-8"
+        )
+    ) == {
+        "status": "succeeded",
+        "requested_capability": "chat",
+        "selected_candidate_family": "local",
+        "outcome_rule": "local-only",
+        "failure_status": None,
+    }
+
+
+@pytest.mark.parametrize("status", ["succeeded", "failed"])
+def test_main_preserves_account_and_exit_when_history_recording_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    status: str,
+) -> None:
+    account = {
+        "status": status,
+        "routing": {"requested_capability": "chat"},
+        "result": {"content": "response"} if status == "succeeded" else None,
+        "failure": None if status == "succeeded" else EXECUTION_FAILED_FAILURE,
+    }
+
+    async def fake_evaluate(capability: str, message: str) -> dict[str, object]:
+        return account
+
+    def fail_record(account: dict[str, object]) -> None:
+        raise PermissionError("/private/state request-history.jsonl")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        fake_evaluate,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.actual_request_explanation.record_account", fail_record
+    )
+
+    arguments = ["--capability", "chat", "--message", "Hello", "--record-history"]
+    if status == "failed":
+        with pytest.raises(SystemExit) as raised:
+            main(arguments)
+        assert raised.value.code != 0
+    else:
+        main(arguments)
+
+    captured = capsys.readouterr()
+    assert captured.out == json.dumps(account, separators=(",", ":")) + "\n"
+    assert captured.err == HISTORY_RECORDING_WARNING + "\n"
+    assert "/private" not in captured.err
 
 
 @pytest.mark.parametrize(

@@ -32,6 +32,7 @@ from home_ai_cluster.core.routing_candidates import (
     routing_candidates_for_request,
     select_automatic_capability_routing_candidate,
 )
+from home_ai_cluster.request_history import record_account
 
 NO_SELECTABLE_CANDIDATE_FAILURE = {
     "status": "no-selectable-candidate",
@@ -46,6 +47,7 @@ EXECUTION_FAILED_FAILURE = {
     "reason": "selected candidate execution failed",
 }
 INTERNAL_FAILURE_MESSAGE = "error: unable to construct actual request account"
+HISTORY_RECORDING_WARNING = "warning: unable to record request history"
 
 
 def non_empty_value(value: str) -> str:
@@ -60,6 +62,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-explain-request")
     parser.add_argument("--capability", required=True, type=non_empty_value)
     parser.add_argument("--message", required=True, type=non_empty_value)
+    parser.add_argument("--record-history", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -218,6 +221,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     except Exception as error:
         print(INTERNAL_FAILURE_MESSAGE, file=sys.stderr)
         raise SystemExit(1) from error
+
+    if args.record_history:
+        try:
+            record_account(account)
+        except Exception:
+            print(HISTORY_RECORDING_WARNING, file=sys.stderr)
 
     print(json.dumps(account, separators=(",", ":")))
     if account["status"] == "failed":

@@ -1,5 +1,7 @@
 """Minimal core orchestration for static local requests."""
 
+from dataclasses import dataclass
+
 import httpx
 
 from home_ai_cluster.adapters.base import (
@@ -40,6 +42,14 @@ class NoSelectableRoutingCandidateError(Exception):
             "Automatic capability selection produced no selectable candidate"
         )
         self.explanation = explanation
+
+
+@dataclass(frozen=True)
+class AutomaticCapabilityRoutingOutcome:
+    """Request-scoped selection explanation and successful normalized result."""
+
+    explanation: AutomaticCapabilitySelectionExplanation
+    result: ClusterResult
 
 
 async def orchestrate_request(
@@ -91,14 +101,14 @@ async def orchestrate_request_with_selected_candidate(
     )
 
 
-async def orchestrate_request_with_automatic_capability_selection(
+async def orchestrate_request_with_automatic_capability_explanation(
     request: ClusterRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
-    remote_transport: RemoteTransport,
-) -> ClusterResult:
-    """Compose explicit candidate discovery, automatic selection, and execution."""
+    remote_transport: RemoteTransport | None = None,
+) -> AutomaticCapabilityRoutingOutcome:
+    """Select once, execute once, and preserve the same request-scoped explanation."""
     candidates = routing_candidates_for_request(
         request,
         node_registry,
@@ -110,11 +120,33 @@ async def orchestrate_request_with_automatic_capability_selection(
     if selection.selected is None:
         raise NoSelectableRoutingCandidateError(selection.explanation)
 
-    return await orchestrate_request_with_selected_candidate(
+    result = await orchestrate_request_with_selected_candidate(
         request,
         selection.selected,
         remote_transport=remote_transport,
     )
+    return AutomaticCapabilityRoutingOutcome(
+        explanation=selection.explanation,
+        result=result,
+    )
+
+
+async def orchestrate_request_with_automatic_capability_selection(
+    request: ClusterRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry,
+    remote_transport: RemoteTransport,
+) -> ClusterResult:
+    """Compose explicit candidate discovery, automatic selection, and execution."""
+    outcome = await orchestrate_request_with_automatic_capability_explanation(
+        request,
+        node_registry,
+        adapter_registry,
+        remote_registry,
+        remote_transport,
+    )
+    return outcome.result
 
 
 async def orchestrate_request_with_automatic_capability_fallback(

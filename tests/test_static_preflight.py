@@ -1,5 +1,7 @@
 import json
+import socket
 
+import httpx
 import pytest
 
 from home_ai_cluster.core.models import (
@@ -14,8 +16,10 @@ from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.static_preflight import (
     MISSING_ADAPTER_REASON,
     PREFLIGHT_FAILURE_MESSAGE,
+    evaluate_static_multi_node_preflight,
     evaluate_static_preflight,
     main,
+    parse_args,
     project_static_preflight,
 )
 
@@ -177,6 +181,112 @@ def test_evaluate_uses_ordinary_static_local_registries(
     assert report["status"] == "coherent"
 
 
+def test_parse_args_preserves_local_only_without_remote_declaration() -> None:
+    args = parse_args([])
+
+    assert args.remote_node_id is None
+    assert args.remote_base_url is None
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--remote-node-id", "declared-remote"],
+        ["--remote-base-url", "https://remote.example"],
+        [
+            "--remote-node-id",
+            "",
+            "--remote-base-url",
+            "https://remote.example",
+        ],
+        [
+            "--remote-node-id",
+            "local",
+            "--remote-base-url",
+            "https://remote.example",
+        ],
+        [
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-base-url",
+            "remote.example",
+        ],
+    ],
+)
+def test_parse_args_rejects_incomplete_or_invalid_remote_declaration(
+    argv: list[str],
+) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(argv)
+
+
+def test_parse_args_normalizes_remote_url_like_static_cluster() -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-base-url",
+            "https://remote.example:8000/",
+        ]
+    )
+
+    assert args.remote_node_id == "declared-remote"
+    assert args.remote_base_url == "https://remote.example:8000"
+
+
+def test_multi_node_preflight_projects_local_then_remote_without_network_use(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_network(*_: object, **__: object) -> None:
+        raise AssertionError("preflight must not construct or use a network client")
+
+    monkeypatch.setattr(httpx, "AsyncClient", fail_network)
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+
+    remote_url = "https://private.example:9443"
+    report = evaluate_static_multi_node_preflight("declared-remote", remote_url)
+
+    assert report == {
+        "status": "coherent",
+        "operating_mode": "static-multi-node",
+        "nodes": [
+            {
+                "node_id": "local",
+                "capabilities": ["chat"],
+                "declared_adapters": ["ollama"],
+            },
+            {
+                "node_id": "declared-remote",
+                "capabilities": ["chat"],
+                "declared_adapters": ["ollama"],
+            },
+        ],
+        "registered_adapters": ["ollama"],
+        "issues": [],
+    }
+    assert remote_url not in json.dumps(report)
+
+
+def test_multi_node_preflight_attributes_missing_remote_adapter() -> None:
+    local = make_node("local", ["chat"], ["local-adapter"])
+    report = evaluate_static_multi_node_preflight(
+        "declared-remote",
+        "https://remote.example",
+        node_registry=NodeRegistry([local]),
+        adapter_registry=AdapterRegistry([FakeAdapter("local-adapter")]),
+    )
+
+    assert report["status"] == "incoherent"
+    assert report["issues"] == [
+        {
+            "status": "missing-adapter",
+            "node_id": "declared-remote",
+            "adapter": "ollama",
+            "reason": MISSING_ADAPTER_REASON,
+        }
+    ]
+
+
 def test_main_emits_compact_coherent_report_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -193,11 +303,50 @@ def test_main_emits_compact_coherent_report_and_exits_zero(
         lambda: report,
     )
 
-    main()
+    main([])
 
     captured = capsys.readouterr()
     assert captured.out == json.dumps(report, separators=(",", ":")) + "\n"
     assert captured.err == ""
+
+
+def test_main_emits_static_multi_node_report_without_remote_url(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report = {
+        "status": "coherent",
+        "operating_mode": "static-multi-node",
+        "nodes": [],
+        "registered_adapters": [],
+        "issues": [],
+    }
+    remote_url = "https://private.example:9443"
+    calls: list[tuple[str, str]] = []
+
+    def evaluate_multi(node_id: str, base_url: str) -> dict[str, object]:
+        calls.append((node_id, base_url))
+        return report
+
+    monkeypatch.setattr(
+        "home_ai_cluster.static_preflight.evaluate_static_multi_node_preflight",
+        evaluate_multi,
+    )
+
+    main(
+        [
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-base-url",
+            remote_url,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert calls == [("declared-remote", remote_url)]
+    assert captured.out == json.dumps(report, separators=(",", ":")) + "\n"
+    assert captured.err == ""
+    assert remote_url not in captured.out
 
 
 def test_main_emits_incoherent_report_and_exits_nonzero(
@@ -224,7 +373,7 @@ def test_main_emits_incoherent_report_and_exits_nonzero(
     )
 
     with pytest.raises(SystemExit) as raised:
-        main()
+        main([])
 
     captured = capsys.readouterr()
     assert raised.value.code != 0
@@ -245,10 +394,41 @@ def test_main_reports_safe_construction_failure(
     )
 
     with pytest.raises(SystemExit) as raised:
-        main()
+        main([])
 
     captured = capsys.readouterr()
     assert raised.value.code != 0
     assert captured.out == ""
     assert captured.err == PREFLIGHT_FAILURE_MESSAGE + "\n"
     assert "private-host" not in captured.err
+
+
+def test_main_hides_remote_url_when_multi_node_construction_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    remote_url = "https://private.example:9443"
+
+    def fail_declaration(*_: object) -> None:
+        raise RuntimeError(remote_url)
+
+    monkeypatch.setattr(
+        "home_ai_cluster.static_preflight.create_remote_declaration",
+        fail_declaration,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            [
+                "--remote-node-id",
+                "declared-remote",
+                "--remote-base-url",
+                remote_url,
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code != 0
+    assert captured.out == ""
+    assert captured.err == PREFLIGHT_FAILURE_MESSAGE + "\n"
+    assert remote_url not in captured.err

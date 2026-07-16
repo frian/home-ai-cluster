@@ -1,6 +1,6 @@
 # RFC-0035: Bounded Local Request History
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -619,4 +619,7 @@ architecture.
 
 ## Decision
 
-Pending.
+Accepted on 2026-07-16.
+
+The project will implement the explicit, bounded, prompt-free local request history
+described by this RFC.

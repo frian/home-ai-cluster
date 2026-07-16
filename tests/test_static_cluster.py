@@ -1,0 +1,304 @@
+import asyncio
+
+import httpx
+import pytest
+from fastapi import FastAPI
+
+from home_ai_cluster.adapters.base import RuntimeConnectionUnavailableBeforeRequestError
+from home_ai_cluster.api.wiring import build_static_remote_wiring
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ClusterRequest,
+    ClusterResult,
+    NodeDescription,
+    NodeHealth,
+    RuntimeResult,
+)
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_transport import RemoteTransportError
+from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.main import create_app
+from home_ai_cluster.static_cluster import (
+    LOCAL_NODE_ID,
+    STATIC_CLUSTER_HOST,
+    STATIC_CLUSTER_PORT,
+    create_remote_declaration,
+    create_static_cluster_app,
+    main,
+    parse_args,
+)
+
+
+class FakeAdapter:
+    def __init__(self, error: Exception | None = None) -> None:
+        self._error = error
+        self.requests: list[ClusterRequest] = []
+
+    @property
+    def name(self) -> str:
+        return "ollama"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="chat")]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.requests.append(request)
+        if self._error is not None:
+            raise self._error
+        return RuntimeResult(content="local result", adapter=self.name)
+
+
+class FakeRemoteTransport:
+    def __init__(self, error: Exception | None = None) -> None:
+        self._error = error
+        self.requests: list[ClusterRequest] = []
+        self.declarations: list[RemoteNodeDeclaration] = []
+
+    async def send(
+        self,
+        request: ClusterRequest,
+        declaration: RemoteNodeDeclaration,
+    ) -> ClusterResult:
+        self.requests.append(request)
+        self.declarations.append(declaration)
+        if self._error is not None:
+            raise self._error
+        return ClusterResult(
+            content="remote result",
+            adapter="remote",
+            node_id="receiving-node",
+        )
+
+
+def make_local_node() -> NodeDescription:
+    return NodeDescription(
+        id=LOCAL_NODE_ID,
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["ollama"],
+    )
+
+
+def make_wiring(
+    *,
+    local_error: Exception | None = None,
+    remote_error: Exception | None = None,
+) -> tuple[object, FakeAdapter, FakeRemoteTransport]:
+    local = FakeAdapter(local_error)
+    remote = FakeRemoteTransport(remote_error)
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry([make_local_node()]),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=create_remote_declaration(
+            "operator-remote", "https://private.example:9443"
+        ),
+        remote_transport=remote,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    return wiring, local, remote
+
+
+def post(app: FastAPI) -> httpx.Response:
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/chat",
+                json={
+                    "messages": [{"role": "user", "content": "test message"}],
+                    "capability": "chat",
+                },
+            )
+
+    return asyncio.run(send())
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [],
+        ["--remote-node-id", "", "--remote-base-url", "http://remote.test"],
+        [
+            "--remote-node-id",
+            LOCAL_NODE_ID,
+            "--remote-base-url",
+            "http://remote.test",
+        ],
+        ["--remote-node-id", "remote", "--remote-base-url", "remote.test"],
+        ["--remote-node-id", "remote", "--remote-base-url", "http:///missing"],
+    ],
+)
+def test_parse_args_rejects_invalid_remote_declarations(argv: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(argv)
+
+
+def test_parse_args_normalizes_valid_remote_base_url() -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000/",
+        ]
+    )
+
+    assert args.remote_node_id == "operator-remote"
+    assert args.remote_base_url == "https://remote.example:8000"
+
+
+def test_remote_declaration_is_neutral_and_has_fixed_rfc_facts() -> None:
+    declaration = create_remote_declaration("operator-remote", "https://remote.test")
+
+    assert declaration.node.id == "operator-remote"
+    assert declaration.node.name == "Declared remote node operator-remote"
+    assert declaration.node.availability == "available"
+    assert declaration.node.health == NodeHealth(healthy=True)
+    assert declaration.node.capabilities == [Capability(name="chat")]
+    assert declaration.node.adapters == ["ollama"]
+    assert declaration.transport_address == "https://remote.test"
+
+
+def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    app = create_static_cluster_app(
+        "operator-remote", "https://remote.test", client=client
+    )
+
+    wiring = app.state.static_remote_wiring
+    declarations = wiring.remote_registry.list_declarations()
+    assert len(wiring.node_registry.list_nodes()) == 1
+    assert len(declarations) == 1
+    assert declarations[0].node.id == "operator-remote"
+    assert app.state.static_cluster_http_client is client
+    assert requests == []
+
+    async def run_lifespan() -> None:
+        async with app.router.lifespan_context(app):
+            assert not client.is_closed
+
+    asyncio.run(run_lifespan())
+    assert client.is_closed
+
+
+def test_static_cluster_prefers_usable_local_candidate() -> None:
+    wiring, local, remote = make_wiring()
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 200
+    assert response.json()["node_id"] == LOCAL_NODE_ID
+    assert len(local.requests) == 1
+    assert remote.requests == []
+
+
+def test_static_cluster_falls_back_once_and_attributes_declared_remote_node() -> None:
+    wiring, local, remote = make_wiring(
+        local_error=RuntimeConnectionUnavailableBeforeRequestError("not connected")
+    )
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 200
+    assert response.json()["node_id"] == "operator-remote"
+    assert len(local.requests) == 1
+    assert len(remote.requests) == 1
+    assert remote.declarations == wiring.remote_registry.list_declarations()
+
+
+def test_static_cluster_routes_call_neutral_static_remote_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    wiring, _, _ = make_wiring()
+    expected = ClusterResult(
+        content="routed result",
+        adapter="remote",
+        node_id="operator-remote",
+    )
+    calls: list[tuple[object, ...]] = []
+
+    async def neutral_fallback(*args: object) -> ClusterResult:
+        calls.append(args)
+        return expected
+
+    monkeypatch.setattr(
+        routes,
+        "orchestrate_request_with_static_remote_fallback",
+        neutral_fallback,
+    )
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 200
+    assert response.json()["node_id"] == "operator-remote"
+    assert len(calls) == 1
+    _, node_registry, adapter_registry, remote_registry, remote_transport = calls[0]
+    assert node_registry is wiring.node_registry
+    assert adapter_registry is wiring.adapter_registry
+    assert remote_registry is wiring.remote_registry
+    assert remote_transport is wiring.remote_transport
+
+
+def test_static_cluster_hides_remote_base_url_from_public_transport_failure() -> None:
+    wiring, local, remote = make_wiring(
+        local_error=RuntimeConnectionUnavailableBeforeRequestError("not connected"),
+        remote_error=RemoteTransportError("https://private.example:9443 failed"),
+    )
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+    assert "private.example" not in response.text
+    assert len(local.requests) == 1
+    assert len(remote.requests) == 1
+
+
+def test_main_runs_fixed_loopback_static_cluster_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    app = FastAPI()
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(static_cluster, "create_static_cluster_app", lambda *_: app)
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda run_app, *, host, port: recorded.update(
+            app=run_app, host=host, port=port
+        ),
+    )
+
+    main(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.test",
+        ]
+    )
+
+    assert recorded == {
+        "app": app,
+        "host": STATIC_CLUSTER_HOST,
+        "port": STATIC_CLUSTER_PORT,
+    }

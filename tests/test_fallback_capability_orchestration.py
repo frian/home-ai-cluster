@@ -21,6 +21,7 @@ from home_ai_cluster.core.models import (
 from home_ai_cluster.core.orchestrator import (
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_automatic_capability_fallback,
+    orchestrate_request_with_static_remote_fallback,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
@@ -123,7 +124,7 @@ def make_dependencies(
     )
 
 
-def run_fallback(
+def run_static_remote_fallback(
     dependencies: tuple[
         NodeRegistry,
         AdapterRegistry,
@@ -135,7 +136,7 @@ def run_fallback(
 ) -> ClusterResult:
     nodes, adapters, remotes, _, transport = dependencies
     return asyncio.run(
-        orchestrate_request_with_automatic_capability_fallback(
+        orchestrate_request_with_static_remote_fallback(
             request, nodes, adapters, remotes, transport
         )
     )
@@ -187,7 +188,9 @@ def test_narrow_failure_discovers_selects_and_attempts_each_candidate_once(
         module, "execute_declared_remote_routing_candidate", count_remote
     )
 
-    result = run_fallback((nodes, adapters, remotes, adapter, transport), request)
+    result = run_static_remote_fallback(
+        (nodes, adapters, remotes, adapter, transport), request
+    )
 
     assert result.node_id == "declared-remote"
     assert calls == {"discovery": 1, "selection": 1, "local": 1, "remote": 1}
@@ -197,7 +200,7 @@ def test_narrow_failure_discovers_selects_and_attempts_each_candidate_once(
 
 def test_local_success_does_not_contact_remote() -> None:
     dependencies = make_dependencies()
-    result = run_fallback(dependencies, make_request())
+    result = run_static_remote_fallback(dependencies, make_request())
 
     assert result.node_id == "local"
     assert len(dependencies[3].requests) == 1
@@ -221,7 +224,7 @@ def test_non_narrow_local_failures_do_not_fallback(error: Exception) -> None:
     dependencies = make_dependencies(adapter_error=error)
 
     with pytest.raises(type(error)) as raised:
-        run_fallback(dependencies, make_request())
+        run_static_remote_fallback(dependencies, make_request())
 
     assert raised.value is error
     assert len(dependencies[3].requests) == 1
@@ -233,7 +236,7 @@ def test_narrow_failure_without_remote_remains_visible() -> None:
     dependencies = make_dependencies(remote=False, adapter_error=error)
 
     with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as raised:
-        run_fallback(dependencies, make_request())
+        run_static_remote_fallback(dependencies, make_request())
 
     assert raised.value is error
     assert len(dependencies[3].requests) == 1
@@ -248,7 +251,7 @@ def test_remote_failure_is_visible_without_retry() -> None:
     )
 
     with pytest.raises(RemoteTransportError) as raised:
-        run_fallback(dependencies, make_request())
+        run_static_remote_fallback(dependencies, make_request())
 
     assert raised.value is error
     assert len(dependencies[3].requests) == 1
@@ -260,7 +263,7 @@ def test_local_only_prevents_remote_fallback() -> None:
     dependencies = make_dependencies(adapter_error=error)
 
     with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as raised:
-        run_fallback(dependencies, make_request(local_only=True))
+        run_static_remote_fallback(dependencies, make_request(local_only=True))
 
     assert raised.value is error
     assert len(dependencies[3].requests) == 1
@@ -269,7 +272,7 @@ def test_local_only_prevents_remote_fallback() -> None:
 
 def test_initially_selected_remote_uses_existing_single_execution_path() -> None:
     dependencies = make_dependencies(local=False)
-    result = run_fallback(dependencies, make_request())
+    result = run_static_remote_fallback(dependencies, make_request())
 
     assert result.node_id == "declared-remote"
     assert dependencies[3].requests == []
@@ -280,7 +283,42 @@ def test_no_selectable_candidate_preserves_existing_error() -> None:
     dependencies = make_dependencies(local=False, remote=False)
 
     with pytest.raises(NoSelectableRoutingCandidateError):
-        run_fallback(dependencies, make_request())
+        run_static_remote_fallback(dependencies, make_request())
 
     assert dependencies[3].requests == []
     assert dependencies[4].requests == []
+
+
+def test_proof_facing_fallback_entry_delegates_to_neutral_seam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.core import orchestrator as module
+
+    dependencies = make_dependencies()
+    nodes, adapters, remotes, _, transport = dependencies
+    request = make_request()
+    expected = ClusterResult(content="result", adapter="adapter", node_id="node")
+    calls: list[tuple[object, ...]] = []
+
+    async def neutral_fallback(*args: object) -> ClusterResult:
+        calls.append(args)
+        return expected
+
+    monkeypatch.setattr(
+        module,
+        "orchestrate_request_with_static_remote_fallback",
+        neutral_fallback,
+    )
+
+    result = asyncio.run(
+        orchestrate_request_with_automatic_capability_fallback(
+            request,
+            nodes,
+            adapters,
+            remotes,
+            transport,
+        )
+    )
+
+    assert result is expected
+    assert calls == [(request, nodes, adapters, remotes, transport)]

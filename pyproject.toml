@@ -19,6 +19,8 @@ home-ai-cluster-explain-routing = "home_ai_cluster.routing_explanation:main"
 home-ai-cluster-explain-request = "home_ai_cluster.actual_request_explanation:main"
 home-ai-cluster-openai-compatibility = "home_ai_cluster.openai_compatibility:main"
 home-ai-cluster-health = "home_ai_cluster.local_health_snapshot:main"
+home-ai-cluster-history = "home_ai_cluster.request_history:history_main"
+home-ai-cluster-clear-history = "home_ai_cluster.request_history:clear_history_main"
 
 [dependency-groups]
 dev = [

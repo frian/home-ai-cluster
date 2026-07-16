@@ -1,6 +1,6 @@
 # RFC-0036: Static operator preflight
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -470,4 +470,8 @@ These questions do not block the first contract.
 
 ## Decision
 
-Pending.
+Accepted on 2026-07-16.
+
+Home AI Cluster will add the local-only, read-only `home-ai-cluster-preflight`
+command with the exact report shape, single `missing-adapter` coherence rule,
+output behavior, privacy boundary, and proof requirements defined above.

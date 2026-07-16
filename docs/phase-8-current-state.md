@@ -1,6 +1,6 @@
 # Phase 8 Current State
 
-Status: Draft
+Status: Complete
 
 This document describes the current implementation and operator state after Phase 8.
 
@@ -140,10 +140,11 @@ Health remains read-only and does not supervise, repair, retry, or restart runti
 
 ## Verified operation
 
-The Phase 8 operator proof has been completed and retained in:
+The Phase 8 operator proofs have been completed and retained in:
 
 ```text
 docs/phase-8-canonical-operator-workflow-proof.md
+docs/phase-8-ordinary-static-multi-node-proof.md
 ```
 
 The verified facts are:
@@ -154,11 +155,17 @@ The verified facts are:
 - two real machines used the same repository revision;
 - the receiving endpoint was reached over one trusted LAN;
 - one real request was routed through the static proof process;
-- the routed result carried cluster-owned remote node attribution;
-- the calling proof process was stopped before the receiving application;
-- the retained record respected the documented privacy boundary.
+- one ordinary static multi-node request remained local while the local runtime
+  was usable;
+- one accepted local pre-request connection failure fell back exactly once to
+  the declared remote node;
+- both distributed results carried cluster-owned remote node attribution;
+- the calling processes were stopped before the receiving application;
+- the retained records respected the documented privacy boundary.
 
-No prompt, generated response, private address, machine name, hardware detail, local filesystem path, credential, raw exception, or personal detail is retained as proof evidence.
+No prompt, generated response, private address, machine name, hardware detail,
+local filesystem path, credential, raw exception, or personal detail is retained
+as proof evidence.
 
 ## Current operating modes
 
@@ -175,8 +182,8 @@ operator-declared remote node. The declaration remains process-local, routing is
 local-first with only the accepted narrow fallback, and all runtime and remote
 process lifecycle remains operator-owned.
 
-RFC-0038 repository implementation is complete. Real ordinary two-machine
-operator verification remains pending in:
+RFC-0038 repository implementation and real ordinary two-machine operator
+verification are complete. The privacy-safe verification record is retained in:
 
 ```text
 docs/phase-8-ordinary-static-multi-node-proof.md
@@ -198,8 +205,8 @@ It requires:
 
 The proof process does not turn the cluster into an automatically managed distributed system.
 
-The historical proof remains retained until ordinary static multi-node operator
-verification succeeds.
+The historical proof remains retained as a separate proof-only mode. Its future
+status is not decided by this Phase 8 closeout.
 
 ## Current lifecycle boundary
 
@@ -264,10 +271,12 @@ The current system does not include:
 - a generic runbook framework;
 - a new configuration format.
 
-## Pending ordinary-mode verification
+## Phase 8 completion
 
-The ordinary static multi-node repository implementation does not itself prove a
-real two-machine run. The pending scaffold requires operator verification of
-local-first behavior, the accepted narrow fallback, remote attribution,
-loopback binding, privacy boundaries, and manual shutdown order before any
-ordinary-mode success claim is made.
+Phase 8 is complete. Repository implementation and real operator verification
+now cover both the canonical workflow and ordinary explicit static multi-node
+operation.
+
+This closeout does not select the next architectural direction. Any future
+change that introduces a new architectural decision must begin with investigation
+and, when required, a new RFC.

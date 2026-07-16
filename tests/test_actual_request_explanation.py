@@ -3,12 +3,12 @@ import json
 
 import pytest
 
-from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.actual_request_explanation import (
     create_request,
     evaluate_actual_request,
     main,
 )
+from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,

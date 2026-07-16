@@ -1,6 +1,6 @@
 # RFC-0034: Structured Actual Request Failures
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-16
 
@@ -609,4 +609,4 @@ monitoring, or a general lifecycle model.
 
 ## Decision
 
-Pending.
+Accepted as proposed on 2026-07-16.

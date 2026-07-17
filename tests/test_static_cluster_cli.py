@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI
 
+from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
 from home_ai_cluster.static_cluster import (
     STATIC_CLUSTER_HOST,
     STATIC_CLUSTER_PORT,
@@ -36,6 +37,19 @@ def test_parse_args_accepts_declaration_mode_without_loading_file(
     assert args.declaration == declaration_path
     assert args.remote_node_id is None
     assert args.remote_base_url is None
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--runtime", "ollama"],
+        ["--llama-server-base-url", "http://127.0.0.1:8080"],
+        ["--llama-server-model", "local-model"],
+    ],
+)
+def test_parse_args_rejects_runtime_specific_arguments(argv: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(argv)
 
 
 @pytest.mark.parametrize(
@@ -85,15 +99,26 @@ def test_main_loads_single_declaration_collection_before_starting_server(
     )
     app = FastAPI()
     recorded: dict[str, object] = {}
+    local_composition = create_local_runtime_composition(runtime="ollama")
 
-    def create_app(remote_nodes: object) -> FastAPI:
+    def create_app(
+        remote_nodes: object,
+        *,
+        local_app_composition: object,
+    ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
+        recorded["local_app_composition"] = local_app_composition
         return app
 
     monkeypatch.setattr(
         static_cluster,
         "create_static_cluster_collection_app",
         create_app,
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "create_local_runtime_composition",
+        lambda *, runtime: recorded.update(runtime=runtime) or local_composition,
     )
     monkeypatch.setattr(
         static_cluster.uvicorn,
@@ -109,6 +134,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
     assert [(remote.node_id, remote.base_url) for remote in remote_nodes] == [
         ("operator-remote", "https://remote.example:8000")
     ]
+    assert recorded["runtime"] == "ollama"
+    assert recorded["local_app_composition"] is local_composition
     assert recorded["app"] is app
     assert recorded["host"] == STATIC_CLUSTER_HOST
     assert recorded["port"] == STATIC_CLUSTER_PORT
@@ -131,8 +158,13 @@ def test_main_preserves_multiple_declaration_order_before_starting_server(
     app = FastAPI()
     recorded: dict[str, object] = {}
 
-    def create_app(remote_nodes: object) -> FastAPI:
+    def create_app(
+        remote_nodes: object,
+        *,
+        local_app_composition: object,
+    ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
+        recorded["local_app_composition"] = local_app_composition
         return app
 
     monkeypatch.setattr(

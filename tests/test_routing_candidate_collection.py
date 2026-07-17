@@ -1,7 +1,20 @@
-from home_ai_cluster.core.models import Capability, ChatMessage, ClusterRequest, NodeDescription, NodeHealth
+from home_ai_cluster.core.models import (
+    Capability,
+    ChatMessage,
+    ClusterRequest,
+    NodeDescription,
+    NodeHealth,
+)
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
-from home_ai_cluster.core.remote_node import DeclaredRemoteRoutingCandidate, RemoteNodeDeclaration, RemoteNodeDeclarationRegistry
-from home_ai_cluster.core.routing_candidates import RoutingCandidates, routing_candidates_for_request
+from home_ai_cluster.core.remote_node import (
+    DeclaredRemoteRoutingCandidate,
+    RemoteNodeDeclaration,
+    RemoteNodeDeclarationRegistry,
+)
+from home_ai_cluster.core.routing_candidates import (
+    RoutingCandidates,
+    routing_candidates_for_request,
+)
 
 
 def make_request() -> ClusterRequest:
@@ -39,17 +52,27 @@ def test_routing_candidates_retain_ordered_remote_collection() -> None:
     first = make_declaration("remote-a")
     second = make_declaration("remote-b")
     candidates = routing_candidates_for_request(
-        make_request(), NodeRegistry(), AdapterRegistry(),
+        make_request(),
+        NodeRegistry(),
+        AdapterRegistry(),
         RemoteNodeDeclarationRegistry([first, second]),
     )
-    assert [candidate.declaration for candidate in candidates.declared_remotes] == [first, second]
+
+    assert [candidate.declaration for candidate in candidates.declared_remotes] == [
+        first,
+        second,
+    ]
     assert candidates.declared_remote is candidates.declared_remotes[0]
 
 
 def test_routing_candidates_retain_empty_remote_collection() -> None:
     candidates = routing_candidates_for_request(
-        make_request(), NodeRegistry(), AdapterRegistry(), RemoteNodeDeclarationRegistry()
+        make_request(),
+        NodeRegistry(),
+        AdapterRegistry(),
+        RemoteNodeDeclarationRegistry(),
     )
+
     assert candidates.declared_remotes == ()
     assert candidates.declared_remote is None
 
@@ -57,6 +80,7 @@ def test_routing_candidates_retain_empty_remote_collection() -> None:
 def test_legacy_single_remote_construction_populates_collection() -> None:
     first = make_candidate("remote-a")
     candidates = RoutingCandidates(local=None, declared_remote=first)
+
     assert candidates.declared_remote is first
     assert candidates.declared_remotes == (first,)
 
@@ -65,7 +89,10 @@ def test_collection_construction_sets_first_candidate_compatibility_field() -> N
     first = make_candidate("remote-a")
     second = make_candidate("remote-b")
     candidates = RoutingCandidates(
-        local=None, declared_remote=None, declared_remotes=(first, second)
+        local=None,
+        declared_remote=None,
+        declared_remotes=(first, second),
     )
+
     assert candidates.declared_remote is first
     assert candidates.declared_remotes == (first, second)

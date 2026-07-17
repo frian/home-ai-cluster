@@ -11,21 +11,27 @@ from home_ai_cluster.adapters.base import (
 )
 from home_ai_cluster.core.models import (
     AdapterHealth,
+    ApplicationStatus,
     Capability,
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    ClusterStatusNode,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
+    RuntimeStatus,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import (
+    REMOTE_STATUS_TIMEOUT_SECONDS,
+    HttpRemoteStatusTransport,
     HttpRemoteTransport,
     RemoteTransport,
     RemoteTransportError,
     internal_cluster_request_url,
+    internal_cluster_status_url,
 )
 from home_ai_cluster.main import create_app
 
@@ -114,9 +120,18 @@ def make_test_node() -> NodeDescription:
 
 def make_declaration(
     transport_address: str = "http://remote-node.local:8000",
+    *,
+    node_id: str = "remote",
 ) -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
-        node=make_node(),
+        node=NodeDescription(
+            id=node_id,
+            name="Remote node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="chat")],
+            adapters=["remote-adapter"],
+        ),
         transport_address=transport_address,
     )
 
@@ -135,6 +150,13 @@ async def _send_remote(
     declaration: RemoteNodeDeclaration,
 ) -> ClusterResult:
     return await transport.send(request, declaration)
+
+
+async def _observe_remote(
+    transport: HttpRemoteStatusTransport,
+    declaration: RemoteNodeDeclaration,
+) -> ClusterStatusNode:
+    return await transport.observe(declaration)
 
 
 def test_remote_transport_receives_exact_cluster_request_object() -> None:
@@ -223,6 +245,205 @@ def test_internal_cluster_request_url_ignores_trailing_slash() -> None:
     assert internal_cluster_request_url(declaration) == (
         "http://remote-node.local:8000/internal/cluster/request"
     )
+
+
+def test_internal_cluster_status_url_uses_declared_normalized_address() -> None:
+    declaration = make_declaration("http://remote-node.local:8000/")
+
+    assert internal_cluster_status_url(declaration) == (
+        "http://remote-node.local:8000/internal/cluster/status"
+    )
+
+
+def test_http_remote_status_transport_gets_one_status_endpoint_without_body() -> None:
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(200, json={"runtime_status": "available"})
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration(node_id="cluster-owned-remote"),
+            )
+
+    result = asyncio.run(run())
+
+    assert result == ClusterStatusNode(
+        node_id="cluster-owned-remote",
+        application_status=ApplicationStatus.REACHABLE,
+        runtime_status=RuntimeStatus.AVAILABLE,
+    )
+    assert len(captured_requests) == 1
+    assert captured_requests[0].method == "GET"
+    assert captured_requests[0].url.path == "/internal/cluster/status"
+    assert captured_requests[0].content == b""
+
+
+def test_http_remote_status_transport_uses_fixed_timeout() -> None:
+    captured_timeout: list[float] = []
+
+    class CapturingClient:
+        async def get(
+            self,
+            _: str,
+            *,
+            timeout: float,
+        ) -> httpx.Response:
+            captured_timeout.append(timeout)
+            return httpx.Response(200, json={"runtime_status": "available"})
+
+    result = asyncio.run(
+        _observe_remote(
+            HttpRemoteStatusTransport(CapturingClient()),  # type: ignore[arg-type]
+            make_declaration(),
+        )
+    )
+
+    assert REMOTE_STATUS_TIMEOUT_SECONDS == 5.0
+    assert captured_timeout == [REMOTE_STATUS_TIMEOUT_SECONDS]
+    assert result.runtime_status == RuntimeStatus.AVAILABLE
+
+
+@pytest.mark.parametrize(
+    "runtime_status",
+    ["available", "unavailable", "observation-failed"],
+)
+def test_http_remote_status_transport_keeps_valid_remote_statuses_reachable(
+    runtime_status: str,
+) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"runtime_status": runtime_status})
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result.application_status == ApplicationStatus.REACHABLE
+    assert result.runtime_status == runtime_status
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [httpx.ConnectError, httpx.ConnectTimeout],
+)
+def test_http_remote_status_transport_maps_connection_failures_to_unreachable(
+    error_type: type[httpx.HTTPError],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type(
+            "private-host credentials=secret",
+            request=request,
+        )
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration("http://private-host:8000"),
+            )
+
+    result = asyncio.run(run())
+
+    assert result.application_status == ApplicationStatus.UNREACHABLE
+    assert result.runtime_status == RuntimeStatus.UNKNOWN
+    assert "private-host" not in result.model_dump_json()
+    assert "secret" not in result.model_dump_json()
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [httpx.ReadTimeout, httpx.ReadError, httpx.RemoteProtocolError],
+)
+def test_http_remote_status_transport_maps_completed_request_failures(
+    error_type: type[httpx.HTTPError],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type("request failed", request=request)
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result.application_status == ApplicationStatus.REQUEST_FAILED
+    assert result.runtime_status == RuntimeStatus.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(503, json={"detail": "private failure"}),
+        httpx.Response(200, content=b"not valid json"),
+        httpx.Response(200, json={}),
+        httpx.Response(200, json={"runtime_status": "available", "extra": "x"}),
+        httpx.Response(200, json={"runtime_status": "unexpected"}),
+        httpx.Response(200, json={"runtime_status": "unknown"}),
+        httpx.Response(200, json={"runtime_status": 1}),
+    ],
+)
+def test_http_remote_status_transport_rejects_invalid_protocol_response(
+    response: httpx.Response,
+) -> None:
+    def handler(_: httpx.Request) -> httpx.Response:
+        return response
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result.application_status == ApplicationStatus.INVALID_RESPONSE
+    assert result.runtime_status == RuntimeStatus.UNKNOWN
+    assert "private failure" not in result.model_dump_json()
+
+
+def test_http_remote_status_transport_observes_one_remote_once_without_retries(
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        raise httpx.ConnectError("unreachable", request=request)
+
+    async def run() -> ClusterStatusNode:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
+            return await _observe_remote(
+                HttpRemoteStatusTransport(client),
+                make_declaration(),
+            )
+
+    result = asyncio.run(run())
+
+    assert result.application_status == ApplicationStatus.UNREACHABLE
+    assert len(requests) == 1
 
 
 def test_http_remote_transport_posts_normalized_cluster_request() -> None:

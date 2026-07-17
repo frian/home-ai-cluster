@@ -1,6 +1,6 @@
 # RFC-0042: Explicit Local Runtime Composition
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-17
 
@@ -365,4 +365,21 @@ proposed one-composition, one-adapter, CLI-first, default-compatible boundary.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will add one explicit ordinary local runtime-composition seam
+containing one `NodeRegistry` and one `AdapterRegistry`. Phase 13 ordinary startup
+will be CLI-first, support exactly one local adapter per process, and use the
+closed initial runtime choices `ollama` and `llama-server`.
+
+Zero-configuration ordinary behavior remains Ollama-backed. Explicit
+llama-server startup requires a loopback HTTP base URL and a non-empty model
+identifier, with deterministic local validation before endpoint binding and no
+network probing during parsing.
+
+Runtime identity and runtime-specific values remain local to the executing
+process. They do not become request selectors, routing inputs, remote declaration
+fields, attribution values, normalized status fields, discovery inputs, or
+lifecycle-management responsibilities. Retained configuration files, multiple
+local adapters, generic factories, plugins, and other deferred mechanisms remain
+outside Phase 13.

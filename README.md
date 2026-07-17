@@ -2,7 +2,8 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 10.
+Status: early prototype with Phase 11 implementation present; the retained real
+multi-machine status proof is still pending.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -60,6 +61,18 @@ contain multiple remote nodes whose order is the only remote priority. The
 calling endpoint remains loopback-only, topology remains explicit and static,
 and the project does not introduce discovery, scheduling, supervision, dynamic
 topology mutation, or a general retry policy.
+
+An operator can inspect one explicitly declared static cluster with:
+
+```sh
+uv run home-ai-cluster-status --declaration <path>
+```
+
+The command validates the declaration before observation, observes the fixed
+local runtime and declared remotes sequentially in declaration order, and emits
+one compact normalized JSON result. It is read-only and informational: it does
+not change routing, fallback, topology, or runtime lifecycle. See the
+[canonical operator workflow](docs/operator-workflow.md) for the supported path.
 
 Separate proof commands remain available for historical architecture
 reproduction and focused verification. They do not turn the ordinary application

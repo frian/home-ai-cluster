@@ -3,6 +3,7 @@
 import argparse
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 import uvicorn
@@ -18,6 +19,10 @@ from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app
+from home_ai_cluster.static_cluster_declaration import (
+    StaticClusterDeclarationError,
+    load_static_cluster_declaration,
+)
 from home_ai_cluster.static_cluster_validation import (
     LOCAL_NODE_ID,  # noqa: F401
     remote_base_url,
@@ -28,12 +33,35 @@ STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 8000
 
 
-def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    """Parse the two explicit RFC-0038 static topology facts."""
+def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-static-cluster")
-    parser.add_argument("--remote-node-id", required=True, type=remote_node_id)
-    parser.add_argument("--remote-base-url", required=True, type=remote_base_url)
-    return parser.parse_args(argv)
+    parser.add_argument("--declaration", type=Path)
+    parser.add_argument("--remote-node-id", type=remote_node_id)
+    parser.add_argument("--remote-base-url", type=remote_base_url)
+    return parser
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse exactly one complete RFC-0039 static topology input mode."""
+    parser = _create_argument_parser()
+    args = parser.parse_args(argv)
+
+    has_declaration = args.declaration is not None
+    has_remote_node_id = args.remote_node_id is not None
+    has_remote_base_url = args.remote_base_url is not None
+
+    if has_declaration and (has_remote_node_id or has_remote_base_url):
+        parser.error("--declaration cannot be combined with inline remote arguments")
+
+    if has_remote_node_id != has_remote_base_url:
+        parser.error(
+            "--remote-node-id and --remote-base-url must be provided together"
+        )
+
+    if not has_declaration and not has_remote_node_id:
+        parser.error("provide either --declaration or both inline remote arguments")
+
+    return args
 
 
 def create_remote_declaration(
@@ -90,8 +118,20 @@ def create_static_cluster_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
+
+    if args.declaration is not None:
+        try:
+            declaration = load_static_cluster_declaration(args.declaration)
+        except StaticClusterDeclarationError as exc:
+            _create_argument_parser().error(str(exc))
+        node_id = declaration.remote_node_id
+        base_url = declaration.remote_base_url
+    else:
+        node_id = args.remote_node_id
+        base_url = args.remote_base_url
+
     uvicorn.run(
-        create_static_cluster_app(args.remote_node_id, args.remote_base_url),
+        create_static_cluster_app(node_id, base_url),
         host=STATIC_CLUSTER_HOST,
         port=STATIC_CLUSTER_PORT,
     )

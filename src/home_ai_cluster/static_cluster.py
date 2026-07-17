@@ -10,15 +10,15 @@ import uvicorn
 from fastapi import FastAPI
 
 from home_ai_cluster.api.wiring import (
+    LocalAppComposition,
     build_static_remote_collection_wiring,
     build_static_remote_wiring,
-    create_static_local_node_registry,
-    create_static_runtime_adapter_registry,
 )
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -110,13 +110,14 @@ def create_static_cluster_app(
     node_id: str,
     base_url: str,
     *,
+    local_app_composition: LocalAppComposition,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
     wiring = build_static_remote_wiring(
-        node_registry=create_static_local_node_registry(),
-        adapter_registry=create_static_runtime_adapter_registry(),
+        node_registry=local_app_composition.node_registry,
+        adapter_registry=local_app_composition.adapter_registry,
         remote_declaration=create_remote_declaration(node_id, base_url),
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
@@ -132,6 +133,7 @@ def create_static_cluster_app(
 def create_static_cluster_collection_app(
     remote_nodes: Sequence[ParsedRemoteNodeDeclaration],
     *,
+    local_app_composition: LocalAppComposition,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
@@ -141,8 +143,8 @@ def create_static_cluster_collection_app(
         for remote in remote_nodes
     ]
     wiring = build_static_remote_collection_wiring(
-        node_registry=create_static_local_node_registry(),
-        adapter_registry=create_static_runtime_adapter_registry(),
+        node_registry=local_app_composition.node_registry,
+        adapter_registry=local_app_composition.adapter_registry,
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
@@ -158,15 +160,23 @@ def create_static_cluster_collection_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
+    local_app_composition = create_local_runtime_composition(runtime="ollama")
 
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        app = create_static_cluster_collection_app(declarations.remote_nodes)
+        app = create_static_cluster_collection_app(
+            declarations.remote_nodes,
+            local_app_composition=local_app_composition,
+        )
     else:
-        app = create_static_cluster_app(args.remote_node_id, args.remote_base_url)
+        app = create_static_cluster_app(
+            args.remote_node_id,
+            args.remote_base_url,
+            local_app_composition=local_app_composition,
+        )
 
     uvicorn.run(
         app,

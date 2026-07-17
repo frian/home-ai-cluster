@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 13.
+Status: early prototype with completed roadmap phases through Phase 14.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -42,6 +42,8 @@ Useful operator and proof records include:
 * `docs/phase-12-closeout.md`
 * `docs/phase-13-explicit-local-runtime-composition-proof.md`
 * `docs/phase-13-closeout.md`
+* `docs/phase-14-static-cluster-local-composition-proof.md`
+* `docs/phase-14-closeout.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
@@ -66,11 +68,13 @@ Runtime choice is consumed only at process startup and does not enter requests,
 routing, remote declarations, attribution, or normalized status.
 
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
-small static cluster from an operator-owned declaration. That declaration may
-contain multiple remote nodes whose order is the only remote priority. The
-calling endpoint remains loopback-only, topology remains explicit and static,
-and the project does not introduce discovery, scheduling, supervision, dynamic
-topology mutation, or a general retry policy.
+small static cluster from an operator-owned declaration. Its one local
+composition can be explicitly selected as `ollama` or `llama-server`; the
+default remains Ollama. That declaration may contain multiple remote nodes whose
+order is the only remote priority. The calling endpoint remains loopback-only,
+topology remains explicit and static, and the project does not introduce
+discovery, scheduling, supervision, dynamic topology mutation, or a general
+retry policy.
 
 An operator can inspect one explicitly declared static cluster with:
 

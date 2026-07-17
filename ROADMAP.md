@@ -426,49 +426,26 @@ Success means:
 
 ## Phase 14 — Explicit static-cluster local composition
 
-Goal:
+Status: Complete
 
-Allow an operator to start an ordinary explicit static cluster whose local
-candidate uses one explicitly chosen supported runtime composition, while remote
-declarations remain topology-only and routing remains capability-centered.
+Phase 14 closed the ordinary static-cluster local-composition asymmetry through
+accepted RFC-0043. The existing `home-ai-cluster-static-cluster` command now
+constructs exactly one local composition with the closed choices `ollama` and
+`llama-server`; no-option startup remains Ollama-backed and compatible.
 
-Expected outcomes:
+Runtime validation and composition construction occur before endpoint binding
+without a network probe. Remote declarations remain topology-only, and requests,
+routing, fallback, status, and declared-node attribution remain
+capability-centered and unchanged. One retained privacy-safe ordinary operator
+proof covers explicit local llama-server, default-Ollama remote fallback, and
+exhausted availability normalization.
 
-* the ordinary static-cluster startup path can accept one explicit supported local
-  runtime composition;
-* the initial closed runtime choices remain `ollama` and `llama-server`;
-* the current no-input static-cluster behavior remains Ollama-backed and compatible;
-* the local candidate still uses exactly one runtime adapter per process;
-* remote declarations remain limited to explicit remote identity and transport
-  facts, with no runtime, adapter, or model fields;
-* requests remain capability-centered and contain no runtime, adapter, model, or
-  node selector;
-* local-first routing, narrow pre-request fallback, normalized status, and
-  declared-node attribution remain unchanged;
-* startup validation remains explicit, local, and completed before endpoint
-  binding, without runtime discovery or network probing;
-* one retained privacy-safe real operator proof demonstrates the explicit local
-  composition in an ordinary static cluster; and
-* no retained runtime configuration file, generic factory, plugin system,
-  discovery, model inventory, runtime lifecycle management, Docker, Kubernetes,
-  or dashboard is introduced.
+No generic runtime architecture, retained configuration, discovery, inventory,
+lifecycle management, scheduling, Docker, Kubernetes, dashboard, or runtime
+fields in cluster-facing declarations or requests was introduced.
 
-This phase should close the current asymmetry between ordinary standalone local
-runtime composition and ordinary static-cluster startup. It should reuse the
-accepted Phase 13 composition boundary rather than introduce runtime selection
-into requests, routing, remote declarations, attribution, or status.
-
-The exact CLI relationship, argument ownership and precedence, reuse of
-`LocalAppComposition`, compatibility behavior, validation boundaries, status and
-preflight implications, and proof shape are architectural questions. They must be
-investigated before implementation, and any new architectural decision requires
-an accepted RFC.
-
-Success means:
-
-> One operator can start an ordinary explicit static cluster with one explicitly
-> chosen supported local runtime composition while the cluster continues to route
-> only by capability and explicit static topology.
+See [the Phase 14 closeout](docs/phase-14-closeout.md) and
+[the retained proof](docs/phase-14-static-cluster-local-composition-proof.md).
 
 ---
 

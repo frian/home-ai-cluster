@@ -287,6 +287,43 @@ Success means:
 
 ---
 
+## Phase 11 — Explicit static cluster status
+
+Goal:
+
+Let an operator explicitly inspect the current runtime and network status of the
+small declared static cluster before sending an ordinary request.
+
+Expected outcomes:
+
+* one read-only, operator-invoked cluster status operation;
+* a clear distinction between static declaration coherence and observed runtime
+  or network status;
+* status for the fixed local node and each explicitly declared remote node;
+* bounded execution with understandable, privacy-safe results;
+* no prompt or generated-response logging;
+* no background polling, discovery, supervision, remote process control, or
+  automatic topology mutation;
+* no routing, lifecycle, or declaration changes caused by status inspection.
+
+This phase should reduce manual use of unrelated network and process tools while
+keeping observation explicit, finite, and operator-owned. It should not turn
+Home AI Cluster into a monitoring service, health-aware scheduler, or dynamic
+cluster manager.
+
+The observation target, status vocabulary, remote protocol, timeout behavior,
+sequential or parallel execution, privacy boundary, CLI or endpoint shape, and
+relationship to existing local health and static preflight behavior are
+architectural decisions and must be defined by an accepted RFC before
+implementation.
+
+Success means:
+
+> One operator can explicitly inspect the declared static cluster and understand
+> which observations are static facts and which come from a bounded live check.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

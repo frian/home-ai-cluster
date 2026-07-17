@@ -1,10 +1,12 @@
 import pytest
 
 from home_ai_cluster.api.wiring import (
+    StaticRemoteCollectionWiring,
     StaticRemoteProofWiring,
     StaticRemoteProofWiringError,
     StaticRemoteWiring,
     StaticRemoteWiringError,
+    build_static_remote_collection_wiring,
     build_static_remote_proof_wiring,
     build_static_remote_wiring,
 )
@@ -64,10 +66,13 @@ def make_node(node_id: str, adapter_name: str) -> NodeDescription:
     )
 
 
-def make_remote_declaration() -> RemoteNodeDeclaration:
+def make_remote_declaration(
+    node_id: str = "remote",
+    address: str = "http://remote.local:8000",
+) -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
-        node=make_node("remote", "remote-adapter"),
-        transport_address="http://remote.local:8000",
+        node=make_node(node_id, "remote-adapter"),
+        transport_address=address,
     )
 
 
@@ -93,6 +98,22 @@ def test_build_static_remote_wiring_is_proof_neutral() -> None:
     assert wiring.selection_mode == RoutingCandidateSelectionMode.PREFER_DECLARED_REMOTE
 
 
+def test_build_static_remote_collection_wiring_preserves_order() -> None:
+    first = make_remote_declaration("remote-a", "http://remote-a.local:8000")
+    second = make_remote_declaration("remote-b", "http://remote-b.local:8000")
+
+    wiring = build_static_remote_collection_wiring(
+        node_registry=NodeRegistry([make_node("local", "recording")]),
+        adapter_registry=AdapterRegistry([RecordingAdapter()]),
+        remote_declarations=[first, second],
+        remote_transport=RecordingRemoteTransport(),
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    assert type(wiring) is StaticRemoteCollectionWiring
+    assert wiring.remote_registry.list_declarations() == [first, second]
+
+
 def test_proof_builder_delegates_to_proof_neutral_wiring() -> None:
     wiring = build_static_remote_proof_wiring(
         node_registry=NodeRegistry([make_node("local", "recording")]),
@@ -112,32 +133,15 @@ def test_proof_names_remain_compatibility_aliases() -> None:
     assert StaticRemoteProofWiringError is StaticRemoteWiringError
 
 
-@pytest.mark.parametrize(
-    "remote_registry",
-    [
-        RemoteNodeDeclarationRegistry(),
-        RemoteNodeDeclarationRegistry(
-            [
-                make_remote_declaration(),
-                RemoteNodeDeclaration(
-                    node=make_node("other-remote", "remote-adapter"),
-                    transport_address="http://other-remote.local:8000",
-                ),
-            ]
-        ),
-    ],
-)
-def test_static_remote_wiring_requires_exactly_one_remote_node(
-    remote_registry: RemoteNodeDeclarationRegistry,
-) -> None:
+def test_static_remote_collection_wiring_requires_at_least_one_remote_node() -> None:
     with pytest.raises(
         StaticRemoteWiringError,
-        match="exactly one declared remote node",
+        match="at least one declared remote node",
     ):
-        StaticRemoteWiring(
+        StaticRemoteCollectionWiring(
             node_registry=NodeRegistry([make_node("local", "recording")]),
             adapter_registry=AdapterRegistry([RecordingAdapter()]),
-            remote_registry=remote_registry,
+            remote_registry=RemoteNodeDeclarationRegistry(),
             remote_transport=RecordingRemoteTransport(),
             selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
         )

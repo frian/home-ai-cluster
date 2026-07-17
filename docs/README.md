@@ -18,18 +18,18 @@ architecture.
   operator path.
 - [RFC index](../RFC/README.md) — proposed and accepted architectural decisions.
 
-## Current operator documentation
+## Operator entry points
 
-- [Canonical operator workflow](operator-workflow.md) — ordinary local-only and
-  explicit static-cluster operation.
+- [Canonical operator workflow](operator-workflow.md) — current ordinary
+  local-only and explicit static-cluster operation.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained
   result of the founding real two-machine proof.
 
-Current operator guidance should be read before historical investigations and
-proof records. Historical documents describe what was demonstrated at a specific
-stage; they do not automatically replace the current workflow.
+The canonical operator workflow is the current supported path. The other entries
+in this section are historical proof references. They describe what was
+established at a specific stage and do not replace the current workflow.
 
 ## Project history
 

@@ -171,8 +171,8 @@ request, routing, fallback, or node attribution.
 
 ## Proof obligations covered
 
-- The ordinary status command accepted the same explicit llama-server composition
-  inputs used by ordinary static-cluster startup.
+- The ordinary status command accepted the shared explicit llama-server composition
+  argument shape also used by ordinary static-cluster startup.
 - The selected local composition was inspected through the fixed local node.
 - Available and unavailable local runtime states used only existing normalized
   status vocabulary.
@@ -193,6 +193,12 @@ This was a trusted-host proof using separate ordinary processes, not a physical
 multi-machine proof. It did not inspect packet traffic and does not claim network
 isolation, discovery, model inventory, lifecycle ownership, scheduling, runtime
 repair, or remote process control.
+
+This run did not independently start `home-ai-cluster-static-cluster`. Reuse of the
+same shared local composition boundary and argument shape is established by the
+accepted architecture, merged implementation, focused tests, and the retained
+Phase 14 ordinary static-cluster proof; this Phase 15 run directly demonstrates only
+finite status inspection.
 
 The real normalized status output cannot identify the selected runtime by design.
 The explicit operator command and focused construction tests establish the runtime

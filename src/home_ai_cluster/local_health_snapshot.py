@@ -2,18 +2,32 @@
 
 import json
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from home_ai_cluster.api.wiring import (
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
 )
-from home_ai_cluster.core.models import NodeDescription
+from home_ai_cluster.core.models import (
+    ApplicationStatus,
+    ClusterStatusNode,
+    ClusterStatusResult,
+    DeclarationStatus,
+    NodeDescription,
+    RuntimeStatus,
+)
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
 MISSING_ADAPTER_REASON = "declared adapter is not present in the inspected registry"
 PROBE_FAILED_REASON = "adapter health observation failed"
 SNAPSHOT_FAILURE_MESSAGE = "error: unable to construct local health snapshot"
+
+_LOCAL_RUNTIME_STATUSES = {
+    "available": RuntimeStatus.AVAILABLE,
+    "unavailable": RuntimeStatus.UNAVAILABLE,
+    "probe-failed": RuntimeStatus.OBSERVATION_FAILED,
+}
 
 
 def project_health_snapshot(
@@ -91,6 +105,45 @@ def evaluate_health_snapshot(
         adapter_registry
         if adapter_registry is not None
         else create_static_runtime_adapter_registry(),
+    )
+
+
+def project_local_cluster_status(
+    snapshot: Mapping[str, Any],
+) -> ClusterStatusResult:
+    """Normalize one completed local health snapshot without observing health again."""
+    try:
+        nodes = snapshot["nodes"]
+        if not isinstance(nodes, list) or len(nodes) != 1:
+            raise ValueError("local health snapshot must contain exactly one node")
+
+        observations = nodes[0]["adapter_observations"]
+        if not isinstance(observations, list) or len(observations) != 1:
+            raise ValueError(
+                "local health snapshot must contain exactly one adapter observation"
+            )
+        observation_status = observations[0]["status"]
+    except (KeyError, TypeError) as error:
+        raise ValueError(
+            "local health snapshot is not a local runtime observation"
+        ) from error
+
+    try:
+        runtime_status = _LOCAL_RUNTIME_STATUSES[observation_status]
+    except KeyError as error:
+        raise ValueError(
+            "local health snapshot has an unsupported observation status"
+        ) from error
+
+    return ClusterStatusResult(
+        declaration_status=DeclarationStatus.COHERENT,
+        nodes=(
+            ClusterStatusNode(
+                node_id="local",
+                application_status=ApplicationStatus.LOCAL,
+                runtime_status=runtime_status,
+            ),
+        ),
     )
 
 

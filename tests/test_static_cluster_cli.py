@@ -71,7 +71,7 @@ def test_parse_args_rejects_incomplete_or_combined_modes(argv: list[str]) -> Non
         parse_args(argv)
 
 
-def test_main_loads_declaration_before_starting_server(
+def test_main_loads_single_declaration_collection_before_starting_server(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -86,11 +86,15 @@ def test_main_loads_declaration_before_starting_server(
     app = FastAPI()
     recorded: dict[str, object] = {}
 
-    def create_app(node_id: str, base_url: str) -> FastAPI:
-        recorded.update(node_id=node_id, base_url=base_url)
+    def create_app(remote_nodes: object) -> FastAPI:
+        recorded["remote_nodes"] = remote_nodes
         return app
 
-    monkeypatch.setattr(static_cluster, "create_static_cluster_app", create_app)
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_collection_app",
+        create_app,
+    )
     monkeypatch.setattr(
         static_cluster.uvicorn,
         "run",
@@ -101,13 +105,55 @@ def test_main_loads_declaration_before_starting_server(
 
     main(["--declaration", str(declaration_path)])
 
-    assert recorded == {
-        "node_id": "operator-remote",
-        "base_url": "https://remote.example:8000",
-        "app": app,
-        "host": STATIC_CLUSTER_HOST,
-        "port": STATIC_CLUSTER_PORT,
-    }
+    remote_nodes = recorded["remote_nodes"]
+    assert [(remote.node_id, remote.base_url) for remote in remote_nodes] == [
+        ("operator-remote", "https://remote.example:8000")
+    ]
+    assert recorded["app"] is app
+    assert recorded["host"] == STATIC_CLUSTER_HOST
+    assert recorded["port"] == STATIC_CLUSTER_PORT
+
+
+def test_main_preserves_multiple_declaration_order_before_starting_server(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        '[[remote_nodes]]\nnode_id = "remote-a"\n'
+        'base_url = "https://remote-a.example:8000/"\n'
+        '[[remote_nodes]]\nnode_id = "remote-b"\n'
+        'base_url = "https://remote-b.example:8000"\n',
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    recorded: dict[str, object] = {}
+
+    def create_app(remote_nodes: object) -> FastAPI:
+        recorded["remote_nodes"] = remote_nodes
+        return app
+
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_collection_app",
+        create_app,
+    )
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda run_app, *, host, port: recorded.update(app=run_app),
+    )
+
+    main(["--declaration", str(declaration_path)])
+
+    remote_nodes = recorded["remote_nodes"]
+    assert [(remote.node_id, remote.base_url) for remote in remote_nodes] == [
+        ("remote-a", "https://remote-a.example:8000"),
+        ("remote-b", "https://remote-b.example:8000"),
+    ]
+    assert recorded["app"] is app
 
 
 def test_main_does_not_start_server_when_declaration_loading_fails(

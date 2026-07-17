@@ -1,6 +1,7 @@
 import pytest
 
 from home_ai_cluster.api.wiring import (
+    StaticRemoteCollectionWiring,
     StaticRemoteProofWiring,
     StaticRemoteProofWiringError,
     StaticRemoteWiring,
@@ -109,6 +110,7 @@ def test_build_static_remote_collection_wiring_preserves_order() -> None:
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
     )
 
+    assert type(wiring) is StaticRemoteCollectionWiring
     assert wiring.remote_registry.list_declarations() == [first, second]
 
 
@@ -131,12 +133,12 @@ def test_proof_names_remain_compatibility_aliases() -> None:
     assert StaticRemoteProofWiringError is StaticRemoteWiringError
 
 
-def test_static_remote_wiring_requires_at_least_one_remote_node() -> None:
+def test_static_remote_collection_wiring_requires_at_least_one_remote_node() -> None:
     with pytest.raises(
         StaticRemoteWiringError,
         match="at least one declared remote node",
     ):
-        StaticRemoteWiring(
+        StaticRemoteCollectionWiring(
             node_registry=NodeRegistry([make_node("local", "recording")]),
             adapter_registry=AdapterRegistry([RecordingAdapter()]),
             remote_registry=RemoteNodeDeclarationRegistry(),

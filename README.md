@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 12.
+Status: early prototype with completed roadmap phases through Phase 13.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -40,6 +40,8 @@ Useful operator and proof records include:
 * `docs/phase-11-closeout.md`
 * `docs/phase-12-heterogeneous-runtime-cluster-proof.md`
 * `docs/phase-12-closeout.md`
+* `docs/phase-13-explicit-local-runtime-composition-proof.md`
+* `docs/phase-13-closeout.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
@@ -57,7 +59,12 @@ The normal FastAPI application:
 * returns cluster-owned node attribution;
 * does not enable distributed wiring automatically.
 
-The repository currently contains Ollama and llama-server runtime adapters.
+The repository currently contains Ollama and llama-server runtime adapters. The
+ordinary `home-ai-cluster-local` entry point can start exactly one explicit local
+runtime composition through the closed choices `ollama` and `llama-server`.
+Runtime choice is consumed only at process startup and does not enter requests,
+routing, remote declarations, attribution, or normalized status.
+
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
 small static cluster from an operator-owned declaration. That declaration may
 contain multiple remote nodes whose order is the only remote priority. The
@@ -79,7 +86,9 @@ not change routing, fallback, topology, or runtime lifecycle. See the
 
 Separate proof commands remain available for historical architecture
 reproduction and focused verification. They do not turn the ordinary application
-into a general distributed deployment.
+into a general distributed deployment. The Phase 12 heterogeneous receiver
+remains proof-only historical evidence; ordinary llama-server operation uses
+`home-ai-cluster-local`.
 
 ## Requirements
 
@@ -96,11 +105,31 @@ uv sync
 
 ## Run the cluster-native endpoint
 
-Start the normal application:
+Start the normal application with the existing default Ollama composition:
 
 ```sh
 uv run uvicorn home_ai_cluster.main:app --reload
 ```
+
+Start the explicit ordinary local runtime path with its compatible Ollama
+default:
+
+```sh
+uv run home-ai-cluster-local
+```
+
+Or start one ordinary llama-server-backed node whose runtime remains on local
+loopback:
+
+```sh
+uv run home-ai-cluster-local \
+  --runtime llama-server \
+  --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
+  --llama-server-model <MODEL_IDENTIFIER>
+```
+
+The llama-server base URL must use loopback HTTP. Runtime installation,
+startup, shutdown, supervision, and model lifecycle remain operator-owned.
 
 Send a chat request:
 

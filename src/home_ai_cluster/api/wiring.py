@@ -94,7 +94,8 @@ class StaticRemoteCollectionWiring:
         )
         if not declarations:
             raise StaticRemoteWiringError(
-                "Static remote collection wiring requires at least one declared remote node"
+                "Static remote collection wiring requires at least one "
+                "declared remote node"
             )
 
 

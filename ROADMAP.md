@@ -324,6 +324,51 @@ Success means:
 
 ---
 
+## Phase 12 — Heterogeneous runtime cluster proof
+
+Goal:
+
+Demonstrate that the ordinary static cluster can operate across nodes using
+different runtime engines without changing the cluster-facing architecture.
+
+Expected outcomes:
+
+* at least two nodes in one explicitly declared static cluster use different
+  runtime engines;
+* one ordinary capability-centered request succeeds through the heterogeneous
+  cluster;
+* cluster-facing request, result, routing, attribution, and status concepts
+  remain engine-independent;
+* runtime-specific behavior remains confined to runtime adapters on the
+  executing nodes;
+* no runtime name, adapter name, or model name becomes a request-level routing
+  selector;
+* one retained privacy-safe real operator proof;
+* no discovery, automatic runtime selection, model inventory, runtime lifecycle
+  management, or new generic adapter abstraction.
+
+This phase should connect the already-proven second runtime adapter boundary with
+the already-proven ordinary static multi-node cluster. It should test whether
+different runtime engines can participate in one cluster without making engine
+identity part of the cluster-facing domain.
+
+The concrete topology, runtime placement, proof path, required wiring changes,
+compatibility expectations, and whether any architecture change is needed must
+be investigated before implementation. Any new architectural decision requires
+an accepted RFC.
+
+A two-machine proof is sufficient if it exercises two different runtime engines.
+A larger topology must not be required unless investigation shows that it is
+necessary.
+
+Success means:
+
+> One ordinary request can execute through a statically declared cluster whose
+> nodes use different runtime engines without changing the cluster-facing
+> architecture.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

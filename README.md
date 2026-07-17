@@ -27,25 +27,8 @@ Start with:
 * `ROADMAP.md`
 * `RFC/`
 
-Useful operator and proof records include:
-
-* `docs/operator-workflow.md`
-* `docs/first-two-machine-proof-result.md`
-* `docs/phase-6-openai-compatibility-proof.md`
-* `docs/phase-6-developer-tool-access-investigation.md`
-* `docs/phase-6-aider-access-proof.md`
-* `docs/phase-10-multiple-static-remote-nodes-proof.md`
-* `docs/phase-10-closeout.md`
-* `docs/phase-11-explicit-static-cluster-status-proof.md`
-* `docs/phase-11-closeout.md`
-* `docs/phase-12-heterogeneous-runtime-cluster-proof.md`
-* `docs/phase-12-closeout.md`
-* `docs/phase-13-explicit-local-runtime-composition-proof.md`
-* `docs/phase-13-closeout.md`
-* `docs/phase-14-static-cluster-local-composition-proof.md`
-* `docs/phase-14-closeout.md`
-* `docs/phase-15-static-cluster-status-composition-proof.md`
-* `docs/phase-15-closeout.md`
+Use the [documentation index](docs/README.md) to find current operator guidance
+and chronological investigation, runbook, proof, and closeout records.
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary

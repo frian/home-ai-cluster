@@ -369,6 +369,61 @@ Success means:
 
 ---
 
+## Phase 13 — Explicit local runtime composition
+
+Goal:
+
+Allow an operator to run an ordinary Home AI Cluster node with one explicitly
+chosen supported local runtime-adapter composition, while keeping runtime
+identity outside the cluster-facing request, routing, declaration, attribution,
+and status domains.
+
+Expected outcomes:
+
+* one ordinary node startup path can use an explicitly configured supported
+  local runtime adapter;
+* the existing Ollama-backed ordinary behavior remains available and compatible;
+* another already-supported runtime adapter can participate without a
+  proof-specific application launcher;
+* local runtime configuration remains operator-owned, explicit, static, and
+  understandable;
+* the node continues to announce capabilities and adapter-backed availability
+  through existing cluster-facing concepts;
+* remote declarations and ordinary requests contain no runtime, adapter, model,
+  or node selector;
+* no automatic runtime selection, discovery, model inventory, lifecycle
+  management, or generic plugin system is introduced; and
+* one retained real operator proof demonstrates ordinary heterogeneous node
+  operation.
+
+Local node composition is an operator-owned startup concern. Cluster-facing
+behavior remains capability-centered and engine-independent; runtime choice is
+not a request-level or routing-level feature, and the cluster does not
+automatically choose among runtimes.
+
+Configuration ownership and location, supported configuration shape, startup
+command relationship, default and compatibility behavior, adapter construction
+and validation, treatment of runtime-specific values such as base URLs and
+model identifiers, the relationship to existing ordinary and proof-scoped
+application composition, privacy boundaries, failure behavior, and any
+migration or deprecation are architectural decisions. They require
+investigation and an accepted RFC before implementation.
+
+This phase does not add request-level runtime selection; adapter or model
+selectors in ordinary requests; runtime identity in remote cluster declarations;
+automatic runtime selection; engine-aware routing; model discovery or inventory;
+runtime installation or downloads; runtime supervision, restart, or repair;
+dynamic plugins; environment-variable magic as an assumed design;
+database-backed configuration; Docker or Kubernetes; or dashboard work.
+
+Success means:
+
+> One operator can start an ordinary node with an explicitly chosen supported
+> local runtime composition while the cluster continues to reason only about
+> capabilities, availability, requests, results, and node attribution.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

@@ -254,6 +254,39 @@ Success means:
 
 ---
 
+## Phase 10 — Multiple explicit static remote nodes
+
+Goal:
+
+Extend the verified static cluster shape beyond one explicitly declared remote
+node while preserving explicit topology and operator control.
+
+Expected outcomes:
+
+* more than one remote node can be represented in one explicit static cluster declaration;
+* all declared nodes remain statically validated before startup;
+* routing continues to operate on capabilities rather than direct machine targeting;
+* node attribution and routing explanation remain cluster-owned and understandable;
+* no discovery, supervision, remote process control, or automatic topology mutation;
+* no secrets or runtime credentials in the retained declaration;
+* one repeatable real multi-machine operator proof.
+
+This phase should test whether the accepted architecture scales from one local
+plus one remote node to a small explicitly declared home cluster without turning
+Home AI Cluster into a scheduler, service manager, or dynamic discovery system.
+
+The declaration structure, supported node count, ordering semantics, duplicate
+handling, validation rules, candidate selection, failure behavior, fallback
+boundaries, CLI compatibility, and migration from RFC-0039 are architectural
+decisions and must be defined by an accepted RFC before implementation.
+
+Success means:
+
+> One operator can declare and reproduce a small static cluster with multiple
+> remote nodes while the user still addresses one capability-centered endpoint.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

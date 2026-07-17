@@ -78,42 +78,44 @@ external runtime running or stop it manually according to operator policy.
 
 Roles:
 
-- **receiving machine**: ordinary Home AI Cluster application plus externally
-  owned local runtime;
+- **receiving machine or machines**: each runs an ordinary Home AI Cluster
+  application plus an externally owned local runtime;
 - **calling machine**: ordinary static multi-node process with one local node
-  and one explicitly declared remote node.
+  and one or more explicitly declared remote nodes.
 
-Both machines must use compatible repository revisions and remain on the same
-trusted LAN for the first reproduction.
+The calling machine and every receiving machine must use compatible repository
+revisions and remain on the same trusted LAN for the first reproduction. The
+existing one-receiving-machine path remains the simple supported special case.
 
-### 1. Prepare both machines
+### 1. Prepare the calling machine and every receiving machine
 
-On both machines:
+On the calling machine and every receiving machine:
 
 ```sh
 uv sync
 ```
 
-Confirm compatible repository revisions. On the receiving machine, prepare and
-start the external runtime and ensure the required model is locally available.
-Home AI Cluster does not own that runtime.
+Confirm compatible repository revisions. On every receiving machine, prepare
+and start the external runtime and ensure the required model is locally
+available. Home AI Cluster does not own that runtime.
 
-### 2. Run receiving-machine static preflight and health
+### 2. Run static preflight and health on every receiving machine
 
-On the receiving machine:
+On every receiving machine:
 
 ```sh
 uv run home-ai-cluster-preflight
 uv run home-ai-cluster-health
 ```
 
-Preflight checks local static declaration coherence. Health observes the
+Preflight checks local static declaration coherence. Health observes each
 receiving machine's configured local runtime adapter. Neither result proves LAN
 reachability from the calling machine.
 
-### 3. Determine the receiving LAN address
+### 3. Determine each receiving LAN address
 
-Use the receiving machine's current trusted-LAN address at invocation time:
+For every receiving machine, use its current trusted-LAN address at invocation
+time:
 
 ```text
 <receiving-lan-address>
@@ -122,9 +124,9 @@ Use the receiving machine's current trusted-LAN address at invocation time:
 Do not commit a real private address to repository documentation or proof
 records.
 
-### 4. Start the receiving application
+### 4. Start each receiving application
 
-On the receiving machine:
+On every receiving machine represented by the declaration:
 
 ```sh
 uv run uvicorn home_ai_cluster.main:app --host 0.0.0.0 --port 8000
@@ -143,15 +145,17 @@ uv run home-ai-cluster-preflight \
 ```
 
 This validates one local declaration, one explicit remote declaration, and
-adapter-name resolution against the inspected adapter registry. It does not
-validate DNS, LAN reachability, the receiving application, receiving runtime,
-receiving model, remote execution, or fallback success. It performs no network
-request.
+adapter-name resolution against the inspected adapter registry. It is the
+simple one-receiving-machine path; use the declaration in the next step to
+inspect one or more declared remotes. It does not validate DNS, LAN
+reachability, the receiving application, receiving runtime, receiving model,
+remote execution, or fallback success. It performs no network request.
 
 ### 6. Inspect one declared static cluster
 
-After preparing the receiving application, create one explicit declaration on
-the calling machine. Declaration order is the remote observation order:
+After preparing every receiving application represented by the declaration,
+create one explicit declaration on the calling machine. Declaration order is
+the remote observation order:
 
 ```toml
 [[remote_nodes]]

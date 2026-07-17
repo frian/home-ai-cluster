@@ -1,5 +1,7 @@
+from typing import Literal
+
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
@@ -16,6 +18,7 @@ from home_ai_cluster.core.models import (
     ClusterRequest,
     ClusterResult,
     RequestConstraints,
+    RuntimeStatus,
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
@@ -25,6 +28,10 @@ from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
+from home_ai_cluster.local_health_snapshot import (
+    project_health_snapshot,
+    project_local_cluster_status,
+)
 
 router = APIRouter()
 
@@ -32,6 +39,18 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     capability: str = Field(min_length=1)
+
+
+class InternalClusterStatusResponse(BaseModel):
+    """The receiving application's normalized local runtime observation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    runtime_status: Literal[
+        RuntimeStatus.AVAILABLE,
+        RuntimeStatus.UNAVAILABLE,
+        RuntimeStatus.OBSERVATION_FAILED,
+    ]
 
 
 async def handle_static_local_cluster_request(
@@ -127,3 +146,24 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
 @router.post("/internal/cluster/request", response_model=ClusterResult)
 async def internal_cluster_request(request: ClusterRequest) -> ClusterResult:
     return await handle_static_local_cluster_request(request)
+
+
+@router.get(
+    "/internal/cluster/status",
+    response_model=InternalClusterStatusResponse,
+)
+async def internal_cluster_status() -> InternalClusterStatusResponse:
+    """Return one completed local runtime observation without cluster collection."""
+    try:
+        snapshot = project_health_snapshot(
+            create_static_local_node_registry(),
+            create_static_runtime_adapter_registry(),
+        )
+        local_status = project_local_cluster_status(snapshot)
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to inspect local runtime status",
+        ) from error
+
+    return InternalClusterStatusResponse(runtime_status=local_status.runtime_status)

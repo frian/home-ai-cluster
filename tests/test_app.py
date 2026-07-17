@@ -22,12 +22,14 @@ from home_ai_cluster.main import create_app
 class RecordingAdapter:
     def __init__(self) -> None:
         self.chat_requests: list[ClusterRequest] = []
+        self.health_calls = 0
 
     @property
     def name(self) -> str:
         return "recording"
 
     def health(self) -> AdapterHealth:
+        self.health_calls += 1
         return AdapterHealth(available=True)
 
     def capabilities(self) -> list[Capability]:
@@ -95,6 +97,19 @@ def post(app: FastAPI, path: str, payload: dict[str, object]) -> httpx.Response:
             base_url="http://testserver",
         ) as client:
             return await client.post(path, json=payload)
+
+    return asyncio.run(send())
+
+
+def get(app: FastAPI, path: str) -> httpx.Response:
+    async def send() -> httpx.Response:
+        asgi_transport = httpx.ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=asgi_transport,
+            base_url="http://testserver",
+        ) as client:
+            return await client.get(path)
 
     return asyncio.run(send())
 
@@ -217,5 +232,38 @@ def test_internal_cluster_request_remains_local_with_remote_proof_wiring(
     assert response.status_code == 200
     assert response.json()["adapter"] == "recording"
     assert len(local_adapter.chat_requests) == 1
+    assert remote_transport.requests == []
+    assert remote_transport.declarations == []
+
+
+def test_internal_cluster_status_remains_local_with_remote_proof_wiring(
+    monkeypatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    local_adapter = RecordingAdapter()
+    remote_transport = RecordingRemoteTransport()
+    wiring = make_static_remote_proof_wiring(remote_transport)
+
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry([make_node("local")]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([local_adapter]),
+    )
+
+    response = get(
+        create_app(static_remote_proof_wiring=wiring),
+        "/internal/cluster/status",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"runtime_status": "available"}
+    assert local_adapter.health_calls == 1
+    assert local_adapter.chat_requests == []
     assert remote_transport.requests == []
     assert remote_transport.declarations == []

@@ -325,6 +325,38 @@ def test_static_cluster_falls_back_once_and_attributes_declared_remote_node() ->
     assert remote.declarations == wiring.remote_registry.list_declarations()
 
 
+def test_static_cluster_normalizes_exhausted_connection_failures() -> None:
+    local_error = RuntimeConnectionUnavailableBeforeRequestError(
+        "httpx ConnectError http://127.0.0.1:11434 local-model"
+    )
+    remote_error = RuntimeConnectionUnavailableBeforeRequestError(
+        "httpx ConnectError https://private.example:9443 remote-model"
+    )
+    wiring, local, remote = make_wiring(
+        local_error=local_error,
+        remote_error=remote_error,
+    )
+
+    response = post(create_app(static_remote_wiring=wiring))
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    for value in (
+        "httpx",
+        "ConnectError",
+        "RuntimeConnectionUnavailableBeforeRequestError",
+        "http://",
+        "https://",
+        "traceback",
+        "private.example",
+        "local-model",
+        "remote-model",
+    ):
+        assert value not in response.text
+    assert len(local.requests) == 1
+    assert len(remote.requests) == 1
+
+
 def test_static_cluster_routes_call_neutral_static_remote_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

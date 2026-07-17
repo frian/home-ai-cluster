@@ -8,7 +8,7 @@ from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
     RemoteNodeDeclarationRegistry,
-    declared_remote_routing_candidate_for_request,
+    declared_remote_routing_candidates_for_request,
 )
 from home_ai_cluster.core.router import (
     NoMatchingAdapterError,
@@ -30,6 +30,13 @@ class RoutingCandidates:
 
     local: LocalRoutingCandidate | None
     declared_remote: DeclaredRemoteRoutingCandidate | None
+    declared_remotes: tuple[DeclaredRemoteRoutingCandidate, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.declared_remotes:
+            object.__setattr__(self, "declared_remote", self.declared_remotes[0])
+        elif self.declared_remote is not None:
+            object.__setattr__(self, "declared_remotes", (self.declared_remote,))
 
 
 class RoutingCandidateSelectionMode(StrEnum):
@@ -104,12 +111,16 @@ def routing_candidates_for_request(
     except NoMatchingAdapterError:
         local = None
 
-    declared_remote = declared_remote_routing_candidate_for_request(
-        request,
-        remote_registry,
+    declared_remotes = tuple(
+        declared_remote_routing_candidates_for_request(request, remote_registry)
     )
+    declared_remote = declared_remotes[0] if declared_remotes else None
 
-    return RoutingCandidates(local=local, declared_remote=declared_remote)
+    return RoutingCandidates(
+        local=local,
+        declared_remote=declared_remote,
+        declared_remotes=declared_remotes,
+    )
 
 
 def select_routing_candidate(

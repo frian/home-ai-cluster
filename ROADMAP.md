@@ -451,54 +451,33 @@ See [the Phase 14 closeout](docs/phase-14-closeout.md) and
 
 ## Phase 15 — Explicit static-cluster status composition
 
-Goal:
+Status: Complete
 
-Allow the explicit static-cluster status command to inspect one explicitly
-selected supported local runtime composition while preserving normalized,
-engine-independent status output.
+Phase 15 closed the remaining operator asymmetry between explicit static-cluster
+startup and finite static-cluster status inspection through accepted RFC-0044.
+The existing `home-ai-cluster-status` command now accepts the same closed local
+runtime composition choices, `ollama` and `llama-server`; no-option inspection
+remains Ollama-backed and compatible.
 
-Expected outcomes:
+The command validates the topology-only declaration before conditional runtime
+validation and constructs exactly one existing `LocalAppComposition` before any
+remote observation. Its fixed local node is inspected through that composition,
+while declared remotes remain sequentially observed through the normalized Home
+AI Cluster status protocol in declaration order.
 
-* `home-ai-cluster-status` can explicitly select one supported local runtime
-  composition from the same closed choices used by ordinary static-cluster
-  startup;
-* no-option status inspection remains Ollama-backed and compatible;
-* local runtime arguments and validation reuse the existing shared composition
-  boundary where investigation confirms that it fits;
-* local composition is validated and constructed before any remote status
-  observation begins;
-* the fixed local node is inspected through the selected composition;
-* declared remotes continue to be observed only through the normalized Home AI
-  Cluster status protocol;
-* status output contains no runtime, adapter, model, URL, or private machine
-  identity;
-* routing, fallback, topology, declaration, and runtime lifecycle behavior remain
-  unchanged; and
-* one retained privacy-safe operator proof demonstrates status inspection of the
-  same explicit local composition used by an ordinary static cluster.
+The compact status result remains engine-independent and exposes no runtime,
+adapter, model, URL, executable, path, or private machine identity. One retained
+privacy-safe operator proof covers explicit llama-server availability,
+unavailability after only that runtime stopped, and the no-option Ollama
+compatibility path.
 
-This phase should close the remaining operator asymmetry between explicit
-static-cluster startup and explicit static-cluster status inspection. Runtime
-choice remains an operator-owned process-composition concern and must not become
-part of cluster status, topology, requests, routing, or attribution.
+No runtime-aware routing, fallback, discovery, inventory, scheduling,
+supervision, lifecycle management, monitoring, persistence, generic factory,
+plugin system, database, dashboard, Docker, or Kubernetes behavior was
+introduced.
 
-The current status construction path, reuse of the shared local composition
-boundary, validation and observation order, CLI compatibility, failure behavior,
-and minimum real proof must be investigated before implementation. Any new
-architectural decision requires an accepted RFC.
-
-This phase does not add runtime fields to declarations or status output;
-request-level runtime, adapter, model, or node selection; engine-aware routing;
-multiple local adapters; discovery; model inventory; scheduling; supervision;
-lifecycle management; a plugin system; a generic factory; persisted
-configuration; environment-variable configuration; a dashboard; a database;
-Docker; or Kubernetes.
-
-Success means:
-
-> One operator can inspect the same explicit local runtime composition used by an
-> ordinary static cluster without making runtime identity part of cluster status
-> or topology.
+See [the Phase 15 closeout](docs/phase-15-closeout.md) and
+[the retained proof](docs/phase-15-static-cluster-status-composition-proof.md).
 
 ---
 

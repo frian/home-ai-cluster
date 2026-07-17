@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 14.
+Status: early prototype with completed roadmap phases through Phase 15.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -44,6 +44,8 @@ Useful operator and proof records include:
 * `docs/phase-13-closeout.md`
 * `docs/phase-14-static-cluster-local-composition-proof.md`
 * `docs/phase-14-closeout.md`
+* `docs/phase-15-static-cluster-status-composition-proof.md`
+* `docs/phase-15-closeout.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
@@ -76,16 +78,28 @@ topology remains explicit and static, and the project does not introduce
 discovery, scheduling, supervision, dynamic topology mutation, or a general
 retry policy.
 
-An operator can inspect one explicitly declared static cluster with:
+An operator can inspect one explicitly declared static cluster with the default
+Ollama local composition:
 
 ```sh
 uv run home-ai-cluster-status --declaration <path>
 ```
 
-The command validates the declaration before observation, observes the fixed
-local runtime and declared remotes sequentially in declaration order, and emits
-one compact normalized JSON result. It is read-only and informational: it does
-not change routing, fallback, topology, or runtime lifecycle. See the
+Or inspect an explicit llama-server local composition with:
+
+```sh
+uv run home-ai-cluster-status \
+  --declaration <path> \
+  --runtime llama-server \
+  --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
+  --llama-server-model <MODEL_IDENTIFIER>
+```
+
+The command validates the declaration before runtime composition construction,
+observes the fixed local node and declared remotes sequentially in declaration
+order, and emits one compact normalized JSON result. Runtime identity remains
+outside that result. The command is read-only and informational: it does not
+change routing, fallback, topology, or runtime lifecycle. See the
 [canonical operator workflow](docs/operator-workflow.md) for the supported path.
 
 Separate proof commands remain available for historical architecture

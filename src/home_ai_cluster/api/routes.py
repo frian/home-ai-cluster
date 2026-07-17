@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
 from home_ai_cluster.api.wiring import (
+    LocalAppComposition,
     ProofReceivingAppWiring,
     StaticRemoteCollectionWiring,
     StaticRemoteProofWiring,
@@ -26,6 +27,7 @@ from home_ai_cluster.core.orchestrator import (
 from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
 )
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import NoMatchingAdapterError
 from home_ai_cluster.local_health_snapshot import (
     project_health_snapshot,
@@ -40,20 +42,33 @@ class ChatRequest(BaseModel):
     capability: str = Field(min_length=1)
 
 
+def _resolve_local_registries(
+    local_app_composition: LocalAppComposition | None,
+) -> tuple[NodeRegistry, AdapterRegistry]:
+    if local_app_composition is not None:
+        return (
+            local_app_composition.node_registry,
+            local_app_composition.adapter_registry,
+        )
+
+    return (
+        create_static_local_node_registry(),
+        create_static_runtime_adapter_registry(),
+    )
+
+
 async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest,
     proof_receiving_app_wiring: ProofReceivingAppWiring | None = None,
+    local_app_composition: LocalAppComposition | None = None,
 ) -> ClusterResult:
-    node_registry = (
-        proof_receiving_app_wiring.node_registry
-        if proof_receiving_app_wiring is not None
-        else create_static_local_node_registry()
-    )
-    adapter_registry = (
-        proof_receiving_app_wiring.adapter_registry
-        if proof_receiving_app_wiring is not None
-        else create_static_runtime_adapter_registry()
-    )
+    if proof_receiving_app_wiring is not None:
+        node_registry = proof_receiving_app_wiring.node_registry
+        adapter_registry = proof_receiving_app_wiring.adapter_registry
+    else:
+        node_registry, adapter_registry = _resolve_local_registries(
+            local_app_composition
+        )
 
     try:
         return await orchestrate_request(
@@ -78,6 +93,7 @@ async def handle_chat_cluster_request(
     static_remote_proof_wiring: StaticRemoteProofWiring | None,
     static_remote_wiring: StaticRemoteWiring | None = None,
     static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
+    local_app_composition: LocalAppComposition | None = None,
 ) -> ClusterResult:
     """Use proof, ordinary static remote, collection, or local-only wiring."""
     if static_remote_proof_wiring is not None:
@@ -104,7 +120,13 @@ async def handle_chat_cluster_request(
             static_remote_collection_wiring.remote_transport,
         )
 
-    return await handle_static_local_cluster_request(cluster_request)
+    if local_app_composition is None:
+        return await handle_static_local_cluster_request(cluster_request)
+
+    return await handle_static_local_cluster_request(
+        cluster_request,
+        local_app_composition=local_app_composition,
+    )
 
 
 @router.post("/v1/chat", response_model=ClusterResult)
@@ -136,6 +158,7 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
         http_request.app.state.static_remote_proof_wiring,
         static_remote_wiring,
         static_remote_collection_wiring,
+        http_request.app.state.local_app_composition,
     )
 
 
@@ -144,9 +167,20 @@ async def internal_cluster_request(
     request: ClusterRequest,
     http_request: Request,
 ) -> ClusterResult:
+    proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
+    if proof_receiving_app_wiring is not None:
+        return await handle_static_local_cluster_request(
+            request,
+            proof_receiving_app_wiring,
+        )
+
+    local_app_composition = http_request.app.state.local_app_composition
+    if local_app_composition is None:
+        return await handle_static_local_cluster_request(request)
+
     return await handle_static_local_cluster_request(
         request,
-        http_request.app.state.proof_receiving_app_wiring,
+        local_app_composition=local_app_composition,
     )
 
 
@@ -160,18 +194,14 @@ async def internal_cluster_status(
     """Return one completed local runtime observation without cluster collection."""
     try:
         proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
-        snapshot = project_health_snapshot(
-            (
-                proof_receiving_app_wiring.node_registry
-                if proof_receiving_app_wiring is not None
-                else create_static_local_node_registry()
-            ),
-            (
-                proof_receiving_app_wiring.adapter_registry
-                if proof_receiving_app_wiring is not None
-                else create_static_runtime_adapter_registry()
-            ),
-        )
+        if proof_receiving_app_wiring is not None:
+            node_registry = proof_receiving_app_wiring.node_registry
+            adapter_registry = proof_receiving_app_wiring.adapter_registry
+        else:
+            node_registry, adapter_registry = _resolve_local_registries(
+                http_request.app.state.local_app_composition
+            )
+        snapshot = project_health_snapshot(node_registry, adapter_registry)
         local_status = project_local_cluster_status(snapshot)
     except Exception as error:
         raise HTTPException(

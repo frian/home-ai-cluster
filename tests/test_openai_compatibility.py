@@ -117,6 +117,12 @@ def test_valid_request_translates_through_cluster_flow(
     assert not {"usage", "adapter", "node_id", "routing"} & body.keys()
 
 
+def test_compatibility_app_keeps_default_local_app_composition() -> None:
+    app = create_openai_compatibility_app()
+
+    assert app.state.local_app_composition is None
+
+
 def test_placeholder_bearer_is_accepted(
     use_cluster_result: list[ClusterRequest],
 ) -> None:

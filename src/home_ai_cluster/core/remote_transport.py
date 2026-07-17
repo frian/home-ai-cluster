@@ -5,6 +5,9 @@ from typing import Protocol
 import httpx
 from pydantic import ValidationError
 
+from home_ai_cluster.adapters.base import (
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.core.models import ClusterRequest, ClusterResult
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 
@@ -44,6 +47,9 @@ class HttpRemoteTransport:
                 json=request.model_dump(mode="json"),
             )
             response.raise_for_status()
+        except httpx.ConnectError as exc:
+            message = "Remote connection unavailable before request transmission"
+            raise RuntimeConnectionUnavailableBeforeRequestError(message) from exc
         except httpx.HTTPError as exc:
             message = "HTTP remote transport could not send request"
             raise RemoteTransportError(message) from exc

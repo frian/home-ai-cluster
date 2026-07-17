@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 11.
+Status: early prototype with completed roadmap phases through Phase 12.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -38,6 +38,8 @@ Useful operator and proof records include:
 * `docs/phase-10-closeout.md`
 * `docs/phase-11-explicit-static-cluster-status-proof.md`
 * `docs/phase-11-closeout.md`
+* `docs/phase-12-heterogeneous-runtime-cluster-proof.md`
+* `docs/phase-12-closeout.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary

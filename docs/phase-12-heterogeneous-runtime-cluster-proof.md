@@ -1,61 +1,63 @@
 # Phase 12 Heterogeneous Runtime Cluster Proof
 
-Status: Pending operator execution
+Status: Retained
 
 ## Purpose
 
-Retain privacy-safe evidence that one ordinary capability-centered request can
-cross an explicitly declared static cluster while the calling machine uses
-Ollama and the receiving machine executes through the existing
+Retain privacy-safe evidence that one ordinary capability-centered request
+crossed an explicitly declared static cluster while the calling machine used
+Ollama and the receiving machine executed through the existing
 `LlamaServerAdapter`.
 
 ## Repository revision
 
-No real two-machine execution has been performed yet. The operator must use the
-same committed proof-branch revision on both machines and record that exact
-commit here after successful execution.
+Both machines used this repository revision:
 
-Automated validation for the proof launcher is recorded by this draft pull
-request; it is not retained evidence of a real heterogeneous request.
+```text
+950be2e736c5562f22e33be9157b58bec87c94ab
+```
 
 ## Topology
 
 ```text
 calling machine
-  ordinary Home AI Cluster static-cluster caller
-  local runtime: Ollama
-  local candidate attempted first
+  Home AI Cluster ordinary static-cluster caller
+  ordinary local runtime: Ollama
+  caller boundary: http://127.0.0.1:8000/v1/chat
 
 receiving machine
-  Phase 12 proof-scoped receiving application
-  local adapter: LlamaServerAdapter
-  operator-managed llama-server
+  Phase 12 proof-scoped Home AI Cluster receiver
+  existing LlamaServerAdapter
+  operator-managed llama-server on receiver loopback
+  Home AI Cluster receiver port: <RECEIVER_HOME_AI_CLUSTER_PORT>
 ```
 
-Only the caller holds the explicit static declaration. It contains the declared
-receiver node ID and the receiver Home AI Cluster base URL, not runtime, adapter,
-model, credential, or lifecycle data.
+The caller held one explicit declaration for `phase-12-receiver` at
+`http://<RECEIVER_ADDRESS>:<RECEIVER_HOME_AI_CLUSTER_PORT>`. The declaration
+contained no receiving runtime, adapter, model, credential, or lifecycle
+information.
 
 ## Runtime placement
 
-The calling machine retains ordinary local Ollama wiring. The receiving proof
-launcher explicitly constructs one `LlamaServerAdapter`; llama-server and its
-model remain fully operator-managed and loopback-reachable from the receiving
-Home AI Cluster process.
+The caller retained ordinary local Ollama wiring. The receiver used the
+proof-scoped launcher to construct one existing `LlamaServerAdapter` for its
+operator-managed loopback llama-server and model.
 
 ## Preconditions
 
-- Two separate trusted-LAN machines are available to the operator.
-- Both check out the same committed proof-branch revision.
-- The caller has a usable local Ollama runtime before the fallback observation.
-- The receiver has an operator-managed llama-server and model available only to
-  its local Home AI Cluster process.
-- The receiver Home AI Cluster port is reachable from the caller for the proof.
-- The operator owns all runtime and process lifecycle actions.
+- Two separate trusted-LAN machines used the recorded repository revision.
+- The receiver's operator-managed llama-server was reachable locally from its
+  Home AI Cluster process.
+- The receiver's Home AI Cluster port was reachable from the caller.
+- The operator established the already accepted pre-request
+  connection-unavailable condition for the caller's local Ollama connection
+  before sending the request.
+
+The failure was not manufactured after request execution began.
 
 ## Commands
 
-On the receiving machine, start the proof-scoped receiver:
+On the receiving machine, the operator started the proof-scoped receiver:
 
 ```sh
 uv run home-ai-cluster-phase-12-heterogeneous-receiver \
@@ -65,13 +67,13 @@ uv run home-ai-cluster-phase-12-heterogeneous-receiver \
   --llama-server-model <MODEL_VALUE>
 ```
 
-Confirm its normalized local status endpoint before the caller request:
+The operator confirmed receiver status through:
 
 ```sh
 curl -s http://<RECEIVER_ADDRESS>:<RECEIVER_HOME_AI_CLUSTER_PORT>/internal/cluster/status
 ```
 
-On the calling machine, create one temporary operator-owned declaration:
+The caller used one operator-owned declaration equivalent to:
 
 ```toml
 [[remote_nodes]]
@@ -79,76 +81,80 @@ node_id = "phase-12-receiver"
 base_url = "http://<RECEIVER_ADDRESS>:<RECEIVER_HOME_AI_CLUSTER_PORT>"
 ```
 
-Start the ordinary caller and use the existing static declaration path:
+The ordinary caller was started through the existing declaration path:
 
 ```sh
 uv run home-ai-cluster-static-cluster --declaration <OPERATOR_DECLARATION_PATH>
 ```
 
-Before sending the request, use the existing operator-owned fallback-proof
-method to make the caller's Ollama connection unavailable before request
-transmission. Do not alter application configuration or manufacture a failure
-after request execution begins.
-
 ## Request
 
-Send one harmless request to the caller's ordinary boundary. It contains no
-runtime, adapter, model, or node selector:
+The request entered through the caller's ordinary `/v1/chat` endpoint. It
+contained no runtime, adapter, model, or node selector:
 
-```sh
-curl -s http://127.0.0.1:8000/v1/chat \
-  -H 'content-type: application/json' \
-  -d '{"messages":[{"role":"user","content":"Reply with: ok"}],"capability":"chat"}'
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Reply with exactly: ok"
+    }
+  ],
+  "capability": "chat"
+}
 ```
 
 ## Normalized result
 
-Pending real operator execution. A successful retained result will record only
-the existing normalized fields with a minimal non-sensitive response, for
-example:
+The caller returned this successful normalized result:
 
 ```json
-{"content":"ok","adapter":"llama-server","model":"<MODEL_VALUE>","node_id":"phase-12-receiver"}
+{
+  "content": "ok",
+  "adapter": "llama-server",
+  "model": "phase-12-model",
+  "node_id": "phase-12-receiver"
+}
 ```
 
-The final node attribution must be the caller-owned declared remote ID.
+The final node attribution is the caller-owned declared remote ID.
 
 ## Status observation
 
-Pending real operator execution. The receiver must return its existing
-normalized status shape before the caller request:
+Before the request, the receiver returned this existing normalized status shape:
 
 ```json
 {"runtime_status":"available"}
 ```
 
-The calling status observation, when performed, must preserve the existing
-status vocabulary and report the declared remote node ID without runtime or
-model identity.
+The observation used:
+
+```text
+http://<RECEIVER_ADDRESS>:<RECEIVER_HOME_AI_CLUSTER_PORT>/internal/cluster/status
+```
 
 ## Architecture observations
 
-Automated launcher tests verify only proof-scoped construction: one local
-`chat` node, one matching `llama-server` adapter, and one
-`create_proof_receiving_app(...)` call. The ordinary caller remains the existing
-static-cluster process and retains local-first routing plus its accepted narrow
-pre-request connection-unavailable fallback.
+The ordinary caller attempted its local Ollama candidate first. After the
+operator-established accepted pre-request connection-unavailable condition,
+existing static fallback selected the explicitly declared receiver once. The
+receiver executed through `LlamaServerAdapter`, and the caller returned the
+existing normalized result with declared remote-node attribution.
 
-No runtime identity is added to the declaration or request. The caller crosses
-the existing normalized internal request and status boundaries and does not
-select the receiving runtime, adapter, or model.
+The static declaration and request remained free of runtime, adapter, model, and
+node-selection fields. Existing status, routing, fallback, request, result, and
+attribution contracts remained unchanged.
 
 ## Privacy review
 
-No real-machine evidence has been collected. This pending record contains only
-placeholders, a harmless request, and expected normalized shapes. It contains no
-private address, hostname, username, path, credential, token, raw runtime log,
-full prompt, or generated response.
+This record retains only the repository revision, placeholder receiver address
+and port, sanitized commands, the harmless request, normalized status, and the
+minimal successful normalized result. It contains no private address, hostname,
+username, home path, credential, token, raw log, or unnecessary model output.
 
 ## Result
 
-Pending operator execution. The real two-machine proof has not been run, so this
-document does not claim success or Phase 12 completion.
+Phase 12 heterogeneous runtime cluster proof succeeded.
 
 ## Non-goals
 

@@ -56,7 +56,10 @@ def test_discovers_all_eligible_remote_candidates_in_declaration_order() -> None
     assert all(
         candidate.capability == Capability(name="chat") for candidate in candidates
     )
-    assert all(candidate.reason == DECLARED_REMOTE_ROUTING_REASON for candidate in candidates)
+    assert all(
+        candidate.reason == DECLARED_REMOTE_ROUTING_REASON
+        for candidate in candidates
+    )
 
 
 def test_discovers_no_candidates_when_none_are_eligible() -> None:
@@ -68,13 +71,19 @@ def test_discovers_no_candidates_when_none_are_eligible() -> None:
     assert candidates == []
 
 
-def test_single_candidate_helper_remains_first_candidate_compatibility_seam() -> None:
+def test_single_candidate_helper_remains_first_candidate_seam() -> None:
     first = make_declaration("remote-a")
     second = make_declaration("remote-b")
     registry = RemoteNodeDeclarationRegistry([first, second])
 
-    selected = declared_remote_routing_candidate_for_request(make_request(), registry)
-    candidates = declared_remote_routing_candidates_for_request(make_request(), registry)
+    selected = declared_remote_routing_candidate_for_request(
+        make_request(),
+        registry,
+    )
+    candidates = declared_remote_routing_candidates_for_request(
+        make_request(),
+        registry,
+    )
 
     assert selected == candidates[0]
     assert selected is not None

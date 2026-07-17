@@ -1,5 +1,6 @@
 """Static API wiring for local and explicitly declared remote nodes."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from home_ai_cluster.adapters.ollama import OllamaAdapter
@@ -20,7 +21,7 @@ class StaticRemoteWiringError(Exception):
 
 @dataclass(frozen=True)
 class StaticRemoteWiring:
-    """Caller-owned in-memory wiring for one explicit static remote node."""
+    """Caller-owned in-memory wiring for explicit static remote nodes."""
 
     node_registry: NodeRegistry
     adapter_registry: AdapterRegistry
@@ -54,11 +55,28 @@ class StaticRemoteWiring:
                 "Static remote wiring requires an explicit selection mode"
             )
 
-        declarations = self.remote_registry.list_declarations()
-        if len(declarations) != 1:
+        if not self.remote_registry.list_declarations():
             raise StaticRemoteWiringError(
-                "Static remote wiring requires exactly one declared remote node"
+                "Static remote wiring requires at least one declared remote node"
             )
+
+
+def build_static_remote_collection_wiring(
+    *,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_declarations: Sequence[RemoteNodeDeclaration],
+    remote_transport: RemoteTransport,
+    selection_mode: RoutingCandidateSelectionMode,
+) -> StaticRemoteWiring:
+    """Build caller-owned wiring for one ordered static remote collection."""
+    return StaticRemoteWiring(
+        node_registry=node_registry,
+        adapter_registry=adapter_registry,
+        remote_registry=build_remote_node_declaration_registry(remote_declarations),
+        remote_transport=remote_transport,
+        selection_mode=selection_mode,
+    )
 
 
 def build_static_remote_wiring(
@@ -69,11 +87,11 @@ def build_static_remote_wiring(
     remote_transport: RemoteTransport,
     selection_mode: RoutingCandidateSelectionMode,
 ) -> StaticRemoteWiring:
-    """Build caller-owned in-memory wiring for one explicit remote node."""
-    return StaticRemoteWiring(
+    """Preserve the accepted single-remote wiring seam."""
+    return build_static_remote_collection_wiring(
         node_registry=node_registry,
         adapter_registry=adapter_registry,
-        remote_registry=build_remote_node_declaration_registry([remote_declaration]),
+        remote_declarations=[remote_declaration],
         remote_transport=remote_transport,
         selection_mode=selection_mode,
     )

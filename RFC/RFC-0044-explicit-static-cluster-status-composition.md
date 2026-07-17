@@ -1,6 +1,6 @@
 # RFC-0044: Explicit Static-Cluster Status Composition
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-18
 

@@ -1,4 +1,4 @@
-"""Ordinary RFC-0038 static local-plus-one-remote application process."""
+"""Ordinary static local-plus-remote application process."""
 
 import argparse
 from collections.abc import AsyncIterator, Sequence
@@ -10,6 +10,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from home_ai_cluster.api.wiring import (
+    build_static_remote_collection_wiring,
     build_static_remote_wiring,
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
@@ -20,8 +21,11 @@ from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster_declaration import (
+    RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
+)
+from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclarationError,
-    load_static_cluster_declaration,
+    load_static_cluster_declarations,
 )
 from home_ai_cluster.static_cluster_validation import (
     LOCAL_NODE_ID,  # noqa: F401
@@ -42,7 +46,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    """Parse exactly one complete RFC-0039 static topology input mode."""
+    """Parse exactly one complete static topology input mode."""
     parser = _create_argument_parser()
     args = parser.parse_args(argv)
 
@@ -68,7 +72,7 @@ def create_remote_declaration(
     node_id: str,
     base_url: str,
 ) -> RemoteNodeDeclaration:
-    """Create the one static remote declaration for this process only."""
+    """Create one static runtime remote declaration for this process."""
     return RemoteNodeDeclaration(
         node=NodeDescription(
             id=node_id,
@@ -87,6 +91,19 @@ def create_static_cluster_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=None)
 
 
+def _create_lifespan(
+    process_client: httpx.AsyncClient,
+):
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            await process_client.aclose()
+
+    return lifespan
+
+
 def create_static_cluster_app(
     node_id: str,
     base_url: str,
@@ -95,14 +112,6 @@ def create_static_cluster_app(
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
-
-    @asynccontextmanager
-    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        try:
-            yield
-        finally:
-            await process_client.aclose()
-
     wiring = build_static_remote_wiring(
         node_registry=create_static_local_node_registry(),
         adapter_registry=create_static_runtime_adapter_registry(),
@@ -110,7 +119,36 @@ def create_static_cluster_app(
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
     )
-    app = create_app(static_remote_wiring=wiring, lifespan=lifespan)
+    app = create_app(
+        static_remote_wiring=wiring,
+        lifespan=_create_lifespan(process_client),
+    )
+    app.state.static_cluster_http_client = process_client
+    return app
+
+
+def create_static_cluster_collection_app(
+    remote_nodes: Sequence[ParsedRemoteNodeDeclaration],
+    *,
+    client: httpx.AsyncClient | None = None,
+) -> FastAPI:
+    """Construct an application retaining one ordered remote collection."""
+    process_client = client or create_static_cluster_http_client()
+    declarations = [
+        create_remote_declaration(remote.node_id, remote.base_url)
+        for remote in remote_nodes
+    ]
+    wiring = build_static_remote_collection_wiring(
+        node_registry=create_static_local_node_registry(),
+        adapter_registry=create_static_runtime_adapter_registry(),
+        remote_declarations=declarations,
+        remote_transport=HttpRemoteTransport(process_client),
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    app = create_app(
+        static_remote_collection_wiring=wiring,
+        lifespan=_create_lifespan(process_client),
+    )
     app.state.static_cluster_http_client = process_client
     return app
 
@@ -121,17 +159,15 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     if args.declaration is not None:
         try:
-            declaration = load_static_cluster_declaration(args.declaration)
+            declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        node_id = declaration.remote_node_id
-        base_url = declaration.remote_base_url
+        app = create_static_cluster_collection_app(declarations.remote_nodes)
     else:
-        node_id = args.remote_node_id
-        base_url = args.remote_base_url
+        app = create_static_cluster_app(args.remote_node_id, args.remote_base_url)
 
     uvicorn.run(
-        create_static_cluster_app(node_id, base_url),
+        app,
         host=STATIC_CLUSTER_HOST,
         port=STATIC_CLUSTER_PORT,
     )

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
 from home_ai_cluster.api.wiring import (
+    StaticRemoteCollectionWiring,
     StaticRemoteProofWiring,
     StaticRemoteWiring,
     create_static_local_node_registry,
@@ -19,6 +20,9 @@ from home_ai_cluster.core.models import (
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
     orchestrate_request_with_static_remote_fallback,
+)
+from home_ai_cluster.core.ordered_remote_fallback import (
+    orchestrate_request_with_ordered_static_remote_fallback,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
 
@@ -57,9 +61,10 @@ async def handle_static_local_cluster_request(
 async def handle_chat_cluster_request(
     cluster_request: ClusterRequest,
     static_remote_proof_wiring: StaticRemoteProofWiring | None,
-    static_remote_wiring: StaticRemoteWiring | None,
+    static_remote_wiring: StaticRemoteWiring | None = None,
+    static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
 ) -> ClusterResult:
-    """Use explicit proof, ordinary static remote, or local-only wiring."""
+    """Use proof, ordinary static remote, collection, or local-only wiring."""
     if static_remote_proof_wiring is not None:
         return await orchestrate_static_remote_proof(
             cluster_request,
@@ -75,6 +80,15 @@ async def handle_chat_cluster_request(
             static_remote_wiring.remote_transport,
         )
 
+    if static_remote_collection_wiring is not None:
+        return await orchestrate_request_with_ordered_static_remote_fallback(
+            cluster_request,
+            static_remote_collection_wiring.node_registry,
+            static_remote_collection_wiring.adapter_registry,
+            static_remote_collection_wiring.remote_registry,
+            static_remote_collection_wiring.remote_transport,
+        )
+
     return await handle_static_local_cluster_request(cluster_request)
 
 
@@ -82,12 +96,19 @@ async def handle_chat_cluster_request(
 async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     automatic_proof_orchestrator = http_request.app.state.automatic_proof_orchestrator
     static_remote_wiring = http_request.app.state.static_remote_wiring
+    static_remote_collection_wiring = (
+        http_request.app.state.static_remote_collection_wiring
+    )
     cluster_request = ClusterRequest(
         messages=request.messages,
         capability=Capability(name=request.capability),
         constraints=(
             RequestConstraints(local_only=False)
-            if automatic_proof_orchestrator or static_remote_wiring is not None
+            if (
+                automatic_proof_orchestrator
+                or static_remote_wiring is not None
+                or static_remote_collection_wiring is not None
+            )
             else RequestConstraints()
         ),
     )
@@ -99,6 +120,7 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
         cluster_request,
         http_request.app.state.static_remote_proof_wiring,
         static_remote_wiring,
+        static_remote_collection_wiring,
     )
 
 

@@ -9,7 +9,7 @@ from home_ai_cluster.core.models import Capability, ClusterRequest, NodeDescript
 from home_ai_cluster.core.node import node_supports_capability
 
 DECLARED_REMOTE_ROUTING_REASON = (
-    "Selected first declared remote routing eligibility candidate."
+    "Selected declared remote routing eligibility candidate."
 )
 
 
@@ -79,20 +79,32 @@ def declared_remote_declarations_for_request(
     ]
 
 
+def declared_remote_routing_candidates_for_request(
+    request: ClusterRequest,
+    remote_registry: RemoteNodeDeclarationRegistry,
+) -> list[DeclaredRemoteRoutingCandidate]:
+    """Return all eligible declared remote candidates in declaration order."""
+    return [
+        DeclaredRemoteRoutingCandidate(
+            node=declaration.node,
+            declaration=declaration,
+            capability=request.capability,
+            reason=DECLARED_REMOTE_ROUTING_REASON,
+        )
+        for declaration in declared_remote_declarations_for_request(
+            request,
+            remote_registry,
+        )
+    ]
+
+
 def declared_remote_routing_candidate_for_request(
     request: ClusterRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> DeclaredRemoteRoutingCandidate | None:
-    """Return the first declared remote routing candidate for the request."""
-    declarations = declared_remote_declarations_for_request(request, remote_registry)
-
-    if not declarations:
-        return None
-
-    declaration = declarations[0]
-    return DeclaredRemoteRoutingCandidate(
-        node=declaration.node,
-        declaration=declaration,
-        capability=request.capability,
-        reason=DECLARED_REMOTE_ROUTING_REASON,
+    """Preserve the first eligible declared remote candidate compatibility seam."""
+    candidates = declared_remote_routing_candidates_for_request(
+        request,
+        remote_registry,
     )
+    return candidates[0] if candidates else None

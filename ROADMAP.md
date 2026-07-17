@@ -449,6 +449,59 @@ See [the Phase 14 closeout](docs/phase-14-closeout.md) and
 
 ---
 
+## Phase 15 — Explicit static-cluster status composition
+
+Goal:
+
+Allow the explicit static-cluster status command to inspect one explicitly
+selected supported local runtime composition while preserving normalized,
+engine-independent status output.
+
+Expected outcomes:
+
+* `home-ai-cluster-status` can explicitly select one supported local runtime
+  composition from the same closed choices used by ordinary static-cluster
+  startup;
+* no-option status inspection remains Ollama-backed and compatible;
+* local runtime arguments and validation reuse the existing shared composition
+  boundary where investigation confirms that it fits;
+* local composition is validated and constructed before any remote status
+  observation begins;
+* the fixed local node is inspected through the selected composition;
+* declared remotes continue to be observed only through the normalized Home AI
+  Cluster status protocol;
+* status output contains no runtime, adapter, model, URL, or private machine
+  identity;
+* routing, fallback, topology, declaration, and runtime lifecycle behavior remain
+  unchanged; and
+* one retained privacy-safe operator proof demonstrates status inspection of the
+  same explicit local composition used by an ordinary static cluster.
+
+This phase should close the remaining operator asymmetry between explicit
+static-cluster startup and explicit static-cluster status inspection. Runtime
+choice remains an operator-owned process-composition concern and must not become
+part of cluster status, topology, requests, routing, or attribution.
+
+The current status construction path, reuse of the shared local composition
+boundary, validation and observation order, CLI compatibility, failure behavior,
+and minimum real proof must be investigated before implementation. Any new
+architectural decision requires an accepted RFC.
+
+This phase does not add runtime fields to declarations or status output;
+request-level runtime, adapter, model, or node selection; engine-aware routing;
+multiple local adapters; discovery; model inventory; scheduling; supervision;
+lifecycle management; a plugin system; a generic factory; persisted
+configuration; environment-variable configuration; a dashboard; a database;
+Docker; or Kubernetes.
+
+Success means:
+
+> One operator can inspect the same explicit local runtime composition used by an
+> ordinary static cluster without making runtime identity part of cluster status
+> or topology.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

@@ -154,7 +154,68 @@ def test_status_command_creates_and_closes_one_http_client(
     assert clients[0].closed is True
 
 
-def test_invalid_declaration_prevents_observation(
+def test_default_status_injects_ollama_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import status_command
+
+    declaration = write_declaration(
+        tmp_path,
+        'remote_node_id = "remote"\nremote_base_url = "http://remote.test:8000"\n',
+    )
+    observed: list[tuple[list[str], list[str]]] = []
+
+    async def collect(*args: object) -> ClusterStatusResult:
+        nodes = [node.adapters[0] for node in args[0].list_nodes()]
+        adapters = [adapter.name for adapter in args[1].list_adapters()]
+        observed.append((nodes, adapters))
+        return status_result("remote")
+
+    monkeypatch.setattr(status_command, "collect_static_cluster_status", collect)
+
+    main(["--declaration", str(declaration)])
+
+    assert observed == [(["ollama"], ["ollama"])]
+
+
+def test_explicit_llama_server_injects_selected_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import status_command
+
+    declaration = write_declaration(
+        tmp_path,
+        'remote_node_id = "remote"\nremote_base_url = "http://remote.test:8000"\n',
+    )
+    observed: list[tuple[list[str], list[str]]] = []
+
+    async def collect(*args: object) -> ClusterStatusResult:
+        nodes = [node.adapters[0] for node in args[0].list_nodes()]
+        adapters = [adapter.name for adapter in args[1].list_adapters()]
+        observed.append((nodes, adapters))
+        return status_result("remote")
+
+    monkeypatch.setattr(status_command, "collect_static_cluster_status", collect)
+
+    main(
+        [
+            "--declaration",
+            str(declaration),
+            "--runtime",
+            "llama-server",
+            "--llama-server-base-url",
+            "http://127.0.0.1:8080",
+            "--llama-server-model",
+            "local-model",
+        ]
+    )
+
+    assert observed == [(["llama-server"], ["llama-server"])]
+
+
+def test_invalid_declaration_prevents_composition_construction(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -164,8 +225,8 @@ def test_invalid_declaration_prevents_observation(
     declaration = write_declaration(tmp_path, 'remote_node_id = "local"\n')
     monkeypatch.setattr(
         status_command,
-        "create_static_local_node_registry",
-        lambda: (_ for _ in ()).throw(AssertionError("must not observe")),
+        "create_local_runtime_composition",
+        lambda **_: (_ for _ in ()).throw(AssertionError("must not construct")),
     )
 
     with pytest.raises(SystemExit):
@@ -173,6 +234,44 @@ def test_invalid_declaration_prevents_observation(
 
     captured = capsys.readouterr()
     assert captured.out == ""
+    assert "must not construct" not in captured.err
+
+
+def test_invalid_runtime_combination_prevents_construction_and_observation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from home_ai_cluster import status_command
+
+    declaration = write_declaration(
+        tmp_path,
+        'remote_node_id = "remote"\nremote_base_url = "http://remote.test:8000"\n',
+    )
+    monkeypatch.setattr(
+        status_command,
+        "create_local_runtime_composition",
+        lambda **_: (_ for _ in ()).throw(AssertionError("must not construct")),
+    )
+    monkeypatch.setattr(
+        status_command.httpx,
+        "AsyncClient",
+        lambda: (_ for _ in ()).throw(AssertionError("must not observe")),
+    )
+
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--declaration",
+                str(declaration),
+                "--llama-server-model",
+                "unexpected",
+            ]
+        )
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "must not construct" not in captured.err
     assert "must not observe" not in captured.err
 
 
@@ -188,7 +287,8 @@ def test_invalid_declaration_prevents_observation(
                     runtime_status=RuntimeStatus.OBSERVATION_FAILED,
                 ),
                 ClusterStatusNode(
-                    node_id="remote", application_status=ApplicationStatus.UNREACHABLE,
+                    node_id="remote",
+                    application_status=ApplicationStatus.UNREACHABLE,
                     runtime_status=RuntimeStatus.UNKNOWN,
                 ),
             ),

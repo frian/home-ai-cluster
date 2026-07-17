@@ -424,6 +424,54 @@ Success means:
 
 ---
 
+## Phase 14 — Explicit static-cluster local composition
+
+Goal:
+
+Allow an operator to start an ordinary explicit static cluster whose local
+candidate uses one explicitly chosen supported runtime composition, while remote
+declarations remain topology-only and routing remains capability-centered.
+
+Expected outcomes:
+
+* the ordinary static-cluster startup path can accept one explicit supported local
+  runtime composition;
+* the initial closed runtime choices remain `ollama` and `llama-server`;
+* the current no-input static-cluster behavior remains Ollama-backed and compatible;
+* the local candidate still uses exactly one runtime adapter per process;
+* remote declarations remain limited to explicit remote identity and transport
+  facts, with no runtime, adapter, or model fields;
+* requests remain capability-centered and contain no runtime, adapter, model, or
+  node selector;
+* local-first routing, narrow pre-request fallback, normalized status, and
+  declared-node attribution remain unchanged;
+* startup validation remains explicit, local, and completed before endpoint
+  binding, without runtime discovery or network probing;
+* one retained privacy-safe real operator proof demonstrates the explicit local
+  composition in an ordinary static cluster; and
+* no retained runtime configuration file, generic factory, plugin system,
+  discovery, model inventory, runtime lifecycle management, Docker, Kubernetes,
+  or dashboard is introduced.
+
+This phase should close the current asymmetry between ordinary standalone local
+runtime composition and ordinary static-cluster startup. It should reuse the
+accepted Phase 13 composition boundary rather than introduce runtime selection
+into requests, routing, remote declarations, attribution, or status.
+
+The exact CLI relationship, argument ownership and precedence, reuse of
+`LocalAppComposition`, compatibility behavior, validation boundaries, status and
+preflight implications, and proof shape are architectural questions. They must be
+investigated before implementation, and any new architectural decision requires
+an accepted RFC.
+
+Success means:
+
+> One operator can start an ordinary explicit static cluster with one explicitly
+> chosen supported local runtime composition while the cluster continues to route
+> only by capability and explicit static topology.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

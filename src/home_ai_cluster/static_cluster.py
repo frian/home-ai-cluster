@@ -18,7 +18,11 @@ from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
-from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
+from home_ai_cluster.local_runtime_composition import (
+    add_local_runtime_arguments,
+    create_local_runtime_composition,
+    validate_local_runtime_arguments,
+)
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -44,6 +48,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    add_local_runtime_arguments(parser)
     return parser
 
 
@@ -67,6 +72,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if not has_declaration and not has_remote_node_id:
         parser.error("provide either --declaration or both inline remote arguments")
 
+    validate_local_runtime_arguments(parser, args)
     return args
 
 
@@ -160,7 +166,11 @@ def create_static_cluster_collection_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
-    local_app_composition = create_local_runtime_composition(runtime="ollama")
+    local_app_composition = create_local_runtime_composition(
+        runtime=args.runtime,
+        llama_server_base_url=args.llama_server_base_url,
+        llama_server_model=args.llama_server_model,
+    )
 
     if args.declaration is not None:
         try:

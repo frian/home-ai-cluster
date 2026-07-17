@@ -2,7 +2,7 @@
 
 Status: Canonical
 
-Date: 2026-07-16
+Date: 2026-07-17
 
 This document is the shortest supported operator path for the current Home AI
 Cluster architecture. It defines three distinct modes:
@@ -78,42 +78,44 @@ external runtime running or stop it manually according to operator policy.
 
 Roles:
 
-- **receiving machine**: ordinary Home AI Cluster application plus externally
-  owned local runtime;
+- **receiving machine or machines**: each runs an ordinary Home AI Cluster
+  application plus an externally owned local runtime;
 - **calling machine**: ordinary static multi-node process with one local node
-  and one explicitly declared remote node.
+  and one or more explicitly declared remote nodes.
 
-Both machines must use compatible repository revisions and remain on the same
-trusted LAN for the first reproduction.
+The calling machine and every receiving machine must use compatible repository
+revisions and remain on the same trusted LAN for the first reproduction. The
+existing one-receiving-machine path remains the simple supported special case.
 
-### 1. Prepare both machines
+### 1. Prepare the calling machine and every receiving machine
 
-On both machines:
+On the calling machine and every receiving machine:
 
 ```sh
 uv sync
 ```
 
-Confirm compatible repository revisions. On the receiving machine, prepare and
-start the external runtime and ensure the required model is locally available.
-Home AI Cluster does not own that runtime.
+Confirm compatible repository revisions. On every receiving machine, prepare
+and start the external runtime and ensure the required model is locally
+available. Home AI Cluster does not own that runtime.
 
-### 2. Run receiving-machine static preflight and health
+### 2. Run static preflight and health on every receiving machine
 
-On the receiving machine:
+On every receiving machine:
 
 ```sh
 uv run home-ai-cluster-preflight
 uv run home-ai-cluster-health
 ```
 
-Preflight checks local static declaration coherence. Health observes the
+Preflight checks local static declaration coherence. Health observes each
 receiving machine's configured local runtime adapter. Neither result proves LAN
 reachability from the calling machine.
 
-### 3. Determine the receiving LAN address
+### 3. Determine each receiving LAN address
 
-Use the receiving machine's current trusted-LAN address at invocation time:
+For every receiving machine, use its current trusted-LAN address at invocation
+time:
 
 ```text
 <receiving-lan-address>
@@ -122,9 +124,9 @@ Use the receiving machine's current trusted-LAN address at invocation time:
 Do not commit a real private address to repository documentation or proof
 records.
 
-### 4. Start the receiving application
+### 4. Start each receiving application
 
-On the receiving machine:
+On every receiving machine represented by the declaration:
 
 ```sh
 uv run uvicorn home_ai_cluster.main:app --host 0.0.0.0 --port 8000
@@ -143,12 +145,89 @@ uv run home-ai-cluster-preflight \
 ```
 
 This validates one local declaration, one explicit remote declaration, and
-adapter-name resolution against the inspected adapter registry. It does not
-validate DNS, LAN reachability, the receiving application, receiving runtime,
-receiving model, remote execution, or fallback success. It performs no network
-request.
+adapter-name resolution against the inspected adapter registry. It is the
+simple one-receiving-machine path; use the declaration in the next step to
+inspect one or more declared remotes. It does not validate DNS, LAN
+reachability, the receiving application, receiving runtime, receiving model,
+remote execution, or fallback success. It performs no network request.
 
-### 6. Optionally observe the calling machine's local runtime
+### 6. Inspect one declared static cluster
+
+After preparing every receiving application represented by the declaration,
+create one explicit declaration on the calling machine. Declaration order is
+the remote observation order:
+
+```toml
+[[remote_nodes]]
+node_id = "remote-a"
+base_url = "http://<receiving-a-lan-address>:8000"
+
+[[remote_nodes]]
+node_id = "remote-b"
+base_url = "http://<receiving-b-lan-address>:8000"
+```
+
+Run one finite, read-only inspection from the calling machine:
+
+```sh
+uv run home-ai-cluster-status \
+  --declaration <path-to-static-cluster-declaration>
+```
+
+The command validates the declaration before local or network observation. Its
+compact result has this shape:
+
+```json
+{
+  "declaration_status": "coherent",
+  "nodes": [
+    {
+      "node_id": "local",
+      "application_status": "local",
+      "runtime_status": "available"
+    },
+    {
+      "node_id": "remote-a",
+      "application_status": "reachable",
+      "runtime_status": "available"
+    },
+    {
+      "node_id": "remote-b",
+      "application_status": "unreachable",
+      "runtime_status": "unknown"
+    }
+  ]
+}
+```
+
+`declaration_status = coherent` means static declaration validation succeeded;
+it does not mean every application or runtime is available. The fixed local node
+is always first. Each declared remote appears exactly once in declaration order.
+Observations are sequential, each remote has the fixed implementation-owned
+five-second timeout, and one failed remote does not stop later observations.
+There are no retries.
+
+Local `application_status` is `local`. Runtime statuses are `available`,
+`unavailable`, `observation-failed`, and `unknown`; `unknown` is used only when
+no valid remote runtime observation was obtained. Remote application statuses
+are `reachable`, `unreachable`, `request-failed`, and `invalid-response`.
+Node failures are reported as data. Once validation succeeds and observation
+begins, unavailable or failed node observations do not by themselves make the
+command exit unsuccessfully. The command exits unsuccessfully when it cannot
+construct the operation, including invalid arguments or declarations, local
+inspection construction failure, or unexpected collection failure.
+
+Status complements rather than replaces the static, network-free preflight or
+the current-machine-only local health command. Use each command for its own
+observation boundary.
+
+This operation does not start or stop runtimes, repair services, restart
+machines, mutate declarations, change routing or fallback, persist observations,
+poll, or watch. Its output excludes transport URLs, private addresses, machine
+display names, adapter or model names, credentials, prompts, responses, and raw
+exceptions.
+
+### 7. Optionally observe the calling machine's local runtime
 
 ```sh
 uv run home-ai-cluster-health
@@ -157,7 +236,7 @@ uv run home-ai-cluster-health
 This remains local health only; it does not inspect the remote node. It matters
 because ordinary routing is local-first, so a usable local path normally wins.
 
-### 7. Start the ordinary static multi-node process
+### 8. Start the ordinary static multi-node process
 
 On the calling machine:
 
@@ -177,7 +256,7 @@ The supplied URL is held only in process memory and is not persisted. The
 process owns only its HTTP client and application lifecycle; it does not start,
 stop, supervise, repair, or discover the remote machine or runtime.
 
-### 8. Send one ordinary request
+### 9. Send one ordinary request
 
 ```sh
 curl -s http://127.0.0.1:8000/v1/chat \
@@ -195,7 +274,7 @@ no direct node targeting, retry loop, balancing, scoring, scheduling, or
 discovery. A declared remote node does not guarantee that the first request uses
 the remote path.
 
-### 9. Reproduce remote fallback deliberately
+### 10. Reproduce remote fallback deliberately
 
 To reproduce the accepted remote fallback manually, leave or make unavailable
 the externally owned local runtime path on the calling machine before sending a
@@ -204,7 +283,7 @@ request through the calling loopback endpoint and confirm that cluster-owned
 attribution identifies `<remote-node-id>`. Do not introduce a direct
 remote-targeting option or destructive recovery action.
 
-### 10. Stop in canonical order
+### 11. Stop in canonical order
 
 1. stop the calling static multi-node process;
 2. stop the receiving ordinary application;
@@ -241,6 +320,7 @@ Successful preflight does not imply runtime or network success.
 | --- | --- |
 | Static declaration coherence | `home-ai-cluster-preflight` |
 | Local runtime health | `home-ai-cluster-health` |
+| Declared local and remote live observations | `home-ai-cluster-status --declaration <path>` |
 | Process startup and port conflict | Invoked process and operating system |
 | Trusted-LAN reachability | Explicit trusted-LAN request |
 | Receiving endpoint availability | Receiving application and explicit request |
@@ -292,5 +372,6 @@ account details, or secrets. Use placeholders for operator-specific values.
 - `RFC/RFC-0036-static-operator-preflight.md`
 - `RFC/RFC-0037-canonical-operator-workflow.md`
 - `RFC/RFC-0038-ordinary-static-multi-node-mode.md`
+- `RFC/RFC-0041-explicit-static-cluster-status.md`
 
 This document remains the canonical shortest operator sequence.

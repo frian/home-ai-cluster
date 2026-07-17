@@ -2,8 +2,10 @@ import asyncio
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.api.routes import InternalClusterStatusResponse
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -47,6 +49,30 @@ class RuntimeSpecificUnavailableChatAdapter(TestChatAdapter):
         raise RuntimeAdapterUnavailableError("ollama leaked detail") from cause
 
 
+class StatusAdapter:
+    def __init__(self, health_result: AdapterHealth | Exception) -> None:
+        self._health_result = health_result
+        self.health_calls = 0
+        self.chat_calls = 0
+
+    @property
+    def name(self) -> str:
+        return "private-adapter-name"
+
+    def health(self) -> AdapterHealth:
+        self.health_calls += 1
+        if isinstance(self._health_result, Exception):
+            raise self._health_result
+        return self._health_result
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="chat")]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_calls += 1
+        raise AssertionError("status endpoint must not execute chat")
+
+
 def create_test_registry() -> AdapterRegistry:
     return AdapterRegistry([TestChatAdapter()])
 
@@ -69,6 +95,21 @@ def create_test_node_registry() -> NodeRegistry:
                 health=NodeHealth(healthy=True),
                 capabilities=[Capability(name="chat")],
                 adapters=["test"],
+            )
+        ]
+    )
+
+
+def create_status_node_registry() -> NodeRegistry:
+    return NodeRegistry(
+        [
+            NodeDescription(
+                id="private-machine-name",
+                name="Private machine name",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="chat")],
+                adapters=["private-adapter-name"],
             )
         ]
     )
@@ -100,6 +141,20 @@ async def post_internal_cluster_request_async(
 
 def post_internal_cluster_request(payload: dict[str, object]) -> httpx.Response:
     return asyncio.run(post_internal_cluster_request_async(payload))
+
+
+async def get_internal_cluster_status_async() -> httpx.Response:
+    transport = httpx.ASGITransport(app=create_app())
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        return await client.get("/internal/cluster/status")
+
+
+def get_internal_cluster_status() -> httpx.Response:
+    return asyncio.run(get_internal_cluster_status_async())
 
 
 @pytest.fixture
@@ -261,3 +316,111 @@ def test_internal_cluster_request_endpoint_rejects_unsupported_capability(
     assert response.json() == {
         "detail": "No adapter provides capability: embeddings",
     }
+
+
+@pytest.mark.parametrize(
+    ("health_result", "expected_runtime_status"),
+    [
+        (AdapterHealth(available=True), "available"),
+        (AdapterHealth(available=False), "unavailable"),
+        (
+            RuntimeError("http://private-host:11434 authorization=secret"),
+            "observation-failed",
+        ),
+    ],
+)
+def test_internal_cluster_status_returns_one_normalized_local_observation(
+    monkeypatch: pytest.MonkeyPatch,
+    health_result: AdapterHealth | Exception,
+    expected_runtime_status: str,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = StatusAdapter(health_result)
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_status_node_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = get_internal_cluster_status()
+
+    assert response.status_code == 200
+    assert response.json() == {"runtime_status": expected_runtime_status}
+    assert adapter.health_calls == 1
+    assert adapter.chat_calls == 0
+
+
+def test_internal_cluster_status_hides_local_runtime_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = StatusAdapter(
+        RuntimeError("http://private-host:11434 authorization=secret")
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_status_node_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = get_internal_cluster_status()
+
+    assert set(response.json()) == {"runtime_status"}
+    assert response.json() == {"runtime_status": "observation-failed"}
+    for forbidden in (
+        "private-machine-name",
+        "Private machine name",
+        "private-adapter-name",
+        "private-host",
+        "authorization",
+        "secret",
+        "node_id",
+        "application_status",
+        "declaration_status",
+        "reason",
+        "model",
+        "url",
+    ):
+        assert forbidden not in response.text
+
+
+def test_internal_cluster_status_returns_safe_error_when_snapshot_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    def fail_snapshot(*_: object, **__: object) -> dict[str, object]:
+        raise RuntimeError("http://private-host:11434 authorization=secret")
+
+    monkeypatch.setattr(routes, "project_health_snapshot", fail_snapshot)
+
+    response = get_internal_cluster_status()
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Unable to inspect local runtime status"}
+    assert "private-host" not in response.text
+    assert "authorization" not in response.text
+
+
+def test_internal_cluster_status_response_is_closed_and_immutable() -> None:
+    response = InternalClusterStatusResponse(runtime_status="available")
+
+    with pytest.raises(ValidationError):
+        InternalClusterStatusResponse(
+            runtime_status="unknown",
+            node_id="local",
+        )
+    with pytest.raises(ValidationError):
+        response.runtime_status = "unavailable"  # type: ignore[misc]

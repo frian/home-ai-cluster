@@ -109,11 +109,21 @@ fields. No new declaration field is necessary for the candidate proof.
 
 `static_cluster.py:create_remote_declaration()` currently synthesizes an
 `adapters=["ollama"]` value in its in-memory remote node description. This is not
-an operator declaration field and declared-remote eligibility does not resolve
-that value against the calling process's adapter registry. Remote eligibility is
-based on the explicit declaration, static availability, and requested capability.
-The value must not be treated as a claim about the receiving runtime or as a
-heterogeneous-routing selector. The proof does not need to change it.
+an operator declaration field, and declared-remote eligibility does not resolve
+that value against the calling process's adapter registry.
+
+The synthesized value does not currently participate in remote candidate
+eligibility or execution. However, it would be factually misleading for a
+receiving node that executes through `LlamaServerAdapter`.
+
+The implementation phase must verify whether this value is observable or required
+by any accepted preflight, explanation, registry, or attribution contract. If it
+is only a legacy placeholder, it should be corrected using the already accepted
+remote HTTP adapter semantics rather than extended with receiving-runtime
+identity.
+
+This does not justify adding runtime, adapter, or model fields to the static
+declaration and does not by itself require a new RFC.
 
 ### Routing and fallback boundary
 
@@ -195,6 +205,12 @@ process. It does not provide the receiving-application composition required for
 a real two-machine request. No evidence requires changing `RuntimeAdapter`,
 adding a factory, or making adapter registration dynamic.
 
+The synthesized remote `adapters=["ollama"]` metadata is also misleading for a
+receiving node that executes through `LlamaServerAdapter`. Although it currently
+does not control remote eligibility or execution, the implementation must verify
+its observable contracts and resolve it before retaining the heterogeneous
+operator proof.
+
 ## Architectural decision test
 
 No new RFC is needed if the implementation is limited to a proof-only,
@@ -236,7 +252,10 @@ caller does not need the receiving engine identity, declarations need no runtime
 field, remote transport exchanges normalized cluster objects, and status remains
 runtime-identity-free. The implementation lacks only an explicit proof-scoped
 way to compose the receiving application's existing local handlers with the
-already accepted llama-server adapter.
+already accepted llama-server adapter and a conformance correction for the
+misleading synthesized remote adapter metadata. That correction remains an
+implementation-level change when it preserves the accepted remote HTTP adapter
+semantics and changes no public or architectural contract.
 
 No new RFC is required before a narrow Phase 12 proof implementation.
 
@@ -246,7 +265,11 @@ A later implementation PR may add one proof-only receiving-application
 composition seam that supplies the local node and adapter registries used by the
 existing internal request and status handlers. It should construct only the
 existing `LlamaServerAdapter` explicitly, preserve ordinary defaults and all
-accepted public contracts, add focused boundary tests, and then perform the
+accepted public contracts, and add focused boundary tests. The implementation
+must also resolve the misleading synthesized remote `adapters=["ollama"]`
+metadata before retaining the heterogeneous proof. The resolution must preserve
+the accepted remote HTTP adapter boundary and must not make the caller aware of
+the receiving runtime engine. The later implementation can then perform the
 separate retained privacy-safe operator proof required by Phase 12.
 
 ## Non-goals

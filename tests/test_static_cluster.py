@@ -24,6 +24,7 @@ from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMod
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster import (
     LOCAL_NODE_ID,
+    REMOTE_HTTP_ADAPTER_NAME,
     STATIC_CLUSTER_HOST,
     STATIC_CLUSTER_PORT,
     create_remote_declaration,
@@ -170,7 +171,7 @@ def test_remote_declaration_is_neutral_and_has_fixed_rfc_facts() -> None:
     assert declaration.node.availability == "available"
     assert declaration.node.health == NodeHealth(healthy=True)
     assert declaration.node.capabilities == [Capability(name="chat")]
-    assert declaration.node.adapters == ["ollama"]
+    assert declaration.node.adapters == [REMOTE_HTTP_ADAPTER_NAME]
     assert declaration.transport_address == "https://remote.test"
 
 

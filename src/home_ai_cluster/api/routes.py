@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
 from home_ai_cluster.api.wiring import (
+    ProofReceivingAppWiring,
     StaticRemoteCollectionWiring,
     StaticRemoteProofWiring,
     StaticRemoteWiring,
@@ -41,9 +42,18 @@ class ChatRequest(BaseModel):
 
 async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest,
+    proof_receiving_app_wiring: ProofReceivingAppWiring | None = None,
 ) -> ClusterResult:
-    node_registry = create_static_local_node_registry()
-    adapter_registry = create_static_runtime_adapter_registry()
+    node_registry = (
+        proof_receiving_app_wiring.node_registry
+        if proof_receiving_app_wiring is not None
+        else create_static_local_node_registry()
+    )
+    adapter_registry = (
+        proof_receiving_app_wiring.adapter_registry
+        if proof_receiving_app_wiring is not None
+        else create_static_runtime_adapter_registry()
+    )
 
     try:
         return await orchestrate_request(
@@ -130,20 +140,37 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
 
 
 @router.post("/internal/cluster/request", response_model=ClusterResult)
-async def internal_cluster_request(request: ClusterRequest) -> ClusterResult:
-    return await handle_static_local_cluster_request(request)
+async def internal_cluster_request(
+    request: ClusterRequest,
+    http_request: Request,
+) -> ClusterResult:
+    return await handle_static_local_cluster_request(
+        request,
+        http_request.app.state.proof_receiving_app_wiring,
+    )
 
 
 @router.get(
     "/internal/cluster/status",
     response_model=InternalClusterStatusResponse,
 )
-async def internal_cluster_status() -> InternalClusterStatusResponse:
+async def internal_cluster_status(
+    http_request: Request,
+) -> InternalClusterStatusResponse:
     """Return one completed local runtime observation without cluster collection."""
     try:
+        proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
         snapshot = project_health_snapshot(
-            create_static_local_node_registry(),
-            create_static_runtime_adapter_registry(),
+            (
+                proof_receiving_app_wiring.node_registry
+                if proof_receiving_app_wiring is not None
+                else create_static_local_node_registry()
+            ),
+            (
+                proof_receiving_app_wiring.adapter_registry
+                if proof_receiving_app_wiring is not None
+                else create_static_runtime_adapter_registry()
+            ),
         )
         local_status = project_local_cluster_status(snapshot)
     except Exception as error:

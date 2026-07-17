@@ -35,6 +35,8 @@ from home_ai_cluster.static_cluster_validation import (
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 8000
+REMOTE_HTTP_ADAPTER_NAME = "remote-http"
+"""Cluster-facing label for caller-side declared remote HTTP execution."""
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
@@ -80,7 +82,7 @@ def create_remote_declaration(
             availability="available",
             health=NodeHealth(healthy=True),
             capabilities=[Capability(name="chat")],
-            adapters=["ollama"],
+            adapters=[REMOTE_HTTP_ADAPTER_NAME],
         ),
         transport_address=base_url,
     )

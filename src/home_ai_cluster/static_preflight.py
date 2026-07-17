@@ -45,6 +45,7 @@ def project_static_preflight_nodes(
     adapter_registry: AdapterRegistry,
     *,
     operating_mode: str,
+    adapter_resolution_node_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     """Project one read-only static coherence report for ordered declarations."""
     projected_nodes = []
@@ -59,16 +60,21 @@ def project_static_preflight_nodes(
             }
         )
 
-        for adapter_name in node.adapters:
-            if adapter_registry.adapter_named(adapter_name) is None:
-                issues.append(
-                    {
-                        "status": "missing-adapter",
-                        "node_id": node.id,
-                        "adapter": adapter_name,
-                        "reason": MISSING_ADAPTER_REASON,
-                    }
-                )
+        resolves_locally = (
+            adapter_resolution_node_ids is None
+            or node.id in adapter_resolution_node_ids
+        )
+        if resolves_locally:
+            for adapter_name in node.adapters:
+                if adapter_registry.adapter_named(adapter_name) is None:
+                    issues.append(
+                        {
+                            "status": "missing-adapter",
+                            "node_id": node.id,
+                            "adapter": adapter_name,
+                            "reason": MISSING_ADAPTER_REASON,
+                        }
+                    )
 
     return {
         "status": "incoherent" if issues else "coherent",
@@ -158,6 +164,7 @@ def evaluate_static_declarations_preflight(
         [*local_nodes.list_nodes(), *remote_nodes],
         adapters,
         operating_mode="static-multi-node",
+        adapter_resolution_node_ids={node.id for node in local_nodes.list_nodes()},
     )
 
 

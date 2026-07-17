@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import json
 from collections.abc import Callable, Sequence
-from urllib.parse import urlsplit
 
 from home_ai_cluster.adapters.base import RuntimeAdapter, RuntimeAdapterUnavailableError
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
@@ -15,18 +14,7 @@ from home_ai_cluster.core.models import (
     ClusterRequest,
     RuntimeResult,
 )
-
-LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
-
-
-def local_http_url(value: str) -> str:
-    """Validate one explicit loopback HTTP URL for this local-only proof."""
-    parsed = urlsplit(value)
-    if parsed.scheme != "http" or parsed.hostname not in LOCAL_HOSTS:
-        raise argparse.ArgumentTypeError(
-            "runtime URL must be an absolute loopback http:// URL"
-        )
-    return value.rstrip("/")
+from home_ai_cluster.local_http import local_http_url
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

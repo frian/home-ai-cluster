@@ -50,12 +50,12 @@ def load_static_cluster_declarations(
     declaration_path = Path(path)
     document = _load_toml_document(declaration_path)
 
-    if _is_single_remote_shape(document):
-        remote_nodes = (_parse_single_remote(document, declaration_path),)
-    elif _is_multi_remote_shape(document):
+    if _MULTI_DECLARATION_KEY in document:
+        if document.keys() & _SINGLE_DECLARATION_KEY_SET:
+            raise StaticClusterDeclarationError("invalid declaration shape")
         remote_nodes = _parse_multiple_remotes(document, declaration_path)
     else:
-        raise StaticClusterDeclarationError("invalid declaration shape")
+        remote_nodes = (_parse_single_remote(document, declaration_path),)
 
     _validate_unique_remote_nodes(remote_nodes)
     return StaticClusterDeclarations(remote_nodes=remote_nodes)
@@ -101,18 +101,14 @@ def _load_toml_document(path: Path) -> dict[str, Any]:
     return document
 
 
-def _is_single_remote_shape(document: dict[str, Any]) -> bool:
-    return document.keys() <= _SINGLE_DECLARATION_KEY_SET
-
-
-def _is_multi_remote_shape(document: dict[str, Any]) -> bool:
-    return document.keys() <= _MULTI_DECLARATION_KEY_SET
-
-
 def _parse_single_remote(
     document: dict[str, Any],
     path: Path,
 ) -> RemoteNodeDeclaration:
+    unknown_keys = document.keys() - _SINGLE_DECLARATION_KEY_SET
+    if unknown_keys:
+        raise StaticClusterDeclarationError("unknown declaration key")
+
     for key in _SINGLE_DECLARATION_KEYS:
         if key not in document:
             raise StaticClusterDeclarationError(f"missing declaration key: {key}")
@@ -131,10 +127,9 @@ def _parse_multiple_remotes(
     document: dict[str, Any],
     path: Path,
 ) -> tuple[RemoteNodeDeclaration, ...]:
-    if _MULTI_DECLARATION_KEY not in document:
-        raise StaticClusterDeclarationError(
-            f"missing declaration key: {_MULTI_DECLARATION_KEY}"
-        )
+    unknown_keys = document.keys() - _MULTI_DECLARATION_KEY_SET
+    if unknown_keys:
+        raise StaticClusterDeclarationError("unknown declaration key")
 
     entries = document[_MULTI_DECLARATION_KEY]
     if not isinstance(entries, list):
@@ -142,10 +137,7 @@ def _parse_multiple_remotes(
     if not entries:
         raise StaticClusterDeclarationError("remote_nodes must not be empty")
 
-    return tuple(
-        _parse_remote_entry(entry, path)
-        for entry in entries
-    )
+    return tuple(_parse_remote_entry(entry, path) for entry in entries)
 
 
 def _parse_remote_entry(entry: Any, path: Path) -> RemoteNodeDeclaration:

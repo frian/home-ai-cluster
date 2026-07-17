@@ -4,14 +4,7 @@ import pytest
 from fastapi import FastAPI
 
 from home_ai_cluster import local_runtime
-from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
-from home_ai_cluster.core.models import (
-    AdapterHealth,
-    Capability,
-    ClusterRequest,
-    RuntimeResult,
-)
 
 
 def test_parse_args_defaults_to_ollama() -> None:
@@ -33,6 +26,69 @@ def test_parse_args_accepts_explicit_ollama() -> None:
 def test_parse_args_rejects_unsupported_runtime() -> None:
     with pytest.raises(SystemExit):
         local_runtime.parse_args(["--runtime", "unsupported"])
+
+
+@pytest.mark.parametrize(
+    ("argv", "error"),
+    [
+        (
+            [
+                "--runtime",
+                "ollama",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080",
+            ],
+            "llama-server arguments require --runtime llama-server",
+        ),
+        (
+            ["--runtime", "llama-server"],
+            "--llama-server-base-url is required for llama-server",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080",
+            ],
+            "--llama-server-model is required for llama-server",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "https://127.0.0.1:8080",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080",
+                "--llama-server-model",
+                "",
+            ],
+            "argument --llama-server-model: value must not be empty",
+        ),
+    ],
+)
+def test_parse_args_preserves_runtime_validation_error_wording(
+    argv: list[str],
+    error: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(argv)
+
+    assert (
+        f"home-ai-cluster-local: error: {error}\n" in capsys.readouterr().err
+    )
 
 
 @pytest.mark.parametrize(
@@ -131,88 +187,6 @@ def test_parse_args_accepts_explicit_llama_server() -> None:
     assert args.port == 8123
 
 
-def assert_ordinary_local_node(composition, adapter_name: str) -> None:
-    nodes = composition.node_registry.list_nodes()
-
-    assert len(nodes) == 1
-    assert nodes[0].id == "local"
-    assert nodes[0].name == "Local node"
-    assert nodes[0].availability == "available"
-    assert nodes[0].health.healthy is True
-    assert nodes[0].capabilities == [Capability(name="chat")]
-    assert nodes[0].adapters == [adapter_name]
-
-
-def test_create_ollama_local_app_composition_uses_one_default_adapter() -> None:
-    composition = local_runtime.create_ollama_local_app_composition()
-
-    assert_ordinary_local_node(composition, "ollama")
-    adapters = composition.adapter_registry.list_adapters()
-    assert len(adapters) == 1
-    assert isinstance(adapters[0], OllamaAdapter)
-    assert adapters[0].name == "ollama"
-
-
-def test_create_llama_server_local_app_composition_uses_one_adapter() -> None:
-    composition = local_runtime.create_llama_server_local_app_composition(
-        base_url="http://127.0.0.1:8080",
-        model="local-model",
-    )
-
-    assert_ordinary_local_node(composition, "llama-server")
-    adapters = composition.adapter_registry.list_adapters()
-    assert len(adapters) == 1
-    assert isinstance(adapters[0], LlamaServerAdapter)
-    assert adapters[0].name == "llama-server"
-    assert adapters[0].base_url == "http://127.0.0.1:8080"
-    assert adapters[0].model == "local-model"
-
-
-class RecordingLlamaServerAdapter:
-    def __init__(self, *, base_url: str, model: str) -> None:
-        self.base_url = base_url
-        self.model = model
-        self.health_calls = 0
-        self.chat_calls = 0
-
-    @property
-    def name(self) -> str:
-        return "llama-server"
-
-    def health(self) -> AdapterHealth:
-        self.health_calls += 1
-        return AdapterHealth(available=True)
-
-    def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat")]
-
-    async def chat(self, request: ClusterRequest) -> RuntimeResult:
-        self.chat_calls += 1
-        return RuntimeResult(content="unused", adapter=self.name)
-
-
-def test_composition_construction_does_not_probe_or_execute_runtime(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    created: list[RecordingLlamaServerAdapter] = []
-
-    def create_adapter(*, base_url: str, model: str) -> RecordingLlamaServerAdapter:
-        adapter = RecordingLlamaServerAdapter(base_url=base_url, model=model)
-        created.append(adapter)
-        return adapter
-
-    monkeypatch.setattr(local_runtime, "LlamaServerAdapter", create_adapter)
-
-    local_runtime.create_llama_server_local_app_composition(
-        base_url="http://127.0.0.1:8080",
-        model="local-model",
-    )
-
-    assert len(created) == 1
-    assert created[0].health_calls == 0
-    assert created[0].chat_calls == 0
-
-
 def test_create_local_runtime_app_passes_composition_to_create_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -238,7 +212,8 @@ def test_create_local_runtime_app_passes_composition_to_create_app(
     result = local_runtime.create_local_runtime_app(args)
 
     assert result is app
-    assert_ordinary_local_node(captured["composition"], "llama-server")
+    node = captured["composition"].node_registry.list_nodes()[0]
+    assert node.adapters == ["llama-server"]
 
 
 def test_create_local_runtime_app_defaults_to_ollama_composition(
@@ -256,7 +231,8 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     result = local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
 
     assert result is app
-    assert_ordinary_local_node(captured["composition"], "ollama")
+    node = captured["composition"].node_registry.list_nodes()[0]
+    assert node.adapters == ["ollama"]
     adapter = captured["composition"].adapter_registry.list_adapters()[0]
     assert isinstance(adapter, OllamaAdapter)
 

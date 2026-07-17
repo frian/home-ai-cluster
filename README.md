@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed proofs through Phase 6.
+Status: early prototype with completed roadmap phases through Phase 10.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -10,9 +10,11 @@ presented as one capability-centered local system:
 > Many machines. One AI.
 
 The current implementation remains intentionally small. The ordinary
-application is local and static by default, while explicit proof entry points
-exercise two-machine routing, fallback, a second runtime adapter, routing
-explanation, and minimal OpenAI-compatible access.
+application is local and static by default. An operator can also start an
+explicit static cluster from a TOML declaration containing one or more ordered
+remote nodes. Routing remains local-first and capability-centered, with a narrow,
+bounded fallback when an eligible candidate is unavailable before request
+transmission.
 
 ## Project context
 
@@ -25,12 +27,15 @@ Start with:
 * `ROADMAP.md`
 * `RFC/`
 
-Useful proof and investigation records include:
+Useful operator and proof records include:
 
+* `docs/operator-workflow.md`
 * `docs/first-two-machine-proof-result.md`
 * `docs/phase-6-openai-compatibility-proof.md`
 * `docs/phase-6-developer-tool-access-investigation.md`
 * `docs/phase-6-aider-access-proof.md`
+* `docs/phase-10-multiple-static-remote-nodes-proof.md`
+* `docs/phase-10-closeout.md`
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
@@ -46,12 +51,19 @@ The normal FastAPI application:
 * routes by capability, not by machine, adapter, or runtime-model name;
 * keeps runtime-specific behavior behind adapters;
 * returns cluster-owned node attribution;
-* does not enable distributed proof wiring automatically.
+* does not enable distributed wiring automatically.
 
 The repository currently contains Ollama and llama-server runtime adapters.
-Separate explicit proof commands exercise remote-node routing, automatic
-selection, fallback, and routing explanation. These proof paths do not turn the
-ordinary application into a general distributed deployment.
+The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
+small static cluster from an operator-owned declaration. That declaration may
+contain multiple remote nodes whose order is the only remote priority. The
+calling endpoint remains loopback-only, topology remains explicit and static,
+and the project does not introduce discovery, scheduling, supervision, dynamic
+topology mutation, or a general retry policy.
+
+Separate proof commands remain available for historical architecture
+reproduction and focused verification. They do not turn the ordinary application
+into a general distributed deployment.
 
 ## Requirements
 

@@ -103,22 +103,34 @@ async def handle_chat_cluster_request(
         )
 
     if static_remote_wiring is not None:
-        return await orchestrate_request_with_static_remote_fallback(
-            cluster_request,
-            static_remote_wiring.node_registry,
-            static_remote_wiring.adapter_registry,
-            static_remote_wiring.remote_registry,
-            static_remote_wiring.remote_transport,
-        )
+        try:
+            return await orchestrate_request_with_static_remote_fallback(
+                cluster_request,
+                static_remote_wiring.node_registry,
+                static_remote_wiring.adapter_registry,
+                static_remote_wiring.remote_registry,
+                static_remote_wiring.remote_transport,
+            )
+        except RuntimeAdapterUnavailableError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Runtime adapter unavailable",
+            ) from exc
 
     if static_remote_collection_wiring is not None:
-        return await orchestrate_request_with_ordered_static_remote_fallback(
-            cluster_request,
-            static_remote_collection_wiring.node_registry,
-            static_remote_collection_wiring.adapter_registry,
-            static_remote_collection_wiring.remote_registry,
-            static_remote_collection_wiring.remote_transport,
-        )
+        try:
+            return await orchestrate_request_with_ordered_static_remote_fallback(
+                cluster_request,
+                static_remote_collection_wiring.node_registry,
+                static_remote_collection_wiring.adapter_registry,
+                static_remote_collection_wiring.remote_registry,
+                static_remote_collection_wiring.remote_transport,
+            )
+        except RuntimeAdapterUnavailableError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Runtime adapter unavailable",
+            ) from exc
 
     if local_app_composition is None:
         return await handle_static_local_cluster_request(cluster_request)

@@ -198,6 +198,43 @@ def test_collection_wiring_advances_to_second_remote_after_first_is_unavailable(
     assert transport.attempted_node_ids == ["remote-a", "remote-b"]
 
 
+def test_collection_wiring_normalizes_exhausted_connection_failures() -> None:
+    local = RecordingLocalAdapter(
+        RuntimeConnectionUnavailableBeforeRequestError(
+            "httpx ConnectError http://127.0.0.1:11434 local-model"
+        )
+    )
+    transport = RecordingRemoteTransport(
+        {
+            "remote-a": RuntimeConnectionUnavailableBeforeRequestError(
+                "httpx ConnectError https://remote-a.local:8000 remote-a-model"
+            ),
+            "remote-b": RuntimeConnectionUnavailableBeforeRequestError(
+                "httpx ConnectError https://remote-b.local:8000 remote-b-model"
+            ),
+        }
+    )
+    wiring = collection_wiring(transport, ["remote-a", "remote-b"], local)
+
+    response = post_chat(create_app(static_remote_collection_wiring=wiring))
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    for value in (
+        "httpx",
+        "ConnectError",
+        "RuntimeConnectionUnavailableBeforeRequestError",
+        "http://",
+        "https://",
+        "traceback",
+        "remote-a-model",
+        "remote-b-model",
+    ):
+        assert value not in response.text
+    assert len(local.requests) == 1
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+
+
 def test_collection_wiring_does_not_call_second_remote_after_first_succeeds() -> None:
     transport = RecordingRemoteTransport(
         {"remote-a": make_result("remote-a"), "remote-b": make_result("remote-b")}

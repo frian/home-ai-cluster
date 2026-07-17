@@ -19,13 +19,13 @@ ollama | llama-server
 ```
 
 When no runtime option is supplied, status inspection should remain Ollama-backed.
-The selected local composition should be constructed through the existing concrete
-local runtime composition boundary and supplied to the existing static-cluster
-status collector.
+The command should construct one existing concrete `LocalAppComposition`, then pass
+that composition's `node_registry` and `adapter_registry` to the unchanged static
+cluster status collector.
 
 Remote status observation should remain unchanged. Static declarations should
 remain topology-only. Runtime identity, adapter identity, model identifiers, and
-runtime URLs should not enter the normalized status result.
+runtime URLs should not enter normalized status.
 
 ## Problem
 
@@ -58,7 +58,7 @@ status contract.
 
 ## Goals
 
-This RFC should establish that:
+This RFC establishes that:
 
 - `home-ai-cluster-status` may inspect one explicitly selected supported local
   runtime composition;
@@ -67,7 +67,7 @@ This RFC should establish that:
 - the existing concrete argument, validation, and composition-construction seam
   is reused;
 - declaration validation completes before local composition construction and any
-  remote observation;
+  live observation;
 - local composition construction completes before the status HTTP client is
   created and before any remote observation;
 - local status observes the registries belonging to the selected composition;
@@ -104,7 +104,7 @@ This RFC does not add:
   OpenAI-compatible endpoint;
 - a database, dashboard, Docker, Kubernetes, or distributed configuration.
 
-## Proposal
+## Decision
 
 ### Extend the existing status command
 
@@ -114,15 +114,15 @@ The existing command remains:
 home-ai-cluster-status
 ```
 
-It should continue to require one explicit static declaration:
+It continues to require one explicit static declaration:
 
 ```sh
 uv run home-ai-cluster-status \
   --declaration <DECLARATION_PATH>
 ```
 
-It should additionally accept the same local runtime arguments already used by
-ordinary local and static-cluster startup:
+It additionally accepts the same local runtime arguments already used by ordinary
+local and static-cluster startup:
 
 ```text
 --runtime ollama | llama-server
@@ -140,12 +140,11 @@ uv run home-ai-cluster-status \
   --llama-server-model <MODEL_IDENTIFIER>
 ```
 
-No second status command should be added.
+No second status command is added.
 
 ### Preserve default compatibility
 
-When no local runtime option is supplied, status should preserve its current
-behavior:
+When no local runtime option is supplied, status preserves its current behavior:
 
 - declaration remains required;
 - the local node ID remains `local`;
@@ -154,18 +153,17 @@ behavior:
 - the current timeout and remote status transport remain unchanged;
 - normalized output and exit behavior remain unchanged.
 
-Explicit `--runtime ollama` should construct the same ordinary Ollama composition
-as the no-option path. This RFC does not add Ollama URL or model overrides.
+Explicit `--runtime ollama` constructs the same ordinary Ollama composition as the
+no-option path. This RFC does not add Ollama URL or model overrides.
 
 ### Explicit llama-server status composition
 
-Selecting `llama-server` should require:
+Selecting `llama-server` requires:
 
 - one absolute loopback `http` base URL; and
 - one non-empty model identifier.
 
-The status command should construct the existing ordinary llama-server local
-composition:
+The status command constructs the existing ordinary llama-server local composition:
 
 - local node ID `local`;
 - capability `chat`;
@@ -173,50 +171,62 @@ composition:
 - one matching `NodeRegistry`; and
 - one matching `AdapterRegistry`.
 
-The model identifier and runtime URL should be used only to construct the local
-adapter whose health is observed. They must not appear in the normalized status
-result, declaration projection, remote protocol, safe errors, retained proof, or
-ordinary logs.
+The model identifier and runtime URL are used only to construct the local adapter
+whose health is observed. They must not appear in normalized status, declaration
+projection, remote protocol, safe errors, retained proof, or ordinary logs.
 
-### Reuse the existing concrete composition seam
+### Reuse one concrete composition boundary
 
-The implementation should reuse the existing narrow helpers that own:
+The implementation reuses the existing narrow helpers that own:
 
 - the closed runtime choices;
 - runtime-specific CLI arguments;
-- conditional validation;
+- syntax-level argument types;
+- conditional runtime validation;
 - Ollama composition construction; and
 - llama-server composition construction.
 
-The status command should receive one already-built `LocalAppComposition` or its
-existing concrete registries. It should not introduce a second validation model or
-parallel runtime-construction path.
+The command constructs exactly one `LocalAppComposition`. It then passes that
+composition's `node_registry` and `adapter_registry` to the existing
+`collect_static_cluster_status(...)` call.
 
-This reuse must remain concrete. Two supported runtimes do not justify dynamic
-loading, generic factories, plugin registration, or a dependency-injection
-container.
+The status collector, its signature, normalized models, remote transport, and
+observation semantics do not change.
 
-### Validation and observation order
+This reuse remains concrete. Two supported runtimes do not justify dynamic loading,
+generic factories, plugin registration, or a dependency-injection container.
 
-The required operation order is:
+### Validation, construction, and observation order
 
-1. parse command-line arguments;
-2. load and fully validate the explicitly selected static declaration;
-3. validate local runtime arguments;
-4. construct exactly one local runtime composition;
-5. construct the declared remote registry;
-6. create one status HTTP client;
+Argument parsing may perform syntax-level validation through existing `argparse`
+choices and argument types. In particular, an unsupported runtime choice or a
+syntactically invalid loopback URL may fail during parsing.
+
+After successful parsing, the required operation order is:
+
+1. load and fully validate the explicitly selected static declaration;
+2. apply conditional local runtime validation;
+3. construct exactly one `LocalAppComposition`;
+4. construct the declared remote registry;
+5. create one status HTTP client;
+6. call the existing collector with the composition's two registries;
 7. observe the selected local composition;
 8. observe declared remotes sequentially in declaration order;
 9. emit one normalized result and exit.
 
-An invalid declaration must prevent local composition construction and every live
-observation.
+Conditional runtime validation includes the cross-argument rules that:
 
-Invalid local runtime arguments must prevent local composition construction, HTTP
-client creation, and every local or remote observation.
+- llama-server-specific values are rejected with Ollama;
+- llama-server requires both its loopback URL and model identifier; and
+- required values must be non-empty.
 
-Composition construction must perform no health probe, runtime discovery, model
+An invalid declaration must prevent conditional runtime validation from causing
+composition construction and must prevent every live observation.
+
+Invalid runtime values must prevent composition construction, HTTP client creation,
+and every local or remote observation.
+
+Composition construction performs no health probe, runtime discovery, model
 inventory, generation request, or remote request. Live local health observation
 continues to belong to the existing status collector.
 
@@ -238,15 +248,9 @@ The accepted local runtime statuses remain:
 - `unavailable`;
 - `observation-failed`.
 
-The selected runtime does not become a status dimension. The result should not
-contain:
-
-- runtime name;
-- adapter name;
-- model identifier;
-- runtime URL;
-- executable name;
-- runtime-specific reason text.
+The selected runtime does not become a status dimension. The result does not
+contain runtime name, adapter name, model identifier, runtime URL, executable name,
+or runtime-specific reason text.
 
 Remote observations continue to use the existing application and runtime status
 vocabularies and the existing internal Home AI Cluster status protocol. Remote
@@ -255,9 +259,8 @@ selected.
 
 ### Keep declarations topology-only
 
-Static declarations continue to contain only accepted remote topology facts.
-They must not gain local runtime, adapter, model, URL, credential, or lifecycle
-fields.
+Static declarations continue to contain only accepted remote topology facts. They
+do not gain local runtime, adapter, model, URL, credential, or lifecycle fields.
 
 The declaration selects which remote applications are observed. CLI composition
 arguments select which local adapter is observed. These remain independent input
@@ -293,30 +296,25 @@ The project already owns the exact concrete seam needed to fix the asymmetry.
 Reusing it is simpler and safer than creating status-specific runtime parsing or
 construction.
 
-Keeping composition in explicit CLI input preserves topology-only declarations
-and avoids precedence rules, retained machine-specific configuration, or hidden
+Keeping composition in explicit CLI input preserves topology-only declarations and
+avoids precedence rules, retained machine-specific configuration, or hidden
 environment behavior.
 
 Keeping runtime identity out of status preserves the engine-independent operator
 contract. Status answers whether the selected local composition is available, not
 which engine brand implements it.
 
-The proposal supports:
-
-- local-first operation;
-- privacy-first runtime configuration;
-- engine-independent status contracts;
-- capability-centered cluster concepts;
-- boring explicit operator choices;
-- architecture before implementation; and
-- small reviewable changes.
+The proposal supports local-first operation, privacy-first runtime ownership,
+engine-independent status contracts, capability-centered cluster concepts, boring
+explicit operator choices, architecture before implementation, and small
+reviewable changes.
 
 ## Alternatives considered
 
 ### Keep status fixed to Ollama
 
-Rejected. This preserves the current implementation but leaves status unable to
-inspect the local composition used by an explicit llama-server static cluster.
+Rejected. This leaves status unable to inspect the local composition used by an
+explicit llama-server static cluster.
 
 ### Infer local composition from the declaration
 
@@ -328,14 +326,12 @@ create migration and precedence rules.
 
 Deferred and rejected for this increment. That would require a process-target
 selection contract, local application address input, and a decision about whether
-status observes a constructed composition or another running process. The current
-command already owns direct local observation and remote application observation.
+status observes a constructed composition or another running process.
 
 ### Expose runtime identity in status
 
-Rejected. The operator needs the availability of the explicitly selected local
-composition. Runtime and model identity remain adapter-construction details and do
-not improve the normalized cluster-facing status contract.
+Rejected. Runtime and model identity remain adapter-construction details and do not
+improve the normalized cluster-facing status contract.
 
 ### Add a second llama-server status command
 
@@ -447,15 +443,18 @@ It should not require changes to:
 
 Implementation should proceed through small dedicated pull requests:
 
-1. extend the status command parser and validation path with the existing concrete
-   local runtime arguments;
-2. inject the selected local composition registries into the existing status
-   collection boundary while preserving validation and observation order;
-3. add focused compatibility, conditional validation, selected-composition, and
-   no-observation-before-validation tests;
-4. retain one privacy-safe real operator proof for explicit llama-server status;
-5. update ordinary operator documentation; and
-6. close Phase 15.
+1. in one coherent implementation PR, extend the status command parser, perform
+   conditional runtime validation, construct the selected `LocalAppComposition`,
+   and pass its registries to the unchanged collector;
+2. in that PR or one immediately following test-only PR, add focused compatibility,
+   conditional validation, selected-composition, and no-observation-before-validation
+   tests;
+3. retain one privacy-safe real operator proof for explicit llama-server status;
+4. update ordinary operator documentation; and
+5. close Phase 15.
+
+No merged intermediate state may accept explicit runtime arguments while still
+observing the historical implicit Ollama composition.
 
 Agents may implement the accepted decision. They must not broaden runtime choices,
 status fields, declaration schema, observation protocol, routing, or lifecycle
@@ -469,21 +468,24 @@ Phase 15 is not complete until evidence demonstrates:
 2. explicit `--runtime ollama` produces the same local status composition;
 3. explicit llama-server status constructs and observes the ordinary llama-server
    composition;
-4. declaration validation completes before composition construction and every
-   observation;
-5. invalid local runtime values prevent HTTP client creation and every local or
-   remote observation;
-6. local composition construction performs no live probe;
-7. declared remotes remain observed sequentially in declaration order;
-8. normalized local and remote status output remains unchanged;
-9. no runtime, adapter, model, or URL field appears in normalized output;
-10. runtime-specific values remain absent from declarations and remote protocol;
-11. normalized unavailable and observation-failed outcomes retain existing exit
+4. syntax-level argument rejection remains compact and performs no observation;
+5. declaration validation completes before conditional runtime validation causes
+   composition construction and before every observation;
+6. invalid conditional runtime combinations prevent composition construction,
+   HTTP client creation, and every local or remote observation;
+7. local composition construction performs no live probe;
+8. the command passes the selected composition's two registries to the unchanged
+   status collector;
+9. declared remotes remain observed sequentially in declaration order;
+10. normalized local and remote status output remains unchanged;
+11. no runtime, adapter, model, or URL field appears in normalized output;
+12. runtime-specific values remain absent from declarations and remote protocol;
+13. normalized unavailable and observation-failed outcomes retain existing exit
     semantics;
-12. no routing, fallback, lifecycle, monitoring, persistence, discovery, generic
+14. no routing, fallback, lifecycle, monitoring, persistence, discovery, generic
     factory, plugin, database, container, or dashboard behavior is introduced;
-13. ordinary automated tests require no live runtime; and
-14. one explicit live llama-server status proof retains no private address,
+15. ordinary automated tests require no live runtime; and
+16. one explicit live llama-server status proof retains no private address,
     hostname, username, path, credential, token, raw log, or unnecessary model
     output.
 
@@ -492,9 +494,6 @@ Phase 15 is not complete until evidence demonstrates:
 Only implementation-level naming and test decomposition remain open.
 
 The architectural decision is deliberately closed: one existing status command,
-one explicitly selected concrete local composition, Ollama by default, and no
-runtime identity in normalized status.
-
-## Decision
-
-Pending.
+one explicitly selected concrete local composition, Ollama by default, explicit
+registry injection into the unchanged collector, and no runtime identity in
+normalized status.

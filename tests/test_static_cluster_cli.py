@@ -26,7 +26,9 @@ def test_parse_args_accepts_inline_mode() -> None:
     assert args.remote_base_url == "https://remote.example:8000"
 
 
-def test_parse_args_accepts_declaration_mode_without_loading_file(tmp_path: Path) -> None:
+def test_parse_args_accepts_declaration_mode_without_loading_file(
+    tmp_path: Path,
+) -> None:
     declaration_path = tmp_path / "cluster.toml"
 
     args = parse_args(["--declaration", str(declaration_path)])
@@ -116,7 +118,7 @@ def test_main_does_not_start_server_when_declaration_loading_fails(
     from home_ai_cluster import static_cluster
 
     declaration_path = tmp_path / "cluster.toml"
-    private_url = "https://private.example:9443/not-allowed"
+    private_url = "private.example:9443"
     declaration_path.write_text(
         'remote_node_id = "operator-remote"\n'
         f'remote_base_url = "{private_url}"\n',

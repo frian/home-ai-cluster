@@ -102,6 +102,18 @@ class RuntimeStatus(StrEnum):
     UNKNOWN = "unknown"
 
 
+class InternalClusterStatusResponse(BaseModel):
+    """The receiving application's normalized local runtime observation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    runtime_status: Literal[
+        RuntimeStatus.AVAILABLE,
+        RuntimeStatus.UNAVAILABLE,
+        RuntimeStatus.OBSERVATION_FAILED,
+    ]
+
+
 class ClusterStatusNode(BaseModel):
     """One privacy-safe normalized status result for a cluster-owned node."""
 

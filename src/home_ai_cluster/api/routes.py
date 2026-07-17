@@ -1,7 +1,5 @@
-from typing import Literal
-
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
@@ -17,8 +15,8 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    InternalClusterStatusResponse,
     RequestConstraints,
-    RuntimeStatus,
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
@@ -39,18 +37,6 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     capability: str = Field(min_length=1)
-
-
-class InternalClusterStatusResponse(BaseModel):
-    """The receiving application's normalized local runtime observation."""
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    runtime_status: Literal[
-        RuntimeStatus.AVAILABLE,
-        RuntimeStatus.UNAVAILABLE,
-        RuntimeStatus.OBSERVATION_FAILED,
-    ]
 
 
 async def handle_static_local_cluster_request(

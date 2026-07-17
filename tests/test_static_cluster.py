@@ -24,6 +24,7 @@ from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMod
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster import (
     LOCAL_NODE_ID,
+    REMOTE_HTTP_ADAPTER_NAME,
     STATIC_CLUSTER_HOST,
     STATIC_CLUSTER_PORT,
     create_remote_declaration,
@@ -170,7 +171,7 @@ def test_remote_declaration_is_neutral_and_has_fixed_rfc_facts() -> None:
     assert declaration.node.availability == "available"
     assert declaration.node.health == NodeHealth(healthy=True)
     assert declaration.node.capabilities == [Capability(name="chat")]
-    assert declaration.node.adapters == ["ollama"]
+    assert declaration.node.adapters == [REMOTE_HTTP_ADAPTER_NAME]
     assert declaration.transport_address == "https://remote.test"
 
 
@@ -208,11 +209,11 @@ def test_ordered_declaration_reaches_remote_http_fallback(
 ) -> None:
     declaration_path = tmp_path / "cluster.toml"
     declaration_path.write_text(
-        '[[remote_nodes]]\n'
+        "[[remote_nodes]]\n"
         'node_id = "remote-a"\n'
         'base_url = "http://remote-a.test:8000"\n'
-        '\n'
-        '[[remote_nodes]]\n'
+        "\n"
+        "[[remote_nodes]]\n"
         'node_id = "remote-b"\n'
         'base_url = "http://remote-b.test:8000"\n',
         encoding="utf-8",
@@ -249,9 +250,7 @@ def test_ordered_declaration_reaches_remote_http_fallback(
         lambda: AdapterRegistry([local]),
     )
 
-    remote_client = httpx.AsyncClient(
-        transport=httpx.MockTransport(remote_handler)
-    )
+    remote_client = httpx.AsyncClient(transport=httpx.MockTransport(remote_handler))
     app = create_static_cluster_collection_app(
         declarations.remote_nodes,
         client=remote_client,

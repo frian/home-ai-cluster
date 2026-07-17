@@ -19,6 +19,28 @@ class StaticRemoteWiringError(Exception):
     """Raised when explicit static remote wiring is incomplete."""
 
 
+class ProofReceivingAppWiringError(Exception):
+    """Raised when proof-scoped receiving application wiring is incomplete."""
+
+
+@dataclass(frozen=True)
+class ProofReceivingAppWiring:
+    """Explicit local registries for the Phase 12 receiving-app proof."""
+
+    node_registry: NodeRegistry
+    adapter_registry: AdapterRegistry
+
+    def __post_init__(self) -> None:
+        if self.node_registry is None:
+            raise ProofReceivingAppWiringError(
+                "Proof receiving application wiring requires a local node registry"
+            )
+        if self.adapter_registry is None:
+            raise ProofReceivingAppWiringError(
+                "Proof receiving application wiring requires a local adapter registry"
+            )
+
+
 def _validate_static_remote_wiring_dependencies(
     *,
     node_registry: NodeRegistry,

@@ -13,6 +13,7 @@ from home_ai_cluster.core.models import (
     RuntimeResult,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.static_cluster import REMOTE_HTTP_ADAPTER_NAME
 from home_ai_cluster.static_preflight import (
     MISSING_ADAPTER_REASON,
     PREFLIGHT_FAILURE_MESSAGE,
@@ -258,7 +259,7 @@ def test_multi_node_preflight_projects_local_then_remote_without_network_use(
             {
                 "node_id": "declared-remote",
                 "capabilities": ["chat"],
-                "declared_adapters": ["ollama"],
+                "declared_adapters": [REMOTE_HTTP_ADAPTER_NAME],
             },
         ],
         "registered_adapters": ["ollama"],
@@ -267,7 +268,7 @@ def test_multi_node_preflight_projects_local_then_remote_without_network_use(
     assert remote_url not in json.dumps(report)
 
 
-def test_multi_node_preflight_attributes_missing_remote_adapter() -> None:
+def test_multi_node_preflight_does_not_resolve_remote_http_boundary_locally() -> None:
     local = make_node("local", ["chat"], ["local-adapter"])
     report = evaluate_static_multi_node_preflight(
         "declared-remote",
@@ -276,15 +277,9 @@ def test_multi_node_preflight_attributes_missing_remote_adapter() -> None:
         adapter_registry=AdapterRegistry([FakeAdapter("local-adapter")]),
     )
 
-    assert report["status"] == "incoherent"
-    assert report["issues"] == [
-        {
-            "status": "missing-adapter",
-            "node_id": "declared-remote",
-            "adapter": "ollama",
-            "reason": MISSING_ADAPTER_REASON,
-        }
-    ]
+    assert report["status"] == "coherent"
+    assert report["issues"] == []
+    assert report["nodes"][-1]["declared_adapters"] == [REMOTE_HTTP_ADAPTER_NAME]
 
 
 def test_main_emits_compact_coherent_report_and_exits_zero(

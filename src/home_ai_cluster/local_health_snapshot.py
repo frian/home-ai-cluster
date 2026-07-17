@@ -12,8 +12,6 @@ from home_ai_cluster.api.wiring import (
 from home_ai_cluster.core.models import (
     ApplicationStatus,
     ClusterStatusNode,
-    ClusterStatusResult,
-    DeclarationStatus,
     NodeDescription,
     RuntimeStatus,
 )
@@ -110,7 +108,7 @@ def evaluate_health_snapshot(
 
 def project_local_cluster_status(
     snapshot: Mapping[str, Any],
-) -> ClusterStatusResult:
+) -> ClusterStatusNode:
     """Normalize one completed local health snapshot without observing health again."""
     try:
         nodes = snapshot["nodes"]
@@ -135,15 +133,10 @@ def project_local_cluster_status(
             "local health snapshot has an unsupported observation status"
         ) from error
 
-    return ClusterStatusResult(
-        declaration_status=DeclarationStatus.COHERENT,
-        nodes=(
-            ClusterStatusNode(
-                node_id="local",
-                application_status=ApplicationStatus.LOCAL,
-                runtime_status=runtime_status,
-            ),
-        ),
+    return ClusterStatusNode(
+        node_id="local",
+        application_status=ApplicationStatus.LOCAL,
+        runtime_status=runtime_status,
     )
 
 

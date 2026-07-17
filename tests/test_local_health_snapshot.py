@@ -9,7 +9,6 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     ClusterStatusNode,
-    ClusterStatusResult,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
@@ -189,17 +188,12 @@ def test_projects_completed_local_health_observation_to_normalized_cluster_statu
         NodeRegistry([make_node("local-runtime")]), AdapterRegistry([adapter])
     )
 
-    result = project_local_cluster_status(snapshot)
+    node = project_local_cluster_status(snapshot)
 
-    assert result.model_dump(mode="json") == {
-        "declaration_status": "coherent",
-        "nodes": [
-            {
-                "node_id": "local",
-                "application_status": "local",
-                "runtime_status": expected_runtime_status,
-            }
-        ],
+    assert node.model_dump(mode="json") == {
+        "node_id": "local",
+        "application_status": "local",
+        "runtime_status": expected_runtime_status,
     }
     assert adapter.health_calls == 1
     assert adapter.chat_calls == 0
@@ -216,11 +210,11 @@ def test_local_cluster_status_uses_cluster_owned_local_id_and_no_private_fields(
         ]
     }
 
-    result = project_local_cluster_status(snapshot)
-    serialized = result.model_dump_json()
+    node = project_local_cluster_status(snapshot)
+    serialized = node.model_dump_json()
 
-    assert result.nodes[0].node_id == "local"
-    assert set(ClusterStatusResult.model_fields) == {"declaration_status", "nodes"}
+    assert node.node_id == "local"
+    assert node.application_status == "local"
     assert set(ClusterStatusNode.model_fields) == {
         "node_id",
         "application_status",
@@ -248,7 +242,7 @@ def test_local_cluster_status_projection_performs_no_network_or_health_observati
         ]
     }
 
-    assert project_local_cluster_status(snapshot).nodes[0].runtime_status == "available"
+    assert project_local_cluster_status(snapshot).runtime_status == "available"
 
 
 def test_main_emits_one_compact_json_object_and_exits_zero(

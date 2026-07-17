@@ -19,9 +19,40 @@ class StaticRemoteWiringError(Exception):
     """Raised when explicit static remote wiring is incomplete."""
 
 
+def _validate_static_remote_wiring_dependencies(
+    *,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry,
+    remote_transport: RemoteTransport,
+    selection_mode: RoutingCandidateSelectionMode,
+) -> list[RemoteNodeDeclaration]:
+    if node_registry is None:
+        raise StaticRemoteWiringError(
+            "Static remote wiring requires a local node registry"
+        )
+    if adapter_registry is None:
+        raise StaticRemoteWiringError(
+            "Static remote wiring requires a local adapter registry"
+        )
+    if remote_registry is None:
+        raise StaticRemoteWiringError(
+            "Static remote wiring requires a remote declaration registry"
+        )
+    if remote_transport is None:
+        raise StaticRemoteWiringError(
+            "Static remote wiring requires an explicit remote transport"
+        )
+    if selection_mode is None:
+        raise StaticRemoteWiringError(
+            "Static remote wiring requires an explicit selection mode"
+        )
+    return remote_registry.list_declarations()
+
+
 @dataclass(frozen=True)
 class StaticRemoteWiring:
-    """Caller-owned in-memory wiring for explicit static remote nodes."""
+    """Caller-owned in-memory wiring for one explicit static remote node."""
 
     node_registry: NodeRegistry
     adapter_registry: AdapterRegistry
@@ -30,34 +61,40 @@ class StaticRemoteWiring:
     selection_mode: RoutingCandidateSelectionMode
 
     def __post_init__(self) -> None:
-        if self.node_registry is None:
+        declarations = _validate_static_remote_wiring_dependencies(
+            node_registry=self.node_registry,
+            adapter_registry=self.adapter_registry,
+            remote_registry=self.remote_registry,
+            remote_transport=self.remote_transport,
+            selection_mode=self.selection_mode,
+        )
+        if len(declarations) != 1:
             raise StaticRemoteWiringError(
-                "Static remote wiring requires a local node registry"
+                "Static remote wiring requires exactly one declared remote node"
             )
 
-        if self.adapter_registry is None:
-            raise StaticRemoteWiringError(
-                "Static remote wiring requires a local adapter registry"
-            )
 
-        if self.remote_registry is None:
-            raise StaticRemoteWiringError(
-                "Static remote wiring requires a remote declaration registry"
-            )
+@dataclass(frozen=True)
+class StaticRemoteCollectionWiring:
+    """Caller-owned wiring for one ordered non-empty remote collection."""
 
-        if self.remote_transport is None:
-            raise StaticRemoteWiringError(
-                "Static remote wiring requires an explicit remote transport"
-            )
+    node_registry: NodeRegistry
+    adapter_registry: AdapterRegistry
+    remote_registry: RemoteNodeDeclarationRegistry
+    remote_transport: RemoteTransport
+    selection_mode: RoutingCandidateSelectionMode
 
-        if self.selection_mode is None:
+    def __post_init__(self) -> None:
+        declarations = _validate_static_remote_wiring_dependencies(
+            node_registry=self.node_registry,
+            adapter_registry=self.adapter_registry,
+            remote_registry=self.remote_registry,
+            remote_transport=self.remote_transport,
+            selection_mode=self.selection_mode,
+        )
+        if not declarations:
             raise StaticRemoteWiringError(
-                "Static remote wiring requires an explicit selection mode"
-            )
-
-        if not self.remote_registry.list_declarations():
-            raise StaticRemoteWiringError(
-                "Static remote wiring requires at least one declared remote node"
+                "Static remote collection wiring requires at least one declared remote node"
             )
 
 
@@ -68,9 +105,9 @@ def build_static_remote_collection_wiring(
     remote_declarations: Sequence[RemoteNodeDeclaration],
     remote_transport: RemoteTransport,
     selection_mode: RoutingCandidateSelectionMode,
-) -> StaticRemoteWiring:
+) -> StaticRemoteCollectionWiring:
     """Build caller-owned wiring for one ordered static remote collection."""
-    return StaticRemoteWiring(
+    return StaticRemoteCollectionWiring(
         node_registry=node_registry,
         adapter_registry=adapter_registry,
         remote_registry=build_remote_node_declaration_registry(remote_declarations),
@@ -88,17 +125,16 @@ def build_static_remote_wiring(
     selection_mode: RoutingCandidateSelectionMode,
 ) -> StaticRemoteWiring:
     """Preserve the accepted single-remote wiring seam."""
-    return build_static_remote_collection_wiring(
+    return StaticRemoteWiring(
         node_registry=node_registry,
         adapter_registry=adapter_registry,
-        remote_declarations=[remote_declaration],
+        remote_registry=build_remote_node_declaration_registry([remote_declaration]),
         remote_transport=remote_transport,
         selection_mode=selection_mode,
     )
 
 
-# Compatibility names preserve the accepted proof-only public seam while the
-# underlying composition becomes reusable by the ordinary RFC-0038 process.
+# Compatibility names preserve the accepted proof-only public seam.
 StaticRemoteProofWiringError = StaticRemoteWiringError
 StaticRemoteProofWiring = StaticRemoteWiring
 

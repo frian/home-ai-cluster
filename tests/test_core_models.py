@@ -3,13 +3,18 @@ from pydantic import ValidationError
 
 from home_ai_cluster.core.models import (
     AdapterHealth,
+    ApplicationStatus,
     Capability,
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    ClusterStatusNode,
+    ClusterStatusResult,
+    DeclarationStatus,
     NodeDescription,
     NodeHealth,
     RequestConstraints,
+    RuntimeStatus,
 )
 
 
@@ -75,3 +80,34 @@ def test_cluster_result_requires_node_attribution() -> None:
     assert result.adapter == "test-runtime"
     assert result.model is None
     assert result.node_id == "selected-node"
+
+
+def test_cluster_status_result_has_only_the_accepted_privacy_safe_fields() -> None:
+    result = ClusterStatusResult(
+        declaration_status=DeclarationStatus.COHERENT,
+        nodes=(
+            ClusterStatusNode(
+                node_id="local",
+                application_status=ApplicationStatus.LOCAL,
+                runtime_status=RuntimeStatus.AVAILABLE,
+            ),
+        ),
+    )
+
+    assert result.model_dump(mode="json") == {
+        "declaration_status": "coherent",
+        "nodes": [
+            {
+                "node_id": "local",
+                "application_status": "local",
+                "runtime_status": "available",
+            }
+        ],
+    }
+    with pytest.raises(ValidationError):
+        ClusterStatusNode(
+            node_id="local",
+            application_status=ApplicationStatus.LOCAL,
+            runtime_status=RuntimeStatus.AVAILABLE,
+            runtime_url="http://private.example",
+        )

@@ -1,8 +1,9 @@
 """Core data models for Home AI Cluster."""
 
+from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Capability(BaseModel):
@@ -74,3 +75,47 @@ class ClusterResult(BaseModel):
     adapter: str = Field(min_length=1)
     model: str | None = None
     node_id: str = Field(min_length=1)
+
+
+class DeclarationStatus(StrEnum):
+    """The static declaration status reported by an explicit status operation."""
+
+    COHERENT = "coherent"
+
+
+class ApplicationStatus(StrEnum):
+    """Normalized status of the application serving a cluster node."""
+
+    LOCAL = "local"
+    REACHABLE = "reachable"
+    UNREACHABLE = "unreachable"
+    REQUEST_FAILED = "request-failed"
+    INVALID_RESPONSE = "invalid-response"
+
+
+class RuntimeStatus(StrEnum):
+    """Normalized status of a node's declared runtime observation."""
+
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    OBSERVATION_FAILED = "observation-failed"
+    UNKNOWN = "unknown"
+
+
+class ClusterStatusNode(BaseModel):
+    """One privacy-safe normalized status result for a cluster-owned node."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    node_id: str = Field(min_length=1)
+    application_status: ApplicationStatus
+    runtime_status: RuntimeStatus
+
+
+class ClusterStatusResult(BaseModel):
+    """One privacy-safe normalized status result for a static cluster."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    declaration_status: DeclarationStatus
+    nodes: tuple[ClusterStatusNode, ...] = Field(min_length=1)

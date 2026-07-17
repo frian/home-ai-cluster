@@ -1,11 +1,14 @@
 import json
+import socket
 
+import httpx
 import pytest
 
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
+    ClusterStatusNode,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
@@ -18,6 +21,7 @@ from home_ai_cluster.local_health_snapshot import (
     evaluate_health_snapshot,
     main,
     project_health_snapshot,
+    project_local_cluster_status,
 )
 
 
@@ -29,6 +33,7 @@ class FakeAdapter:
     ) -> None:
         self._name = name
         self._health_result = health_result
+        self.health_calls = 0
         self.chat_calls = 0
 
     @property
@@ -36,6 +41,7 @@ class FakeAdapter:
         return self._name
 
     def health(self) -> AdapterHealth:
+        self.health_calls += 1
         if isinstance(self._health_result, Exception):
             raise self._health_result
         return self._health_result
@@ -163,6 +169,80 @@ def test_evaluate_health_snapshot_uses_ordinary_static_local_registries(
 
     assert calls == ["nodes", "adapters"]
     assert snapshot["nodes"][0]["node_id"] == "configured-local"
+
+
+@pytest.mark.parametrize(
+    ("health", "expected_runtime_status"),
+    [
+        (AdapterHealth(available=True), "available"),
+        (AdapterHealth(available=False), "unavailable"),
+        (RuntimeError("private runtime failure"), "observation-failed"),
+    ],
+)
+def test_projects_completed_local_health_observation_to_normalized_cluster_status(
+    health: AdapterHealth | Exception,
+    expected_runtime_status: str,
+) -> None:
+    adapter = FakeAdapter("local-runtime", health)
+    snapshot = project_health_snapshot(
+        NodeRegistry([make_node("local-runtime")]), AdapterRegistry([adapter])
+    )
+
+    node = project_local_cluster_status(snapshot)
+
+    assert node.model_dump(mode="json") == {
+        "node_id": "local",
+        "application_status": "local",
+        "runtime_status": expected_runtime_status,
+    }
+    assert adapter.health_calls == 1
+    assert adapter.chat_calls == 0
+
+
+def test_local_cluster_status_uses_cluster_owned_local_id_and_no_private_fields(
+) -> None:
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "private-machine-name",
+                "adapter_observations": [{"status": "available"}],
+            }
+        ]
+    }
+
+    node = project_local_cluster_status(snapshot)
+    serialized = node.model_dump_json()
+
+    assert node.node_id == "local"
+    assert node.application_status == "local"
+    assert set(ClusterStatusNode.model_fields) == {
+        "node_id",
+        "application_status",
+        "runtime_status",
+    }
+    assert "private-machine-name" not in serialized
+    assert "adapter" not in serialized
+    assert "reason" not in serialized
+
+
+def test_local_cluster_status_projection_performs_no_network_or_health_observation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_called(*_: object, **__: object) -> None:
+        raise AssertionError("status projection must not access the network")
+
+    monkeypatch.setattr(httpx, "AsyncClient", fail_if_called)
+    monkeypatch.setattr(socket, "getaddrinfo", fail_if_called)
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "configured-local",
+                "adapter_observations": [{"status": "available"}],
+            }
+        ]
+    }
+
+    assert project_local_cluster_status(snapshot).runtime_status == "available"
 
 
 def test_main_emits_one_compact_json_object_and_exits_zero(

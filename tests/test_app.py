@@ -1,10 +1,15 @@
 import asyncio
+from dataclasses import fields
 
 import httpx
 from fastapi import FastAPI
 
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
-from home_ai_cluster.api.wiring import build_static_remote_proof_wiring
+from home_ai_cluster.api.wiring import (
+    LocalAppComposition,
+    build_static_remote_proof_wiring,
+    build_static_remote_wiring,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -17,6 +22,7 @@ from home_ai_cluster.core.models import (
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.main import app as default_app
 from home_ai_cluster.main import create_app, create_proof_receiving_app
 
 
@@ -89,6 +95,26 @@ def make_static_remote_proof_wiring(
     )
 
 
+def make_static_remote_wiring(
+    transport: RecordingRemoteTransport,
+    adapter: RecordingAdapter,
+):
+    return build_static_remote_wiring(
+        node_registry=NodeRegistry([make_node("local")]),
+        adapter_registry=AdapterRegistry([adapter]),
+        remote_declaration=make_remote_declaration(),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+
+def make_local_app_composition(adapter: RecordingAdapter) -> LocalAppComposition:
+    return LocalAppComposition(
+        node_registry=NodeRegistry([make_node("local", adapter.name)]),
+        adapter_registry=AdapterRegistry([adapter]),
+    )
+
+
 def post(app: FastAPI, path: str, payload: dict[str, object]) -> httpx.Response:
     async def send() -> httpx.Response:
         asgi_transport = httpx.ASGITransport(app=app)
@@ -143,15 +169,42 @@ def test_create_app_returns_fastapi_application() -> None:
     assert app.title == "Home AI Cluster"
 
 
+def test_module_level_application_keeps_default_local_app_composition() -> None:
+    assert default_app.state.local_app_composition is None
+    assert default_app.state.proof_receiving_app_wiring is None
+
+
 def test_create_app_without_static_remote_proof_wiring_stores_none() -> None:
     app = create_app()
 
     assert app.state.static_remote_proof_wiring is None
+    assert app.state.local_app_composition is None
 
 
 def test_create_app_keeps_proof_receiving_wiring_disabled() -> None:
     app = create_app()
 
+    assert app.state.proof_receiving_app_wiring is None
+
+
+def test_local_app_composition_contains_only_local_registries() -> None:
+    adapter = RecordingAdapter()
+    composition = make_local_app_composition(adapter)
+
+    assert [field.name for field in fields(composition)] == [
+        "node_registry",
+        "adapter_registry",
+    ]
+    assert composition.node_registry.list_nodes() == [make_node("local", adapter.name)]
+    assert composition.adapter_registry.list_adapters() == [adapter]
+
+
+def test_create_app_stores_supplied_local_app_composition() -> None:
+    composition = make_local_app_composition(RecordingAdapter())
+
+    app = create_app(local_app_composition=composition)
+
+    assert app.state.local_app_composition is composition
     assert app.state.proof_receiving_app_wiring is None
 
 
@@ -181,6 +234,7 @@ def test_proof_receiving_app_uses_supplied_adapter_for_internal_request() -> Non
     assert app.state.static_remote_proof_wiring is None
     assert app.state.static_remote_wiring is None
     assert app.state.static_remote_collection_wiring is None
+    assert app.state.local_app_composition is None
 
 
 def test_proof_receiving_app_uses_supplied_adapter_for_internal_status() -> None:
@@ -248,6 +302,34 @@ def test_chat_without_static_remote_proof_wiring_remains_local_only(
     assert transport.declarations == []
 
 
+def test_chat_uses_supplied_local_app_composition() -> None:
+    adapter = RecordingAdapter()
+
+    response = post(
+        create_app(local_app_composition=make_local_app_composition(adapter)),
+        "/v1/chat",
+        chat_payload(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["adapter"] == "recording"
+    assert len(adapter.chat_requests) == 1
+
+
+def test_internal_status_uses_supplied_local_app_composition() -> None:
+    adapter = RecordingAdapter()
+
+    response = get(
+        create_app(local_app_composition=make_local_app_composition(adapter)),
+        "/internal/cluster/status",
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"runtime_status": "available"}
+    assert adapter.health_calls == 1
+    assert adapter.chat_requests == []
+
+
 def test_chat_with_static_remote_proof_wiring_uses_explicit_remote_candidate() -> None:
     adapter = RecordingAdapter()
     transport = RecordingRemoteTransport()
@@ -269,6 +351,27 @@ def test_chat_with_static_remote_proof_wiring_uses_explicit_remote_candidate() -
     assert adapter.chat_requests == []
     assert transport.requests == [expected_request]
     assert transport.declarations == [make_remote_declaration()]
+
+
+def test_static_remote_wiring_precedes_local_app_composition() -> None:
+    wiring_adapter = RecordingAdapter()
+    composition_adapter = RecordingAdapter()
+    transport = RecordingRemoteTransport()
+    wiring = make_static_remote_wiring(transport, wiring_adapter)
+
+    response = post(
+        create_app(
+            static_remote_wiring=wiring,
+            local_app_composition=make_local_app_composition(composition_adapter),
+        ),
+        "/v1/chat",
+        chat_payload(),
+    )
+
+    assert response.status_code == 200
+    assert len(wiring_adapter.chat_requests) == 1
+    assert composition_adapter.chat_requests == []
+    assert transport.requests == []
 
 
 def test_internal_cluster_request_remains_local_with_remote_proof_wiring(

@@ -60,7 +60,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--declaration cannot be combined with inline remote arguments")
 
     if has_remote_node_id != has_remote_base_url:
-        parser.error("--remote-node-id and --remote-base-url must be provided together")
+        parser.error(
+            "--remote-node-id and --remote-base-url must be provided together"
+        )
 
     if not has_declaration and not has_remote_node_id:
         parser.error("provide either --declaration or both inline remote arguments")

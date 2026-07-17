@@ -1,6 +1,6 @@
 # RFC-0041: Explicit static cluster status
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-17
 
@@ -429,4 +429,11 @@ Neither question changes the proposed architectural boundaries.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will provide one explicit, read-only, bounded status operation for
+an already declared static cluster. The operation will preserve network-free
+static validation, inspect the fixed local node directly, observe declared remotes
+sequentially through the narrow internal status endpoint, report normalized
+privacy-safe categories, and remain informational with no routing, lifecycle, or
+persistent-state effects.

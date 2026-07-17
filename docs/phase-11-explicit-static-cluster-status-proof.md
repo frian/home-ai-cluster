@@ -77,9 +77,11 @@ Result: **Pass**.
 
 ### Read-only and privacy observations
 
-The operation was one finite, operator-owned status inspection. It caused no
-routing, fallback, declaration, lifecycle, or persistent-state mutation. No
-chat request or generated response was part of the proof.
+The operator invoked only the finite status command. The receiving application
+observed one real `GET /internal/cluster/status` request. No chat request,
+routing or fallback operation, lifecycle-control operation, or persistence
+operation was part of the proof sequence. The temporary declaration remained
+operator-owned and was deleted manually during cleanup.
 
 The retained result contains only normalized, privacy-safe fields. No private
 operational data is retained.
@@ -114,8 +116,8 @@ Result: **Pass**.
 16. Remote status was `reachable` plus `available`: **Pass**.
 17. Output contained only accepted privacy-safe fields: **Pass**.
 18. No chat request or generated response was part of the proof: **Pass**.
-19. No routing, fallback, declaration, lifecycle, or persistent-state mutation
-    was caused by the status command: **Pass**.
+19. No chat, routing, fallback, lifecycle-control, or persistence operation was
+    invoked as part of the proof sequence: **Pass**.
 20. The command completed as one finite operation: **Pass**.
 21. The receiving application was stopped manually: **Pass**.
 22. The temporary declaration was deleted: **Pass**.

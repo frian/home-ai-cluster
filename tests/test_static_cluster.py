@@ -1,4 +1,6 @@
 import asyncio
+import socket
+from pathlib import Path
 
 import httpx
 import pytest
@@ -26,8 +28,12 @@ from home_ai_cluster.static_cluster import (
     STATIC_CLUSTER_PORT,
     create_remote_declaration,
     create_static_cluster_app,
+    create_static_cluster_collection_app,
     main,
     parse_args,
+)
+from home_ai_cluster.static_cluster_declaration import (
+    load_static_cluster_declarations,
 )
 
 
@@ -194,6 +200,103 @@ def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> Non
 
     asyncio.run(run_lifespan())
     assert client.is_closed
+
+
+def test_ordered_declaration_reaches_remote_http_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        '[[remote_nodes]]\n'
+        'node_id = "remote-a"\n'
+        'base_url = "http://remote-a.test:8000"\n'
+        '\n'
+        '[[remote_nodes]]\n'
+        'node_id = "remote-b"\n'
+        'base_url = "http://remote-b.test:8000"\n',
+        encoding="utf-8",
+    )
+    declarations = load_static_cluster_declarations(declaration_path)
+    remote_requests: list[httpx.Request] = []
+
+    def remote_handler(request: httpx.Request) -> httpx.Response:
+        remote_requests.append(request)
+        if request.url.host == "remote-a.test":
+            raise httpx.ConnectError("remote-a connection refused", request=request)
+        if request.url.host == "remote-b.test":
+            return httpx.Response(
+                200,
+                json={
+                    "content": "remote result",
+                    "adapter": "remote",
+                    "node_id": "receiving-local",
+                },
+            )
+        raise AssertionError(f"unexpected remote endpoint: {request.url}")
+
+    def fail_network(*_: object, **__: object) -> None:
+        raise AssertionError("the integration test must not use the network")
+
+    from home_ai_cluster import static_cluster
+
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+    monkeypatch.setattr(socket, "create_connection", fail_network)
+    local = FakeAdapter(RuntimeConnectionUnavailableBeforeRequestError("unavailable"))
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([local]),
+    )
+
+    remote_client = httpx.AsyncClient(
+        transport=httpx.MockTransport(remote_handler)
+    )
+    app = create_static_cluster_collection_app(
+        declarations.remote_nodes,
+        client=remote_client,
+    )
+    wiring = app.state.static_remote_collection_wiring
+
+    async def send_request() -> httpx.Response:
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                base_url="http://cluster.test",
+            ) as client:
+                return await client.post(
+                    "/v1/chat",
+                    json={
+                        "messages": [{"role": "user", "content": "Hello"}],
+                        "capability": "chat",
+                    },
+                )
+
+    response = asyncio.run(send_request())
+
+    assert response.status_code == 200
+    assert response.json()["node_id"] == "remote-b"
+    assert [remote.node_id for remote in declarations.remote_nodes] == [
+        "remote-a",
+        "remote-b",
+    ]
+    assert [
+        declaration.node.id
+        for declaration in wiring.remote_registry.list_declarations()
+    ] == [
+        "remote-a",
+        "remote-b",
+    ]
+    assert [request.url.host for request in remote_requests] == [
+        "remote-a.test",
+        "remote-b.test",
+    ]
+    assert [request.url.path for request in remote_requests] == [
+        "/internal/cluster/request",
+        "/internal/cluster/request",
+    ]
+    assert len(local.requests) == 1
+    assert remote_client.is_closed
 
 
 def test_static_cluster_prefers_usable_local_candidate() -> None:

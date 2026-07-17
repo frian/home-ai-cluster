@@ -6,6 +6,9 @@ from typing import get_type_hints
 import httpx
 import pytest
 
+from home_ai_cluster.adapters.base import (
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -316,6 +319,59 @@ def test_http_remote_transport_raises_normalized_error_for_http_failure() -> Non
         asyncio.run(run())
 
     assert str(raised.value) == "HTTP remote transport could not send request"
+
+
+def test_http_remote_transport_maps_connection_failure_without_sensitive_details(
+) -> None:
+    private_address = "http://private-remote.example:8000"
+    request_body = "private request body"
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        raise httpx.ConnectError(
+            f"connection failed for {private_address}: {request_body}",
+            request=request,
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(private_address),
+            )
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == (
+        "Remote connection unavailable before request transmission"
+    )
+    assert isinstance(raised.value.__cause__, httpx.ConnectError)
+    assert private_address not in str(raised.value)
+    assert "private-remote.example" not in str(raised.value)
+    assert request_body not in str(raised.value)
+    assert captured_requests[0].url == httpx.URL(
+        f"{private_address}/internal/cluster/request"
+    )
+
+
+def test_http_remote_transport_keeps_read_failure_as_transport_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadError("read failed", request=request)
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await HttpRemoteTransport(client).send(
+                make_request(),
+                make_declaration(),
+            )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "HTTP remote transport could not send request"
+    assert isinstance(raised.value.__cause__, httpx.ReadError)
 
 
 def test_http_remote_transport_raises_normalized_error_for_invalid_result() -> None:

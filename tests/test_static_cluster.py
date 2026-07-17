@@ -426,8 +426,38 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
     assert len(remote.requests) == 1
 
 
+@pytest.mark.parametrize(
+    ("runtime_argv", "composition_arguments"),
+    [
+        (
+            ["--runtime", "ollama"],
+            {
+                "runtime": "ollama",
+                "llama_server_base_url": None,
+                "llama_server_model": None,
+            },
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080",
+                "--llama-server-model",
+                "local-model",
+            ],
+            {
+                "runtime": "llama-server",
+                "llama_server_base_url": "http://127.0.0.1:8080",
+                "llama_server_model": "local-model",
+            },
+        ),
+    ],
+)
 def test_main_runs_fixed_loopback_static_cluster_server(
     monkeypatch: pytest.MonkeyPatch,
+    runtime_argv: list[str],
+    composition_arguments: dict[str, str | None],
 ) -> None:
     from home_ai_cluster import static_cluster
 
@@ -435,10 +465,14 @@ def test_main_runs_fixed_loopback_static_cluster_server(
     recorded: dict[str, object] = {}
     local_composition = create_local_runtime_composition(runtime="ollama")
 
+    def create_local_composition(**kwargs: object) -> LocalAppComposition:
+        recorded["composition_arguments"] = kwargs
+        return local_composition
+
     monkeypatch.setattr(
         static_cluster,
         "create_local_runtime_composition",
-        lambda *, runtime: recorded.update(runtime=runtime) or local_composition,
+        create_local_composition,
     )
     monkeypatch.setattr(
         static_cluster,
@@ -462,11 +496,12 @@ def test_main_runs_fixed_loopback_static_cluster_server(
             "operator-remote",
             "--remote-base-url",
             "https://remote.test",
+            *runtime_argv,
         ]
     )
 
     assert recorded == {
-        "runtime": "ollama",
+        "composition_arguments": composition_arguments,
         "local_app_composition": local_composition,
         "app": app,
         "host": STATIC_CLUSTER_HOST,

@@ -19,6 +19,7 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     ClusterResult,
+    RequestConstraints,
 )
 from home_ai_cluster.core.router import NoMatchingAdapterError
 
@@ -266,6 +267,14 @@ async def chat_completions(request: Request) -> JSONResponse:
             for message in compatibility_request.messages
         ],
         capability=Capability(name="chat"),
+        constraints=(
+            RequestConstraints(local_only=False)
+            if (
+                request.app.state.static_remote_wiring is not None
+                or request.app.state.static_remote_collection_wiring is not None
+            )
+            else RequestConstraints()
+        ),
     )
 
     try:

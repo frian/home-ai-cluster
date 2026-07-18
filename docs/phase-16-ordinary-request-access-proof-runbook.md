@@ -56,10 +56,11 @@ text is sufficient.
 1. Start one ordinary local-only process using the canonical operator command:
 
    ```sh
-   uv run uvicorn home_ai_cluster.main:app --reload
+   uv run home-ai-cluster-local
    ```
 
-2. Confirm it is listening on the established ordinary loopback endpoint.
+2. Confirm that the command reports ordinary process startup on the established
+   loopback endpoint.
 3. Run exactly:
 
    ```sh

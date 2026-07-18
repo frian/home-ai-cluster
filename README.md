@@ -2,7 +2,8 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 16.
+Status: early prototype with formal roadmap phases complete through Phase 16;
+later bounded integration proofs are retained separately.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -224,8 +225,8 @@ This is the only compatibility static-cluster mode. It reuses the ordinary
 static-cluster declaration validation and local-first routing while retaining
 the same loopback-only listener and RFC-0031 compatibility contract.
 
-For the separately planned static-cluster proof only, an operator may explicitly
-enable the accepted bounded observation mode:
+For the separately executed static-cluster proof only, an operator may
+explicitly enable the accepted bounded observation mode:
 
 ```sh
 uv run home-ai-cluster-openai-compatibility \
@@ -267,9 +268,9 @@ content, generation controls, LAN exposure, or real authentication.
 
 ## Use Aider
 
-A real Aider v0.86.0 request has been proven against the compatibility endpoint
-without changing Home AI Cluster. The tested setup used only temporary
-client-side configuration:
+The earlier retained Phase 6 local compatibility proof established that Aider
+v0.86.0 can use the loopback compatibility endpoint without changing Home AI
+Cluster. The tested setup used only temporary client-side configuration:
 
 ```yaml
 - name: openai/home-ai-cluster
@@ -284,12 +285,19 @@ With that model-settings file, Aider was configured with:
 * a non-secret placeholder API key;
 * streaming disabled.
 
-The proof observed exactly one `POST /v1/chat/completions` request containing
-only `messages` and `model`, followed by HTTP 200 and successful response
-parsing by Aider.
+That local proof observed exactly one `POST /v1/chat/completions` request
+containing only `messages` and `model`, followed by HTTP 200 and successful
+response parsing by Aider.
 
-See `docs/phase-6-aider-access-proof.md` for the exact tested scope and privacy
-constraints. The proof does not imply support for every Aider mode.
+A later bounded two-machine static-cluster proof used Aider 0.86.2 for one
+non-streaming request to the caller loopback compatibility endpoint. It
+completed through one declared remote receiver without exposing routing topology
+to Aider. It does not imply support for all Aider versions or modes.
+
+See [the Phase 6 local Aider proof](docs/phase-6-aider-access-proof.md),
+[the retained Aider static-cluster proof](docs/aider-static-cluster-proof.md),
+and [its runbook](docs/aider-static-cluster-proof-runbook.md) for the bounded
+scope and privacy constraints.
 
 ## Two-machine proofs
 

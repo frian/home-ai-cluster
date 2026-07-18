@@ -540,6 +540,30 @@ lifecycle, or production readiness.
 
 ---
 
+## Standalone post-roadmap Aider static-cluster integration proof
+
+Status: Complete
+
+This work was deliberately not classified as a formal roadmap phase. It
+introduced no new architectural contract and composed the accepted RFC-0031
+loopback compatibility edge with the accepted explicit static-cluster path.
+
+One bounded Aider 0.86.2 submission reached the caller-local compatibility
+endpoint while the caller-local runtime was unavailable before the request. It
+completed through one declared real remote receiver. The final internal result
+was attributed to the caller-owned declared remote node, while the RFC-0031
+response remained topology-blind. Exactly one accepted request and no retry
+were observed. The retained evidence is privacy-safe.
+
+See [the retained proof](docs/aider-static-cluster-proof.md) and
+[the runbook](docs/aider-static-cluster-proof-runbook.md).
+
+This proof does not establish general Aider support, production readiness,
+discovery, scheduling, authentication, encryption, retries, supervision, or
+internet-safe operation. It does not reopen or change any formal roadmap phase.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

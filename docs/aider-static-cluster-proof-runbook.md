@@ -13,7 +13,7 @@ The intended bounded proof is:
 ```text
 Aider
   -> caller-local 127.0.0.1 compatibility endpoint
-  -> home-ai-cluster-openai-compatibility --declaration <DECLARATION_PATH>
+  -> home-ai-cluster-openai-compatibility --declaration <CALLER_DECLARATION_PATH> --proof-observation
   -> unchanged RFC-0031 request translation
   -> ordinary explicit static-cluster composition
   -> unavailable caller-local runtime before request transmission
@@ -21,6 +21,7 @@ Aider
   -> one declared trusted-LAN receiver
   -> receiver-local runtime execution
   -> caller-owned normalized result attributed internally to the declared node
+  -> one final RFC-0047 content-free caller standard-error observation
   -> unchanged RFC-0031 compatibility response to Aider
 ```
 
@@ -29,18 +30,22 @@ failed attempt.
 
 ## 2. Architectural boundary
 
-RFC-0046 accepts exactly one explicit static-cluster form:
+RFC-0046 accepts the existing declaration-backed compatibility form. RFC-0047
+accepts one bounded proof-observation extension of that same form:
 
 ```sh
-uv run home-ai-cluster-openai-compatibility --declaration <DECLARATION_PATH>
+uv run home-ai-cluster-openai-compatibility \
+  --declaration <CALLER_DECLARATION_PATH> \
+  --proof-observation
 ```
 
-It reuses the RFC-0039/RFC-0040 declaration loader and the ordinary static
-collection construction. The compatibility router remains the RFC-0031 public
-edge: it translates the accepted plain-text request into a cluster-owned
-`chat` request and returns the unchanged compatibility response. It does not
-select a node, inspect a declaration, call a receiver, retry, or expose routing
-facts to Aider.
+The flag is valid only with `--declaration`; the no-argument and
+declaration-only forms remain unchanged. It reuses the RFC-0039/RFC-0040
+declaration loader and ordinary static collection construction. The
+compatibility router remains the RFC-0031 public edge: it translates the
+accepted plain-text request into a cluster-owned `chat` request and returns the
+unchanged compatibility response. It does not select a node, inspect a
+declaration, call a receiver, retry, or expose routing facts to Aider.
 
 The caller owns local-first routing, accepted bounded fallback, transport,
 result validation, and declared-node attribution. The receiver remains an
@@ -49,12 +54,12 @@ lifecycle remains operator-owned.
 
 ## 3. What this runbook proves
 
-If every success condition and the observation gate in this runbook is met, a
-later retained proof may establish one narrow fact: a real Aider v0.86.0-style,
-non-streaming request reached the caller-local compatibility edge and completed
-through the existing ordinary explicit static-cluster path after an unavailable
-caller-local runtime advanced through the existing pre-execution fallback to
-one declared remote receiver.
+If every success condition and the RFC-0047 observation procedure in this
+runbook is met, a later retained proof may establish one narrow fact: a real
+Aider v0.86.0-style, non-streaming request reached the caller-local
+compatibility edge and completed through the existing ordinary explicit
+static-cluster path after an unavailable caller-local runtime advanced through
+the existing pre-execution fallback to one declared remote receiver.
 
 It may establish that Aider received one unchanged successful RFC-0031
 response. It must not claim that Aider observed the selected node.
@@ -137,15 +142,18 @@ incompatibility. Do not broaden Home AI Cluster to accommodate it.
 ## 8. Privacy boundary
 
 Do not retain prompts, generated content, source content, declaration content,
-private addresses, hostnames, usernames, machine names, credentials, tokens,
-remote URLs, raw HTTP bodies, raw logs, shell history, screenshots, packet
-captures, process environments, firewall dumps, or temporary configuration.
+declaration paths, private addresses, hostnames, usernames, machine names,
+credentials, tokens, remote URLs, raw HTTP bodies, raw access logs, Uvicorn
+logs, receiver request bodies, raw standard-output or standard-error bundles,
+shell history, screenshots, packet captures, process environments, firewall
+dumps, temporary configuration, or Aider transcript content beyond the minimum
+structural success evidence.
 
 Use placeholders in working notes and future evidence:
 
 ```text
-<DECLARATION_PATH>
-<REMOTE_NODE_ID>
+<CALLER_DECLARATION_PATH>
+<EXPECTED_DECLARED_REMOTE_NODE_ID>
 <RECEIVER_ADDRESS>
 <RECEIVER_PORT>
 <RUNTIME_MODEL_IDENTIFIER>
@@ -165,11 +173,18 @@ Complete every item before the single submission.
 
 - Confirm the shared clean revision.
 - Confirm `home-ai-cluster-openai-compatibility --help` shows
-  `--declaration`.
+  `--declaration` and `--proof-observation`.
+- Confirm this command would be invalid without `--declaration`:
+
+  ```text
+  uv run home-ai-cluster-openai-compatibility --proof-observation
+  ```
+
+  Do not run this invalid command during the proof attempt.
 - Confirm the one-remote declaration is accepted locally with:
 
   ```sh
-  uv run home-ai-cluster-preflight --declaration <DECLARATION_PATH>
+  uv run home-ai-cluster-preflight --declaration <CALLER_DECLARATION_PATH>
   ```
 
   This validates local declaration structure only and performs no network
@@ -297,32 +312,39 @@ additional enabled default can produce analytics, updates, history, cache,
 git mutation, tool use, browser use, or a retry. If that cannot be established,
 stop rather than guessing an option.
 
-## 14. Strict startup order
+## 14. Strict startup and execution order
 
 Follow this order without a wrapper script or service manager:
 
-1. Record sanitized revision and role facts.
-2. Confirm both working trees are clean.
-3. Prepare the receiver runtime and model.
-4. Start the ordinary receiver.
-5. Complete existing privacy-safe receiver readiness checks.
-6. Confirm caller-local runtime unavailability.
-7. Validate the one-remote declaration locally.
-8. Start the caller compatibility process:
+1. Prepare both physical machines and record only sanitized revision and role
+   facts.
+2. Verify both repository revisions match and both working trees are clean.
+3. Prepare and locally validate the explicit one-remote declaration.
+4. Start and verify the ordinary receiver process.
+5. Confirm receiver runtime health with the existing privacy-safe local health
+   observation.
+6. Confirm caller-local runtime unavailability before request execution.
+7. Start the caller compatibility process with the accepted form:
 
    ```sh
-   uv run home-ai-cluster-openai-compatibility --declaration <DECLARATION_PATH>
+   uv run home-ai-cluster-openai-compatibility \
+     --declaration <CALLER_DECLARATION_PATH> \
+     --proof-observation
    ```
 
-9. Verify it listens only on `127.0.0.1:8001`.
-10. Prepare the temporary Aider configuration.
-11. Pass the observation gate in section 16.
-12. Perform exactly one Aider submission only if that gate passes.
-13. Collect only the bounded observations in section 16.
-14. Stop the compatibility process.
-15. Stop the receiver.
-16. Remove temporary Aider and declaration material and verify clean
-    repositories.
+8. Capture that caller process's standard error through one temporary,
+   operator-controlled mechanism outside the repository. Keep it separate from
+   Aider output and HTTP response data; do not retain the raw capture.
+9. Verify the process is ready and bound only to `127.0.0.1:8001` without
+   sending any RFC-0031 chat request. Process-start observation is sufficient;
+   do not use a chat-endpoint readiness request that could consume count `1`.
+10. Prepare the unchanged temporary Aider configuration.
+11. Execute exactly one bounded Aider submission.
+12. Stop without retry.
+13. Inspect the one RFC-0047 proof-observation line.
+14. Verify Aider received one successful unchanged compatibility response.
+15. Stop the compatibility and receiver processes, then sanitize and retain
+    only the approved structural evidence.
 
 ## 15. Single-request execution
 
@@ -336,75 +358,76 @@ Stop the attempt if Aider emits an extra request, a retry, `GET /v1/models`, a
 tool definition or call, streaming, an unsupported field, or a request to any
 target other than the caller-local compatibility endpoint.
 
-## 16. Bounded observations
+## 16. Bounded RFC-0047 observation
 
-The later proof needs bounded operator facts only: process roles, one request
-count, sanitized declared node ID, response completion, success/failure class,
-and the internal normalized result attribution. It must not add a public debug
-route, logging hook, routing history, raw request/response capture, declaration
-logging, packet capture, or a custom compatibility response field.
+Accepted RFC-0047 supplies the required caller-side observation seam for this
+later proof; this runbook remains unexecuted until an operator performs one
+attempt. The caller operator captures only the compatibility process's standard
+error for the attempt. The only acceptable success observation is exactly:
 
-### Observation gate — current blocker
+```text
+proof_observation accepted_request=1 outcome=success result_node_id=<EXPECTED_DECLARED_REMOTE_NODE_ID>
+```
 
-Before any Aider submission, identify an already existing, privacy-safe,
-bounded observation seam that can establish both the one-request count and the
-caller-owned internal `ClusterResult` attribution to `<REMOTE_NODE_ID>` for the
-live compatibility process.
+It must appear exactly once, have no additional fields, and remain separate from
+Aider output and HTTP response data. Sanitize the declared node ID before
+retention.
 
-At the time this runbook was written, the merged RFC-0046 process exposes no
-such operator-facing seam. RFC-0031 intentionally omits node and routing fields
-from its public response; `home-ai-cluster-status` observes readiness rather
-than an executed request; and the native one-shot client is not an Aider
-substitute. The retained Phase 6 inspection proxy is also not an acceptable
-substitute here because this runbook prohibits a proxy and raw request capture.
+This line correlates the proof because RFC-0047 assigns the accepted request
+count only after strict RFC-0031 validation, writes exactly one final outcome
+line for that accepted request, and obtains the success node ID from the final
+caller-owned `ClusterResult.node_id`. It emits no candidate, fallback,
+transport, or other intermediate routing event. The unchanged RFC-0031 HTTP
+response remains topology-blind, so Aider does not observe the node.
 
-Therefore, do not execute section 15 until an existing accepted observation
-seam has been identified and documented without changing code, the public
-response, or privacy boundaries. If none exists, stop the proof before the
-Aider submission and record the blocker as the outcome. Do not invent an
-observation contract or treat compatibility success alone as proof of remote
-attribution.
-
-If the gate later passes, retain only sanitized structural observations: request
-count, whether compatibility completed, a success/failure class, and the
-declared node ID. Never retain prompt, response content, raw transport data,
-or topology details.
+Receiver-side readiness and process observations remain supporting evidence
+only. Receiver logs do not establish caller acceptance or caller-owned result
+attribution and must not substitute for this caller observation.
 
 ## 17. Success criteria
 
 A successful later proof requires all of the following:
 
-1. both machines use the same clean revision;
-2. the receiver runtime is available before the request;
-3. the caller runtime is unavailable before the request;
-4. one accepted declaration starts the compatibility process;
-5. the compatibility listener remains loopback-only;
-6. Aider addresses only the caller-local compatibility endpoint;
-7. exactly one RFC-0031-compatible request occurs;
-8. no model-list, metadata, tool, streaming, or retry request occurs;
-9. the request enters ordinary static-cluster routing;
-10. local-first evaluation occurs and its unavailable local candidate meets the
-    accepted pre-execution fallback condition;
-11. bounded traversal selects the declared remote and the receiver executes it;
-12. the caller-owned internal normalized result is attributed to the declared
-    node through the observation gate;
-13. Aider receives one unchanged successful compatibility response;
-14. Aider supplied no topology, node, runtime, adapter, model, declaration,
+1. exactly one Aider submission was made;
+2. Aider targeted only the caller loopback compatibility endpoint;
+3. the caller-local runtime was unavailable before the request;
+4. the declared receiver was ready;
+5. the caller compatibility process emitted exactly one proof-observation line;
+6. that line is structurally exactly:
+
+   ```text
+   proof_observation accepted_request=1 outcome=success result_node_id=<EXPECTED_DECLARED_REMOTE_NODE_ID>
+   ```
+
+7. the result node ID matches the declaration-owned remote node ID;
+8. no additional proof-observation line appeared;
+9. Aider received one successful unchanged RFC-0031 completion response;
+10. no model-list, metadata, tool, streaming, or retry request occurred;
+11. Aider supplied no topology, node, runtime, adapter, model, declaration,
     routing, or fallback selector; and
-15. no sensitive proof data is retained.
+12. no private or content-bearing evidence was retained.
 
 ## 18. Failure and stop criteria
 
-Stop without retry if revisions differ, either tree is dirty, a declaration is
-invalid, either required port is occupied, the compatibility listener binds
-beyond loopback, the caller runtime is available, the receiver runtime or model
-is unavailable, trusted-LAN reachability fails, or the observation gate fails.
+Fail and stop without retry if no proof-observation line appears, more than one
+appears, `accepted_request` is not `1`, `outcome` is not `success`,
+`result_node_id` is `none`, the node ID differs from the expected declared
+remote node ID, or any extra field appears. The accepted RFC-0047 failure line
 
-Also stop for an unsupported Aider field, streaming, model discovery, tools,
-retry, more than one request, direct receiver access, fallback after execution
-begins, a custom public routing field, missing remote attribution, or any need
-to retain private data to make a claim. Do not repair, reconfigure, patch, or
-retry during the same recorded attempt.
+```text
+proof_observation accepted_request=1 outcome=failure result_node_id=none
+```
+
+is valid process behavior but means this proof attempt failed.
+
+Also stop if revisions differ, either tree is dirty, a declaration is invalid,
+either required port is occupied, the compatibility listener binds beyond
+loopback or exits, the caller runtime is available, the receiver is not ready,
+Aider contacts a non-loopback endpoint, Aider performs an auxiliary accepted
+chat request, the HTTP response fails, any topology, URL, path, content,
+credential, or raw error leaks into retained evidence, or any retry is
+attempted. Do not repair, reconfigure, patch, or retry during the same recorded
+attempt.
 
 ## 19. Cleanup
 
@@ -434,14 +457,15 @@ Shared repository commit SHA:
 Physical caller and receiver roles confirmed:
 Trusted-LAN boundary confirmed:
 One declared remote node confirmed:
+Sanitized command forms confirmed:
 Receiver runtime available before request:
 Caller runtime unavailable before request:
 Compatibility listener loopback-only:
 Aider version and bounded configuration categories confirmed:
-One compatibility request observed:
-No unsupported or preliminary request observed:
-Existing observation seam used:
-Caller-owned declared-node attribution: <REMOTE_NODE_ID>
+Exactly one Aider submission confirmed:
+One sanitized RFC-0047 success line: proof_observation accepted_request=1 outcome=success result_node_id=<EXPECTED_DECLARED_REMOTE_NODE_ID>
+Aider successful unchanged compatibility response confirmed:
+No additional proof-observation line or retry observed:
 Compatibility response completed without public routing extension:
 Cleanup checks completed:
 Outcome:
@@ -457,12 +481,14 @@ credentials, raw command output, declaration data, or raw logs.
 - [ ] One temporary one-remote declaration validated locally.
 - [ ] Receiver runtime/model available and ordinary receiver started.
 - [ ] Caller runtime unavailable before request.
-- [ ] Compatibility command started with `--declaration` on loopback only.
+- [ ] Compatibility command started with `--declaration` and
+  `--proof-observation` on loopback only.
+- [ ] Caller standard error captured temporarily without retaining raw output.
 - [ ] Aider v0.86.0-style bounded configuration verified from installed help.
 - [ ] No source attachment, cache, history, analytics, updates, git mutation,
   lint, test, browser, tool, function, model discovery, or retry behavior.
-- [ ] Existing privacy-safe observation gate passed before submission.
 - [ ] Exactly one Aider submission made.
+- [ ] Exactly one RFC-0047 success line matched the expected declared node ID.
 - [ ] Stop conditions observed if any requirement failed.
 - [ ] Processes, temporary files, firewall allowance, and artifacts cleaned up.
 

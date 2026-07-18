@@ -21,7 +21,8 @@ architecture.
 ## Operator entry points
 
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
-  local-only and explicit static-cluster operation.
+  local-only and explicit static-cluster operation, including human-readable
+  inspection defaults and explicit structured `--json` forms.
 - [Daily operator workflow investigation](daily-operator-workflow-investigation.md)
   — bounded investigation of repeatable local role operation; not a proposal or
   accepted workflow change.
@@ -32,8 +33,8 @@ architecture.
   — retained privacy-safe evidence from one native two-machine daily workflow
   exercise; not an accepted workflow change or Phase 17 plan.
 - [Human-readable operator output investigation](human-readable-operator-output-investigation.md)
-  — investigation of human-readable presentation for existing finite operator
-  commands; not an accepted output contract or implementation plan.
+  — investigated the bounded presentation need for existing finite operator
+  commands that led to RFC-0048; it is not itself the architectural decision.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained
@@ -136,6 +137,18 @@ established at a specific stage and do not replace the current workflow.
   success; the static-cluster observation selected `local`.
 - [Phase 16 closeout](phase-16-closeout.md) — completion record for the bounded
   one-shot ordinary request access phase.
+
+### Phase 17 — Human-readable operator inspection output
+
+- [Human-readable operator output investigation](human-readable-operator-output-investigation.md)
+  — investigation of the bounded presentation need that preceded the accepted
+  decision.
+- [Human-readable inspection output proof runbook](phase-17-human-readable-inspection-output-proof.md)
+  — reusable procedure for collecting bounded presentation evidence.
+- [Human-readable inspection output retained proof result](phase-17-human-readable-inspection-output-proof-result.md)
+  — privacy-safe record of the completed live and automated proof evidence.
+- [Phase 17 closeout](phase-17-closeout.md) — completion record for the bounded
+  human-readable inspection output phase.
 
 ## Document roles
 

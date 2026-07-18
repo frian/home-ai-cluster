@@ -516,81 +516,40 @@ See [the investigation](docs/phase-16-ordinary-operator-request-access-investiga
 
 ## Phase 17 — Human-readable operator inspection output
 
-Goal:
+Status: Complete
 
-Make the existing finite preflight, health, and status results directly
-understandable during ordinary interactive terminal use while preserving one
-explicit stable machine-readable representation.
+Accepted [RFC-0048](RFC/RFC-0048-human-readable-inspection-output.md) changed
+exactly the finite `home-ai-cluster-preflight`, `home-ai-cluster-health`, and
+`home-ai-cluster-status` command surfaces. Their ordinary default output is
+human-readable plain text; explicit `--json` preserves the former compact
+machine-readable representation byte-for-byte. Output selection is explicit and
+never TTY-dependent.
 
-This phase is justified by one retained real [daily operator exercise](docs/daily-operator-workflow-evidence-result.md),
-the compact-JSON readability friction observed there, and the completed
-[human-readable operator output investigation](docs/human-readable-operator-output-investigation.md).
-It concerns presentation of existing results only.
+Command-specific formatting occurs only at the CLI edge after one completed
+result exists. Result fields, ordering, vocabularies, observation semantics,
+stream allocation, and exit behavior remain unchanged. Health continues to keep
+declared state separate from adapter observations. Status continues to keep the
+fixed local node first and remotes in declaration order. Normalized unavailable
+and observation-failure states remain result data rather than whole-command
+failures.
 
-Expected outcomes:
-
-* human-readable presentation for ordinary static preflight, local health, and
-  static-cluster status;
-* one explicit stable machine-readable representation remains available for
-  each included command;
-* existing result fields, vocabularies, ordering, privacy boundaries, and
-  observation semantics remain unchanged;
-* stdout, stderr, and exit-status behavior are explicitly defined;
-* current structured consumers have a documented compatibility or migration
-  path;
-* one retained privacy-safe operator proof verifies interactive readability and
-  machine-readable preservation; and
-* no implicit TTY-dependent behavior unless a future accepted RFC explicitly
-  justifies it.
-
-The initial implementation scope is limited to
-`home-ai-cluster-preflight`, `home-ai-cluster-health`, and
-`home-ai-cluster-status`. These are finite inspection commands in the ordinary
-operator workflow, expose no prompt or generated response, have directly
-observed readability friction, and already return structured results suitable
-for bounded projection.
-
-The phase does not initially include `home-ai-cluster-chat`, request history or
-history clearing, routing explanation, actual-request explanation, proof-scoped
-commands, long-running application commands, server logs, or OpenAI-compatible
-responses. Those surfaces may be investigated separately only if real evidence
-justifies them.
-
-It also excludes domain-model or result-vocabulary changes; new observations;
-routing, fallback, declaration, or health-semantics changes; retries; polling
-or watch mode; progress bars; spinners; required color; curses or interactive
-terminal UI; dashboards; localization; global CLI framework migration;
-presentation configuration files; telemetry; lifecycle automation; process
-supervision; service-manager integration; remote lifecycle authority; and
-database, Docker, or Kubernetes work.
-
-Repository tests demonstrate current structured stdout consumption. The
-repository does not prove external script consumers, but the absence of known
-external consumers does not make installed-command output disposable. Before
-implementation, an accepted RFC must define how current machine-readable
-behavior is preserved or migrated; this roadmap entry does not promise
-byte-for-byte JSON preservation.
-
-The following are architectural or compatibility-sensitive decisions requiring
-further investigation and an accepted RFC before implementation:
-
-* default human-readable versus default machine-readable output;
-* flag or argument shape;
-* the exact machine-readable compatibility guarantee;
-* stdout and stderr allocation;
-* exit-status preservation;
-* command-specific versus shared presentation code;
-* behavior for incoherent or partially unavailable results; and
-* migration from the current stdout contract.
-
-No output default, flag name, TTY detection, separate command, shared renderer,
-or third-party terminal-formatting library is selected by this phase.
+One retained privacy-safe proof passed. Its live evidence covered supported
+ordinary command states. Automated CLI tests covered the completed
+incoherent-preflight result because supported ordinary inputs cannot construct
+that state without changing accepted wiring; no production behavior was changed
+merely to create proof evidence.
 
 Success means:
 
 > One operator can understand ordinary preflight, health, and status results
 > directly in a terminal while one explicit stable machine-readable
 > representation remains available.
+
+See [the investigation](docs/human-readable-operator-output-investigation.md),
+[RFC-0048](RFC/RFC-0048-human-readable-inspection-output.md),
+[the proof runbook](docs/phase-17-human-readable-inspection-output-proof.md),
+[the retained proof result](docs/phase-17-human-readable-inspection-output-proof-result.md),
+and [the Phase 17 closeout](docs/phase-17-closeout.md).
 
 ---
 
@@ -604,6 +563,10 @@ Phase 12 remote-execution and Phase 16 one-shot-client surfaces. One unchanged
 ordinary client invocation crossed a real trusted-LAN machine boundary after
 accepted caller-local pre-request fallback, reached an ordinary receiver, and
 returned a complete normalized result attributed to the declared remote node.
+
+This standalone proof did not itself create, reopen, extend, or count as Phase
+17. It remains separately classified; the later Phase 17 work was independent
+presentation work.
 
 This closes the retained evidence gap noted above: the earlier Phase 16
 static-cluster proof selected `local` on one physical machine and did not

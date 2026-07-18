@@ -22,6 +22,9 @@ architecture.
 
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
   local-only and explicit static-cluster operation.
+- [Daily operator workflow investigation](daily-operator-workflow-investigation.md)
+  — bounded investigation of repeatable local role operation; not a proposal or
+  accepted workflow change.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained

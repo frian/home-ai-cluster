@@ -63,7 +63,7 @@ def test_main_projects_local_then_ordered_remotes_without_network_use(
     monkeypatch.setattr(socket, "getaddrinfo", fail_network)
 
     path = write_declaration(tmp_path)
-    main(["--declaration", str(path)])
+    main(["--declaration", str(path), "--json"])
 
     captured = capsys.readouterr()
     report = json.loads(captured.out)

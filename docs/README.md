@@ -31,6 +31,9 @@ architecture.
 - [Daily operator workflow evidence result](daily-operator-workflow-evidence-result.md)
   — retained privacy-safe evidence from one native two-machine daily workflow
   exercise; not an accepted workflow change or Phase 17 plan.
+- [Human-readable operator output investigation](human-readable-operator-output-investigation.md)
+  — investigation of human-readable presentation for existing finite operator
+  commands; not an accepted output contract or implementation plan.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained

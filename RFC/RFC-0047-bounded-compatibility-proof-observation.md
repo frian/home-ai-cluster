@@ -1,6 +1,6 @@
 # RFC-0047: Bounded compatibility proof observation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-18
 
@@ -441,4 +441,28 @@ surface. They are for review of this draft and any later implementation plan.
 
 ## Decision
 
-Pending.
+Accepted.
+
+`--proof-observation` is accepted only for the existing declaration-backed
+compatibility mode:
+
+```text
+home-ai-cluster-openai-compatibility --declaration <path> --proof-observation
+```
+
+Both existing command forms remain unchanged when the flag is absent. Each
+strictly accepted RFC-0031 request receives one positive process-local count
+and exactly one final content-free standard-error line. A success line contains
+only that count, `outcome=success`, and the final caller-owned
+`ClusterResult.node_id`; a failure line contains only that count,
+`outcome=failure`, and `result_node_id=none`. Rejected requests and startup
+failures produce no proof-observation line, and no candidate-level, fallback,
+transport, or intermediate routing event is emitted.
+
+RFC-0031 requests, responses, errors, loopback binding, routing behavior,
+fallback behavior, attribution ownership, and client topology blindness remain
+unchanged. Observation is disabled by default, process-lifetime only,
+best-effort, and not retained by Home AI Cluster. This does not accept a
+logging framework, history, endpoint, status field, file, socket, event system,
+callback framework, telemetry, tracing, dashboard, database, or general
+observability facility.

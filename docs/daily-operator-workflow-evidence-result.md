@@ -171,6 +171,20 @@ configuration.
 The receiver address and declared node identity were retained inside the
 declaration rather than re-entered for each command.
 
+During the broader same-day work session, the operator recreated and deleted
+declaration files multiple times. Treating them as temporary proof material
+made retained operator configuration disposable and created concrete friction
+beyond the measured schema-recovery event. Retaining one operator-owned
+declaration at an explicit stable local path, such as
+`<STABLE_OPERATOR_DECLARATION_PATH>`, would avoid repeated creation and cleanup.
+A shell variable may avoid repeatedly typing that already chosen path during one
+session.
+
+This is not an official project-defined path or project-owned placement rule.
+It does not establish lookup behavior, discovery, precedence rules, another
+configuration layer, or a new schema. A project-owned default path or lookup
+behavior would require an RFC.
+
 ## 12. Qualitative findings
 
 - Repository-specific memory was required to know the accepted declaration
@@ -184,6 +198,10 @@ declaration rather than re-entered for each command.
 - A stop command would not have prevented the observed problem.
 - Shorter, clearer declaration documentation would likely have prevented or
   shortened the only recovery.
+- Repeated declaration recreation and deletion was broader same-day workflow
+  friction, not an additional measured native-core recovery event.
+- A stable, operator-owned declaration path would reduce that recreation and
+  cleanup without making its placement a project contract.
 - Receiver and caller require distinct explicit local role commands.
 - No observed friction justified remote lifecycle authority or Home AI Cluster
   ownership of the external runtime.
@@ -193,10 +211,12 @@ useful. It shows only that both were unnecessary in this measured session.
 
 ## 13. Interpretation
 
-This evidence supports attention to documentation and command discoverability
-before lifecycle automation. The declaration format is concrete documentation
-friction. The repeated declaration path is measurable but does not by itself
-justify a new configuration layer.
+The strongest currently observed need, before lifecycle automation or
+project-owned configuration discovery, is: clearer declaration documentation;
+treating declarations as retained operator configuration rather than disposable
+proof files; and using an explicit stable operator-owned path. The repeated path
+is measurable but does not by itself justify a new configuration layer, default
+path, lookup behavior, or precedence rule.
 
 For this workflow, foreground startup plus normal interruption provided a
 complete bounded lifecycle. There is no evidence here for PID files, detached
@@ -204,8 +224,9 @@ processes, a stop command, supervision, service-manager integration, remote
 startup, remote shutdown, or runtime lifecycle ownership.
 
 Any future command-surface proposal still requires an RFC when it changes
-accepted startup or lifecycle behavior. This evidence should inform the next
-roadmap decision; it does not conclude that no Phase 17 is needed.
+accepted startup or lifecycle behavior. Any project-owned default declaration
+path or lookup behavior also requires an RFC. This evidence should inform the
+next roadmap decision; it does not conclude that no Phase 17 is needed.
 
 ## 14. Decision boundary
 

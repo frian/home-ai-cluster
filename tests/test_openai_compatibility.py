@@ -6,13 +6,29 @@ import httpx
 import pytest
 from fastapi import FastAPI, HTTPException
 
-from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.api.openai_compatibility import (
     COMPATIBILITY_MODEL,
     ProofObservationState,
+    compatibility_router,
 )
-from home_ai_cluster.core.models import Capability, ClusterRequest, ClusterResult
+from home_ai_cluster.api.wiring import build_static_remote_collection_wiring
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ClusterRequest,
+    ClusterResult,
+    NodeDescription,
+    NodeHealth,
+    RuntimeResult,
+)
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration as CoreRemoteNode
 from home_ai_cluster.core.router import NoMatchingAdapterError
+from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
 from home_ai_cluster.main import create_app
 from home_ai_cluster.openai_compatibility import (
@@ -373,6 +389,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
         local_app_composition: object,
     ) -> ClusterResult:
         assert request.capability == Capability(name="chat")
+        assert request.constraints.local_only is False
         assert static_remote_wiring is None
         assert local_app_composition is None
         collections.append(static_remote_collection_wiring)
@@ -392,6 +409,97 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
     remote_registry = app.state.static_remote_collection_wiring.remote_registry
     assert remote_registry.list_declarations()[0].node.id == "remote"
     asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+def test_static_compatibility_falls_back_to_declared_remote_with_final_attribution(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class UnavailableLocalAdapter:
+        @property
+        def name(self) -> str:
+            return "local"
+
+        def health(self) -> AdapterHealth:
+            return AdapterHealth(available=True)
+
+        def capabilities(self) -> list[Capability]:
+            return [Capability(name="chat")]
+
+        async def chat(self, request: ClusterRequest) -> RuntimeResult:
+            local_requests.append(request)
+            raise RuntimeConnectionUnavailableBeforeRequestError("unavailable")
+
+    class DeclaredRemoteTransport:
+        async def send(
+            self,
+            request: ClusterRequest,
+            _: CoreRemoteNode,
+        ) -> ClusterResult:
+            remote_requests.append(request)
+            return ClusterResult(
+                content="Cluster response",
+                adapter="remote",
+                model="actual-model",
+                node_id="receiver-owned-node",
+            )
+
+    local_requests: list[ClusterRequest] = []
+    remote_requests: list[ClusterRequest] = []
+    local_node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=["local"],
+    )
+    wiring = build_static_remote_collection_wiring(
+        node_registry=NodeRegistry([local_node]),
+        adapter_registry=AdapterRegistry([UnavailableLocalAdapter()]),
+        remote_declarations=[
+            CoreRemoteNode(
+                node=NodeDescription(
+                    id="declared-remote",
+                    name="Declared remote node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="chat")],
+                    adapters=["remote"],
+                ),
+                transport_address="http://declared-remote.invalid:8000",
+            )
+        ],
+        remote_transport=DeclaredRemoteTransport(),
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    app = create_app(static_remote_collection_wiring=wiring)
+    app.state.proof_observation_state = ProofObservationState()
+    app.include_router(compatibility_router)
+
+    response = post(app, payload=compatibility_payload())
+
+    assert response.status_code == 200
+    assert local_requests[0].constraints.local_only is False
+    assert remote_requests[0].constraints.local_only is False
+    body = response.json()
+    assert body == {
+        "id": body["id"],
+        "object": "chat.completion",
+        "created": body["created"],
+        "model": "actual-model",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Cluster response"},
+                "finish_reason": None,
+            }
+        ],
+    }
+    assert not {"adapter", "node_id", "routing"} & body.keys()
+    assert capsys.readouterr().err == (
+        "proof_observation accepted_request=1 outcome=success "
+        "result_node_id=declared-remote\n"
+    )
 
 
 @pytest.fixture

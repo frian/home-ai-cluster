@@ -1,6 +1,6 @@
 # RFC-0046: Explicit static-cluster compatibility access
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-18
 
@@ -542,4 +542,21 @@ architectural, a separate RFC:
 
 ## Decision
 
-Pending.
+Accepted.
+
+The existing no-argument `home-ai-cluster-openai-compatibility` command remains
+the unchanged local-only default. The sole explicit static-cluster compatibility
+mode is:
+
+```text
+home-ai-cluster-openai-compatibility --declaration <path>
+```
+
+It reuses RFC-0039/RFC-0040 declaration loading, validation, ordering, and
+ordinary static-cluster construction. RFC-0031 compatibility protocol, loopback
+binding, client topology blindness, routing and fallback ownership, lifecycle
+and privacy boundaries, and public response shape remain unchanged.
+
+This decision does not accept a generic composition framework, broader
+OpenAI compatibility, LAN-facing compatibility access, authentication,
+discovery, scheduling, supervision, or lifecycle automation.

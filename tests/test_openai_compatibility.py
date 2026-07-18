@@ -1,17 +1,24 @@
 import asyncio
+import socket
+from pathlib import Path
 
 import httpx
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.openai_compatibility import COMPATIBILITY_MODEL
 from home_ai_cluster.core.models import Capability, ClusterRequest, ClusterResult
 from home_ai_cluster.core.router import NoMatchingAdapterError
+from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
 from home_ai_cluster.main import create_app
 from home_ai_cluster.openai_compatibility import (
     COMPATIBILITY_HOST,
+    COMPATIBILITY_PORT,
     create_openai_compatibility_app,
+    create_static_cluster_openai_compatibility_app,
+    main,
+    parse_args,
 )
 
 
@@ -121,6 +128,192 @@ def test_compatibility_app_keeps_default_local_app_composition() -> None:
     app = create_openai_compatibility_app()
 
     assert app.state.local_app_composition is None
+
+
+def test_parse_args_accepts_only_the_optional_declaration() -> None:
+    assert parse_args([]).declaration is None
+    assert parse_args(["--declaration", "cluster.toml"]).declaration == Path(
+        "cluster.toml"
+    )
+
+
+def test_main_keeps_no_argument_compatibility_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import openai_compatibility
+
+    app = FastAPI()
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        openai_compatibility,
+        "create_openai_compatibility_app",
+        lambda: calls.append("local") or app,
+    )
+    monkeypatch.setattr(
+        openai_compatibility,
+        "load_static_cluster_declarations",
+        lambda _: pytest.fail("local mode must not load a declaration"),
+    )
+    monkeypatch.setattr(
+        openai_compatibility.uvicorn,
+        "run",
+        lambda actual_app, *, host, port: calls.extend(
+            ["server", str(actual_app is app), host, str(port)]
+        ),
+    )
+
+    main([])
+
+    assert calls == [
+        "local",
+        "server",
+        "True",
+        COMPATIBILITY_HOST,
+        str(COMPATIBILITY_PORT),
+    ]
+
+
+def test_main_loads_declaration_before_static_compatibility_startup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import openai_compatibility
+
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        '[[remote_nodes]]\nnode_id = "remote-a"\n'
+        'base_url = "https://remote-a.example:8000/"\n'
+        '[[remote_nodes]]\nnode_id = "remote-b"\n'
+        'base_url = "https://remote-b.example:8000"\n',
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    recorded: dict[str, object] = {}
+    composition = create_local_runtime_composition(runtime="ollama")
+
+    def fail_network(*_: object, **__: object) -> None:
+        pytest.fail("declaration loading must not use the network")
+
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+    monkeypatch.setattr(socket, "create_connection", fail_network)
+
+    def create_local_composition(*, runtime: str) -> object:
+        recorded["runtime"] = runtime
+        return composition
+
+    monkeypatch.setattr(
+        openai_compatibility,
+        "create_local_runtime_composition",
+        create_local_composition,
+    )
+    monkeypatch.setattr(
+        openai_compatibility,
+        "create_static_cluster_openai_compatibility_app",
+        lambda remote_nodes, *, local_app_composition: (
+            recorded.update(
+                remote_nodes=remote_nodes,
+                local_app_composition=local_app_composition,
+            )
+            or app
+        ),
+    )
+    monkeypatch.setattr(
+        openai_compatibility.uvicorn,
+        "run",
+        lambda actual_app, *, host, port: recorded.update(
+            app=actual_app,
+            host=host,
+            port=port,
+        ),
+    )
+
+    main(["--declaration", str(declaration_path)])
+
+    assert recorded["runtime"] == "ollama"
+    remote_nodes = recorded["remote_nodes"]
+    assert [(remote.node_id, remote.base_url) for remote in remote_nodes] == [
+        ("remote-a", "https://remote-a.example:8000"),
+        ("remote-b", "https://remote-b.example:8000"),
+    ]
+    assert recorded["local_app_composition"] is composition
+    assert recorded["app"] is app
+    assert recorded["host"] == COMPATIBILITY_HOST
+    assert recorded["port"] == COMPATIBILITY_PORT
+
+
+def test_invalid_declaration_stops_before_listener_startup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from home_ai_cluster import openai_compatibility
+
+    declaration_path = tmp_path / "cluster.toml"
+    private_host = "private.example:9443"
+    declaration_path.write_text(
+        f'remote_node_id = "remote"\nremote_base_url = "{private_host}"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        openai_compatibility.uvicorn,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("listener must not start"),
+    )
+
+    with pytest.raises(SystemExit):
+        main(["--declaration", str(declaration_path)])
+
+    captured = capsys.readouterr().err
+    assert "invalid remote base URL declaration" in captured
+    assert private_host not in captured
+
+
+def test_static_compatibility_route_uses_existing_collection_wiring(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import openai_compatibility
+    from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
+
+    app = create_static_cluster_openai_compatibility_app(
+        [
+            RemoteNodeDeclaration(
+                node_id="remote",
+                base_url="https://remote.example:8000",
+            )
+        ],
+        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+    )
+    collections: list[object] = []
+
+    async def handle(
+        request: ClusterRequest,
+        _,
+        *,
+        static_remote_wiring: object,
+        static_remote_collection_wiring: object,
+        local_app_composition: object,
+    ) -> ClusterResult:
+        assert request.capability == Capability(name="chat")
+        assert static_remote_wiring is None
+        assert local_app_composition is None
+        collections.append(static_remote_collection_wiring)
+        return ClusterResult(
+            content="Cluster response",
+            adapter="test-adapter",
+            model="actual-model",
+            node_id="remote",
+        )
+
+    monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
+
+    response = post(app, payload=compatibility_payload())
+
+    assert response.status_code == 200
+    assert collections == [app.state.static_remote_collection_wiring]
+    remote_registry = app.state.static_remote_collection_wiring.remote_registry
+    assert remote_registry.list_declarations()[0].node.id == "remote"
+    asyncio.run(app.state.static_cluster_http_client.aclose())
 
 
 def test_placeholder_bearer_is_accepted(
@@ -426,7 +619,7 @@ def test_compatibility_process_uses_fixed_loopback_binding(
 
     monkeypatch.setattr(openai_compatibility.uvicorn, "run", run)
 
-    openai_compatibility.main()
+    openai_compatibility.main([])
 
     assert calls[0]["host"] == COMPATIBILITY_HOST
     assert calls[0]["host"] == "127.0.0.1"

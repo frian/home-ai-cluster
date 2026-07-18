@@ -213,6 +213,17 @@ application and binds only to loopback:
 uv run home-ai-cluster-openai-compatibility
 ```
 
+To expose that unchanged compatibility route over an explicit static cluster,
+provide an accepted RFC-0039/RFC-0040 declaration:
+
+```sh
+uv run home-ai-cluster-openai-compatibility --declaration <path>
+```
+
+This is the only compatibility static-cluster mode. It reuses the ordinary
+static-cluster declaration validation and local-first routing while retaining
+the same loopback-only listener and RFC-0031 compatibility contract.
+
 Its base URL is:
 
 ```text

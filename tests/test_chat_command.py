@@ -169,6 +169,25 @@ def test_connection_and_timeout_failures_are_safely_mapped(
     assert "secret" not in stderr
 
 
+def test_other_httpx_request_failures_are_safely_mapped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ProtocolError("private protocol detail")
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--message", "private submitted prompt"],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: ordinary request failed\n"
+    assert "private" not in stderr
+    assert "protocol" not in stderr
+
+
 @pytest.mark.parametrize(
     "response",
     [

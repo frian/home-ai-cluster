@@ -106,10 +106,10 @@ def main(
             _native_request(message),
             client_factory=_client_factory,
         )
-    except httpx.TimeoutException:
+    except (httpx.ConnectError, httpx.TimeoutException):
         _exit_with_failure(_CLUSTER_UNAVAILABLE, 1)
     except httpx.RequestError:
-        _exit_with_failure(_CLUSTER_UNAVAILABLE, 1)
+        _exit_with_failure(_ORDINARY_REQUEST_FAILED, 1)
     except Exception:
         _exit_with_failure(_ORDINARY_REQUEST_FAILED, 1)
 

@@ -1,14 +1,15 @@
 # Aider Static-Cluster Compatibility Proof Runbook
 
-Status: Planned
+Status: Executed
 
 ## 1. Purpose
 
-This runbook prepares one later, real, two-machine execution. It does not
-report that the execution has occurred, add an implementation, or make a new
-architectural decision.
+This runbook records the procedure for one completed real two-machine
+execution. It does not add an implementation or make a new architectural
+decision. The approved structural result is retained in the
+[Aider static-cluster compatibility proof](aider-static-cluster-proof.md).
 
-The intended bounded proof is:
+The bounded proof path was:
 
 ```text
 Aider
@@ -25,8 +26,8 @@ Aider
   -> unchanged RFC-0031 compatibility response to Aider
 ```
 
-This is a preparation for one proof attempt only. A failed attempt remains a
-failed attempt.
+This is a procedure for one bounded proof execution. A failed attempt remains
+a failed attempt.
 
 ## 2. Architectural boundary
 
@@ -54,9 +55,9 @@ lifecycle remains operator-owned.
 
 ## 3. What this runbook proves
 
-If every success condition and the RFC-0047 observation procedure in this
-runbook is met, a later retained proof may establish one narrow fact: a real
-Aider v0.86.0-style, non-streaming request reached the caller-local
+When every success condition and the RFC-0047 observation procedure in this
+runbook is met, one bounded proof establishes one narrow fact: a real Aider
+v0.86.0-style, non-streaming request reached the caller-local
 compatibility edge and completed through the existing ordinary explicit
 static-cluster path after an unavailable caller-local runtime advanced through
 the existing pre-execution fallback to one declared remote receiver.
@@ -130,14 +131,16 @@ uv sync
 
 Proceed only if both `HEAD` values are the same merged commit and both status
 commands have no output. Record only that shared commit SHA and the sanitized
-roles `caller` and `receiver` in later proof notes. Do not retain repository
+roles `caller` and `receiver` in retained proof notes. Do not retain repository
 paths, untracked-file names, or command output.
 
-Use Aider v0.86.0, the evidence-backed version in the retained Phase 6 proof,
-unless a separately documented compatible version has been assessed before this
-attempt. If installed Aider help or observed request behavior differs
-materially from the retained configuration, stop and document an Aider
-incompatibility. Do not broaden Home AI Cluster to accommodate it.
+Use the Aider v0.86.0-style configuration, the evidence-backed command shape in
+the retained Phase 6 proof, unless a separately documented compatible version
+has been assessed before an execution. The completed execution used Aider
+v0.86.2 after compatibility with that bounded configuration was assessed. If
+installed Aider help or observed request behavior differs materially from the
+retained configuration, stop and document an Aider incompatibility. Do not
+broaden Home AI Cluster to accommodate it.
 
 ## 8. Privacy boundary
 
@@ -361,9 +364,8 @@ target other than the caller-local compatibility endpoint.
 ## 16. Bounded RFC-0047 observation
 
 Accepted RFC-0047 supplies the required caller-side observation seam for this
-later proof; this runbook remains unexecuted until an operator performs one
-attempt. The caller operator captures only the compatibility process's standard
-error for the attempt. The only acceptable success observation is exactly:
+proof. The caller operator captures only the compatibility process's standard
+error for the execution. The only acceptable success observation is exactly:
 
 ```text
 proof_observation accepted_request=1 outcome=success result_node_id=<EXPECTED_DECLARED_REMOTE_NODE_ID>
@@ -386,7 +388,7 @@ attribution and must not substitute for this caller observation.
 
 ## 17. Success criteria
 
-A successful later proof requires all of the following:
+A successful execution requires all of the following:
 
 1. exactly one Aider submission was made;
 2. Aider targeted only the caller loopback compatibility endpoint;
@@ -444,8 +446,9 @@ After a stopped or completed attempt:
 8. confirm neither repository has tracked or untracked proof artifacts and
    both working trees are clean.
 
-Do not claim cleanup that cannot be checked. Retain a separate sanitized proof
-document only after a successful attempt has been reviewed.
+Do not claim cleanup that cannot be checked. The completed execution's approved
+structural evidence is retained separately in the
+[Aider static-cluster compatibility proof](aider-static-cluster-proof.md).
 
 ## 20. Privacy-safe retained proof template
 

@@ -28,6 +28,9 @@ architecture.
 - [Daily operator workflow evidence protocol](daily-operator-workflow-evidence-protocol.md)
   — privacy-safe protocol for gathering operator workflow evidence; not a
   proof, accepted workflow, or Phase 17 plan.
+- [Daily operator workflow evidence result](daily-operator-workflow-evidence-result.md)
+  — retained privacy-safe evidence from one native two-machine daily workflow
+  exercise; not an accepted workflow change or Phase 17 plan.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained

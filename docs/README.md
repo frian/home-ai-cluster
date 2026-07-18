@@ -25,6 +25,9 @@ architecture.
 - [Daily operator workflow investigation](daily-operator-workflow-investigation.md)
   — bounded investigation of repeatable local role operation; not a proposal or
   accepted workflow change.
+- [Daily operator workflow evidence protocol](daily-operator-workflow-evidence-protocol.md)
+  — privacy-safe protocol for gathering operator workflow evidence; not a
+  proof, accepted workflow, or Phase 17 plan.
 - [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
   historical LAN proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained

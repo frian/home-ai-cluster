@@ -514,6 +514,32 @@ See [the investigation](docs/phase-16-ordinary-operator-request-access-investiga
 
 ---
 
+## Standalone post-roadmap integration proof
+
+Status: Complete
+
+This work was deliberately not classified as a formal roadmap phase. It required
+no new capability or architectural contract, and composed the existing accepted
+Phase 12 remote-execution and Phase 16 one-shot-client surfaces. One unchanged
+ordinary client invocation crossed a real trusted-LAN machine boundary after
+accepted caller-local pre-request fallback, reached an ordinary receiver, and
+returned a complete normalized result attributed to the declared remote node.
+
+This closes the retained evidence gap noted above: the earlier Phase 16
+static-cluster proof selected `local` on one physical machine and did not
+demonstrate real network transport. It does not change Phase 16 completion
+criteria or reopen Phase 16.
+
+See [the investigation](docs/phase-17-end-to-end-ordinary-remote-request-investigation.md),
+[the runbook](docs/end-to-end-ordinary-remote-request-proof-runbook.md), and
+[the retained proof](docs/end-to-end-ordinary-remote-request-proof.md).
+
+The proof does not introduce or demonstrate discovery, scheduling, retries,
+supervision, authentication, encryption, internet-safe operation, automatic
+lifecycle, or production readiness.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

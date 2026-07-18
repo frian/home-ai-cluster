@@ -1,6 +1,6 @@
 # RFC-0048: Human-Readable Inspection Output
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-18
 
@@ -515,4 +515,17 @@ preservation, output streams, and exit-status semantics.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts human-readable plain-text output by default for
+`home-ai-cluster-preflight`, `home-ai-cluster-health`, and
+`home-ai-cluster-status`.
+
+Each command will provide explicit `--json`, preserving its current compact JSON
+stdout contract byte-for-byte. Output remains deterministic and independent of
+TTY state, pipes, redirection, environment variables, and configuration.
+
+Implementation must preserve existing domain results, ordering, privacy
+boundaries, diagnostics, and exit-status semantics. It will use command-specific
+bounded formatting at the CLI edge, without a generic renderer architecture or
+formatting dependency.
+
+Implementation remains separate and must follow this accepted RFC.

@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with formal roadmap phases complete through Phase 16;
+Status: early prototype with formal roadmap phases complete through Phase 17;
 later bounded integration proofs are retained separately.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
@@ -69,6 +69,12 @@ Ollama local composition:
 uv run home-ai-cluster-status --declaration <path>
 ```
 
+For the compact normalized structured result used by automation, run:
+
+```sh
+uv run home-ai-cluster-status --declaration <path> --json
+```
+
 Or inspect an explicit llama-server local composition with:
 
 ```sh
@@ -81,10 +87,34 @@ uv run home-ai-cluster-status \
 
 The command validates the declaration before runtime composition construction,
 observes the fixed local node and declared remotes sequentially in declaration
-order, and emits one compact normalized JSON result. Runtime identity remains
-outside that result. The command is read-only and informational: it does not
-change routing, fallback, topology, or runtime lifecycle. See the
+order, and emits a human-readable status report by default. Explicit `--json`
+emits the compact normalized structured result. Declaration status, local-first
+ordering, remote order, application statuses, and runtime statuses are the same
+in both representations. Runtime identity remains outside that result. The
+command is read-only and informational: it does not change routing, fallback,
+topology, or runtime lifecycle. `--json` can be combined with the same valid
+runtime-composition arguments shown above. See the
 [canonical operator workflow](docs/operator-workflow.md) for the supported path.
+
+## Current inspection commands
+
+Preflight and health are also human-readable by default:
+
+```sh
+uv run home-ai-cluster-preflight
+uv run home-ai-cluster-health
+```
+
+Automation uses their explicit compact structured forms:
+
+```sh
+uv run home-ai-cluster-preflight --json
+uv run home-ai-cluster-health --json
+```
+
+See the [canonical operator workflow](docs/operator-workflow.md) and the
+[Phase 17 closeout](docs/phase-17-closeout.md) for the bounded inspection
+contract.
 
 Separate proof commands remain available for historical architecture
 reproduction and focused verification. They do not turn the ordinary application
@@ -118,11 +148,20 @@ operator contract and process preparation.
 - [Ordinary request access retained proof](docs/phase-16-ordinary-request-access-proof.md)
 - [Phase 16 closeout](docs/phase-16-closeout.md)
 
+## Phase 17 records
+
+- [Human-readable operator output investigation](docs/human-readable-operator-output-investigation.md)
+- [RFC-0048 human-readable inspection output](RFC/RFC-0048-human-readable-inspection-output.md)
+- [Human-readable inspection output proof runbook](docs/phase-17-human-readable-inspection-output-proof.md)
+- [Human-readable inspection output retained proof result](docs/phase-17-human-readable-inspection-output-proof-result.md)
+- [Phase 17 closeout](docs/phase-17-closeout.md)
+
 ## Post-roadmap ordinary remote request proof
 
 This standalone post-roadmap integration proof does not reopen or extend Phase
-16, and it does not establish a formal Phase 17. It composes existing accepted
-behavior without implementation changes: the unchanged
+16. It did not create, reopen, or extend a roadmap phase and remains separate
+from the later completed Phase 17 presentation work. It composes existing
+accepted behavior without implementation changes: the unchanged
 `home-ai-cluster-chat` client used only its fixed caller loopback endpoint and
 successfully reached a real ordinary remote receiver through the caller-owned
 static-cluster path. Exactly one client invocation returned a complete normalized

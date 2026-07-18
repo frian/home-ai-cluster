@@ -32,15 +32,17 @@ This checks only that every adapter declared by an ordinary local node resolves
 in the ordinary local adapter registry. A coherent report does not prove that a
 runtime, model, or application is available.
 
-Preflight results are human-readable by default. Automation that needs the
-structured preflight report must request it explicitly:
+Preflight and health results are human-readable by default. Automation that
+needs their structured reports must request them explicitly:
 
 ```sh
 uv run home-ai-cluster-preflight --json
+uv run home-ai-cluster-health --json
 ```
 
-This incremental output change applies only to preflight. The current health
-and status commands retain their existing structured-output behavior.
+This incremental output change applies to preflight and health. The current
+status command retains its existing structured-output behavior until its own
+implementation work is complete.
 
 ### 3. Run local health
 
@@ -50,6 +52,12 @@ uv run home-ai-cluster-health
 
 This observes the configured local runtime adapter. If it is not usable, repair
 or start the external runtime, confirm the required model, then rerun health.
+
+The default health report keeps declared state separate from adapter
+observations. A completed snapshot may show an `unavailable`, `missing`, or
+`probe-failed` adapter observation while the command itself still completes
+successfully. Use `uv run home-ai-cluster-health --json` when automation needs
+the existing compact structured snapshot.
 
 ### 4. Start the ordinary local-only application
 

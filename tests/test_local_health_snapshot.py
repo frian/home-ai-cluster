@@ -19,7 +19,9 @@ from home_ai_cluster.local_health_snapshot import (
     PROBE_FAILED_REASON,
     SNAPSHOT_FAILURE_MESSAGE,
     evaluate_health_snapshot,
+    format_health_snapshot,
     main,
+    parse_args,
     project_health_snapshot,
     project_local_cluster_status,
 )
@@ -245,7 +247,36 @@ def test_local_cluster_status_projection_performs_no_network_or_health_observati
     assert project_local_cluster_status(snapshot).runtime_status == "available"
 
 
-def test_main_emits_one_compact_json_object_and_exits_zero(
+def test_parse_args_selects_json_only_when_requested() -> None:
+    assert parse_args([]).json is False
+    assert parse_args(["--json"]).json is True
+    assert parse_args(["--json", "--json"]).json is True
+
+
+@pytest.mark.parametrize("argv", [["--json", "true"], ["--unknown"]])
+def test_invalid_arguments_do_not_evaluate_health_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    argv: list[str],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_evaluation() -> dict[str, object]:
+        raise AssertionError("invalid arguments must not evaluate health")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.local_health_snapshot.evaluate_health_snapshot",
+        fail_evaluation,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main(argv)
+
+    captured = capsys.readouterr()
+    assert raised.value.code != 0
+    assert captured.out == ""
+    assert "usage: home-ai-cluster-health" in captured.err
+
+
+def test_main_json_preserves_one_compact_json_object_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -270,11 +301,229 @@ def test_main_emits_one_compact_json_object_and_exits_zero(
         lambda: snapshot,
     )
 
-    main()
+    main(["--json"])
 
     captured = capsys.readouterr()
     assert captured.out == json.dumps(snapshot, separators=(",", ":")) + "\n"
     assert captured.err == ""
+    assert "Local health" not in captured.out
+
+
+def test_main_json_preserves_representative_observation_values_and_order(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "first",
+                "name": "First node",
+                "declared": {
+                    "availability": "available",
+                    "healthy": True,
+                    "reason": None,
+                    "capabilities": ["chat"],
+                    "adapters": ["available", "unavailable", "missing", "failed"],
+                },
+                "adapter_observations": [
+                    {"adapter": "available", "status": "available", "reason": None},
+                    {
+                        "adapter": "unavailable",
+                        "status": "unavailable",
+                        "reason": "runtime unavailable",
+                    },
+                    {
+                        "adapter": "missing",
+                        "status": "missing",
+                        "reason": MISSING_ADAPTER_REASON,
+                    },
+                    {
+                        "adapter": "failed",
+                        "status": "probe-failed",
+                        "reason": PROBE_FAILED_REASON,
+                    },
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        "home_ai_cluster.local_health_snapshot.evaluate_health_snapshot",
+        lambda: snapshot,
+    )
+
+    main(["--json"])
+
+    captured = capsys.readouterr()
+    assert captured.out == json.dumps(snapshot, separators=(",", ":")) + "\n"
+    assert captured.err == ""
+
+
+def test_main_defaults_to_human_readable_health_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "local",
+                "name": "Local node",
+                "declared": {
+                    "availability": "available",
+                    "healthy": True,
+                    "reason": None,
+                    "capabilities": ["chat"],
+                    "adapters": ["ollama"],
+                },
+                "adapter_observations": [
+                    {"adapter": "ollama", "status": "available", "reason": None}
+                ],
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        "home_ai_cluster.local_health_snapshot.evaluate_health_snapshot",
+        lambda: snapshot,
+    )
+
+    main([])
+
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "Local health\n\n"
+        "Nodes:\n"
+        "- local\n"
+        "  Name: Local node\n\n"
+        "  Declared state:\n"
+        "    Availability: available\n"
+        "    Healthy: true\n"
+        "    Reason: none\n"
+        "    Capabilities: chat\n"
+        "    Adapters: ollama\n\n"
+        "  Adapter observations:\n"
+        "  - Adapter: ollama\n"
+        "    Status: available\n"
+        "    Reason: none\n"
+    )
+    assert captured.err == ""
+    assert "{\"nodes\"" not in captured.out
+    assert "\x1b" not in captured.out
+
+
+def test_formats_declared_state_and_observations_without_synthesizing_health() -> None:
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "first",
+                "name": "First node",
+                "declared": {
+                    "availability": "available",
+                    "healthy": True,
+                    "reason": None,
+                    "capabilities": ["chat"],
+                    "adapters": ["available", "unavailable"],
+                },
+                "adapter_observations": [
+                    {"adapter": "available", "status": "available", "reason": None},
+                    {
+                        "adapter": "unavailable",
+                        "status": "unavailable",
+                        "reason": "runtime unavailable",
+                    },
+                ],
+            },
+            {
+                "node_id": "second",
+                "name": "Second node",
+                "declared": {
+                    "availability": "unavailable",
+                    "healthy": False,
+                    "reason": "declared maintenance",
+                    "capabilities": [],
+                    "adapters": ["missing", "failed"],
+                },
+                "adapter_observations": [
+                    {
+                        "adapter": "missing",
+                        "status": "missing",
+                        "reason": MISSING_ADAPTER_REASON,
+                    },
+                    {
+                        "adapter": "failed",
+                        "status": "probe-failed",
+                        "reason": PROBE_FAILED_REASON,
+                    },
+                ],
+            },
+        ]
+    }
+
+    rendered = format_health_snapshot(snapshot)
+
+    assert rendered == (
+        "Local health\n\n"
+        "Nodes:\n"
+        "- first\n"
+        "  Name: First node\n\n"
+        "  Declared state:\n"
+        "    Availability: available\n"
+        "    Healthy: true\n"
+        "    Reason: none\n"
+        "    Capabilities: chat\n"
+        "    Adapters: available, unavailable\n\n"
+        "  Adapter observations:\n"
+        "  - Adapter: available\n"
+        "    Status: available\n"
+        "    Reason: none\n"
+        "  - Adapter: unavailable\n"
+        "    Status: unavailable\n"
+        "    Reason: runtime unavailable\n\n"
+        "- second\n"
+        "  Name: Second node\n\n"
+        "  Declared state:\n"
+        "    Availability: unavailable\n"
+        "    Healthy: false\n"
+        "    Reason: declared maintenance\n"
+        "    Capabilities: none\n"
+        "    Adapters: missing, failed\n\n"
+        "  Adapter observations:\n"
+        "  - Adapter: missing\n"
+        f"    Status: missing\n    Reason: {MISSING_ADAPTER_REASON}\n"
+        "  - Adapter: failed\n"
+        f"    Status: probe-failed\n    Reason: {PROBE_FAILED_REASON}"
+    )
+    assert rendered.index("- first") < rendered.index("- second")
+    assert rendered.index("Adapter: available") < rendered.index("Adapter: unavailable")
+    assert "Overall health" not in rendered
+    assert "Health status" not in rendered
+    assert "Degraded" not in rendered
+    assert not rendered.endswith("\n")
+
+
+def test_formats_empty_collections_explicitly() -> None:
+    assert format_health_snapshot({"nodes": []}) == "Local health\n\nNodes: none"
+
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "empty",
+                "name": "Empty node",
+                "declared": {
+                    "availability": "unknown",
+                    "healthy": False,
+                    "reason": None,
+                    "capabilities": [],
+                    "adapters": [],
+                },
+                "adapter_observations": [],
+            }
+        ]
+    }
+
+    rendered = format_health_snapshot(snapshot)
+
+    assert "Capabilities: none" in rendered
+    assert "Adapters: none" in rendered
+    assert "Adapter observations: none" in rendered
 
 
 def test_main_reports_safe_error_for_whole_snapshot_failure(
@@ -290,7 +539,7 @@ def test_main_reports_safe_error_for_whole_snapshot_failure(
     )
 
     with pytest.raises(SystemExit) as raised:
-        main()
+        main([])
 
     captured = capsys.readouterr()
     assert raised.value.code != 0

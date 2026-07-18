@@ -117,6 +117,21 @@ operator contract and process preparation.
 - [Ordinary request access retained proof](docs/phase-16-ordinary-request-access-proof.md)
 - [Phase 16 closeout](docs/phase-16-closeout.md)
 
+## Post-roadmap ordinary remote request proof
+
+This standalone post-roadmap integration proof does not reopen or extend Phase
+16, and it does not establish a formal Phase 17. It composes existing accepted
+behavior without implementation changes: the unchanged
+`home-ai-cluster-chat` client used only its fixed caller loopback endpoint and
+successfully reached a real ordinary remote receiver through the caller-owned
+static-cluster path. Exactly one client invocation returned a complete normalized
+result attributed to the declared remote node ID. The client remained
+topology-blind throughout.
+
+See [the investigation](docs/phase-17-end-to-end-ordinary-remote-request-investigation.md),
+[the runbook](docs/end-to-end-ordinary-remote-request-proof-runbook.md), and
+[the retained proof](docs/end-to-end-ordinary-remote-request-proof.md).
+
 ## Requirements
 
 * Python 3.13 or 3.14
@@ -254,17 +269,14 @@ constraints. The proof does not imply support for every Aider mode.
 
 ## Two-machine proofs
 
-For the explicit RFC-0022 LAN-only proof, follow:
+The historical founding two-machine proof remains available through [the
+RFC-0022 LAN-only runbook](docs/static-two-machine-proof.md) and [its retained
+result](docs/first-two-machine-proof-result.md).
 
-```text
-docs/static-two-machine-proof.md
-```
-
-The first successful real two-machine execution is recorded in:
-
-```text
-docs/first-two-machine-proof-result.md
-```
+The newer [end-to-end ordinary remote request proof](docs/end-to-end-ordinary-remote-request-proof.md)
+records one unchanged ordinary client invocation reaching a real remote ordinary
+receiver through existing static-cluster fallback; [its runbook](docs/end-to-end-ordinary-remote-request-proof-runbook.md)
+records the bounded operator procedure.
 
 These proof paths are explicit and opt-in. They are not the default application
 configuration.

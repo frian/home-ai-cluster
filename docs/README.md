@@ -108,6 +108,21 @@ established at a specific stage and do not replace the current workflow.
   — retained real status evidence.
 - [Phase 15 closeout](phase-15-closeout.md) — completion summary.
 
+### Phase 16 — Ordinary operator request access
+
+- [Ordinary operator request access investigation](phase-16-ordinary-operator-request-access-investigation.md)
+  — identified the smallest ordinary operator access path and established the
+  need for RFC-0045.
+- [Ordinary request access proof runbook](phase-16-ordinary-request-access-proof-runbook.md)
+  — planned the real operator procedure and does not itself claim proof
+  execution.
+- [Ordinary request access retained proof](phase-16-ordinary-request-access-proof.md)
+  — retains privacy-safe real observations of unavailable ordinary process,
+  local-only success, runtime-unavailable failure, and explicit static-cluster
+  success; the static-cluster observation selected `local`.
+- [Phase 16 closeout](phase-16-closeout.md) — completion record for the bounded
+  one-shot ordinary request access phase.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

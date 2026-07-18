@@ -483,50 +483,34 @@ See [the Phase 15 closeout](docs/phase-15-closeout.md) and
 
 ## Phase 16 — Ordinary operator request access
 
-Goal:
+Status: Complete
 
-Let an operator send one ordinary capability-centered request through the
-existing cluster-native contract without manually constructing HTTP transport
-details.
-
-Expected outcomes:
-
-* the existing ordinary cluster process remains the request target;
-* one operator-facing access path can submit exactly one request and receive
-  exactly one normalized response or safe failure;
-* request construction remains capability-centered;
-* the access path does not expose node, adapter, runtime, or model selection;
-* transport details such as the HTTP method, endpoint path, headers, JSON
-  envelope, response parsing, and safe failure handling no longer need to be
-  reconstructed manually for each request;
-* the existing cluster-native request, routing, adapter, result, attribution,
-  and failure boundaries remain authoritative;
-* no prompt or generated response is retained by Home AI Cluster;
-* one retained privacy-safe operator proof demonstrates the confirmed minimal
-  access path.
-
-This phase should investigate the smallest ordinary request-access surface before
-choosing its interface. A small one-shot command may be the simplest solution,
-but the roadmap does not decide that in advance. Documentation improvements, a
-maintained script, or another thin local client of the existing cluster-native
-contract should be compared first.
-
-The investigation must define the ownership of request input, cluster target,
-output, safe failures, process exit behavior, and message privacy. It must also
-determine whether the selected access surface introduces an architectural
-contract requiring an accepted RFC before implementation.
-
-This phase does not add a conversational session, persistent history, a database,
-streaming, tools, multimodal input, generation controls, a new routing policy, a
-new protocol, a new endpoint, direct runtime access, request-level node selection,
-request-level adapter selection, request-level runtime selection, request-level
-model selection, discovery, scheduling, supervision, lifecycle management, a
-dashboard, Docker, or Kubernetes.
-
-Success means:
+Phase 16 fulfilled its original objective:
 
 > One operator can send one ordinary capability-centered request without manually
 > constructing transport details.
+
+The installed `home-ai-cluster-chat` command accepts one required `--message`
+value and sends one request to the already running ordinary process through the
+fixed native loopback `/v1/chat` boundary. It constructs the fixed `chat`
+capability, returns one complete normalized `ClusterResult`, and uses stable
+privacy-safe failures.
+
+The same client invocation works with local-only and explicit static-cluster
+processes. The client adds no topology, routing, runtime, node, model,
+declaration, retry, fallback, history, configuration, startup, or supervision
+behavior; those concerns remain process-owned.
+
+The retained proof used one physical machine and the Ollama runtime family. Its
+static-cluster request selected `local`; it did not demonstrate remote execution
+or real network transport. Remote execution was not a Phase 16 completion
+criterion.
+
+See [the investigation](docs/phase-16-ordinary-operator-request-access-investigation.md),
+[RFC-0045](RFC/RFC-0045-one-shot-ordinary-request-command.md),
+[the proof runbook](docs/phase-16-ordinary-request-access-proof-runbook.md),
+[the retained proof](docs/phase-16-ordinary-request-access-proof.md), and
+[the Phase 16 closeout](docs/phase-16-closeout.md).
 
 ---
 

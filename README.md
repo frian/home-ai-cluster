@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with completed roadmap phases through Phase 15.
+Status: early prototype with completed roadmap phases through Phase 16.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
 presented as one capability-centered local system:
@@ -90,6 +90,32 @@ reproduction and focused verification. They do not turn the ordinary application
 into a general distributed deployment. The Phase 12 heterogeneous receiver
 remains proof-only historical evidence; ordinary llama-server operation uses
 `home-ai-cluster-local`.
+
+## One-shot ordinary request access
+
+With an ordinary local-only or explicit static-cluster process already running,
+an operator can send one ordinary request without manually constructing HTTP
+details:
+
+```sh
+uv run home-ai-cluster-chat --message "Hello"
+```
+
+The command is a topology-blind client of the already running ordinary process;
+it does not start, configure, inspect, or manage that process. The same command
+works for local-only and explicit static-cluster operation and returns one
+normalized result with cluster-owned `node_id` attribution. See the
+[Phase 16 closeout](docs/phase-16-closeout.md) and the
+[canonical operator workflow](docs/operator-workflow.md) for the bounded
+operator contract and process preparation.
+
+## Phase 16 records
+
+- [Ordinary operator request access investigation](docs/phase-16-ordinary-operator-request-access-investigation.md)
+- [RFC-0045 one-shot ordinary request command](RFC/RFC-0045-one-shot-ordinary-request-command.md)
+- [Ordinary request access proof runbook](docs/phase-16-ordinary-request-access-proof-runbook.md)
+- [Ordinary request access retained proof](docs/phase-16-ordinary-request-access-proof.md)
+- [Phase 16 closeout](docs/phase-16-closeout.md)
 
 ## Requirements
 

@@ -32,6 +32,16 @@ This checks only that every adapter declared by an ordinary local node resolves
 in the ordinary local adapter registry. A coherent report does not prove that a
 runtime, model, or application is available.
 
+Preflight results are human-readable by default. Automation that needs the
+structured preflight report must request it explicitly:
+
+```sh
+uv run home-ai-cluster-preflight --json
+```
+
+This incremental output change applies only to preflight. The current health
+and status commands retain their existing structured-output behavior.
+
 ### 3. Run local health
 
 ```sh

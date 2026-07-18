@@ -19,6 +19,7 @@ from home_ai_cluster.static_preflight import (
     PREFLIGHT_FAILURE_MESSAGE,
     evaluate_static_multi_node_preflight,
     evaluate_static_preflight,
+    format_static_preflight_report,
     main,
     parse_args,
     project_static_preflight,
@@ -185,8 +186,42 @@ def test_evaluate_uses_ordinary_static_local_registries(
 def test_parse_args_preserves_local_only_without_remote_declaration() -> None:
     args = parse_args([])
 
+    assert args.json is False
     assert args.remote_node_id is None
     assert args.remote_base_url is None
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--json"],
+        ["--declaration", "cluster.toml", "--json"],
+        [
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-base-url",
+            "https://remote.example",
+            "--json",
+        ],
+    ],
+)
+def test_parse_args_accepts_json_for_each_valid_preflight_mode(
+    argv: list[str],
+) -> None:
+    assert parse_args(argv).json is True
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--json", "true"],
+        ["--declaration", "cluster.toml", "--json", "true"],
+        ["--json", "--unexpected"],
+    ],
+)
+def test_parse_args_rejects_invalid_json_usage(argv: list[str]) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(argv)
 
 
 @pytest.mark.parametrize(
@@ -211,6 +246,15 @@ def test_parse_args_preserves_local_only_without_remote_declaration() -> None:
             "declared-remote",
             "--remote-base-url",
             "remote.example",
+        ],
+        [
+            "--declaration",
+            "cluster.toml",
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-base-url",
+            "https://remote.example",
+            "--json",
         ],
     ],
 )
@@ -282,7 +326,7 @@ def test_multi_node_preflight_does_not_resolve_remote_http_boundary_locally() ->
     assert report["nodes"][-1]["declared_adapters"] == [REMOTE_HTTP_ADAPTER_NAME]
 
 
-def test_main_emits_compact_coherent_report_and_exits_zero(
+def test_main_json_emits_compact_coherent_report_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -298,14 +342,15 @@ def test_main_emits_compact_coherent_report_and_exits_zero(
         lambda: report,
     )
 
-    main([])
+    main(["--json"])
 
     captured = capsys.readouterr()
     assert captured.out == json.dumps(report, separators=(",", ":")) + "\n"
     assert captured.err == ""
+    assert "Preflight:" not in captured.out
 
 
-def test_main_emits_static_multi_node_report_without_remote_url(
+def test_main_json_emits_static_multi_node_report_without_remote_url(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -334,6 +379,7 @@ def test_main_emits_static_multi_node_report_without_remote_url(
             "declared-remote",
             "--remote-base-url",
             remote_url,
+            "--json",
         ]
     )
 
@@ -344,7 +390,7 @@ def test_main_emits_static_multi_node_report_without_remote_url(
     assert remote_url not in captured.out
 
 
-def test_main_emits_incoherent_report_and_exits_nonzero(
+def test_main_json_emits_incoherent_report_and_exits_nonzero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -368,12 +414,220 @@ def test_main_emits_incoherent_report_and_exits_nonzero(
     )
 
     with pytest.raises(SystemExit) as raised:
-        main([])
+        main(["--json"])
 
     captured = capsys.readouterr()
     assert raised.value.code != 0
     assert captured.out == json.dumps(report, separators=(",", ":")) + "\n"
     assert captured.err == ""
+
+
+def test_main_human_emits_coherent_local_only_report(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report = {
+        "status": "coherent",
+        "operating_mode": "local-only",
+        "nodes": [
+            {
+                "node_id": "local",
+                "capabilities": ["chat"],
+                "declared_adapters": ["ollama"],
+            }
+        ],
+        "registered_adapters": ["ollama"],
+        "issues": [],
+    }
+    monkeypatch.setattr(
+        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        lambda: report,
+    )
+
+    main([])
+
+    captured = capsys.readouterr()
+    assert captured.out == (
+        "Preflight: coherent\n"
+        "Operating mode: local-only\n"
+        "\n"
+        "Nodes:\n"
+        "- local\n"
+        "  Capabilities: chat\n"
+        "  Declared adapters: ollama\n"
+        "\n"
+        "Registered adapters: ollama\n"
+        "Issues: none\n"
+    )
+    assert captured.err == ""
+    assert "\x1b[" not in captured.out
+    assert not captured.out.lstrip().startswith("{")
+
+
+def test_main_human_emits_incoherent_report_and_exits_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report = {
+        "status": "incoherent",
+        "operating_mode": "local-only",
+        "nodes": [
+            {
+                "node_id": "local",
+                "capabilities": ["chat"],
+                "declared_adapters": ["missing-adapter"],
+            }
+        ],
+        "registered_adapters": ["ollama"],
+        "issues": [
+            {
+                "status": "missing-adapter",
+                "node_id": "local",
+                "adapter": "missing-adapter",
+                "reason": MISSING_ADAPTER_REASON,
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        lambda: report,
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main([])
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 1
+    assert captured.out == (
+        "Preflight: incoherent\n"
+        "Operating mode: local-only\n"
+        "\n"
+        "Nodes:\n"
+        "- local\n"
+        "  Capabilities: chat\n"
+        "  Declared adapters: missing-adapter\n"
+        "\n"
+        "Registered adapters: ollama\n"
+        "\n"
+        "Issues:\n"
+        "- Status: missing-adapter\n"
+        "  Node: local\n"
+        "  Adapter: missing-adapter\n"
+        f"  Reason: {MISSING_ADAPTER_REASON}\n"
+    )
+    assert captured.err == ""
+
+
+def test_format_static_preflight_report_preserves_node_and_issue_order() -> None:
+    report = {
+        "status": "incoherent",
+        "operating_mode": "static-multi-node",
+        "nodes": [
+            {
+                "node_id": "local",
+                "capabilities": ["chat", "code"],
+                "declared_adapters": ["ollama", "missing-a"],
+            },
+            {
+                "node_id": "remote",
+                "capabilities": ["chat"],
+                "declared_adapters": ["remote-http"],
+            },
+        ],
+        "registered_adapters": ["ollama", "llama-server"],
+        "issues": [
+            {
+                "status": "missing-adapter",
+                "node_id": "local",
+                "adapter": "missing-a",
+                "reason": "first issue",
+            },
+            {
+                "status": "missing-adapter",
+                "node_id": "remote",
+                "adapter": "missing-b",
+                "reason": "second issue",
+            },
+        ],
+    }
+
+    formatted = format_static_preflight_report(report)
+
+    assert formatted == (
+        "Preflight: incoherent\n"
+        "Operating mode: static-multi-node\n"
+        "\n"
+        "Nodes:\n"
+        "- local\n"
+        "  Capabilities: chat, code\n"
+        "  Declared adapters: ollama, missing-a\n"
+        "- remote\n"
+        "  Capabilities: chat\n"
+        "  Declared adapters: remote-http\n"
+        "\n"
+        "Registered adapters: ollama, llama-server\n"
+        "\n"
+        "Issues:\n"
+        "- Status: missing-adapter\n"
+        "  Node: local\n"
+        "  Adapter: missing-a\n"
+        "  Reason: first issue\n"
+        "- Status: missing-adapter\n"
+        "  Node: remote\n"
+        "  Adapter: missing-b\n"
+        "  Reason: second issue"
+    )
+    assert not formatted.endswith("\n")
+    assert "\x1b[" not in formatted
+
+
+def test_format_static_preflight_report_makes_empty_values_explicit() -> None:
+    report = {
+        "status": "coherent",
+        "operating_mode": "local-only",
+        "nodes": [
+            {
+                "node_id": "local",
+                "capabilities": [],
+                "declared_adapters": [],
+            }
+        ],
+        "registered_adapters": [],
+        "issues": [],
+    }
+
+    assert format_static_preflight_report(report) == (
+        "Preflight: coherent\n"
+        "Operating mode: local-only\n"
+        "\n"
+        "Nodes:\n"
+        "- local\n"
+        "  Capabilities: none\n"
+        "  Declared adapters: none\n"
+        "\n"
+        "Registered adapters: none\n"
+        "Issues: none"
+    )
+
+
+def test_format_static_preflight_report_makes_empty_nodes_explicit() -> None:
+    report = {
+        "status": "coherent",
+        "operating_mode": "local-only",
+        "nodes": [],
+        "registered_adapters": [],
+        "issues": [],
+    }
+
+    assert format_static_preflight_report(report) == (
+        "Preflight: coherent\n"
+        "Operating mode: local-only\n"
+        "\n"
+        "Nodes: none\n"
+        "\n"
+        "Registered adapters: none\n"
+        "Issues: none"
+    )
 
 
 def test_main_reports_safe_construction_failure(

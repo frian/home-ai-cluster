@@ -3,7 +3,7 @@
 import argparse
 import json
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -168,11 +168,72 @@ def evaluate_static_declarations_preflight(
     )
 
 
+def format_static_preflight_report(report: Mapping[str, Any]) -> str:
+    """Format one completed preflight report for ordinary terminal use."""
+    lines = [
+        f"Preflight: {_format_value(report['status'])}",
+        f"Operating mode: {_format_value(report['operating_mode'])}",
+        "",
+    ]
+
+    nodes = report["nodes"]
+    if nodes:
+        lines.append("Nodes:")
+        for node in nodes:
+            lines.extend(
+                [
+                    f"- {_format_value(node['node_id'])}",
+                    f"  Capabilities: {_format_values(node['capabilities'])}",
+                    (
+                        "  Declared adapters: "
+                        f"{_format_values(node['declared_adapters'])}"
+                    ),
+                ]
+            )
+    else:
+        lines.append("Nodes: none")
+
+    lines.extend(
+        [
+            "",
+            f"Registered adapters: {_format_values(report['registered_adapters'])}",
+        ]
+    )
+
+    issues = report["issues"]
+    if issues:
+        lines.extend(["", "Issues:"])
+        for issue in issues:
+            lines.extend(
+                [
+                    f"- Status: {_format_value(issue['status'])}",
+                    f"  Node: {_format_value(issue['node_id'])}",
+                    f"  Adapter: {_format_value(issue['adapter'])}",
+                    f"  Reason: {_format_value(issue['reason'])}",
+                ]
+            )
+    else:
+        lines.append("Issues: none")
+
+    return "\n".join(lines)
+
+
+def _format_values(values: Sequence[Any]) -> str:
+    if not values:
+        return "none"
+    return ", ".join(_format_value(value) for value in values)
+
+
+def _format_value(value: object) -> str:
+    return "none" if value is None else str(value)
+
+
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-preflight")
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    parser.add_argument("--json", action="store_true")
     return parser
 
 
@@ -195,7 +256,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Emit one compact RFC-0036 preflight report and its operator exit status."""
+    """Emit one RFC-0036 preflight report and its operator exit status."""
     args = parse_args(argv)
 
     try:
@@ -216,7 +277,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         print(PREFLIGHT_FAILURE_MESSAGE, file=sys.stderr)
         raise SystemExit(1) from error
 
-    print(json.dumps(report, separators=(",", ":")))
+    if args.json:
+        print(json.dumps(report, separators=(",", ":")))
+    else:
+        print(format_static_preflight_report(report))
 
     if report["status"] == "incoherent":
         raise SystemExit(1)

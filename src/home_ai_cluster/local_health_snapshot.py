@@ -1,8 +1,9 @@
 """Explicit RFC-0033 local node and adapter health snapshot command."""
 
+import argparse
 import json
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from home_ai_cluster.api.wiring import (
@@ -140,12 +141,88 @@ def project_local_cluster_status(
     )
 
 
-def main() -> None:
-    """Emit one compact RFC-0033 local health snapshot JSON object."""
+def format_health_snapshot(snapshot: Mapping[str, Any]) -> str:
+    """Format one completed local health snapshot for ordinary terminal use."""
+    lines = ["Local health", ""]
+    nodes = snapshot["nodes"]
+
+    if not nodes:
+        lines.append("Nodes: none")
+        return "\n".join(lines)
+
+    lines.append("Nodes:")
+    for node_index, node in enumerate(nodes):
+        if node_index:
+            lines.append("")
+
+        declared = node["declared"]
+        lines.extend(
+            [
+                f"- {_format_value(node['node_id'])}",
+                f"  Name: {_format_value(node['name'])}",
+                "",
+                "  Declared state:",
+                f"    Availability: {_format_value(declared['availability'])}",
+                f"    Healthy: {_format_value(declared['healthy'])}",
+                f"    Reason: {_format_value(declared['reason'])}",
+                f"    Capabilities: {_format_values(declared['capabilities'])}",
+                f"    Adapters: {_format_values(declared['adapters'])}",
+                "",
+            ]
+        )
+
+        observations = node["adapter_observations"]
+        if observations:
+            lines.append("  Adapter observations:")
+            for observation in observations:
+                lines.extend(
+                    [
+                        f"  - Adapter: {_format_value(observation['adapter'])}",
+                        f"    Status: {_format_value(observation['status'])}",
+                        f"    Reason: {_format_value(observation['reason'])}",
+                    ]
+                )
+        else:
+            lines.append("  Adapter observations: none")
+
+    return "\n".join(lines)
+
+
+def _format_values(values: Sequence[Any]) -> str:
+    if not values:
+        return "none"
+    return ", ".join(_format_value(value) for value in values)
+
+
+def _format_value(value: object) -> str:
+    if value is None:
+        return "none"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _create_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="home-ai-cluster-health")
+    parser.add_argument("--json", action="store_true")
+    return parser
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    """Parse the selected local health snapshot output format."""
+    return _create_argument_parser().parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """Emit one RFC-0033 local health snapshot in the selected output format."""
+    args = parse_args(argv)
     try:
         snapshot = evaluate_health_snapshot()
     except Exception as error:
         print(SNAPSHOT_FAILURE_MESSAGE, file=sys.stderr)
         raise SystemExit(1) from error
 
-    print(json.dumps(snapshot, separators=(",", ":")))
+    if args.json:
+        print(json.dumps(snapshot, separators=(",", ":")))
+    else:
+        print(format_health_snapshot(snapshot))

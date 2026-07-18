@@ -63,7 +63,7 @@ The calling machine ran:
 
 The receiving machine ran:
 
-- an operator-managed Ollama runtime with `llama3.2:1` available locally; and
+- an operator-managed Ollama runtime with `llama3.2:1b` available locally; and
 - an ordinary `home-ai-cluster-local` process exposed only for the trusted-LAN
   proof boundary.
 
@@ -151,10 +151,10 @@ or unnecessary runtime detail.
 
 ## Cleanup
 
-Operator-controlled cleanup was completed: the ordinary static-cluster caller
-and ordinary receiving application were stopped, the temporary declaration was
-removed or securely handled, any temporary firewall exposure was removed when
-used, and no proof-specific Home AI Cluster process remained.
+The runbook required operator-controlled cleanup of the ordinary static-cluster
+caller, ordinary receiving application, temporary declaration, and any temporary
+firewall exposure. Cleanup completion was not part of the retained observations,
+so this record makes no claim that those steps were completed.
 
 ## Result
 

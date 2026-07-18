@@ -60,6 +60,8 @@ established at a specific stage and do not replace the current workflow.
   — investigation of ordinary tool access.
 - [Aider access proof](phase-6-aider-access-proof.md) — retained real Aider
   integration evidence.
+- [Aider static-cluster compatibility proof](aider-static-cluster-proof.md) —
+  retained privacy-safe evidence of one bounded two-machine Aider execution.
 
 ### Phase 8 — Operable local cluster
 

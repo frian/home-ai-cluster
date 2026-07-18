@@ -514,6 +514,86 @@ See [the investigation](docs/phase-16-ordinary-operator-request-access-investiga
 
 ---
 
+## Phase 17 — Human-readable operator inspection output
+
+Goal:
+
+Make the existing finite preflight, health, and status results directly
+understandable during ordinary interactive terminal use while preserving one
+explicit stable machine-readable representation.
+
+This phase is justified by one retained real [daily operator exercise](docs/daily-operator-workflow-evidence-result.md),
+the compact-JSON readability friction observed there, and the completed
+[human-readable operator output investigation](docs/human-readable-operator-output-investigation.md).
+It concerns presentation of existing results only.
+
+Expected outcomes:
+
+* human-readable presentation for ordinary static preflight, local health, and
+  static-cluster status;
+* one explicit stable machine-readable representation remains available for
+  each included command;
+* existing result fields, vocabularies, ordering, privacy boundaries, and
+  observation semantics remain unchanged;
+* stdout, stderr, and exit-status behavior are explicitly defined;
+* current structured consumers have a documented compatibility or migration
+  path;
+* one retained privacy-safe operator proof verifies interactive readability and
+  machine-readable preservation; and
+* no implicit TTY-dependent behavior unless a future accepted RFC explicitly
+  justifies it.
+
+The initial implementation scope is limited to
+`home-ai-cluster-preflight`, `home-ai-cluster-health`, and
+`home-ai-cluster-status`. These are finite inspection commands in the ordinary
+operator workflow, expose no prompt or generated response, have directly
+observed readability friction, and already return structured results suitable
+for bounded projection.
+
+The phase does not initially include `home-ai-cluster-chat`, request history or
+history clearing, routing explanation, actual-request explanation, proof-scoped
+commands, long-running application commands, server logs, or OpenAI-compatible
+responses. Those surfaces may be investigated separately only if real evidence
+justifies them.
+
+It also excludes domain-model or result-vocabulary changes; new observations;
+routing, fallback, declaration, or health-semantics changes; retries; polling
+or watch mode; progress bars; spinners; required color; curses or interactive
+terminal UI; dashboards; localization; global CLI framework migration;
+presentation configuration files; telemetry; lifecycle automation; process
+supervision; service-manager integration; remote lifecycle authority; and
+database, Docker, or Kubernetes work.
+
+Repository tests demonstrate current structured stdout consumption. The
+repository does not prove external script consumers, but the absence of known
+external consumers does not make installed-command output disposable. Before
+implementation, an accepted RFC must define how current machine-readable
+behavior is preserved or migrated; this roadmap entry does not promise
+byte-for-byte JSON preservation.
+
+The following are architectural or compatibility-sensitive decisions requiring
+further investigation and an accepted RFC before implementation:
+
+* default human-readable versus default machine-readable output;
+* flag or argument shape;
+* the exact machine-readable compatibility guarantee;
+* stdout and stderr allocation;
+* exit-status preservation;
+* command-specific versus shared presentation code;
+* behavior for incoherent or partially unavailable results; and
+* migration from the current stdout contract.
+
+No output default, flag name, TTY detection, separate command, shared renderer,
+or third-party terminal-formatting library is selected by this phase.
+
+Success means:
+
+> One operator can understand ordinary preflight, health, and status results
+> directly in a terminal while one explicit stable machine-readable
+> representation remains available.
+
+---
+
 ## Standalone post-roadmap integration proof
 
 Status: Complete

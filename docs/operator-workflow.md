@@ -32,17 +32,18 @@ This checks only that every adapter declared by an ordinary local node resolves
 in the ordinary local adapter registry. A coherent report does not prove that a
 runtime, model, or application is available.
 
-Preflight and health results are human-readable by default. Automation that
-needs their structured reports must request them explicitly:
+Preflight, health, and status results are human-readable by default. Automation
+that needs their structured reports must request them explicitly:
 
 ```sh
 uv run home-ai-cluster-preflight --json
 uv run home-ai-cluster-health --json
+uv run home-ai-cluster-status --declaration <DECLARATION_PATH> --json
 ```
 
-This incremental output change applies to preflight and health. The current
-status command retains its existing structured-output behavior until its own
-implementation work is complete.
+This incremental output change applies to preflight, health, and status. Their
+plain-text output is for ordinary operators; the explicit `--json` form retains
+the compact structured output for automation.
 
 ### 3. Run local health
 
@@ -203,6 +204,12 @@ separate local runtime status, remote application reachability, and remote
 runtime availability. The fixed local node is first; each declared remote is
 observed in declaration order. This operation does not start or stop runtimes,
 repair services, mutate declarations, poll, or watch.
+
+Status is human-readable by default. Use
+`uv run home-ai-cluster-status --declaration "$DECLARATION" --json` when
+automation needs the compact structured result. `unreachable`, `request-failed`,
+`invalid-response`, `unavailable`, `observation-failed`, and `unknown` are
+normalized result data in a completed status result, not whole-command failures.
 
 If a receiver is unreachable, first check the retained declaration and receiving
 process. Do not interpret that result automatically as a network fault. Correct

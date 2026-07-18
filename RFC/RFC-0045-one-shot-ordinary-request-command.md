@@ -1,6 +1,6 @@
 # RFC-0045: One-shot ordinary request command
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-18
 
@@ -35,8 +35,10 @@ construction without changing the native protocol. See
 
 ## Decision
 
-Pending review. This RFC proposes that Home AI Cluster provide the
-`home-ai-cluster-chat` command with the following operator contract.
+Accepted.
+
+Home AI Cluster will provide `home-ai-cluster-chat` with the one-shot ordinary
+native request contract defined by this RFC.
 
 ## Command contract
 

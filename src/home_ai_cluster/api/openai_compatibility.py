@@ -1,7 +1,9 @@
 """Minimal OpenAI-compatible public-edge chat translation."""
 
+import asyncio
 import json
 import re
+import sys
 import time
 import uuid
 from typing import Literal
@@ -24,6 +26,20 @@ COMPATIBILITY_MODEL = "home-ai-cluster"
 _AUTHORIZATION_PATTERN = re.compile(r"^Bearer [^\s,]+$", re.IGNORECASE)
 
 compatibility_router = APIRouter()
+
+
+class ProofObservationState:
+    """Process-local accepted-request counting for RFC-0047 only."""
+
+    def __init__(self) -> None:
+        self._accepted_request_count = 0
+        self._lock = asyncio.Lock()
+
+    async def count_accepted_request(self) -> int:
+        """Return the next distinct positive count without serializing execution."""
+        async with self._lock:
+            self._accepted_request_count += 1
+            return self._accepted_request_count
 
 
 class CompatibilityMessage(BaseModel):
@@ -198,6 +214,26 @@ def _compatibility_response(result: ClusterResult) -> CompatibilityResponse:
     )
 
 
+def _write_proof_observation_line(
+    accepted_request_count: int | None,
+    *,
+    outcome: Literal["success", "failure"],
+    result_node_id: str,
+) -> None:
+    """Best-effort RFC-0047 process output without retaining request results."""
+    if accepted_request_count is None:
+        return
+
+    try:
+        sys.stderr.write(
+            "proof_observation "
+            f"accepted_request={accepted_request_count} "
+            f"outcome={outcome} result_node_id={result_node_id}\n"
+        )
+    except (OSError, ValueError):
+        pass
+
+
 @compatibility_router.post("/v1/chat/completions", response_model=CompatibilityResponse)
 async def chat_completions(request: Request) -> JSONResponse:
     """Translate the RFC-0031 subset into the existing cluster chat flow."""
@@ -212,6 +248,17 @@ async def chat_completions(request: Request) -> JSONResponse:
     compatibility_request = _validate_compatibility_request(body)
     if isinstance(compatibility_request, JSONResponse):
         return compatibility_request
+
+    proof_observation_state = getattr(
+        request.app.state,
+        "proof_observation_state",
+        None,
+    )
+    accepted_request_count = (
+        await proof_observation_state.count_accepted_request()
+        if proof_observation_state is not None
+        else None
+    )
 
     cluster_request = ClusterRequest(
         messages=[
@@ -246,31 +293,53 @@ async def chat_completions(request: Request) -> JSONResponse:
             )
     except HTTPException as error:
         if error.status_code == 404:
-            return compatibility_error(
+            error_response = compatibility_error(
                 503,
                 "No available chat capability",
                 "server_error",
             )
-        if error.status_code == 503:
-            return compatibility_error(
+        elif error.status_code == 503:
+            error_response = compatibility_error(
                 503,
                 "Runtime adapter unavailable",
                 "server_error",
             )
-        return compatibility_error(500, "Internal server error", "server_error")
+        else:
+            error_response = compatibility_error(
+                500,
+                "Internal server error",
+                "server_error",
+            )
     except NoMatchingAdapterError:
-        return compatibility_error(
+        error_response = compatibility_error(
             503,
             "No available chat capability",
             "server_error",
         )
     except RuntimeAdapterUnavailableError:
-        return compatibility_error(
+        error_response = compatibility_error(
             503,
             "Runtime adapter unavailable",
             "server_error",
         )
     except Exception:
-        return compatibility_error(500, "Internal server error", "server_error")
+        error_response = compatibility_error(
+            500,
+            "Internal server error",
+            "server_error",
+        )
 
-    return JSONResponse(content=_compatibility_response(result).model_dump())
+    else:
+        _write_proof_observation_line(
+            accepted_request_count,
+            outcome="success",
+            result_node_id=result.node_id,
+        )
+        return JSONResponse(content=_compatibility_response(result).model_dump())
+
+    _write_proof_observation_line(
+        accepted_request_count,
+        outcome="failure",
+        result_node_id="none",
+    )
+    return error_response

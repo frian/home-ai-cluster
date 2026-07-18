@@ -488,7 +488,7 @@ Status: Complete
 Phase 16 fulfilled its original objective:
 
 > One operator can send one ordinary capability-centered request without manually
-> constructing transport details.
+> constructing HTTP transport details.
 
 The installed `home-ai-cluster-chat` command accepts one required `--message`
 value and sends one request to the already running ordinary process through the

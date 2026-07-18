@@ -224,6 +224,19 @@ This is the only compatibility static-cluster mode. It reuses the ordinary
 static-cluster declaration validation and local-first routing while retaining
 the same loopback-only listener and RFC-0031 compatibility contract.
 
+For the separately planned static-cluster proof only, an operator may explicitly
+enable the accepted bounded observation mode:
+
+```sh
+uv run home-ai-cluster-openai-compatibility \
+  --declaration <path> \
+  --proof-observation
+```
+
+It writes one final, content-free structural line to standard error for each
+strictly accepted request. It is disabled by default, does not change HTTP or
+routing behavior, and does not retain request observations.
+
 Its base URL is:
 
 ```text

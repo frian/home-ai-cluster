@@ -7,7 +7,10 @@ import pytest
 from fastapi import FastAPI, HTTPException
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
-from home_ai_cluster.api.openai_compatibility import COMPATIBILITY_MODEL
+from home_ai_cluster.api.openai_compatibility import (
+    COMPATIBILITY_MODEL,
+    ProofObservationState,
+)
 from home_ai_cluster.core.models import Capability, ClusterRequest, ClusterResult
 from home_ai_cluster.core.router import NoMatchingAdapterError
 from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
@@ -20,6 +23,7 @@ from home_ai_cluster.openai_compatibility import (
     main,
     parse_args,
 )
+from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 
 
 def compatibility_payload(**overrides: object) -> dict[str, object]:
@@ -132,9 +136,32 @@ def test_compatibility_app_keeps_default_local_app_composition() -> None:
 
 def test_parse_args_accepts_only_the_optional_declaration() -> None:
     assert parse_args([]).declaration is None
+    assert parse_args([]).proof_observation is False
     assert parse_args(["--declaration", "cluster.toml"]).declaration == Path(
         "cluster.toml"
     )
+    assert parse_args(["--declaration", "cluster.toml"]).proof_observation is False
+    assert (
+        parse_args(
+            ["--declaration", "cluster.toml", "--proof-observation"]
+        ).proof_observation
+        is True
+    )
+
+
+def test_proof_observation_without_declaration_stops_before_listener_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import openai_compatibility
+
+    monkeypatch.setattr(
+        openai_compatibility.uvicorn,
+        "run",
+        lambda *_args, **_kwargs: pytest.fail("listener must not start"),
+    )
+
+    with pytest.raises(SystemExit):
+        main(["--proof-observation"])
 
 
 def test_main_keeps_no_argument_compatibility_construction(
@@ -242,6 +269,57 @@ def test_main_loads_declaration_before_static_compatibility_startup(
     assert recorded["port"] == COMPATIBILITY_PORT
 
 
+def test_main_enables_proof_observation_only_for_a_declaration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import openai_compatibility
+
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        'remote_node_id = "remote-a"\n'
+        'remote_base_url = "https://remote-a.example:8000"\n',
+        encoding="utf-8",
+    )
+    app = FastAPI()
+    recorded: dict[str, object] = {}
+
+    def create_static_app(
+        remote_nodes: object,
+        *,
+        local_app_composition: object,
+        proof_observation: bool = False,
+    ) -> FastAPI:
+        recorded.update(
+            remote_nodes=remote_nodes,
+            local_app_composition=local_app_composition,
+            proof_observation=proof_observation,
+        )
+        return app
+
+    monkeypatch.setattr(
+        openai_compatibility,
+        "create_static_cluster_openai_compatibility_app",
+        create_static_app,
+    )
+    monkeypatch.setattr(
+        openai_compatibility.uvicorn,
+        "run",
+        lambda actual_app, *, host, port: recorded.update(
+            app=actual_app,
+            host=host,
+            port=port,
+        ),
+    )
+
+    main(["--declaration", str(declaration_path), "--proof-observation"])
+
+    assert recorded["proof_observation"] is True
+    assert recorded["app"] is app
+    assert recorded["host"] == "127.0.0.1"
+    assert recorded["port"] == 8001
+
+
 def test_invalid_declaration_stops_before_listener_startup(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -262,18 +340,18 @@ def test_invalid_declaration_stops_before_listener_startup(
     )
 
     with pytest.raises(SystemExit):
-        main(["--declaration", str(declaration_path)])
+        main(["--declaration", str(declaration_path), "--proof-observation"])
 
     captured = capsys.readouterr().err
     assert "invalid remote base URL declaration" in captured
     assert private_host not in captured
+    assert "proof_observation" not in captured
 
 
 def test_static_compatibility_route_uses_existing_collection_wiring(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
-    from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 
     app = create_static_cluster_openai_compatibility_app(
         [
@@ -314,6 +392,256 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
     remote_registry = app.state.static_remote_collection_wiring.remote_registry
     assert remote_registry.list_declarations()[0].node.id == "remote"
     asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+@pytest.fixture
+def proof_observation_app() -> FastAPI:
+    app = create_static_cluster_openai_compatibility_app(
+        [
+            RemoteNodeDeclaration(
+                node_id="remote-a",
+                base_url="https://remote-a.example:8000",
+            )
+        ],
+        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+        proof_observation=True,
+    )
+    yield app
+    asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+def _set_successful_cluster_result(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    node_id: str = "remote-a",
+) -> None:
+    from home_ai_cluster.api import openai_compatibility
+
+    async def handle(*_args: object, **_kwargs: object) -> ClusterResult:
+        return ClusterResult(
+            content="Cluster response",
+            adapter="test-adapter",
+            model="actual-model",
+            node_id=node_id,
+        )
+
+    monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
+
+
+def test_static_compatibility_without_proof_observation_keeps_no_state_or_output(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    app = create_static_cluster_openai_compatibility_app(
+        [
+            RemoteNodeDeclaration(
+                node_id="remote-a",
+                base_url="https://remote-a.example:8000",
+            )
+        ],
+        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+    )
+    _set_successful_cluster_result(monkeypatch)
+
+    response = post(app, payload=compatibility_payload())
+
+    assert response.status_code == 200
+    assert not hasattr(app.state, "proof_observation_state")
+    assert capsys.readouterr().err == ""
+    asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+def test_proof_observation_counts_only_strictly_accepted_requests(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _set_successful_cluster_result(monkeypatch)
+
+    rejected = post(
+        proof_observation_app,
+        payload=compatibility_payload(),
+        headers={"Authorization": "Basic rejected"},
+    )
+    accepted = post(proof_observation_app, payload=compatibility_payload())
+
+    assert rejected.status_code == 400
+    assert accepted.status_code == 200
+    assert capsys.readouterr().err == (
+        "proof_observation accepted_request=1 outcome=success result_node_id=remote-a\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("payload", "content"),
+    [
+        (compatibility_payload(stream=True), None),
+        (None, "{"),
+    ],
+)
+def test_rejected_compatibility_requests_emit_no_proof_observation(
+    proof_observation_app: FastAPI,
+    payload: object | None,
+    content: str | None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    response = post(proof_observation_app, payload=payload, content=content)
+
+    assert response.status_code == 400
+    assert capsys.readouterr().err == ""
+    assert (
+        proof_observation_app.state.proof_observation_state._accepted_request_count == 0
+    )
+
+
+def test_proof_observation_uses_the_final_result_node_and_counts_each_request(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _set_successful_cluster_result(monkeypatch, node_id="final-result-node")
+
+    first = post(proof_observation_app, payload=compatibility_payload())
+    second = post(proof_observation_app, payload=compatibility_payload())
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "proof_observation accepted_request=1 outcome=success "
+        "result_node_id=final-result-node\n"
+        "proof_observation accepted_request=2 outcome=success "
+        "result_node_id=final-result-node\n"
+    )
+    assert "node_id" not in first.json()
+    assert "node_id" not in second.json()
+
+
+def test_proof_observation_failure_preserves_existing_error_response(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from home_ai_cluster.api import openai_compatibility
+
+    async def handle(*_args: object, **_kwargs: object) -> ClusterResult:
+        raise RuntimeAdapterUnavailableError("sensitive failure detail")
+
+    monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
+
+    response = post(proof_observation_app, payload=compatibility_payload())
+
+    assert_error(
+        response,
+        status_code=503,
+        message="Runtime adapter unavailable",
+        error_type="server_error",
+    )
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == (
+        "proof_observation accepted_request=1 outcome=failure result_node_id=none\n"
+    )
+    assert "sensitive" not in captured.err
+
+
+def test_proof_observation_retains_only_its_counter(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _set_successful_cluster_result(monkeypatch)
+
+    response = post(proof_observation_app, payload=compatibility_payload())
+
+    assert response.status_code == 200
+    observation_state = proof_observation_app.state.proof_observation_state
+    assert isinstance(observation_state, ProofObservationState)
+    assert observation_state._accepted_request_count == 1
+    assert set(vars(observation_state)) == {"_accepted_request_count", "_lock"}
+
+
+def test_output_write_failure_does_not_change_success_or_failure_response(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import openai_compatibility
+
+    class BrokenStandardError:
+        def write(self, _: str) -> int:
+            raise OSError("output unavailable")
+
+    _set_successful_cluster_result(monkeypatch)
+    monkeypatch.setattr(openai_compatibility.sys, "stderr", BrokenStandardError())
+
+    success = post(proof_observation_app, payload=compatibility_payload())
+
+    assert success.status_code == 200
+    assert "node_id" not in success.json()
+
+    async def handle_failure(*_args: object, **_kwargs: object) -> ClusterResult:
+        raise RuntimeAdapterUnavailableError("unavailable")
+
+    monkeypatch.setattr(
+        openai_compatibility,
+        "handle_chat_cluster_request",
+        handle_failure,
+    )
+    failure = post(proof_observation_app, payload=compatibility_payload())
+
+    assert_error(
+        failure,
+        status_code=503,
+        message="Runtime adapter unavailable",
+        error_type="server_error",
+    )
+
+
+def test_proof_observation_counts_concurrent_requests_without_serializing_execution(
+    proof_observation_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from home_ai_cluster.api import openai_compatibility
+
+    async def send_concurrently() -> list[httpx.Response]:
+        execution_started = 0
+        release_execution = asyncio.Event()
+
+        async def handle(*_args: object, **_kwargs: object) -> ClusterResult:
+            nonlocal execution_started
+            execution_started += 1
+            if execution_started == 2:
+                release_execution.set()
+            await release_execution.wait()
+            return ClusterResult(
+                content="Cluster response",
+                adapter="test-adapter",
+                model="actual-model",
+                node_id="remote-a",
+            )
+
+        monkeypatch.setattr(
+            openai_compatibility,
+            "handle_chat_cluster_request",
+            handle,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=proof_observation_app),
+            base_url="http://testserver",
+        ) as client:
+            return await asyncio.gather(
+                client.post("/v1/chat/completions", json=compatibility_payload()),
+                client.post("/v1/chat/completions", json=compatibility_payload()),
+            )
+
+    responses = asyncio.run(asyncio.wait_for(send_concurrently(), timeout=1))
+
+    assert [response.status_code for response in responses] == [200, 200]
+    assert set(capsys.readouterr().err.splitlines()) == {
+        "proof_observation accepted_request=1 outcome=success result_node_id=remote-a",
+        "proof_observation accepted_request=2 outcome=success result_node_id=remote-a",
+    }
 
 
 def test_placeholder_bearer_is_accepted(

@@ -14,13 +14,13 @@ input without changing its request, execution, output, failure, routing,
 topology, runtime, lifecycle, or persistence boundaries?
 
 The answer is not selected in advance. The repository already contains the
-closely related Phase 17 ordinary-request input investigation. It found a real
-limitation of command arguments, but no concrete operator workflow sufficient
-to choose stdin over the accepted argument contract. The later RFC-0049 work
-changed successful output presentation only; its accepted non-goals expressly
-exclude input modes. Its proof covers the existing `--message` client in its
-three output modes, not standard input. No later retained proof or README
-workflow supplies a new stdin-specific operator need.
+closely related Phase 16 ordinary operator request access investigation. It
+found a real limitation of command arguments, but no concrete operator workflow
+sufficient to choose stdin over the accepted argument contract. The later
+RFC-0049 work changed successful output presentation only; its accepted
+non-goals expressly exclude input modes. Its proof covers the existing
+`--message` client in its three output modes, not standard input. No later
+retained proof or README workflow supplies a new stdin-specific operator need.
 
 ## Current accepted contract
 
@@ -37,10 +37,11 @@ is no host, port, topology, node, runtime, adapter, model, capability,
 configuration, discovery, startup, retry, or client-side fallback option. It
 retains no state or persistence.
 
-RFC-0049 supersedes only RFC-0045's successful-output presentation clauses. It
-does not alter the input contract: default success writes content with the
-specified terminal-newline rule, `-v`/`--verbose` writes content and truthful
-attribution, and `--json` preserves the historical complete compact
+RFC-0049 replaces only the successful-output presentation rules originally
+defined by RFC-0045. It does not alter the input contract: default success
+writes content with the specified terminal-newline rule, `-v`/`--verbose`
+writes content and truthful attribution, and `--json` preserves the historical
+complete compact
 `ClusterResult` representation. Selection is explicit and output options are
 mutually exclusive. It does not alter request construction, one-request
 execution, response validation, failure streams, exit statuses, or the stable
@@ -266,8 +267,8 @@ dashboard, Docker, or Kubernetes.
   `NON_GOALS.md`, `ROADMAP.md`, `QUESTIONS.md`, `CONTRIBUTING.md`, `AGENTS.md`,
   and `RFC/README.md`.
 - Accepted and retained command records: RFC-0045, RFC-0049, the Phase 16
-  investigation, closeout, proof, and runbook; the Phase 17 ordinary-request
-  input investigation and closeout; the RFC-0049 investigation and proof; and
-  the end-to-end ordinary remote-request proof.
+  ordinary operator request access investigation, closeout, proof, and runbook;
+  the RFC-0049 investigation and proof; and the end-to-end ordinary
+  remote-request proof.
 - Current surfaces: `src/home_ai_cluster/chat_command.py`,
   `tests/test_chat_command.py`, `pyproject.toml`, and README one-shot guidance.

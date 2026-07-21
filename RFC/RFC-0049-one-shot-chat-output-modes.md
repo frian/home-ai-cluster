@@ -1,6 +1,6 @@
 # RFC-0049: One-shot chat output modes
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-21
 

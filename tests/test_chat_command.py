@@ -32,6 +32,17 @@ def run_command(
     return exit_code, captured.out, captured.err
 
 
+def result_body(
+    *, content: str, model: str | None = "cluster-model"
+) -> dict[str, str | None]:
+    return {
+        "content": content,
+        "adapter": "test-adapter",
+        "model": model,
+        "node_id": "cluster-node",
+    }
+
+
 def unused_client(**kwargs: object) -> httpx.Client:
     raise AssertionError("invalid input and --help must not send a request")
 
@@ -68,9 +79,9 @@ def test_help_does_not_send_a_request(capsys: pytest.CaptureFixture[str]) -> Non
     assert captured.err == ""
 
 
-@pytest.mark.parametrize("model", ["cluster-model", None])
-def test_success_posts_one_exact_native_request_and_emits_result(
-    capsys: pytest.CaptureFixture[str], model: str | None
+@pytest.mark.parametrize("output_arguments", [[], ["--verbose"], ["-v"], ["--json"]])
+def test_every_output_mode_posts_one_exact_native_request(
+    capsys: pytest.CaptureFixture[str], output_arguments: list[str]
 ) -> None:
     requests: list[httpx.Request] = []
 
@@ -81,26 +92,19 @@ def test_success_posts_one_exact_native_request_and_emits_result(
             json={
                 "content": "response content",
                 "adapter": "test-adapter",
-                "model": model,
+                "model": "cluster-model",
                 "node_id": "cluster-node",
             },
         )
 
     exit_code, stdout, stderr = run_command(
         capsys,
-        ["--message", "  preserved message  "],
+        ["--message", "  preserved message  ", *output_arguments],
         httpx.MockTransport(handler),
     )
 
     assert exit_code == 0
     assert stderr == ""
-    assert json.loads(stdout) == {
-        "content": "response content",
-        "adapter": "test-adapter",
-        "model": model,
-        "node_id": "cluster-node",
-    }
-    assert stdout.count("\n") == 1
     assert len(requests) == 1
     request = requests[0]
     assert request.method == "POST"
@@ -110,6 +114,158 @@ def test_success_posts_one_exact_native_request_and_emits_result(
         "messages": [{"role": "user", "content": "  preserved message  "}],
         "capability": "chat",
     }
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_stdout"),
+    [
+        ("answer", "answer\n"),
+        ("answer\n", "answer\n"),
+        ("answer\n\n", "answer\n\n"),
+        ("", "\n"),
+        ("first\n\n  second  ", "first\n\n  second  \n"),
+        ("  leading and trailing  ", "  leading and trailing  \n"),
+        ("```python\nprint('hello')\n```", "```python\nprint('hello')\n```\n"),
+        ("Grüße 👋", "Grüße 👋\n"),
+    ],
+)
+def test_default_mode_projects_content_with_terminal_newline_rule(
+    capsys: pytest.CaptureFixture[str], content: str, expected_stdout: str
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=content))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--message", "request"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("arguments", "content", "model", "expected_stdout"),
+    [
+        (
+            ["--verbose"],
+            "answer",
+            "model-a",
+            "Response:\nanswer\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: model-a\n",
+        ),
+        (
+            ["-v"],
+            "answer\n",
+            "model-a",
+            "Response:\nanswer\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: model-a\n",
+        ),
+        (
+            ["--verbose"],
+            "answer\n\n",
+            None,
+            "Response:\nanswer\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n",
+        ),
+        (
+            ["--verbose"],
+            "",
+            "",
+            "Response:\n\nExecution:\n  Node: cluster-node\n  Adapter: test-adapter\n",
+        ),
+        (
+            ["--verbose"],
+            "first\n  indented second",
+            "model-a",
+            "Response:\nfirst\n  indented second\n\nExecution:\n"
+            "  Node: cluster-node\n  Adapter: test-adapter\n  Model: model-a\n",
+        ),
+        (
+            ["--verbose"],
+            "Grüße 👋",
+            "model-a",
+            "Response:\nGrüße 👋\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: model-a\n",
+        ),
+    ],
+)
+def test_verbose_mode_formats_content_and_attribution_exactly(
+    capsys: pytest.CaptureFixture[str],
+    arguments: list[str],
+    content: str,
+    model: str | None,
+    expected_stdout: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=content, model=model))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--message", "request", *arguments], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("content", "model", "expected_stdout"),
+    [
+        (
+            "response content",
+            "cluster-model",
+            '{"content":"response content","adapter":"test-adapter",'
+            '"model":"cluster-model","node_id":"cluster-node"}\n',
+        ),
+        (
+            "response content",
+            None,
+            '{"content":"response content","adapter":"test-adapter",'
+            '"model":null,"node_id":"cluster-node"}\n',
+        ),
+        (
+            "Grüße 👋",
+            "cluster-model",
+            '{"content":"Gr\\u00fc\\u00dfe \\ud83d\\udc4b","adapter":"test-adapter",'
+            '"model":"cluster-model","node_id":"cluster-node"}\n',
+        ),
+    ],
+)
+def test_json_mode_preserves_historical_compact_serialization(
+    capsys: pytest.CaptureFixture[str],
+    content: str,
+    model: str | None,
+    expected_stdout: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=content, model=model))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--message", "request", "--json"],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["--verbose", "--json"], ["-v", "--json"]],
+)
+def test_conflicting_output_options_fail_before_client_construction(
+    capsys: pytest.CaptureFixture[str], arguments: list[str]
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(["--message", "request", *arguments], _client_factory=unused_client)
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
 
 
 @pytest.mark.parametrize(
@@ -189,21 +345,27 @@ def test_other_httpx_request_failures_are_safely_mapped(
 
 
 @pytest.mark.parametrize(
-    "response",
+    ("arguments", "response"),
     [
-        httpx.Response(200, content=b"not-json"),
-        httpx.Response(200, json={"content": "private generated response"}),
+        ([], httpx.Response(200, content=b"not-json")),
+        (
+            ["--verbose"],
+            httpx.Response(200, json={"content": "private generated response"}),
+        ),
+        (["--json"], httpx.Response(200, content=b"not-json")),
     ],
 )
 def test_invalid_success_responses_are_rejected(
-    capsys: pytest.CaptureFixture[str], response: httpx.Response
+    capsys: pytest.CaptureFixture[str],
+    arguments: list[str],
+    response: httpx.Response,
 ) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return response
 
     exit_code, stdout, stderr = run_command(
         capsys,
-        ["--message", "private submitted prompt"],
+        ["--message", "private submitted prompt", *arguments],
         httpx.MockTransport(handler),
     )
 

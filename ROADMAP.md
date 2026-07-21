@@ -607,6 +607,37 @@ internet-safe operation. It does not reopen or change any formal roadmap phase.
 
 ---
 
+## Standalone post-roadmap one-shot chat output refinement
+
+Status: Complete
+
+This work was deliberately not classified as a formal roadmap phase. It
+introduced no request, transport, routing, runtime, topology, fallback,
+lifecycle, persistence, or supervision contract. Accepted
+[RFC-0049](RFC/RFC-0049-one-shot-chat-output-modes.md) changed only successful
+presentation at the `home-ai-cluster-chat` CLI edge: no-option success presents
+generated content directly; `-v`/`--verbose` presents content plus truthful
+cluster-owned execution attribution; and `--json` preserves the historical
+compact complete `ClusterResult` representation. Selection is explicit and not
+TTY-dependent; invalid verbose/JSON combinations fail locally before HTTP.
+
+Existing RFC-0045 request, validation, failure, privacy, and process-ownership
+boundaries remain unchanged. The retained privacy-safe proof covers both
+ordinary local-only and ordinary explicit static-cluster processes. Its
+static-cluster live evidence followed accepted local-first routing and does not
+claim remote execution.
+
+See [the investigation](docs/one-shot-chat-output-modes-investigation.md),
+[RFC-0049](RFC/RFC-0049-one-shot-chat-output-modes.md), and [the retained
+proof](docs/rfc-0049-one-shot-chat-output-modes-proof.md).
+
+This work does not add or demonstrate sessions, streaming, standard-input or
+file input, tools, direct node or model selection, discovery, scheduling,
+supervision, topology mutation, persistence, history, TTY-dependent behavior,
+a generic output framework, a dashboard, Docker, or Kubernetes.
+
+---
+
 ## Later possibilities
 
 These ideas may become useful later, but they are not required for the first proof:

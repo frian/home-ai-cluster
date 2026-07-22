@@ -11,8 +11,8 @@ Author: frian
 This RFC proposes `summarize` as the first second executable capability: produce
 one concise plain-text summary of one supplied non-empty source text. It adds a
 dedicated normalized `SummarizeRequest`, a native `POST /v1/summarize` endpoint,
-an explicit `summarize` adapter operation, and a closed internal transport form
-for exactly chat and summarize requests.
+an explicit `summarize` adapter operation, and one strict closed internal JSON
+envelope for exactly chat and summarize requests.
 
 The proposal preserves capability-based eligibility, local-first ordering,
 bounded pre-transmission fallback, normalized failures, and caller-owned final
@@ -76,21 +76,46 @@ persistence, session, or streaming. The result is plain text only.
 
 ### Normalized request and validation
 
-The core gains a dedicated request type, conceptually:
+The core gains a dedicated normalized request type. Its semantic components are
+exactly `text`, `capability`, and `constraints`, conceptually:
 
 ```python
 class SummarizeRequest(BaseModel):
-    capability: Literal["summarize"] = "summarize"
     text: str
+    constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+    @property
+    def capability(self) -> Capability:
+        return Capability(name="summarize")
 ```
 
-The repository-consistent implementation may add the existing request
-constraints as a separately owned field when it is needed for local-versus-
-declared-remote selection. It must not add fields to `ClusterRequest`, use a
-generic payload map, or permit optional combinations of `messages` and `text`.
-The closed request family is exactly `ClusterRequest | SummarizeRequest`.
+An implementation may use a fixed or validated field rather than the conceptual
+read-only property, but routing and candidate eligibility must observe exactly
+the existing `Capability(name="summarize")` value shape used by
+`ClusterRequest`. There is no alias and no generic capability-string payload.
 
-The public endpoint determines the capability; callers submit only:
+`constraints` is the existing `RequestConstraints` contract, not a
+summarization-specific routing field. Its default is the existing
+`RequestConstraints` default. Summarize requests therefore participate in the
+same `local_only` and currently accepted routing-constraint semantics as chat
+requests. The closed request family is exactly `ClusterRequest |
+SummarizeRequest`; this does not create a base request class or generic request
+framework.
+
+The application-composition boundary owns construction of those constraints,
+exactly as it does when `/v1/chat` normalizes a public request: ordinary
+local-only composition uses the default, while explicit static-cluster
+composition creates a request that permits declared-remote eligibility. Thus a
+summarize request in static-cluster composition has `local_only=False`, and one
+in local-only composition prevents declared-remote eligibility. Public callers
+do not submit constraints, and the endpoint adds no summarize-only override or
+hidden routing policy.
+
+The request type must not add fields to `ClusterRequest`, use a generic payload
+map, or permit optional combinations of `messages` and `text`.
+
+The public endpoint determines the capability and constraints; callers submit
+only:
 
 ```json
 {"text":"source text"}
@@ -204,20 +229,70 @@ remain in adapters, never in `SummarizeRequest`.
 ### Closed remote transport
 
 The internal request route remains the dedicated internal cluster boundary, but
-its request representation becomes a closed tagged union for exactly two
-variants:
+switches atomically during Phase 18 to this exact closed JSON envelope:
 
-```text
-kind: "chat"       with a normalized ClusterRequest
-kind: "summarize"  with a normalized SummarizeRequest
+```json
+{
+  "kind": "chat",
+  "request": {
+    "messages": [{"role": "user", "content": "Hello"}],
+    "capability": {"name": "chat"},
+    "constraints": {
+      "local_only": true,
+      "prefer_fast_response": false,
+      "min_context_size": null
+    }
+  }
+}
 ```
 
-The concrete representation may use two explicit typed models and a
-discriminated union. It must validate the tag and its matching typed body before
-local execution. It must not send summarize text as fake chat messages, reuse
-`/v1/chat`, or introduce a generic `payload` field. The caller-side transport
-selects the tag from the closed normalized request type; the receiving node
-uses the matching local operation.
+```json
+{
+  "kind": "summarize",
+  "request": {
+    "text": "source text",
+    "constraints": {
+      "local_only": true,
+      "prefer_fast_response": false,
+      "min_context_size": null
+    }
+  }
+}
+```
+
+The chat variant retains the existing normalized `ClusterRequest` members inside
+`request`; placing them in the envelope changes neither chat semantics nor the
+meaning of those members. The summarize body accepts only `text` and
+`constraints`. Its tag determines its variant and capability, so it has no
+caller-controlled capability member. The receiver reconstructs or validates a
+normalized summarize request whose routing capability is exactly
+`Capability(name="summarize")`. Source text is never represented as chat
+messages.
+
+Only `kind: "chat"` and `kind: "summarize"` are accepted. `kind` and
+`request` are required; unknown tags, missing members, extra top-level envelope
+fields, extra members in a summarize request, and chat/summarize payload
+mismatches are rejected before execution. The selected variant's request body
+must validate completely, so invalid internal requests invoke no adapter.
+
+The stable internal validation response is HTTP 422 with exactly:
+
+```json
+{"detail":"Invalid internal cluster request"}
+```
+
+This is the internal malformed-normalized-request failure category. It replaces
+framework validation details for this route so neither source text nor validation
+internals are exposed. Existing normalized 404 no-capability and 503 runtime
+unavailable responses continue to apply only after a valid internal request has
+entered routing or execution.
+
+The transition is atomic: old untagged internal chat bodies are no longer
+accepted once Phase 18 ships. The caller transport and receiver are updated in
+the same bounded implementation. The current deployment is static and
+operator-owned, so it has no discovery, independent rolling-upgrade, or version
+negotiation requirement that justifies a dual parser. No version negotiation,
+content sniffing, or open compatibility layer is added.
 
 Declared remote ownership remains unchanged. Source text may cross the network
 only to an explicitly declared trusted-LAN node selected by existing capability
@@ -348,8 +423,10 @@ The architectural and public contracts are selected. Implementation may decide
 only the exact fixed adapter-owned wording and escaping strategy for each
 runtime request, provided it satisfies the mapping policy above and adds focused
 tests. It may also choose the concrete Pydantic discriminated-union syntax for
-the already selected two-variant internal transport. Neither question may
-broaden the request family, prompt authority, endpoint set, or failure contract.
+the already selected request type and strict two-variant internal transport.
+Neither question may alter the normalized capability value, the presence or
+semantics of `RequestConstraints`, public request shape, internal wire keys,
+strict validation, routing authority, or failure contracts.
 
 ## Decision
 

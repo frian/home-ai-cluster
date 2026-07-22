@@ -2,9 +2,17 @@
 
 from pathlib import Path
 
+import httpx
 import pytest
 
-from home_ai_cluster import command
+from home_ai_cluster import (
+    chat_command,
+    command,
+    local_health_snapshot,
+    static_preflight,
+    status_command,
+)
+from home_ai_cluster.core.models import ClusterStatusResult
 
 HELP = """usage: home-ai-cluster <command> [arguments...]
 
@@ -142,3 +150,172 @@ def test_subcommand_system_exit_propagates_unchanged(
 )
 def test_dispatch_table_uses_existing_command_main_functions(name: str, target) -> None:
     assert command._COMMANDS[name] is target
+
+
+def _run(capsys: pytest.CaptureFixture[str], invocation) -> tuple[int, str, str]:
+    try:
+        invocation()
+    except SystemExit as error:
+        exit_code = error.code
+    else:
+        exit_code = 0
+
+    captured = capsys.readouterr()
+    return exit_code, captured.out, captured.err
+
+
+def test_chat_root_delegation_preserves_command_owned_request_and_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    requests: list[dict[str, object]] = []
+
+    def post(request: dict[str, object], *, client_factory: object) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "content": "answer",
+                "adapter": "test-adapter",
+                "model": "test-model",
+                "node_id": "local",
+            },
+        )
+
+    monkeypatch.setattr(chat_command, "_post_native_request", post)
+    argv = ["--message", "Hello"]
+
+    standalone = _run(capsys, lambda: chat_command.main(argv))
+    standalone_requests = requests.copy()
+    requests.clear()
+
+    root = _run(capsys, lambda: command.main(["chat", *argv]))
+
+    assert root == standalone
+    assert (
+        requests
+        == standalone_requests
+        == [
+            {
+                "messages": [{"role": "user", "content": "Hello"}],
+                "capability": "chat",
+            }
+        ]
+    )
+
+
+def test_preflight_root_delegation_preserves_command_owned_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    report = {
+        "status": "coherent",
+        "operating_mode": "local-only",
+        "nodes": [],
+        "registered_adapters": [],
+        "issues": [],
+    }
+    calls = 0
+
+    def evaluate() -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return report
+
+    monkeypatch.setattr(static_preflight, "evaluate_static_preflight", evaluate)
+    argv = ["--json"]
+
+    standalone = _run(capsys, lambda: static_preflight.main(argv))
+    standalone_calls = calls
+    calls = 0
+
+    root = _run(capsys, lambda: command.main(["preflight", *argv]))
+
+    assert root == standalone
+    assert standalone_calls == calls == 1
+
+
+def test_health_root_delegation_preserves_command_owned_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    snapshot = {
+        "nodes": [
+            {
+                "node_id": "local",
+                "name": "Local node",
+                "declared": {
+                    "availability": "available",
+                    "healthy": True,
+                    "reason": None,
+                    "capabilities": ["chat"],
+                    "adapters": [],
+                },
+                "adapter_observations": [],
+            }
+        ]
+    }
+    calls = 0
+
+    def evaluate() -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return snapshot
+
+    monkeypatch.setattr(local_health_snapshot, "evaluate_health_snapshot", evaluate)
+    argv = ["--json"]
+
+    standalone = _run(capsys, lambda: local_health_snapshot.main(argv))
+    standalone_calls = calls
+    calls = 0
+
+    root = _run(capsys, lambda: command.main(["health", *argv]))
+
+    assert root == standalone
+    assert standalone_calls == calls == 1
+
+
+def test_status_root_delegation_preserves_command_owned_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'remote_node_id = "remote"\nbase_url = "http://remote.test:8000"\n',
+        encoding="utf-8",
+    )
+    result = ClusterStatusResult.model_validate(
+        {
+            "declaration_status": "coherent",
+            "nodes": [
+                {
+                    "node_id": "local",
+                    "application_status": "local",
+                    "runtime_status": "available",
+                },
+                {
+                    "node_id": "remote",
+                    "application_status": "reachable",
+                    "runtime_status": "available",
+                },
+            ],
+        }
+    )
+
+    async def evaluate(*_: object) -> ClusterStatusResult:
+        return result
+
+    monkeypatch.setattr(status_command, "evaluate_static_cluster_status", evaluate)
+    argv = ["--declaration", str(declaration), "--json"]
+
+    standalone = _run(capsys, lambda: status_command.main(argv))
+    root_arguments: list[list[str]] = []
+
+    def root_status(root_argv: list[str] | None = None) -> None:
+        assert root_argv is not None
+        root_arguments.append(root_argv)
+        status_command.main(root_argv)
+
+    monkeypatch.setitem(command._COMMANDS, "status", root_status)
+    root = _run(capsys, lambda: command.main(["status", *argv]))
+
+    assert root == standalone
+    assert root_arguments == [argv]

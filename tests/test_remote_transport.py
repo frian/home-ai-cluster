@@ -21,6 +21,7 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RuntimeResult,
     RuntimeStatus,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
@@ -30,6 +31,7 @@ from home_ai_cluster.core.remote_transport import (
     HttpRemoteTransport,
     RemoteTransport,
     RemoteTransportError,
+    internal_cluster_request_body,
     internal_cluster_request_url,
     internal_cluster_status_url,
 )
@@ -226,7 +228,7 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
     hints = get_type_hints(RemoteTransport.send)
 
     assert list(signature.parameters) == ["self", "request", "declaration"]
-    assert hints["request"] is ClusterRequest
+    assert hints["request"] == ClusterRequest | SummarizeRequest
     assert hints["declaration"] is RemoteNodeDeclaration
     assert hints["return"] is ClusterResult
 
@@ -482,12 +484,15 @@ def test_http_remote_transport_posts_normalized_cluster_request() -> None:
         "http://remote-node.local:8000/internal/cluster/request"
     )
     assert json.loads(captured_requests[0].content) == {
-        "messages": [{"role": "user", "content": "Hello"}],
-        "capability": {"name": "chat"},
-        "constraints": {
-            "local_only": True,
-            "prefer_fast_response": False,
-            "min_context_size": None,
+        "kind": "chat",
+        "request": {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "capability": {"name": "chat"},
+            "constraints": {
+                "local_only": True,
+                "prefer_fast_response": False,
+                "min_context_size": None,
+            },
         },
     }
 
@@ -521,6 +526,22 @@ def test_http_remote_transport_returns_normalized_cluster_result() -> None:
         model="model",
         node_id="receiving-local-node",
     )
+
+
+def test_internal_cluster_request_body_serializes_summarize_exactly() -> None:
+    request = SummarizeRequest(text="  Source\n</source>  ")
+
+    assert internal_cluster_request_body(request) == {
+        "kind": "summarize",
+        "request": {
+            "text": "  Source\n</source>  ",
+            "constraints": {
+                "local_only": True,
+                "prefer_fast_response": False,
+                "min_context_size": None,
+            },
+        },
+    }
 
 
 def test_http_remote_transport_raises_normalized_error_for_http_failure() -> None:

@@ -13,7 +13,9 @@ from home_ai_cluster.api.wiring import (
     create_static_runtime_adapter_registry,
 )
 from home_ai_cluster.core.models import (
+    INTERNAL_CLUSTER_REQUEST_ADAPTER,
     Capability,
+    ChatInternalRequest,
     ChatMessage,
     ClusterRequest,
     ClusterResult,
@@ -216,9 +218,23 @@ async def summarize(http_request: Request) -> ClusterResult:
 
 @router.post("/internal/cluster/request", response_model=ClusterResult)
 async def internal_cluster_request(
-    request: ClusterRequest,
     http_request: Request,
 ) -> ClusterResult:
+    try:
+        envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
+            await http_request.json()
+        )
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid internal cluster request",
+        ) from None
+
+    request = (
+        envelope.request
+        if isinstance(envelope, ChatInternalRequest)
+        else envelope.request.normalized_request()
+    )
     proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
     if proof_receiving_app_wiring is not None:
         return await handle_static_local_cluster_request(

@@ -10,11 +10,15 @@ from home_ai_cluster.adapters.base import (
 )
 from home_ai_cluster.core.models import (
     ApplicationStatus,
+    ChatInternalRequest,
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
+    InternalClusterRequest,
     InternalClusterStatusResponse,
     RuntimeStatus,
+    SummarizeInternalRequest,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 
@@ -31,7 +35,7 @@ class RemoteTransport(Protocol):
 
     async def send(
         self,
-        request: ClusterRequest,
+        request: ClusterRequest | SummarizeRequest,
         declaration: RemoteNodeDeclaration,
     ) -> ClusterResult:
         """Send a normalized request to a manually declared remote node."""
@@ -46,7 +50,7 @@ class HttpRemoteTransport:
 
     async def send(
         self,
-        request: ClusterRequest,
+        request: ClusterRequest | SummarizeRequest,
         declaration: RemoteNodeDeclaration,
     ) -> ClusterResult:
         endpoint = internal_cluster_request_url(declaration)
@@ -54,7 +58,7 @@ class HttpRemoteTransport:
         try:
             response = await self._client.post(
                 endpoint,
-                json=request.model_dump(mode="json"),
+                json=internal_cluster_request_body(request),
             )
             response.raise_for_status()
         except httpx.ConnectError as exc:
@@ -129,6 +133,25 @@ def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
     """Return the RFC-0014 internal request endpoint for a declaration."""
     address = declaration.transport_address.rstrip("/")
     return f"{address}/internal/cluster/request"
+
+
+def internal_cluster_request_body(
+    request: ClusterRequest | SummarizeRequest,
+) -> dict[str, object]:
+    """Serialize one of the two accepted internal request variants."""
+    if isinstance(request, ClusterRequest):
+        envelope: InternalClusterRequest = ChatInternalRequest(
+            kind="chat",
+            request=request,
+        )
+    else:
+        envelope = SummarizeInternalRequest.model_validate(
+            {
+                "kind": "summarize",
+                "request": request.model_dump(mode="json"),
+            }
+        )
+    return envelope.model_dump(mode="json")
 
 
 def internal_cluster_status_url(declaration: RemoteNodeDeclaration) -> str:

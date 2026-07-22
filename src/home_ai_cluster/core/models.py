@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Capability(BaseModel):
@@ -58,6 +58,28 @@ class ClusterRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1)
     capability: Capability
     constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+
+class SummarizeRequest(BaseModel):
+    """A normalized bounded source-text summarization request."""
+
+    text: str
+    constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        """Keep source text non-blank and within its UTF-8 byte bound."""
+        if not value.strip():
+            raise ValueError("text must not be blank")
+        if len(value.encode("utf-8")) > 65_536:
+            raise ValueError("text must not exceed 65,536 UTF-8 bytes")
+        return value
+
+    @property
+    def capability(self) -> Capability:
+        """The fixed capability exposed to capability-based routing."""
+        return Capability(name="summarize")
 
 
 class RuntimeResult(BaseModel):

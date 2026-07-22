@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RequestConstraints,
     RuntimeStatus,
+    SummarizeRequest,
 )
 
 
@@ -31,6 +32,75 @@ def test_cluster_request_defaults_to_local_only_constraints() -> None:
 def test_cluster_request_requires_at_least_one_message() -> None:
     with pytest.raises(ValidationError):
         ClusterRequest(messages=[], capability=Capability(name="chat"))
+
+
+@pytest.mark.parametrize("attempted_capability", ["chat", "summarization", "other"])
+def test_summarize_request_has_a_fixed_routing_visible_capability(
+    attempted_capability: str,
+) -> None:
+    request = SummarizeRequest(
+        text="  Source text  ",
+        capability=Capability(name=attempted_capability),
+    )
+
+    assert request.capability == Capability(name="summarize")
+    assert request.model_dump() == {
+        "text": "  Source text  ",
+        "constraints": {
+            "local_only": True,
+            "prefer_fast_response": False,
+            "min_context_size": None,
+        },
+    }
+    assert "messages" not in request.model_dump()
+    assert "capability" not in request.model_dump()
+
+
+@pytest.mark.parametrize("text", ["", "   ", "\n\t"])
+def test_summarize_request_rejects_blank_text(text: str) -> None:
+    with pytest.raises(ValidationError):
+        SummarizeRequest(text=text)
+
+
+def test_summarize_request_requires_string_text() -> None:
+    with pytest.raises(ValidationError):
+        SummarizeRequest(text=123)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("text", ["Hello", "  Hello  ", "é"])
+def test_summarize_request_preserves_accepted_text(text: str) -> None:
+    assert SummarizeRequest(text=text).text == text
+
+
+def test_summarize_request_accepts_text_at_the_ascii_byte_limit() -> None:
+    at_limit = "a" * 65_536
+
+    assert SummarizeRequest(text=at_limit).text == at_limit
+
+
+def test_summarize_request_rejects_text_above_the_ascii_byte_limit() -> None:
+    with pytest.raises(ValidationError):
+        SummarizeRequest(text="a" * 65_537)
+
+
+def test_summarize_request_enforces_the_multibyte_utf8_byte_limit() -> None:
+    at_limit = "é" * 32_768
+
+    assert SummarizeRequest(text=at_limit).text == at_limit
+
+    with pytest.raises(ValidationError):
+        SummarizeRequest(text=at_limit + "a")
+
+
+def test_summarize_request_preserves_explicit_constraints_independently() -> None:
+    request = SummarizeRequest(
+        text="Source text", constraints=RequestConstraints(local_only=False)
+    )
+    other_request = SummarizeRequest(text="Other source text")
+
+    assert request.constraints == RequestConstraints(local_only=False)
+    assert other_request.constraints == RequestConstraints()
+    assert request.constraints is not other_request.constraints
 
 
 def test_chat_message_requires_supported_role() -> None:

@@ -21,7 +21,10 @@ def assert_ordinary_local_node(composition, adapter_name: str) -> None:
     assert nodes[0].name == "Local node"
     assert nodes[0].availability == "available"
     assert nodes[0].health.healthy is True
-    assert nodes[0].capabilities == [Capability(name="chat")]
+    assert nodes[0].capabilities == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+    ]
     assert nodes[0].adapters == [adapter_name]
 
 

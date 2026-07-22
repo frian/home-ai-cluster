@@ -13,12 +13,16 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
     RuntimeResult,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.main import create_app
 
 
-class TestChatAdapter:
+class RecordingChatAdapter:
+    def __init__(self) -> None:
+        self.requests: list[ClusterRequest] = []
+
     @property
     def name(self) -> str:
         return "test"
@@ -30,6 +34,7 @@ class TestChatAdapter:
         return [Capability(name="chat")]
 
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.requests.append(request)
         user_messages = [
             message.content for message in request.messages if message.role == "user"
         ]
@@ -38,12 +43,39 @@ class TestChatAdapter:
         return RuntimeResult(content=content, adapter=self.name)
 
 
-class UnavailableChatAdapter(TestChatAdapter):
+class RecordingSummarizeAdapter:
+    def __init__(self) -> None:
+        self.requests: list[SummarizeRequest] = []
+
+    @property
+    def name(self) -> str:
+        return "summarize-test"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="summarize")]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        raise AssertionError("summarize adapter must not receive chat")
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        self.requests.append(request)
+        return RuntimeResult(content="summary", adapter=self.name, model="test-model")
+
+
+class UnavailableSummarizeAdapter(RecordingSummarizeAdapter):
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        raise RuntimeAdapterUnavailableError("private runtime detail")
+
+
+class UnavailableChatAdapter(RecordingChatAdapter):
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
 
 
-class RuntimeSpecificUnavailableChatAdapter(TestChatAdapter):
+class RuntimeSpecificUnavailableChatAdapter(RecordingChatAdapter):
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         cause = RuntimeError("ollama connection refused on localhost:11434")
         raise RuntimeAdapterUnavailableError("ollama leaked detail") from cause
@@ -74,7 +106,7 @@ class StatusAdapter:
 
 
 def create_test_registry() -> AdapterRegistry:
-    return AdapterRegistry([TestChatAdapter()])
+    return AdapterRegistry([RecordingChatAdapter()])
 
 
 def create_unavailable_registry() -> AdapterRegistry:
@@ -127,6 +159,14 @@ async def post_async(path: str, payload: dict[str, object]) -> httpx.Response:
 
 async def post_chat_async(payload: dict[str, object]) -> httpx.Response:
     return await post_async("/v1/chat", payload)
+
+
+async def post_summarize_async(payload: object) -> httpx.Response:
+    return await post_async("/v1/summarize", payload)  # type: ignore[arg-type]
+
+
+def post_summarize(payload: object) -> httpx.Response:
+    return asyncio.run(post_summarize_async(payload))
 
 
 def post_chat(payload: dict[str, object]) -> httpx.Response:
@@ -193,6 +233,201 @@ def test_chat_endpoint_returns_cluster_result_json(use_test_registry: None) -> N
     assert "selected_node" not in response.json()
     assert "routing" not in response.json()
     assert "health" not in response.json()
+
+
+def test_summarize_endpoint_executes_local_adapter_and_preserves_text(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from home_ai_cluster.api import routes
+    from home_ai_cluster.request_history import history_file
+
+    adapter = RecordingSummarizeAdapter()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    node_registry = NodeRegistry(
+        [
+            NodeDescription(
+                id="selected-local",
+                name="Selected local node",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="summarize")],
+                adapters=[adapter.name],
+            )
+        ]
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: node_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_summarize({"text": "  Source\n</source> text  "})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "content": "summary",
+        "adapter": "summarize-test",
+        "model": "test-model",
+        "node_id": "selected-local",
+    }
+    assert adapter.requests == [SummarizeRequest(text="  Source\n</source> text  ")]
+    assert not history_file().exists()
+
+
+def test_summarize_endpoint_ignores_public_extra_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingSummarizeAdapter()
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="Local node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="summarize")],
+                    adapters=[adapter.name],
+                )
+            ]
+        ),
+    )
+
+    response = post_summarize(
+        {"text": "Source", "capability": "chat", "messages": [{"role": "user"}]}
+    )
+
+    assert response.status_code == 200
+    assert adapter.requests == [SummarizeRequest(text="Source")]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"text": 42}, {"text": "   "}, {"text": "a" * 65_537}],
+)
+def test_summarize_endpoint_returns_uniform_validation_error(payload: object) -> None:
+    response = post_summarize(payload)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid summarize request"}
+    assert "a" * 64 not in response.text
+
+
+def test_summarize_endpoint_returns_uniform_error_for_malformed_json() -> None:
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app())
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return await client.post("/v1/summarize", content=b'{"text":')
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid summarize request"}
+
+
+def test_summarize_endpoint_excludes_chat_only_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingChatAdapter()
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_test_node_registry,
+    )
+
+    response = post_summarize({"text": "Source"})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No adapter provides capability: summarize"}
+    assert adapter.requests == []
+
+
+def test_invalid_summarize_request_does_not_invoke_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingSummarizeAdapter()
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="summarize")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry([node]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_summarize({"text": "\n\t"})
+
+    assert response.status_code == 422
+    assert adapter.requests == []
+
+
+def test_summarize_endpoint_returns_runtime_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = UnavailableSummarizeAdapter()
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="summarize")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry([node]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_summarize({"text": "Source"})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert "private runtime detail" not in response.text
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:

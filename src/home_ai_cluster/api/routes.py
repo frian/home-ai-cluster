@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.proof_orchestrator import orchestrate_static_remote_proof
@@ -19,6 +19,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     InternalClusterStatusResponse,
     RequestConstraints,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.orchestrator import (
     orchestrate_request,
@@ -42,6 +43,12 @@ class ChatRequest(BaseModel):
     capability: str = Field(min_length=1)
 
 
+class SummarizePublicRequest(BaseModel):
+    """The deliberately narrow public body for one text summarization."""
+
+    text: str
+
+
 def _resolve_local_registries(
     local_app_composition: LocalAppComposition | None,
 ) -> tuple[NodeRegistry, AdapterRegistry]:
@@ -58,7 +65,7 @@ def _resolve_local_registries(
 
 
 async def handle_static_local_cluster_request(
-    cluster_request: ClusterRequest,
+    cluster_request: ClusterRequest | SummarizeRequest,
     proof_receiving_app_wiring: ProofReceivingAppWiring | None = None,
     local_app_composition: LocalAppComposition | None = None,
 ) -> ClusterResult:
@@ -171,6 +178,39 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
         static_remote_wiring,
         static_remote_collection_wiring,
         http_request.app.state.local_app_composition,
+    )
+
+
+@router.post("/v1/summarize", response_model=ClusterResult)
+async def summarize(http_request: Request) -> ClusterResult:
+    """Execute one locally normalized text summarization request."""
+    try:
+        body = await http_request.json()
+        public_request = SummarizePublicRequest.model_validate(body)
+        cluster_request = SummarizeRequest(
+            text=public_request.text,
+            constraints=(
+                RequestConstraints(local_only=False)
+                if (
+                    http_request.app.state.automatic_proof_orchestrator
+                    or http_request.app.state.static_remote_wiring is not None
+                    or (
+                        http_request.app.state.static_remote_collection_wiring
+                        is not None
+                    )
+                )
+                else RequestConstraints()
+            ),
+        )
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid summarize request",
+        ) from None
+
+    return await handle_static_local_cluster_request(
+        cluster_request,
+        local_app_composition=http_request.app.state.local_app_composition,
     )
 
 

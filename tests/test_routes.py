@@ -373,10 +373,13 @@ def test_summarize_endpoint_excludes_chat_only_adapter(
 
 def test_invalid_summarize_request_does_not_invoke_adapter(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     from home_ai_cluster.api import routes
+    from home_ai_cluster.request_history import history_file
 
     adapter = RecordingSummarizeAdapter()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     node = NodeDescription(
         id="local",
         name="Local node",
@@ -400,6 +403,7 @@ def test_invalid_summarize_request_does_not_invoke_adapter(
 
     assert response.status_code == 422
     assert adapter.requests == []
+    assert not history_file().exists()
 
 
 def test_summarize_endpoint_returns_runtime_unavailable(
@@ -434,9 +438,12 @@ def test_summarize_endpoint_returns_runtime_unavailable(
     assert "private runtime detail" not in response.text
 
 
-def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_only() -> (
-    None
-):
+def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_only(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    from home_ai_cluster.request_history import history_file
+
     class RecordingRemoteTransport:
         def __init__(self) -> None:
             self.requests: list[SummarizeRequest] = []
@@ -468,6 +475,7 @@ def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_onl
         transport_address="http://remote.example:8000",
     )
     transport = RecordingRemoteTransport()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     wiring = build_static_remote_wiring(
         node_registry=NodeRegistry(
             [
@@ -511,6 +519,7 @@ def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_onl
         )
     ]
     assert local.requests == []
+    assert not history_file().exists()
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:
@@ -682,10 +691,13 @@ def test_internal_cluster_request_rejects_malformed_json() -> None:
 
 def test_internal_cluster_request_executes_tagged_summarize_locally(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
 ) -> None:
     from home_ai_cluster.api import routes
+    from home_ai_cluster.request_history import history_file
 
     adapter = RecordingSummarizeAdapter()
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     node = NodeDescription(
         id="receiver-local",
         name="Receiver local node",
@@ -720,6 +732,7 @@ def test_internal_cluster_request_executes_tagged_summarize_locally(
         "node_id": "receiver-local",
     }
     assert adapter.requests == [SummarizeRequest(text="  Source\n</source>  ")]
+    assert not history_file().exists()
 
 
 @pytest.mark.parametrize(

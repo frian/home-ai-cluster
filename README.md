@@ -2,7 +2,7 @@
 
 Local-first orchestration for personal AI runtimes.
 
-Status: early prototype with formal roadmap phases complete through Phase 17;
+Status: early prototype with formal roadmap phases complete through Phase 18;
 later bounded integration proofs are retained separately.
 
 Home AI Cluster explores how multiple personal machines and AI runtimes can be
@@ -61,7 +61,7 @@ behavior.
 The normal FastAPI application:
 
 * runs as one local process;
-* exposes the cluster-native `POST /v1/chat` endpoint;
+* exposes the cluster-native `POST /v1/chat` and `POST /v1/summarize` endpoints;
 * uses a static local node registry by default;
 * routes by capability, not by machine, adapter, or runtime-model name;
 * keeps runtime-specific behavior behind adapters;
@@ -73,6 +73,13 @@ ordinary `home-ai-cluster-local` entry point can start exactly one explicit loca
 runtime composition through the closed choices `ollama` and `llama-server`.
 Runtime choice is consumed only at process startup and does not enter requests,
 routing, remote declarations, attribution, or normalized status.
+
+The executable normalized request family is closed to `chat` and `summarize`.
+Both adapter families map summarize explicitly, and ordinary local and
+static-cluster compositions support it through the existing local-first and
+bounded fallback behavior. OpenAI-compatible access remains chat-only. The root
+command remains the seven subcommands shown above; there is no summarize CLI
+command.
 
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
 small static cluster from an operator-owned declaration. Its one local
@@ -177,6 +184,13 @@ operator contract and process preparation.
 - [Human-readable inspection output retained proof result](docs/phase-17-human-readable-inspection-output-proof-result.md)
 - [Phase 17 closeout](docs/phase-17-closeout.md)
 
+## Phase 18 records
+
+- [Second-capability investigation](docs/second-capability-investigation.md)
+- [RFC-0051 bounded text summarization](RFC/RFC-0051-bounded-text-summarization.md)
+- [Phase 18 retained two-machine summarize proof](docs/phase-18-two-machine-summarize-proof.md)
+- [Phase 18 closeout](docs/phase-18-closeout.md)
+
 ## Post-roadmap ordinary remote request proof
 
 This standalone post-roadmap integration proof does not reopen or extend Phase
@@ -206,7 +220,7 @@ Install dependencies:
 uv sync
 ```
 
-## Run the cluster-native endpoint
+## Run the cluster-native endpoints
 
 Start the normal application with the existing default Ollama composition:
 

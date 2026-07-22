@@ -555,7 +555,7 @@ and [the Phase 17 closeout](docs/phase-17-closeout.md).
 
 ## Phase 18 — Bounded text summarization
 
-Status: Planned
+Status: Complete
 
 Goal:
 
@@ -565,105 +565,28 @@ Goal:
 > independence.
 
 Accepted [RFC-0051](RFC/RFC-0051-bounded-text-summarization.md) is
-authoritative. This phase is one bounded capability proof, not a general
-multi-capability framework. It follows completed Phase 17 and the retained
-post-roadmap refinements. The additive unified root command remains unchanged.
-The [second-capability investigation](docs/second-capability-investigation.md)
-provided evidence for the decision but is not authority. Document analysis
-remains later work requiring separate governance.
+authoritative. `summarize` is a dedicated second executable capability with
+local and declared-remote execution. Both adapter families implement the same
+normalized semantics. The active strict internal transport is tagged for exactly
+chat and summarize; the old untagged internal chat body is rejected.
 
-The accepted scope is exactly:
+Capability-only eligibility and chat-only exclusion remain retained tests.
+Local-first ordering, bounded pre-transmission fallback, and caller-owned remote
+node attribution remain unchanged. Source and summary are absent from request
+history.
 
-* one capability named `summarize`, represented by a dedicated normalized
-  `SummarizeRequest` containing one non-empty source text, the existing
-  `RequestConstraints`, and routing-visible `Capability(name="summarize")`;
-* a 65,536-byte UTF-8 source-text limit, with composition owning the existing
-  local-only versus static-cluster constraints behavior;
-* native `POST /v1/summarize`, while `/v1/chat`, the chat-only
-  OpenAI-compatible edge, and `ClusterResult` remain unchanged;
-* explicit `summarize()` adapter operations through both Ollama and
-  llama-server adapter families;
-* existing capability-based eligibility, including exclusion of chat-only nodes
-  from summarize, local summarize execution, and the existing bounded routing
-  and fallback authority;
-* a closed tagged internal transport for exactly chat and summarize, remote-only
-  summarize execution, remote result validation, and caller-owned final remote
-  node attribution; and
-* privacy-safe unit, integration, retained two-machine proof, and Phase 18
-  closeout documentation.
+The retained physical proof uses ordinary static-cluster pre-transmission
+fallback: current topology declarations cannot configure capabilities, so the
+ordinary local runtime is intentionally unavailable and a declared receiver
+executes the request. Controlled tests retain the chat-only discrimination
+proof. This did not add a generic framework, document workflow, CLI summarize
+command, persistence, discovery, scheduling, database, Docker, Kubernetes, or
+dashboard.
 
-This phase does not add document upload, file paths, standard input, PDF, OCR,
-MIME handling, binary transport, document retention, indexing, question
-answering over documents, RAG, embeddings, vector storage, sessions, streaming,
-tool execution, structured summaries, configurable length, style, or language,
-caller-supplied prompts, a CLI summarization command, a generic request
-framework, generic capability plugins, additional capabilities, smarter routing,
-scheduling, discovery, lifecycle management, broad OpenAI-compatible expansion,
-a database, Docker, or Kubernetes.
-
-### Slice 1 — Normalized request and validation
-
-* Add `SummarizeRequest` with the accepted exact capability and
-  `RequestConstraints` semantics.
-* Prove blank-text and 65,536-byte UTF-8 validation before routing or execution.
-* Do not add routing or adapter execution except where focused validation tests
-  require it.
-
-### Slice 2 — Adapter protocol and local runtime mappings
-
-* Add the explicit `summarize()` adapter operation.
-* Add bounded Ollama and llama-server mappings with focused transport-fake tests.
-* Do not add the native endpoint or remote transport unless unavoidable for the
-  focused mapping proof.
-
-### Slice 3 — Local orchestration and native endpoint
-
-* Add local summarize execution and `POST /v1/summarize` with the accepted
-  public errors.
-* Prove capability eligibility, chat-only exclusion, no-eligible-node behavior,
-  and existing result attribution.
-
-### Slice 4 — Closed internal request transport
-
-* Add the exact tagged chat/summarize envelope and strict internal validation.
-* Atomically remove acceptance of the old untagged internal chat body while
-  preserving existing chat semantics inside the selected envelope.
-
-### Slice 5 — Declared-remote summarize execution
-
-* Prove remote-only summarize execution through the existing fallback boundary.
-* Prove remote result validation and caller-owned declared-node attribution.
-* Do not introduce new routing authority.
-
-### Slice 6 — Retained Phase 18 proof
-
-* Complete unit and integration evidence.
-* Retain a two-machine proof with one chat-only node and one summarize-capable
-  node, selected solely through capability eligibility.
-* Prove no engine-specific normalized field and no source or summary text in
-  request history.
-
-### Slice 7 — Phase closeout
-
-* Add Phase 18 closeout documentation.
-* Synchronize roadmap and README only after the implementation and proof are
-  complete.
-* Do not infer or begin automatic next-phase scope.
-
-Completion requires more than endpoint existence. Phase 18 is complete only
-when `summarize` is a distinct normalized capability rather than a chat prompt
-convention; both adapter families implement it; local and declared-remote
-execution are proven; chat-only nodes are ineligible; exact native validation
-and failure behavior and strict internal transport are tested; final remote node
-attribution remains caller-owned; request history contains neither source nor
-summary content; the retained two-machine proof is complete; and closeout plus
-roadmap synchronization are merged.
-
-Stop and return to RFC work if implementation requires a generic capability
-framework, document ingestion, or a change to an architectural contract. Stop
-if normalized semantics cannot remain engine-independent or both adapter
-families cannot implement the same accepted semantic contract. Stop before
-adding CLI input, files, persistence, or multimodal transport.
+See [the second-capability investigation](docs/second-capability-investigation.md),
+[RFC-0051](RFC/RFC-0051-bounded-text-summarization.md), [the retained
+two-machine summarize proof](docs/phase-18-two-machine-summarize-proof.md), and
+[the Phase 18 closeout](docs/phase-18-closeout.md).
 
 ---
 

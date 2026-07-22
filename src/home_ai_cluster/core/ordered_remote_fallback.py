@@ -6,7 +6,7 @@ from home_ai_cluster.adapters.base import (
 from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
 )
-from home_ai_cluster.core.models import ClusterRequest, ClusterResult
+from home_ai_cluster.core.models import ClusterRequest, ClusterResult, SummarizeRequest
 from home_ai_cluster.core.orchestrator import (
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_selected_candidate,
@@ -21,7 +21,7 @@ from home_ai_cluster.core.routing_candidates import (
 
 
 async def orchestrate_request_with_ordered_static_remote_fallback(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,

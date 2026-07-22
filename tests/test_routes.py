@@ -6,16 +6,20 @@ from pydantic import ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.routes import InternalClusterStatusResponse
+from home_ai_cluster.api.wiring import build_static_remote_wiring
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClusterRequest,
+    ClusterResult,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
     SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app
 
 
@@ -428,6 +432,85 @@ def test_summarize_endpoint_returns_runtime_unavailable(
     assert response.status_code == 503
     assert response.json() == {"detail": "Runtime adapter unavailable"}
     assert "private runtime detail" not in response.text
+
+
+def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_only() -> (
+    None
+):
+    class RecordingRemoteTransport:
+        def __init__(self) -> None:
+            self.requests: list[SummarizeRequest] = []
+
+        async def send(
+            self,
+            request: ClusterRequest | SummarizeRequest,
+            declaration: RemoteNodeDeclaration,
+        ) -> ClusterResult:
+            assert isinstance(request, SummarizeRequest)
+            self.requests.append(request)
+            return ClusterResult(
+                content="remote summary",
+                adapter="remote-adapter",
+                model="remote-model",
+                node_id="untrusted-receiver-id",
+            )
+
+    local = RecordingChatAdapter()
+    declaration = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="declared-remote",
+            name="Declared remote",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="summarize")],
+            adapters=["remote-adapter"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+    transport = RecordingRemoteTransport()
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="Local node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="chat")],
+                    adapters=[local.name],
+                )
+            ]
+        ),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=declaration,
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        app = create_app(static_remote_wiring=wiring)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post("/v1/summarize", json={"text": "  Source  "})
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "content": "remote summary",
+        "adapter": "remote-adapter",
+        "model": "remote-model",
+        "node_id": "declared-remote",
+    }
+    assert transport.requests == [
+        SummarizeRequest(
+            text="  Source  ",
+            constraints={"local_only": False},
+        )
+    ]
+    assert local.requests == []
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:

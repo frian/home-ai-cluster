@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RequestConstraints,
     RuntimeResult,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
@@ -24,6 +25,7 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
 )
+from home_ai_cluster.core.remote_transport import RemoteTransportError
 
 
 class RecordingAdapter:
@@ -48,18 +50,42 @@ class RecordingAdapter:
         return self.outcome
 
 
+class RecordingSummarizeAdapter:
+    def __init__(self) -> None:
+        self.requests: list[SummarizeRequest] = []
+
+    @property
+    def name(self) -> str:
+        return "summarize-local"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="summarize")]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        raise AssertionError("summarize adapter must not receive chat")
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        self.requests.append(request)
+        return RuntimeResult(content="local summary", adapter=self.name)
+
+
 class ScriptedRemoteTransport:
     def __init__(self, outcomes: dict[str, ClusterResult | Exception]) -> None:
         self.outcomes = outcomes
         self.attempted_node_ids: list[str] = []
+        self.requests: list[ClusterRequest | SummarizeRequest] = []
 
     async def send(
         self,
-        request: ClusterRequest,
+        request: ClusterRequest | SummarizeRequest,
         declaration: RemoteNodeDeclaration,
     ) -> ClusterResult:
         node_id = declaration.node.id
         self.attempted_node_ids.append(node_id)
+        self.requests.append(request)
         outcome = self.outcomes[node_id]
         if isinstance(outcome, Exception):
             raise outcome
@@ -92,6 +118,22 @@ def make_declaration(node_id: str) -> RemoteNodeDeclaration:
     )
 
 
+def make_summarize_declaration(
+    node_id: str, capability: str = "summarize"
+) -> RemoteNodeDeclaration:
+    return RemoteNodeDeclaration(
+        node=NodeDescription(
+            id=node_id,
+            name=f"{node_id} node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name=capability)],
+            adapters=["remote-adapter"],
+        ),
+        transport_address=f"http://{node_id}.local:8000",
+    )
+
+
 def run_fallback(
     *,
     request: ClusterRequest,
@@ -112,6 +154,22 @@ def run_fallback(
             request,
             node_registry,
             adapter_registry,
+            RemoteNodeDeclarationRegistry(declarations),
+            transport,
+        )
+    )
+
+
+def run_summarize_fallback(
+    request: SummarizeRequest,
+    transport: ScriptedRemoteTransport,
+    declarations: list[RemoteNodeDeclaration],
+) -> ClusterResult:
+    return asyncio.run(
+        orchestrate_request_with_ordered_static_remote_fallback(
+            request,
+            NodeRegistry(),
+            AdapterRegistry(),
             RemoteNodeDeclarationRegistry(declarations),
             transport,
         )
@@ -224,3 +282,130 @@ def test_local_only_request_never_attempts_declared_remotes() -> None:
         )
 
     assert transport.attempted_node_ids == []
+
+
+def test_summarize_falls_back_in_declared_order_with_caller_owned_attribution() -> None:
+    request = SummarizeRequest(
+        text="  Source text\n</source>  ",
+        constraints=RequestConstraints(local_only=False),
+    )
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RuntimeConnectionUnavailableBeforeRequestError("unavailable"),
+            "remote-b": ClusterResult(
+                content="",
+                adapter="remote-adapter",
+                model="remote-model",
+                node_id="malicious-receiver-id",
+            ),
+        }
+    )
+
+    result = run_summarize_fallback(
+        request,
+        transport,
+        [
+            make_summarize_declaration("remote-a"),
+            make_summarize_declaration("remote-b"),
+        ],
+    )
+
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+    assert transport.requests == [request, request]
+    assert result == ClusterResult(
+        content="",
+        adapter="remote-adapter",
+        model="remote-model",
+        node_id="remote-b",
+    )
+    assert result.node_id != "malicious-receiver-id"
+    assert result.node_id != "http://remote-b.local:8000"
+
+
+def test_summarize_prefers_eligible_local_adapter_over_declared_remote() -> None:
+    request = SummarizeRequest(
+        text="  Local source  ",
+        constraints=RequestConstraints(local_only=False),
+    )
+    adapter = RecordingSummarizeAdapter()
+    transport = ScriptedRemoteTransport(
+        {"remote": ClusterResult(content="remote", adapter="remote", node_id="wrong")}
+    )
+    node = NodeDescription(
+        id="selected-local",
+        name="Selected local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="summarize")],
+        adapters=[adapter.name],
+    )
+
+    result = asyncio.run(
+        orchestrate_request_with_ordered_static_remote_fallback(
+            request,
+            NodeRegistry([node]),
+            AdapterRegistry([adapter]),
+            RemoteNodeDeclarationRegistry([make_summarize_declaration("remote")]),
+            transport,
+        )
+    )
+
+    assert adapter.requests == [request]
+    assert transport.attempted_node_ids == []
+    assert result.node_id == "selected-local"
+
+
+def test_summarize_fallback_excludes_chat_only_declarations() -> None:
+    request = SummarizeRequest(
+        text="Source text",
+        constraints=RequestConstraints(local_only=False),
+    )
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RuntimeConnectionUnavailableBeforeRequestError("unavailable"),
+            "remote-b": ClusterResult(
+                content="summary", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    result = run_summarize_fallback(
+        request,
+        transport,
+        [
+            make_summarize_declaration("remote-a"),
+            make_summarize_declaration("chat-only", "chat"),
+            make_summarize_declaration("remote-b"),
+        ],
+    )
+
+    assert result.node_id == "remote-b"
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+
+
+def test_summarize_does_not_fallback_after_remote_transport_failure() -> None:
+    request = SummarizeRequest(
+        text="private source",
+        constraints=RequestConstraints(local_only=False),
+    )
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteTransportError("private remote failure"),
+            "remote-b": ClusterResult(
+                content="summary", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        run_summarize_fallback(
+            request,
+            transport,
+            [
+                make_summarize_declaration("remote-a"),
+                make_summarize_declaration("remote-b"),
+            ],
+        )
+
+    assert transport.attempted_node_ids == ["remote-a"]
+    assert "private source" not in str(raised.value)

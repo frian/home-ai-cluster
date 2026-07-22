@@ -68,7 +68,7 @@ async def orchestrate_request(
 
 
 async def orchestrate_request_with_selected_candidate(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     selected: SelectedRoutingCandidate,
     *,
     remote_transport: RemoteTransport | None = None,
@@ -106,7 +106,7 @@ async def orchestrate_request_with_selected_candidate(
 
 
 async def orchestrate_request_with_automatic_capability_explanation(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -136,7 +136,7 @@ async def orchestrate_request_with_automatic_capability_explanation(
 
 
 async def orchestrate_request_with_automatic_capability_selection(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -154,7 +154,7 @@ async def orchestrate_request_with_automatic_capability_selection(
 
 
 async def orchestrate_request_with_static_remote_fallback(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -197,7 +197,7 @@ async def orchestrate_request_with_static_remote_fallback(
 
 
 async def orchestrate_request_with_automatic_capability_fallback(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -214,7 +214,7 @@ async def orchestrate_request_with_automatic_capability_fallback(
 
 
 async def orchestrate_request_with_declared_remote(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,

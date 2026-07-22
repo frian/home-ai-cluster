@@ -11,6 +11,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -33,7 +34,7 @@ class OllamaAdapter:
         return "ollama"
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat")]
+        return [Capability(name="chat"), Capability(name="summarize")]
 
     def health(self) -> AdapterHealth:
         try:
@@ -80,6 +81,48 @@ class OllamaAdapter:
 
         body = response.json()
         content = body.get("message", {}).get("content", "")
+
+        return RuntimeResult(
+            content=content,
+            adapter=self.name,
+            model=self.model,
+        )
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        """Map bounded source text to Ollama's existing chat transport."""
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                transport=self._transport,
+                timeout=None,
+            ) as client:
+                response = await client.post(
+                    "/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Summarize the following source text concisely.\n\n"
+                                    f"<source>\n{request.text}\n</source>"
+                                ),
+                            }
+                        ],
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeConnectionUnavailableBeforeRequestError(
+                "Runtime connection unavailable before request transmission",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        content = response.json().get("message", {}).get("content", "")
 
         return RuntimeResult(
             content=content,

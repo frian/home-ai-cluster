@@ -5,6 +5,7 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -22,6 +23,13 @@ class InMemoryAdapter:
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         return RuntimeResult(
             content=request.messages[-1].content,
+            adapter=self.name,
+            model="test-model",
+        )
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        return RuntimeResult(
+            content=request.text,
             adapter=self.name,
             model="test-model",
         )
@@ -53,6 +61,20 @@ def test_runtime_adapter_chat_returns_normalized_result() -> None:
 
     assert result == RuntimeResult(
         content="Hello",
+        adapter="in-memory",
+        model="test-model",
+    )
+
+
+def test_runtime_adapter_protocol_exposes_summarize() -> None:
+    adapter: RuntimeAdapter = InMemoryAdapter()
+
+    import asyncio
+
+    result = asyncio.run(adapter.summarize(SummarizeRequest(text="Source text")))
+
+    assert result == RuntimeResult(
+        content="Source text",
         adapter="in-memory",
         model="test-model",
     )

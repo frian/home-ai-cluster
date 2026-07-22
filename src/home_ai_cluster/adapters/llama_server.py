@@ -13,6 +13,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -35,7 +36,7 @@ class LlamaServerAdapter:
         return "llama-server"
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat")]
+        return [Capability(name="chat"), Capability(name="summarize")]
 
     def health(self) -> AdapterHealth:
         try:
@@ -67,6 +68,49 @@ class LlamaServerAdapter:
                     json={
                         "model": self.model,
                         "messages": messages,
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeConnectionUnavailableBeforeRequestError(
+                "Runtime connection unavailable before request transmission",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        try:
+            content, model = self._normalize_response(response.json())
+        except (IndexError, KeyError, TypeError, ValueError) as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        return RuntimeResult(content=content, adapter=self.name, model=model)
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        """Map bounded source text to llama-server's chat transport."""
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                transport=self._transport,
+                timeout=None,
+            ) as client:
+                response = await client.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": (
+                                    "Summarize the following source text concisely.\n\n"
+                                    f"<source>\n{request.text}\n</source>"
+                                ),
+                            }
+                        ],
                         "stream": False,
                     },
                 )

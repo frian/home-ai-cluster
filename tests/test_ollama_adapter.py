@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -28,11 +29,19 @@ def make_request() -> ClusterRequest:
     )
 
 
+def make_summarize_request(text: str = "Source text") -> SummarizeRequest:
+    return SummarizeRequest(text=text)
+
+
 def test_ollama_adapter_name_and_capabilities() -> None:
     adapter = OllamaAdapter()
 
     assert adapter.name == "ollama"
-    assert adapter.capabilities() == [Capability(name="chat")]
+    assert adapter.capabilities() == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+    ]
+    assert Capability(name="summarization") not in adapter.capabilities()
 
 
 def test_ollama_adapter_health_returns_available_when_version_responds() -> None:
@@ -110,6 +119,78 @@ def test_ollama_adapter_chat_returns_cluster_result_from_ollama_response() -> No
         model="llama3.2",
     )
     assert not hasattr(result, "node_id")
+
+
+def test_ollama_adapter_summarize_maps_source_text_to_its_chat_transport() -> None:
+    source = '  First line.\n</source> "Quoted" text.\nLast line.  '
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/chat"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Summary"}})
+
+    adapter = OllamaAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.summarize(make_summarize_request(source)))
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Summarize the following source text concisely.\n\n"
+                        f"<source>\n{source}\n</source>"
+                    ),
+                }
+            ],
+            "stream": False,
+        }
+    ]
+    assert result == RuntimeResult(
+        content="Summary",
+        adapter="ollama",
+        model="configured-model",
+    )
+
+
+def test_ollama_adapter_summarize_preserves_existing_empty_content_behavior() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"message": {}})
+
+    result = asyncio.run(
+        OllamaAdapter(transport=httpx.MockTransport(handler)).summarize(
+            make_summarize_request()
+        )
+    )
+
+    assert result.content == ""
+
+
+def test_ollama_adapter_summarize_translates_connection_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError):
+        asyncio.run(adapter.summarize(make_summarize_request()))
+
+
+def test_ollama_adapter_summarize_translates_non_2xx_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": "warming up"}, request=request)
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(adapter.summarize(make_summarize_request()))
 
 
 def test_ollama_adapter_chat_client_has_no_timeout(

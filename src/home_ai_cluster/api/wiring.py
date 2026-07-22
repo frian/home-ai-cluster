@@ -209,7 +209,7 @@ def create_static_local_node_announcement() -> NodeDescription:
         name="Local node",
         availability="available",
         health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat")],
+        capabilities=[Capability(name="chat"), Capability(name="summarize")],
         adapters=["ollama"],
     )
 

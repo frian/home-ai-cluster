@@ -3,7 +3,11 @@
 from home_ai_cluster.core.execution_target import (
     remote_declaration_for_routing_decision,
 )
-from home_ai_cluster.core.models import ClusterRequest, ClusterResult
+from home_ai_cluster.core.models import (
+    ClusterRequest,
+    ClusterResult,
+    SummarizeRequest,
+)
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
     RemoteNodeDeclaration,
@@ -14,11 +18,14 @@ from home_ai_cluster.core.router import RoutingDecision
 
 
 async def execute_local_routing_decision(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     decision: RoutingDecision,
 ) -> ClusterResult:
     """Execute the selected local adapter for a routing decision."""
-    result = await decision.adapter.chat(request)
+    if isinstance(request, ClusterRequest):
+        result = await decision.adapter.chat(request)
+    else:
+        result = await decision.adapter.summarize(request)
     return ClusterResult(
         content=result.content,
         adapter=result.adapter,
@@ -28,7 +35,7 @@ async def execute_local_routing_decision(
 
 
 async def execute_routing_decision(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     decision: RoutingDecision,
 ) -> ClusterResult:
     """Execute a routing decision using the current local execution path."""

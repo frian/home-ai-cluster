@@ -18,6 +18,7 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
     RuntimeResult,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
@@ -53,6 +54,19 @@ class RecordingAdapter:
         if self._error is not None:
             raise self._error
 
+        return self._result
+
+
+class SummarizeRecordingAdapter(RecordingAdapter):
+    def __init__(self, result: RuntimeResult | None = None) -> None:
+        super().__init__(result=result)
+        self.summarize_requests: list[SummarizeRequest] = []
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="summarize")]
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        self.summarize_requests.append(request)
         return self._result
 
 
@@ -143,6 +157,37 @@ def test_execute_local_routing_decision_attributes_selected_local_node() -> None
     assert actual.content == result.content
     assert actual.adapter == result.adapter
     assert actual.node_id == "local"
+
+
+def test_execute_local_routing_decision_dispatches_summarize_with_attribution() -> None:
+    result = RuntimeResult(content="", adapter="adapter", model="model")
+    adapter = SummarizeRecordingAdapter(result=result)
+    request = SummarizeRequest(text="Source text")
+    decision = RoutingDecision(
+        node=NodeDescription(
+            id="selected-local",
+            name="Selected local node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="summarize")],
+            adapters=["adapter"],
+        ),
+        adapter=adapter,
+        capability=Capability(name="summarize"),
+        reason="test summarize decision",
+    )
+
+    actual = asyncio.run(execute_local_routing_decision(request, decision))
+
+    assert adapter.summarize_requests == [request]
+    assert adapter.summarize_requests[0] is request
+    assert adapter.chat_requests == []
+    assert actual == ClusterResult(
+        content="",
+        adapter="adapter",
+        model="model",
+        node_id="selected-local",
+    )
 
 
 def test_execute_routing_decision_delegates_to_local_execution_path() -> None:

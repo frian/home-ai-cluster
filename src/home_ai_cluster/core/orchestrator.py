@@ -13,7 +13,11 @@ from home_ai_cluster.core.executor import (
     execute_local_routing_decision,
     execute_routing_decision,
 )
-from home_ai_cluster.core.models import ClusterRequest, ClusterResult
+from home_ai_cluster.core.models import (
+    ClusterRequest,
+    ClusterResult,
+    SummarizeRequest,
+)
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport, RemoteTransport
@@ -53,7 +57,7 @@ class AutomaticCapabilityRoutingOutcome:
 
 
 async def orchestrate_request(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
 ) -> ClusterResult:

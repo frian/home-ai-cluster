@@ -297,7 +297,7 @@ def test_multi_node_preflight_projects_local_then_remote_without_network_use(
         "nodes": [
             {
                 "node_id": "local",
-                "capabilities": ["chat"],
+                "capabilities": ["chat", "summarize"],
                 "declared_adapters": ["ollama"],
             },
             {

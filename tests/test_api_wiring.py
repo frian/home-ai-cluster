@@ -116,7 +116,10 @@ def test_create_static_local_node_announcement_returns_explicit_declaration() ->
     assert announcement.name == "Local node"
     assert announcement.availability == "available"
     assert announcement.health == NodeHealth(healthy=True)
-    assert announcement.capabilities == [Capability(name="chat")]
+    assert announcement.capabilities == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+    ]
     assert announcement.adapters == ["ollama"]
     assert "models" not in NodeDescription.model_fields
 
@@ -134,7 +137,7 @@ def test_create_static_local_node_registry_contains_static_local_node() -> None:
         "name": "Local node",
         "availability": "available",
         "health": {"healthy": True, "reason": None},
-        "capabilities": [{"name": "chat"}],
+        "capabilities": [{"name": "chat"}, {"name": "summarize"}],
         "adapters": ["ollama"],
     }
     assert "models" not in NodeDescription.model_fields

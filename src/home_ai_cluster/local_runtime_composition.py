@@ -89,7 +89,7 @@ def _create_local_node(adapter_name: str) -> NodeDescription:
         name="Local node",
         availability="available",
         health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat")],
+        capabilities=[Capability(name="chat"), Capability(name="summarize")],
         adapters=[adapter_name],
     )
 

@@ -1,6 +1,6 @@
 # RFC-0051: Bounded Text Summarization
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-22
 
@@ -420,14 +420,43 @@ documentation pull request after RFC acceptance.
 ## Open questions
 
 The architectural and public contracts are selected. Implementation may decide
-only the exact fixed adapter-owned wording and escaping strategy for each
-runtime request, provided it satisfies the mapping policy above and adds focused
-tests. It may also choose the concrete Pydantic discriminated-union syntax for
-the already selected request type and strict two-variant internal transport.
-Neither question may alter the normalized capability value, the presence or
-semantics of `RequestConstraints`, public request shape, internal wire keys,
-strict validation, routing authority, or failure contracts.
+only:
+
+* the exact fixed adapter-owned instruction wording, including safe source
+  delimiting and escaping; and
+* the concrete Pydantic syntax for the selected normalized request and strict
+  tagged union.
+
+These choices cannot change public or internal wire contracts, the capability
+name or representation, request constraints, routing behavior, failure
+responses, or privacy boundaries.
 
 ## Decision
 
-Pending.
+RFC-0051 accepts formal Phase 18 and exactly one second executable capability,
+named `summarize`. Its contract is one non-empty source text producing one
+concise plain-text summary, with no conversation or caller-controlled prompt.
+
+The accepted normalized request is a dedicated `SummarizeRequest` with routing-
+visible `Capability(name="summarize")` and the existing `RequestConstraints`.
+Composition owns local-only versus static-cluster constraints, and source text is
+limited to 65,536 UTF-8 bytes. The native public endpoint is
+`POST /v1/summarize`; `/v1/chat` and the OpenAI-compatible edge remain
+chat-only. `ClusterResult` remains unchanged.
+
+The accepted adapter contract adds explicit `summarize()` operations for both
+Ollama and llama-server. The accepted internal contract is the exact closed JSON
+envelope with `kind: "chat"` or `kind: "summarize"` and its matching `request`
+body; invalid internal envelopes or bodies return the strict HTTP 422 internal
+validation response. Phase 18 atomically replaces the old untagged internal
+chat request body.
+
+Existing capability routing, bounded fallback, declared-remote attribution, and
+privacy authority remain in force. The first implementation adds no CLI and no
+document ingestion, files, PDF, OCR, RAG, embeddings, streaming, persistence,
+or generic capability framework.
+
+This decision authorizes only the bounded implementation and proof sequence
+already defined in this RFC. It does not authorize roadmap changes inside the
+implementation PR, additional capabilities, a generic request framework,
+document workflows, CLI expansion, or unrelated refactoring.

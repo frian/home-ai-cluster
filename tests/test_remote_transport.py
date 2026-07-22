@@ -265,7 +265,9 @@ def test_http_remote_status_transport_gets_one_status_endpoint_without_body() ->
         return httpx.Response(200, json={"runtime_status": "available"})
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(node_id="cluster-owned-remote"),
@@ -320,7 +322,9 @@ def test_http_remote_status_transport_keeps_valid_remote_statuses_reachable(
         return httpx.Response(200, json={"runtime_status": runtime_status})
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -346,7 +350,9 @@ def test_http_remote_status_transport_maps_connection_failures_to_unreachable(
         )
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration("http://private-host:8000"),
@@ -371,7 +377,9 @@ def test_http_remote_status_transport_maps_completed_request_failures(
         raise error_type("request failed", request=request)
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -402,7 +410,9 @@ def test_http_remote_status_transport_rejects_invalid_protocol_response(
         return response
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -415,9 +425,8 @@ def test_http_remote_status_transport_rejects_invalid_protocol_response(
     assert "private failure" not in result.model_dump_json()
 
 
-def test_http_remote_status_transport_observes_one_remote_once_without_retries() -> (
-    None
-):
+def test_http_remote_status_transport_observes_one_remote_once_without_retries(
+) -> None:
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -425,7 +434,9 @@ def test_http_remote_status_transport_observes_one_remote_once_without_retries()
         raise httpx.ConnectError("unreachable", request=request)
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(handler)
+        ) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -552,9 +563,8 @@ def test_http_remote_transport_raises_normalized_error_for_http_failure() -> Non
     assert str(raised.value) == "HTTP remote transport could not send request"
 
 
-def test_http_remote_transport_maps_connection_failure_without_sensitive_details() -> (
-    None
-):
+def test_http_remote_transport_maps_connection_failure_without_sensitive_details(
+) -> None:
     private_address = "http://private-remote.example:8000"
     request_body = "private request body"
     captured_requests: list[httpx.Request] = []

@@ -74,7 +74,10 @@ def test_fallback_proof_chat_falls_back_once_after_narrow_local_failure() -> Non
     assert response.status_code == 200
     assert response.json()["node_id"] == REMOTE_NODE_ID
     assert len(remote_requests) == 1
-    assert json.loads(remote_requests[0].content)["constraints"]["local_only"] is False
+    assert (
+        json.loads(remote_requests[0].content)["request"]["constraints"]["local_only"]
+        is False
+    )
 
 
 def test_main_uses_fixed_loopback_binding(monkeypatch: pytest.MonkeyPatch) -> None:

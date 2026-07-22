@@ -1,9 +1,9 @@
 """Core data models for Home AI Cluster."""
 
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 
 class Capability(BaseModel):
@@ -80,6 +80,49 @@ class SummarizeRequest(BaseModel):
     def capability(self) -> Capability:
         """The fixed capability exposed to capability-based routing."""
         return Capability(name="summarize")
+
+
+class InternalSummarizeRequestBody(BaseModel):
+    """Strict summarize body used only by the closed internal envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        return SummarizeRequest(text=value).text
+
+    def normalized_request(self) -> SummarizeRequest:
+        """Reconstruct the accepted normalized summarize request."""
+        return SummarizeRequest(text=self.text, constraints=self.constraints)
+
+
+class ChatInternalRequest(BaseModel):
+    """The closed internal envelope for one normalized chat request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["chat"]
+    request: ClusterRequest
+
+
+class SummarizeInternalRequest(BaseModel):
+    """The closed internal envelope for one normalized summarize request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["summarize"]
+    request: InternalSummarizeRequestBody
+
+
+InternalClusterRequest = Annotated[
+    ChatInternalRequest | SummarizeInternalRequest,
+    Field(discriminator="kind"),
+]
+INTERNAL_CLUSTER_REQUEST_ADAPTER = TypeAdapter(InternalClusterRequest)
 
 
 class RuntimeResult(BaseModel):

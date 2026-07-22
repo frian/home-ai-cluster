@@ -150,8 +150,11 @@ def chat_payload() -> dict[str, object]:
 
 def internal_cluster_request_payload() -> dict[str, object]:
     return {
-        "messages": [{"role": "user", "content": "Hello"}],
-        "capability": {"name": "chat"},
+        "kind": "chat",
+        "request": {
+            "messages": [{"role": "user", "content": "Hello"}],
+            "capability": {"name": "chat"},
+        },
     }
 
 

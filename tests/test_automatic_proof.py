@@ -102,7 +102,9 @@ def test_proof_chat_automatically_executes_one_remote_request() -> None:
     assert response.json()["node_id"] == REMOTE_NODE_ID
     assert len(received) == 1
     assert received[0].url.path == "/internal/cluster/request"
-    assert json.loads(received[0].content)["constraints"]["local_only"] is False
+    assert (
+        json.loads(received[0].content)["request"]["constraints"]["local_only"] is False
+    )
 
 
 def test_proof_chat_failure_attempts_remote_once_without_fallback() -> None:

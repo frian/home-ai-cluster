@@ -522,9 +522,12 @@ def test_internal_cluster_request_endpoint_accepts_normalized_cluster_request(
 ) -> None:
     response = post_internal_cluster_request(
         {
-            "messages": [{"role": "user", "content": "Hello internal"}],
-            "capability": {"name": "chat"},
-            "constraints": {"local_only": True},
+            "kind": "chat",
+            "request": {
+                "messages": [{"role": "user", "content": "Hello internal"}],
+                "capability": {"name": "chat"},
+                "constraints": {"local_only": True},
+            },
         },
     )
 
@@ -542,8 +545,11 @@ def test_internal_cluster_request_endpoint_rejects_unsupported_capability(
 ) -> None:
     response = post_internal_cluster_request(
         {
-            "messages": [{"role": "user", "content": "Hello"}],
-            "capability": {"name": "embeddings"},
+            "kind": "chat",
+            "request": {
+                "messages": [{"role": "user", "content": "Hello"}],
+                "capability": {"name": "embeddings"},
+            },
         },
     )
 
@@ -551,6 +557,86 @@ def test_internal_cluster_request_endpoint_rejects_unsupported_capability(
     assert response.json() == {
         "detail": "No adapter provides capability: embeddings",
     }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"messages": [{"role": "user", "content": "old body"}]},
+        {"kind": "unknown", "request": {}},
+        {"kind": "chat"},
+        {"request": {}},
+        {"kind": "chat", "request": {}, "extra": True},
+        {"kind": "chat", "request": {"text": "source"}},
+        {"kind": "summarize", "request": {"messages": []}},
+        {"kind": "summarize", "request": {"text": "source", "extra": True}},
+        {"kind": "summarize", "request": {"text": "\n\t"}},
+        {"kind": "summarize", "request": {"text": "a" * 65_537}},
+    ],
+)
+def test_internal_cluster_request_rejects_invalid_envelopes(payload: object) -> None:
+    response = post_internal_cluster_request(payload)  # type: ignore[arg-type]
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
+    assert "old body" not in response.text
+
+
+def test_internal_cluster_request_rejects_malformed_json() -> None:
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app())
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return await client.post("/internal/cluster/request", content=b'{"kind":')
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
+
+
+def test_internal_cluster_request_executes_tagged_summarize_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingSummarizeAdapter()
+    node = NodeDescription(
+        id="receiver-local",
+        name="Receiver local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="summarize")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        lambda: NodeRegistry([node]),
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_internal_cluster_request(
+        {
+            "kind": "summarize",
+            "request": {"text": "  Source\n</source>  ", "constraints": {}},
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "content": "summary",
+        "adapter": "summarize-test",
+        "model": "test-model",
+        "node_id": "receiver-local",
+    }
+    assert adapter.requests == [SummarizeRequest(text="  Source\n</source>  ")]
 
 
 @pytest.mark.parametrize(

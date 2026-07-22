@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-from home_ai_cluster.core.models import ClusterRequest
+from home_ai_cluster.core.models import ClusterRequest, SummarizeRequest
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
@@ -98,7 +98,7 @@ class AutomaticCapabilitySelection:
 
 
 def routing_candidates_for_request(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -186,7 +186,7 @@ def select_routing_candidate(
 
 
 def select_automatic_capability_routing_candidate(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest,
     candidates: RoutingCandidates,
 ) -> AutomaticCapabilitySelection:
     """Apply the cluster-owned automatic capability-selection policy.

@@ -1,6 +1,6 @@
 # RFC-0050: Additive Unified Operator Command
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-22
 
@@ -16,8 +16,8 @@ home-ai-cluster
 
 It is an additive facade over seven existing ordinary operator surfaces. It
 recognizes exact subcommands, passes their remaining arguments to the existing
-command implementation, and otherwise adds only static root help, an optional
-package version display, and safe root-parser errors. Existing installed
+command implementation, and otherwise adds only static root help, a package
+version display, and safe root-parser errors. Existing installed
 commands remain unchanged and supported.
 
 The facade is not a lifecycle manager, configuration system, general CLI
@@ -146,20 +146,28 @@ package version only, followed by one newline, to stdout and exits 0. It must
 not derive version data from the environment, network, Git checkout, runtime,
 or topology.
 
-`home-ai-cluster <subcommand> --help` delegates the remaining argument list to
-the current command implementation as closely as practical. Its usage identity
-may consequently retain the standalone command's `prog` value. Root-oriented
-help identity is not a reason to duplicate command parsing; a small
-command-specific adapter is permitted only if later implementation needs it to
-preserve the selected root contract, and must not form a generic abstraction.
+`home-ai-cluster <subcommand> --help` directly delegates the remaining argument
+list to the current command implementation by default. Its usage identity may
+therefore retain the standalone command's `prog` value, which is preferred over
+adding an adapter. No adapter should be added unless focused implementation
+evidence shows one is necessary to satisfy this accepted root-help contract.
+Any such adapter must be command-specific and minimal, and must not become a
+shared parser abstraction or generic framework.
 
 ### Root parser errors
 
-An unknown subcommand is a root-local failure: stdout is empty; stderr contains
-one concise, static, safe line; exit status is 2; no command is delegated; and
-there is no network, runtime, topology, or environment activity. The exact
-line must be selected and tested during implementation without exposing Python
-exception text. Root help and version are the only root-level success outputs.
+An unknown subcommand is a root-local failure with this exact contract:
+
+```text
+stdout: empty
+stderr: error: unknown command\n
+exit status: 2
+```
+
+It must not echo the supplied token, expose Python exception text, print root
+help, or delegate any command. It performs no environment, runtime, topology,
+or network activity. Root help and version are the only root-level success
+outputs.
 
 ### Delegation
 
@@ -317,13 +325,24 @@ It must not use this sequence to authorize unrelated refactoring.
 
 - What exact static root-help wording best distinguishes foreground and finite
   operations while remaining concise?
-- What exact safe stderr text should an unknown subcommand use?
-- Is a small command-specific adapter needed for root-oriented subcommand help,
-  or is legacy parser identity sufficient?
+- If focused implementation evidence shows an adapter is necessary for
+  root-oriented help, what is the smallest command-specific seam that preserves
+  direct delegation as the default?
 
 These questions do not reopen the selected scope, exact names, delegation
 model, or retained standalone contracts.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will add one additive `home-ai-cluster` entry point with the
+seven exact subcommands `local`, `static-cluster`, `compatibility`, `chat`,
+`preflight`, `health`, and `status`. It will use direct in-process delegation,
+static root help, the package-version-only `--version` contract, and the exact
+unknown-command failure defined above.
+
+All standalone commands remain unchanged and supported. The root facade adds no
+lifecycle management and creates no Phase 18. This decision authorizes only
+the bounded implementation sequence in this RFC; it does not authorize work
+beyond that sequence.

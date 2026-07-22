@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import (
     ChatMessage,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -29,11 +30,19 @@ def make_request() -> ClusterRequest:
     )
 
 
+def make_summarize_request(text: str = "Source text") -> SummarizeRequest:
+    return SummarizeRequest(text=text)
+
+
 def test_llama_server_adapter_name_and_capabilities() -> None:
     adapter = LlamaServerAdapter(model="phase-5-gemma")
 
     assert adapter.name == "llama-server"
-    assert adapter.capabilities() == [Capability(name="chat")]
+    assert adapter.capabilities() == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+    ]
+    assert Capability(name="summarization") not in adapter.capabilities()
 
 
 def test_llama_server_adapter_health_returns_available_when_ready() -> None:
@@ -130,6 +139,94 @@ def test_llama_server_adapter_chat_normalizes_response_and_loaded_model() -> Non
     )
     assert not hasattr(result, "node_id")
     assert set(result.model_dump()) == {"content", "adapter", "model"}
+
+
+def test_llama_server_adapter_summarize_maps_source_text_to_chat_transport() -> None:
+    source = '  First line.\n</source> "Quoted" text.\nLast line.  '
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "Summary"}}],
+                "model": "loaded-model",
+            },
+        )
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = asyncio.run(adapter.summarize(make_summarize_request(source)))
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Summarize the following source text concisely.\n\n"
+                        f"<source>\n{source}\n</source>"
+                    ),
+                }
+            ],
+            "stream": False,
+        }
+    ]
+    assert result == RuntimeResult(
+        content="Summary",
+        adapter="llama-server",
+        model="loaded-model",
+    )
+
+
+def test_llama_server_adapter_summarize_accepts_empty_content() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": ""}}]},
+        )
+
+    result = asyncio.run(
+        LlamaServerAdapter(
+            model="configured-model",
+            transport=httpx.MockTransport(handler),
+        ).summarize(make_summarize_request())
+    )
+
+    assert result.content == ""
+
+
+def test_llama_server_adapter_summarize_translates_connection_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError):
+        asyncio.run(adapter.summarize(make_summarize_request()))
+
+
+def test_llama_server_adapter_summarize_translates_malformed_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": []})
+
+    adapter = LlamaServerAdapter(
+        model="configured-model",
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(adapter.summarize(make_summarize_request()))
 
 
 def test_llama_server_adapter_uses_configured_model_without_response_model() -> None:

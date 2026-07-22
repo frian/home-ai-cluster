@@ -7,6 +7,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -36,4 +37,8 @@ class RuntimeAdapter(Protocol):
 
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         """Execute a normalized chat request."""
+        ...
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        """Execute a normalized text summarization request."""
         ...

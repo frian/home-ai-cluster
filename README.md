@@ -35,6 +35,27 @@ The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
 explicit static multi-node operation, and historical proof-only operation.
 
+## Unified ordinary command
+
+`home-ai-cluster` is the preferred discoverable namespace for ordinary
+operations. It is additive: every existing standalone command remains
+supported with its current behavior.
+
+```text
+home-ai-cluster local
+home-ai-cluster static-cluster
+home-ai-cluster compatibility
+home-ai-cluster chat
+home-ai-cluster preflight
+home-ai-cluster health
+home-ai-cluster status
+```
+
+`local`, `static-cluster`, and `compatibility` remain foreground processes.
+The root command dispatches one selected operation only: it does not start
+multiple services and provides no start, stop, restart, daemon, or supervision
+behavior.
+
 ## Current shape
 
 The normal FastAPI application:

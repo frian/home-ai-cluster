@@ -12,6 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
+home-ai-cluster = "home_ai_cluster.command:main"
 home-ai-cluster-static-proof = "home_ai_cluster.static_proof:main"
 home-ai-cluster-static-cluster = "home_ai_cluster.static_cluster:main"
 home-ai-cluster-automatic-proof = "home_ai_cluster.automatic_proof:main"

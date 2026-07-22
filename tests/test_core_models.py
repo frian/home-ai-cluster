@@ -72,7 +72,18 @@ def test_summarize_request_preserves_accepted_text(text: str) -> None:
     assert SummarizeRequest(text=text).text == text
 
 
-def test_summarize_request_enforces_a_utf8_byte_limit() -> None:
+def test_summarize_request_accepts_text_at_the_ascii_byte_limit() -> None:
+    at_limit = "a" * 65_536
+
+    assert SummarizeRequest(text=at_limit).text == at_limit
+
+
+def test_summarize_request_rejects_text_above_the_ascii_byte_limit() -> None:
+    with pytest.raises(ValidationError):
+        SummarizeRequest(text="a" * 65_537)
+
+
+def test_summarize_request_enforces_the_multibyte_utf8_byte_limit() -> None:
     at_limit = "é" * 32_768
 
     assert SummarizeRequest(text=at_limit).text == at_limit

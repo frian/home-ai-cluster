@@ -150,6 +150,16 @@ established at a specific stage and do not replace the current workflow.
 - [Phase 17 closeout](phase-17-closeout.md) — completion record for the bounded
   human-readable inspection output phase.
 
+### Phase 18 — Bounded text summarization
+
+- [Second capability investigation](second-capability-investigation.md) —
+  investigated the smallest credible second executable capability before
+  RFC-0051.
+- [Phase 18 two-machine summarize proof](phase-18-two-machine-summarize-proof.md)
+  — retained physical trusted-LAN fallback observation.
+- [Phase 18 closeout](phase-18-closeout.md) — completion record for the bounded
+  second executable capability phase.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

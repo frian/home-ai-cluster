@@ -12,6 +12,7 @@ from home_ai_cluster import (
     static_cluster,
     static_preflight,
     status_command,
+    summarize_command,
 )
 
 _HELP = """usage: home-ai-cluster <command> [arguments...]
@@ -23,6 +24,7 @@ Foreground process commands:
 
 Finite commands:
   chat            Send one ordinary chat request.
+  summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
@@ -35,6 +37,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "static-cluster": static_cluster.main,
     "compatibility": openai_compatibility.main,
     "chat": chat_command.main,
+    "summarize": summarize_command.main,
     "preflight": static_preflight.main,
     "health": local_health_snapshot.main,
     "status": status_command.main,

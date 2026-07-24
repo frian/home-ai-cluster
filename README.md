@@ -46,6 +46,7 @@ home-ai-cluster local
 home-ai-cluster static-cluster
 home-ai-cluster compatibility
 home-ai-cluster chat
+home-ai-cluster summarize
 home-ai-cluster preflight
 home-ai-cluster health
 home-ai-cluster status
@@ -80,12 +81,14 @@ hac local
 hac static-cluster --declaration <path>
 hac compatibility
 hac chat "Hello"
+hac summarize --text "Long text to summarize"
 ```
 
 The long namespace remains canonical and fully supported:
 
 ```sh
 home-ai-cluster status --declaration <path>
+home-ai-cluster summarize --text "Long text to summarize"
 ```
 
 After changing checked-out source, refresh an installed tool snapshot with:
@@ -142,8 +145,8 @@ The executable normalized request family is closed to `chat` and `summarize`.
 Both adapter families map summarize explicitly, and ordinary local and
 static-cluster compositions support it through the existing local-first and
 bounded fallback behavior. OpenAI-compatible access remains chat-only. The root
-command remains the seven subcommands shown above; there is no summarize CLI
-command.
+command has the eight subcommands shown above, including the ordinary native
+`summarize` client.
 
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
 small static cluster from an operator-owned declaration. Its one local
@@ -229,6 +232,23 @@ The explicit message option remains fully supported:
 ```sh
 hac chat --message "Hello"
 ```
+
+To summarize one bounded supplied text through the same already-running
+ordinary process, use:
+
+```sh
+hac summarize --text "Long text to summarize"
+```
+
+The canonical equivalent is:
+
+```sh
+home-ai-cluster summarize --text "Long text to summarize"
+```
+
+This client accepts only `--text`; it does not read standard input or files.
+It uses the existing native `POST /v1/summarize` contract and the same
+topology-blind local-only or explicit static-cluster process boundary as chat.
 
 The command is a topology-blind client of the already running ordinary process;
 it does not start, configure, inspect, or manage that process. The same command

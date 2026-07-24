@@ -1,0 +1,270 @@
+import json
+
+import httpx
+import pytest
+
+from home_ai_cluster.summarize_command import _REQUEST_TIMEOUT_SECONDS, main
+
+
+def client_factory(handler: httpx.MockTransport):
+    def create_client(**kwargs: object) -> httpx.Client:
+        assert kwargs == {
+            "timeout": _REQUEST_TIMEOUT_SECONDS,
+            "follow_redirects": False,
+        }
+        return httpx.Client(transport=handler, **kwargs)
+
+    return create_client
+
+
+def run_command(
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+    handler: httpx.MockTransport,
+) -> tuple[int, str, str]:
+    try:
+        main(argv, _client_factory=client_factory(handler))
+    except SystemExit as error:
+        exit_code = error.code
+    else:
+        exit_code = 0
+    captured = capsys.readouterr()
+    return exit_code, captured.out, captured.err
+
+
+def result_body(
+    *, content: str, model: str | None = "cluster-model"
+) -> dict[str, str | None]:
+    return {
+        "content": content,
+        "adapter": "test-adapter",
+        "model": model,
+        "node_id": "cluster-node",
+    }
+
+
+def unused_client(**kwargs: object) -> httpx.Client:
+    raise AssertionError("invalid input must not construct an HTTP client")
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [],
+        ["--text", ""],
+        ["--text", "   "],
+        ["--text", "first", "--text", "second"],
+        ["positional"],
+        ["--unknown"],
+        ["--text", "source", "--verbose", "--json"],
+        ["--text", "ä" * 32_769],
+    ],
+)
+def test_invalid_input_has_one_safe_error(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main(argv, _client_factory=unused_client)
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert "65,536" not in captured.err
+
+
+@pytest.mark.parametrize("output_arguments", [[], ["--verbose"], ["-v"], ["--json"]])
+def test_every_output_mode_posts_one_exact_native_request(
+    capsys: pytest.CaptureFixture[str], output_arguments: list[str]
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys,
+        ["--text", "  preserved source  ", *output_arguments],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.method == "POST"
+    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert request.headers["content-type"] == "application/json"
+    assert json.loads(request.content) == {"text": "  preserved source  "}
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_stdout"),
+    [
+        ("summary", "summary\n"),
+        ("summary\n", "summary\n"),
+        ("", "\n"),
+    ],
+)
+def test_default_mode_reuses_chat_terminal_newline_rule(
+    capsys: pytest.CaptureFixture[str], content: str, expected_stdout: str
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=content))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("arguments", "content", "model", "expected_stdout"),
+    [
+        (
+            ["--verbose"],
+            "summary",
+            "model-a",
+            "Response:\nsummary\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: model-a\n",
+        ),
+        (
+            ["-v"],
+            "summary\n\n",
+            None,
+            "Response:\nsummary\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n",
+        ),
+    ],
+)
+def test_verbose_mode_reuses_chat_formatter_exactly(
+    capsys: pytest.CaptureFixture[str],
+    arguments: list[str],
+    content: str,
+    model: str | None,
+    expected_stdout: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=content, model=model))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "source", *arguments], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
+
+
+def test_json_mode_reuses_chat_compact_serialization(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content="Grüße 👋", model=None))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--text", "source", "--json"],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 0
+    assert (
+        stdout
+        == '{"content":"Gr\\u00fc\\u00dfe \\ud83d\\udc4b","adapter":"test-adapter",'
+        '"model":null,"node_id":"cluster-node"}\n'
+    )
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected_error"),
+    [
+        (422, "error: cluster rejected request"),
+        (404, "error: no available summarize capability"),
+        (503, "error: runtime adapter unavailable"),
+        (500, "error: ordinary request failed"),
+    ],
+)
+def test_http_failures_are_safely_mapped(
+    capsys: pytest.CaptureFixture[str], status_code: int, expected_error: str
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, text="private response body")
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == f"{expected_error}\n"
+    assert "private" not in stderr
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        httpx.ConnectError("http://private-host token=secret"),
+        httpx.TimeoutException("private timeout detail"),
+    ],
+)
+def test_connection_and_timeout_failures_are_safely_mapped(
+    capsys: pytest.CaptureFixture[str], error: Exception
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: ordinary cluster unavailable\n"
+    assert "private" not in stderr
+    assert "secret" not in stderr
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(200, content=b"not-json"),
+        httpx.Response(200, json={"content": "private summary"}),
+    ],
+)
+def test_invalid_success_responses_are_rejected(
+    capsys: pytest.CaptureFixture[str], response: httpx.Response
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return response
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: invalid cluster response\n"
+    assert "private" not in stderr
+
+
+def test_unexpected_client_failure_is_safely_mapped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise RuntimeError("private exception token=secret")
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: ordinary request failed\n"
+    assert "private" not in stderr
+    assert "secret" not in stderr

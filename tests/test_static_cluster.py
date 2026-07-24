@@ -16,9 +16,14 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
     RuntimeResult,
+    SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
-from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_node import (
+    RemoteNodeDeclaration,
+    RemoteNodeDeclarationRegistry,
+    declared_remote_routing_candidate_for_request,
+)
 from home_ai_cluster.core.remote_transport import RemoteTransportError
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.local_runtime_composition import (
@@ -185,9 +190,26 @@ def test_remote_declaration_is_neutral_and_has_fixed_rfc_facts() -> None:
     assert declaration.node.name == "Declared remote node operator-remote"
     assert declaration.node.availability == "available"
     assert declaration.node.health == NodeHealth(healthy=True)
-    assert declaration.node.capabilities == [Capability(name="chat")]
+    assert declaration.node.capabilities == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+    ]
     assert declaration.node.adapters == [REMOTE_HTTP_ADAPTER_NAME]
     assert declaration.transport_address == "https://remote.test"
+
+
+def test_ordinary_remote_declaration_is_eligible_for_summarize() -> None:
+    declaration = create_remote_declaration("operator-remote", "https://remote.test")
+    request = SummarizeRequest(text="Source text")
+
+    candidate = declared_remote_routing_candidate_for_request(
+        request,
+        RemoteNodeDeclarationRegistry([declaration]),
+    )
+
+    assert candidate is not None
+    assert candidate.node is declaration.node
+    assert candidate.capability == Capability(name="summarize")
 
 
 def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> None:

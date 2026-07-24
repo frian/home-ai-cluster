@@ -302,7 +302,7 @@ def test_multi_node_preflight_projects_local_then_remote_without_network_use(
             },
             {
                 "node_id": "declared-remote",
-                "capabilities": ["chat"],
+                "capabilities": ["chat", "summarize"],
                 "declared_adapters": [REMOTE_HTTP_ADAPTER_NAME],
             },
         ],

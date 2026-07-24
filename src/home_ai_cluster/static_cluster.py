@@ -87,7 +87,7 @@ def create_remote_declaration(
             name=f"Declared remote node {node_id}",
             availability="available",
             health=NodeHealth(healthy=True),
-            capabilities=[Capability(name="chat")],
+            capabilities=[Capability(name="chat"), Capability(name="summarize")],
             adapters=[REMOTE_HTTP_ADAPTER_NAME],
         ),
         transport_address=base_url,

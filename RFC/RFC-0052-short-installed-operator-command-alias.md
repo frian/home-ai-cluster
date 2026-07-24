@@ -1,6 +1,6 @@
 # RFC-0052: Short Installed Operator Command Alias
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-24
 
@@ -200,3 +200,15 @@ collisions remain outside repository ownership; the canonical long command is
 the supported fallback.
 
 ## Decision
+
+Accepted.
+
+`hac` is the single accepted backward-compatible short installed alias for
+`home-ai-cluster`. `home-ai-cluster` remains canonical, fully supported, and
+not deprecated. Both executable names must delegate to the exact same
+`home_ai_cluster.command:main` unified entry point.
+
+Any later implementation is limited to packaging metadata, focused
+compatibility tests, and minimal installation documentation where justified. No
+implementation is included in this acceptance change, and this decision creates
+no Phase 19.

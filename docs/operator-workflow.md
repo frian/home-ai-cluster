@@ -72,6 +72,12 @@ The native endpoint is:
 http://127.0.0.1:8000/v1/chat
 ```
 
+The same process also exposes the native bounded summarize endpoint:
+
+```text
+http://127.0.0.1:8000/v1/summarize
+```
+
 ### 5. Send one native request
 
 Replace `<OPERATOR_SUPPLIED_MESSAGE>` at invocation time. Do not retain the
@@ -84,6 +90,17 @@ uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 This is the ordinary one-shot native client of the already running process. A
 successful result includes cluster-owned node attribution. The native endpoint
 remains `POST /v1/chat` for lower-level use when needed.
+
+To summarize one bounded supplied text through that same process, use the
+ordinary root client:
+
+```sh
+uv run home-ai-cluster summarize --text "<OPERATOR_SUPPLIED_TEXT>"
+```
+
+After installation, `hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"` is the
+short equivalent. The client accepts only `--text`; it does not read standard
+input or files and does not start or inspect the process.
 
 ### 6. Stop manually
 

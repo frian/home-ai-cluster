@@ -12,6 +12,7 @@ from home_ai_cluster import (
     local_health_snapshot,
     static_preflight,
     status_command,
+    summarize_command,
 )
 from home_ai_cluster.core.models import ClusterStatusResult
 
@@ -24,6 +25,7 @@ Foreground process commands:
 
 Finite commands:
   chat            Send one ordinary chat request.
+  summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
@@ -43,6 +45,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "static-cluster",
         "compatibility",
         "chat",
+        "summarize",
         "preflight",
         "health",
         "status",
@@ -151,6 +154,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("static-cluster", ["--declaration", "cluster.toml"]),
         ("compatibility", ["--declaration", "cluster.toml"]),
         ("chat", ["--message", "Hello"]),
+        ("summarize", ["--text", "Source text"]),
         ("preflight", ["--json"]),
         ("health", ["--json"]),
         ("status", ["--declaration", "cluster.toml", "--json"]),
@@ -199,6 +203,7 @@ def test_subcommand_system_exit_propagates_unchanged(
         ("static-cluster", command.static_cluster.main),
         ("compatibility", command.openai_compatibility.main),
         ("chat", command.chat_command.main),
+        ("summarize", command.summarize_command.main),
         ("preflight", command.static_preflight.main),
         ("health", command.local_health_snapshot.main),
         ("status", command.status_command.main),
@@ -258,6 +263,35 @@ def test_chat_root_delegation_preserves_command_owned_request_and_output(
             }
         ]
     )
+
+
+def test_summarize_root_delegation_preserves_command_owned_request_and_output(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    requests: list[dict[str, object]] = []
+
+    def post(request: dict[str, object], *, client_factory: object) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "content": "summary",
+                "adapter": "test-adapter",
+                "model": "test-model",
+                "node_id": "local",
+            },
+        )
+
+    monkeypatch.setattr(summarize_command, "_post_native_request", post)
+    standalone = _run(capsys, lambda: summarize_command.main(["--text", "Source text"]))
+    standalone_requests = requests.copy()
+    requests.clear()
+
+    root = _run(capsys, lambda: command.main(["summarize", "--text", "Source text"]))
+
+    assert root == standalone
+    assert requests == standalone_requests == [{"text": "Source text"}]
 
 
 def test_preflight_root_delegation_preserves_command_owned_output(

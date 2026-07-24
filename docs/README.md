@@ -155,8 +155,12 @@ established at a specific stage and do not replace the current workflow.
 - [Second capability investigation](second-capability-investigation.md) —
   investigated the smallest credible second executable capability before
   RFC-0051.
-- [Phase 18 two-machine summarize proof](phase-18-two-machine-summarize-proof.md)
-  — retained physical trusted-LAN fallback observation.
+- [Phase 18 two-machine summarize proof runbook](phase-18-two-machine-summarize-proof.md)
+  — repeatable privacy-safe procedure for the bounded real two-machine
+  summarize proof.
+- [Phase 18 two-machine summarize retained proof result](phase-18-two-machine-summarize-proof-result.md)
+  — retained privacy-safe evidence from the completed real two-machine remote
+  and local-first summarize observations.
 - [Phase 18 closeout](phase-18-closeout.md) — completion record for the bounded
   second executable capability phase.
 

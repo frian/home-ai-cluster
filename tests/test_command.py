@@ -1,5 +1,6 @@
 """Tests for the additive RFC-0050 root command."""
 
+import tomllib
 from pathlib import Path
 
 import httpx
@@ -31,10 +32,65 @@ Use 'home-ai-cluster <command> --help' for command-specific help.
 """
 
 
-def test_project_script_entry_exists() -> None:
-    project = Path("pyproject.toml").read_text(encoding="utf-8")
+def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> None:
+    project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    scripts = project["project"]["scripts"]
 
-    assert 'home-ai-cluster = "home_ai_cluster.command:main"' in project
+    assert scripts["home-ai-cluster"] == "home_ai_cluster.command:main"
+    assert scripts["hac"] == scripts["home-ai-cluster"]
+    assert set(command._COMMANDS) == {
+        "local",
+        "static-cluster",
+        "compatibility",
+        "chat",
+        "preflight",
+        "health",
+        "status",
+    }
+    assert {
+        name: scripts[name]
+        for name in (
+            "home-ai-cluster-static-proof",
+            "home-ai-cluster-static-cluster",
+            "home-ai-cluster-automatic-proof",
+            "home-ai-cluster-fallback-proof",
+            "home-ai-cluster-explain-routing",
+            "home-ai-cluster-explain-request",
+            "home-ai-cluster-openai-compatibility",
+            "home-ai-cluster-health",
+            "home-ai-cluster-preflight",
+            "home-ai-cluster-status",
+            "home-ai-cluster-history",
+            "home-ai-cluster-clear-history",
+            "home-ai-cluster-phase-12-heterogeneous-receiver",
+            "home-ai-cluster-local",
+            "home-ai-cluster-chat",
+        )
+    } == {
+        "home-ai-cluster-static-proof": "home_ai_cluster.static_proof:main",
+        "home-ai-cluster-static-cluster": "home_ai_cluster.static_cluster:main",
+        "home-ai-cluster-automatic-proof": "home_ai_cluster.automatic_proof:main",
+        "home-ai-cluster-fallback-proof": "home_ai_cluster.fallback_proof:main",
+        "home-ai-cluster-explain-routing": "home_ai_cluster.routing_explanation:main",
+        "home-ai-cluster-explain-request": (
+            "home_ai_cluster.actual_request_explanation:main"
+        ),
+        "home-ai-cluster-openai-compatibility": (
+            "home_ai_cluster.openai_compatibility:main"
+        ),
+        "home-ai-cluster-health": "home_ai_cluster.local_health_snapshot:main",
+        "home-ai-cluster-preflight": "home_ai_cluster.static_preflight:main",
+        "home-ai-cluster-status": "home_ai_cluster.status_command:main",
+        "home-ai-cluster-history": "home_ai_cluster.request_history:history_main",
+        "home-ai-cluster-clear-history": (
+            "home_ai_cluster.request_history:clear_history_main"
+        ),
+        "home-ai-cluster-phase-12-heterogeneous-receiver": (
+            "home_ai_cluster.phase_12_heterogeneous_runtime_cluster_proof:main"
+        ),
+        "home-ai-cluster-local": "home_ai_cluster.local_runtime:main",
+        "home-ai-cluster-chat": "home_ai_cluster.chat_command:main",
+    }
 
 
 @pytest.mark.parametrize("argv", ([], ["--help"]))

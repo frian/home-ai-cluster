@@ -18,10 +18,11 @@ from home_ai_cluster.core.models import (
 )
 
 _ORDINARY_CHAT_URL = "http://127.0.0.1:8000/v1/chat"
-_REQUEST_TIMEOUT_SECONDS = 30.0
+_REQUEST_TIMEOUT_SECONDS = 120.0
 
 _INVALID_INPUT = "error: invalid request input"
 _CLUSTER_UNAVAILABLE = "error: ordinary cluster unavailable"
+_ORDINARY_REQUEST_TIMED_OUT = "error: ordinary request timed out"
 _CLUSTER_REJECTED = "error: cluster rejected request"
 _NO_CAPABILITY = "error: no available chat capability"
 _RUNTIME_UNAVAILABLE = "error: runtime adapter unavailable"
@@ -175,8 +176,10 @@ def main(
             _native_request(command_input.message),
             client_factory=_client_factory,
         )
-    except (httpx.ConnectError, httpx.TimeoutException):
+    except httpx.ConnectError:
         _exit_with_failure(_CLUSTER_UNAVAILABLE, 1)
+    except httpx.TimeoutException:
+        _exit_with_failure(_ORDINARY_REQUEST_TIMED_OUT, 1)
     except httpx.RequestError:
         _exit_with_failure(_ORDINARY_REQUEST_FAILED, 1)
     except Exception:

@@ -14,6 +14,7 @@ from home_ai_cluster.chat_command import (
     _INVALID_CLUSTER_RESPONSE,
     _INVALID_INPUT,
     _ORDINARY_REQUEST_FAILED,
+    _ORDINARY_REQUEST_TIMED_OUT,
     _REQUEST_TIMEOUT_SECONDS,
     _RUNTIME_UNAVAILABLE,
     _exit_with_failure,
@@ -116,8 +117,10 @@ def main(
             _native_request(command_input.request),
             client_factory=_client_factory,
         )
-    except (httpx.ConnectError, httpx.TimeoutException):
+    except httpx.ConnectError:
         _exit_with_failure(_CLUSTER_UNAVAILABLE, 1)
+    except httpx.TimeoutException:
+        _exit_with_failure(_ORDINARY_REQUEST_TIMED_OUT, 1)
     except httpx.RequestError:
         _exit_with_failure(_ORDINARY_REQUEST_FAILED, 1)
     except Exception:

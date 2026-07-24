@@ -1,6 +1,6 @@
 # RFC-0054: Minimal Summarize CLI
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-24
 

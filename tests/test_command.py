@@ -220,8 +220,11 @@ def _run(capsys: pytest.CaptureFixture[str], invocation) -> tuple[int, str, str]
     return exit_code, captured.out, captured.err
 
 
+@pytest.mark.parametrize("argv", [["Hello"], ["--message", "Hello"]])
 def test_chat_root_delegation_preserves_command_owned_request_and_output(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
 ) -> None:
     requests: list[dict[str, object]] = []
 
@@ -238,8 +241,6 @@ def test_chat_root_delegation_preserves_command_owned_request_and_output(
         )
 
     monkeypatch.setattr(chat_command, "_post_native_request", post)
-    argv = ["--message", "Hello"]
-
     standalone = _run(capsys, lambda: chat_command.main(argv))
     standalone_requests = requests.copy()
     requests.clear()

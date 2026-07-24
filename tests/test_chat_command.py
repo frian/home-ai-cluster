@@ -51,10 +51,14 @@ def unused_client(**kwargs: object) -> httpx.Client:
     "argv",
     [
         [],
+        [""],
+        ["   "],
         ["--message", ""],
         ["--message", "   "],
         ["--unknown"],
         ["--message", "first", "--message", "second"],
+        ["positional", "--message", "option"],
+        ["first", "second"],
     ],
 )
 def test_invalid_input_has_one_safe_error(
@@ -79,9 +83,15 @@ def test_help_does_not_send_a_request(capsys: pytest.CaptureFixture[str]) -> Non
     assert captured.err == ""
 
 
+@pytest.mark.parametrize(
+    "message_arguments",
+    [["  preserved message  "], ["--message", "  preserved message  "]],
+)
 @pytest.mark.parametrize("output_arguments", [[], ["--verbose"], ["-v"], ["--json"]])
 def test_every_output_mode_posts_one_exact_native_request(
-    capsys: pytest.CaptureFixture[str], output_arguments: list[str]
+    capsys: pytest.CaptureFixture[str],
+    message_arguments: list[str],
+    output_arguments: list[str],
 ) -> None:
     requests: list[httpx.Request] = []
 
@@ -99,7 +109,7 @@ def test_every_output_mode_posts_one_exact_native_request(
 
     exit_code, stdout, stderr = run_command(
         capsys,
-        ["--message", "  preserved message  ", *output_arguments],
+        [*message_arguments, *output_arguments],
         httpx.MockTransport(handler),
     )
 

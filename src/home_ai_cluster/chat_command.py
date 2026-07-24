@@ -50,13 +50,24 @@ class _ArgumentParser(argparse.ArgumentParser):
 
 def _parse_input(argv: Sequence[str] | None) -> _ChatCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster-chat")
-    parser.add_argument("--message", action="append", required=True)
+    parser.add_argument("message_positional", nargs="?")
+    parser.add_argument("--message", action="append")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
     output_options.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    if len(args.message) != 1 or not args.message[0].strip():
+    option_messages = args.message or []
+    if args.message_positional is not None:
+        if option_messages:
+            raise _InvalidRequestInput
+        message = args.message_positional
+    elif len(option_messages) == 1:
+        message = option_messages[0]
+    else:
+        raise _InvalidRequestInput
+
+    if not message.strip():
         raise _InvalidRequestInput
 
     if args.verbose:
@@ -66,7 +77,7 @@ def _parse_input(argv: Sequence[str] | None) -> _ChatCommandInput:
     else:
         output_mode = "content"
 
-    return _ChatCommandInput(message=args.message[0], output_mode=output_mode)
+    return _ChatCommandInput(message=message, output_mode=output_mode)
 
 
 def _native_request(message: str) -> dict[str, Any]:

@@ -56,6 +56,10 @@ The root command dispatches one selected operation only: it does not start
 multiple services and provides no start, stop, restart, daemon, or supervision
 behavior.
 
+After ordinary package installation, `hac status` is a short equivalent of
+`home-ai-cluster status`. `home-ai-cluster` remains the canonical, fully
+supported command.
+
 ## Current shape
 
 The normal FastAPI application:

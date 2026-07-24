@@ -161,7 +161,13 @@ an operator can send one ordinary request without manually constructing HTTP
 details:
 
 ```sh
-uv run home-ai-cluster-chat --message "Hello"
+hac chat "Hello"
+```
+
+The explicit message option remains fully supported:
+
+```sh
+hac chat --message "Hello"
 ```
 
 The command is a topology-blind client of the already running ordinary process;

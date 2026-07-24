@@ -1,6 +1,6 @@
 # RFC-0055: Ordinary Native Client Timeout
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-24
 
@@ -268,4 +268,15 @@ remain implementation details within the small shared-seam boundary above.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Ordinary native `chat` and `summarize` clients share one fixed internal HTTPX
+scalar timeout of 120.0 seconds. The scalar applies independently to HTTPX
+pool, connect, write, and read operations; it is not a strict total command
+deadline. `httpx.ConnectError` maps to `error: ordinary cluster unavailable`,
+and every `httpx.TimeoutException` maps to `error: ordinary request timed out`.
+Both errors write no stdout, one safe stderr line, and exit 1.
+
+No `--timeout`, environment variable, configuration, retry, streaming,
+cancellation, runtime timeout, routing, lifecycle, roadmap, or Phase 19 change
+is accepted.

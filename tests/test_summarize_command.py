@@ -3,18 +3,23 @@ import json
 import httpx
 import pytest
 
+from home_ai_cluster.chat_command import _REQUEST_TIMEOUT_SECONDS as _CHAT_TIMEOUT
 from home_ai_cluster.summarize_command import _REQUEST_TIMEOUT_SECONDS, main
 
 
 def client_factory(handler: httpx.MockTransport):
     def create_client(**kwargs: object) -> httpx.Client:
         assert kwargs == {
-            "timeout": _REQUEST_TIMEOUT_SECONDS,
+            "timeout": 120.0,
             "follow_redirects": False,
         }
         return httpx.Client(transport=handler, **kwargs)
 
     return create_client
+
+
+def test_client_uses_the_chat_shared_timeout() -> None:
+    assert _REQUEST_TIMEOUT_SECONDS == _CHAT_TIMEOUT == 120.0
 
 
 def run_command(
@@ -206,14 +211,33 @@ def test_http_failures_are_safely_mapped(
     assert "private" not in stderr
 
 
+def test_connection_failure_is_safely_mapped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("http://private-host token=secret")
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: ordinary cluster unavailable\n"
+    assert "private" not in stderr
+    assert "secret" not in stderr
+
+
 @pytest.mark.parametrize(
     "error",
     [
-        httpx.ConnectError("http://private-host token=secret"),
-        httpx.TimeoutException("private timeout detail"),
+        httpx.ConnectTimeout("private timeout detail"),
+        httpx.ReadTimeout("private timeout detail"),
+        httpx.WriteTimeout("private timeout detail"),
+        httpx.PoolTimeout("private timeout detail"),
     ],
 )
-def test_connection_and_timeout_failures_are_safely_mapped(
+def test_timeout_failures_are_safely_mapped(
     capsys: pytest.CaptureFixture[str], error: Exception
 ) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
@@ -225,9 +249,26 @@ def test_connection_and_timeout_failures_are_safely_mapped(
 
     assert exit_code == 1
     assert stdout == ""
-    assert stderr == "error: ordinary cluster unavailable\n"
+    assert stderr == "error: ordinary request timed out\n"
     assert "private" not in stderr
-    assert "secret" not in stderr
+    assert "timeout detail" not in stderr
+
+
+def test_other_httpx_request_failure_is_safely_mapped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ProtocolError("private protocol detail")
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--text", "private source"], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 1
+    assert stdout == ""
+    assert stderr == "error: ordinary request failed\n"
+    assert "private" not in stderr
+    assert "protocol" not in stderr
 
 
 @pytest.mark.parametrize(

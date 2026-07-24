@@ -1,6 +1,6 @@
 # RFC-0053: Positional chat message
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-24
 
@@ -281,4 +281,9 @@ parser, one normalized message, and unchanged execution boundary.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The ordinary one-shot chat command may accept either one positional message or
+exactly one `--message` option. The two forms are mutually exclusive and
+normalize to the same existing request path. `--message` remains fully supported
+and is not deprecated.

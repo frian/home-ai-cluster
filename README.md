@@ -60,6 +60,66 @@ After ordinary package installation, `hac status` is a short equivalent of
 `home-ai-cluster status`. `home-ai-cluster` remains the canonical, fully
 supported command.
 
+## Installed and checkout command usage
+
+### Installed operator usage
+
+For ordinary operator use, install the package with:
+
+```sh
+uv tool install .
+```
+
+After installation, use the short `hac` command for ordinary operations:
+
+```sh
+hac preflight
+hac health
+hac status --declaration <path>
+hac local
+hac static-cluster --declaration <path>
+hac compatibility
+hac chat "Hello"
+```
+
+The long namespace remains canonical and fully supported:
+
+```sh
+home-ai-cluster status --declaration <path>
+```
+
+After changing checked-out source, refresh an installed tool snapshot with:
+
+```sh
+uv tool install --force .
+```
+
+### Repository-checkout and development usage
+
+Contributors and operators running directly from a repository checkout can
+prepare it with `uv sync` and run the standalone installed-script names through
+`uv run`:
+
+```sh
+uv sync
+uv run home-ai-cluster-preflight
+uv run home-ai-cluster-health
+uv run home-ai-cluster-status --declaration <path>
+uv run home-ai-cluster-local
+uv run home-ai-cluster-static-cluster --declaration <path>
+uv run home-ai-cluster-openai-compatibility
+uv run home-ai-cluster-chat "Hello"
+```
+
+Development-only commands remain repository-checkout usage:
+
+```sh
+uv run uvicorn home_ai_cluster.main:app --reload
+```
+
+Historical proofs and repository-specific procedures may likewise retain their
+established `uv run` commands.
+
 ## Current shape
 
 The normal FastAPI application:
@@ -98,19 +158,19 @@ An operator can inspect one explicitly declared static cluster with the default
 Ollama local composition:
 
 ```sh
-uv run home-ai-cluster-status --declaration <path>
+hac status --declaration <path>
 ```
 
 For the compact normalized structured result used by automation, run:
 
 ```sh
-uv run home-ai-cluster-status --declaration <path> --json
+hac status --declaration <path> --json
 ```
 
 Or inspect an explicit llama-server local composition with:
 
 ```sh
-uv run home-ai-cluster-status \
+hac status \
   --declaration <path> \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -133,15 +193,15 @@ runtime-composition arguments shown above. See the
 Preflight and health are also human-readable by default:
 
 ```sh
-uv run home-ai-cluster-preflight
-uv run home-ai-cluster-health
+hac preflight
+hac health
 ```
 
 Automation uses their explicit compact structured forms:
 
 ```sh
-uv run home-ai-cluster-preflight --json
-uv run home-ai-cluster-health --json
+hac preflight --json
+hac health --json
 ```
 
 See the [canonical operator workflow](docs/operator-workflow.md) and the
@@ -232,7 +292,8 @@ uv sync
 
 ## Run the cluster-native endpoints
 
-Start the normal application with the existing default Ollama composition:
+For repository-checkout development, start the normal application with the
+existing default Ollama composition:
 
 ```sh
 uv run uvicorn home_ai_cluster.main:app --reload
@@ -242,14 +303,14 @@ Start the explicit ordinary local runtime path with its compatible Ollama
 default:
 
 ```sh
-uv run home-ai-cluster-local
+hac local
 ```
 
 Or start one ordinary llama-server-backed node whose runtime remains on local
 loopback:
 
 ```sh
-uv run home-ai-cluster-local \
+hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
   --llama-server-model <MODEL_IDENTIFIER>
@@ -295,14 +356,14 @@ RFC-0031 adds a dedicated compatibility process. It is separate from the normal
 application and binds only to loopback:
 
 ```sh
-uv run home-ai-cluster-openai-compatibility
+hac compatibility
 ```
 
 To expose that unchanged compatibility route over an explicit static cluster,
 provide an accepted RFC-0039/RFC-0040 declaration:
 
 ```sh
-uv run home-ai-cluster-openai-compatibility --declaration <path>
+hac compatibility --declaration <path>
 ```
 
 This is the only compatibility static-cluster mode. It reuses the ordinary

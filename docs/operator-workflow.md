@@ -11,6 +11,9 @@ Cluster architecture. It defines three distinct modes:
 2. ordinary explicit static multi-node operation;
 3. explicit historical two-machine proof operation.
 
+Use the [command reference](command-reference.md) for current syntax and option
+lookup; this document remains the procedural sequence.
+
 Local-only is the default, shortest, and least operationally complex path.
 All external runtimes remain operator-owned. Home AI Cluster does not start,
 stop, supervise, repair, or discover runtimes or remote machines.

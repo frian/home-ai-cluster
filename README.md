@@ -248,9 +248,17 @@ hac summarize < README.md
 git diff | hac summarize
 ```
 
-When `--text` is present, it takes precedence and stdin is ignored. The
-65,536-byte limit applies to either source; oversized stdin is rejected rather
-than truncated.
+One bounded strict-UTF-8 regular file can also be selected explicitly:
+
+```sh
+hac summarize --file README.md
+hac summarize --file docs/operator-workflow.md --verbose
+```
+
+When `--text` is present, it takes precedence and stdin is ignored. `--text`
+and `--file` are mutually exclusive. When `--file` is present, stdin
+is ignored. The 65,536-byte limit applies to every source; oversized input is
+rejected rather than truncated.
 
 The canonical equivalent is:
 
@@ -258,9 +266,11 @@ The canonical equivalent is:
 home-ai-cluster summarize --text "Long text to summarize"
 ```
 
-This client accepts only `--text`; it does not read standard input or files.
-It uses the existing native `POST /v1/summarize` contract and the same
-topology-blind local-only or explicit static-cluster process boundary as chat.
+This client accepts one source through `--text`, `--file`, or stdin when no
+explicit source is supplied. `--text` and `--file` are mutually exclusive, and
+an explicit source ignores stdin. It uses the existing native
+`POST /v1/summarize` contract and the same topology-blind local-only or
+explicit static-cluster process boundary as chat.
 
 The command is a topology-blind client of the already running ordinary process;
 it does not start, configure, inspect, or manage that process. The same command

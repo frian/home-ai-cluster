@@ -1,4 +1,6 @@
 import json
+from io import BytesIO
+from typing import BinaryIO
 
 import httpx
 import pytest
@@ -26,9 +28,15 @@ def run_command(
     capsys: pytest.CaptureFixture[str],
     argv: list[str],
     handler: httpx.MockTransport,
+    *,
+    stdin: BinaryIO | None = None,
 ) -> tuple[int, str, str]:
     try:
-        main(argv, _client_factory=client_factory(handler))
+        main(
+            argv,
+            _client_factory=client_factory(handler),
+            _stdin=BytesIO() if stdin is None else stdin,
+        )
     except SystemExit as error:
         exit_code = error.code
     else:
@@ -52,6 +60,24 @@ def unused_client(**kwargs: object) -> httpx.Client:
     raise AssertionError("invalid input must not construct an HTTP client")
 
 
+class ShortReadStream:
+    def __init__(self, chunks: list[bytes | Exception]) -> None:
+        self.chunks = chunks
+        self.read_sizes: list[int] = []
+
+    def read(self, size: int = -1) -> bytes:
+        self.read_sizes.append(size)
+        chunk = self.chunks.pop(0) if self.chunks else b""
+        if isinstance(chunk, Exception):
+            raise chunk
+        return chunk
+
+
+class UnreadStream:
+    def read(self, size: int = -1) -> bytes:
+        raise AssertionError("explicit --text must not read stdin")
+
+
 @pytest.mark.parametrize(
     "argv",
     [
@@ -69,13 +95,177 @@ def test_invalid_input_has_one_safe_error(
     capsys: pytest.CaptureFixture[str], argv: list[str]
 ) -> None:
     with pytest.raises(SystemExit) as raised:
-        main(argv, _client_factory=unused_client)
+        main(argv, _client_factory=unused_client, _stdin=BytesIO())
 
     captured = capsys.readouterr()
     assert raised.value.code == 2
     assert captured.out == ""
     assert captured.err == "error: invalid request input\n"
     assert "65,536" not in captured.err
+
+
+@pytest.mark.parametrize(
+    ("stdin_bytes", "expected_text"),
+    [
+        (b"source text", "source text"),
+        ("Grüße 👋".encode(), "Grüße 👋"),
+        (b"  preserved source  ", "  preserved source  "),
+    ],
+)
+def test_stdin_posts_one_decoded_native_request(
+    capsys: pytest.CaptureFixture[str], stdin_bytes: bytes, expected_text: str
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, [], httpx.MockTransport(handler), stdin=BytesIO(stdin_bytes)
+    )
+
+    assert exit_code == 0
+    assert stdout == "summary\n"
+    assert stderr == ""
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.method == "POST"
+    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert json.loads(request.content) == {"text": expected_text}
+
+
+def test_stdin_handles_short_reads_before_eof(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = ShortReadStream([b"short ", b"read ", b"source"])
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys, [], httpx.MockTransport(handler), stdin=source
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert json.loads(requests[0].content) == {"text": "short read source"}
+    assert len(source.read_sizes) == 4
+
+
+@pytest.mark.parametrize(
+    "stdin",
+    [
+        BytesIO(),
+        BytesIO(b"  \n\t"),
+        BytesIO(b"\xff"),
+        BytesIO(b"x" * 65_537),
+        ShortReadStream([b"source", OSError("private read failure")]),
+    ],
+)
+def test_invalid_stdin_has_one_safe_error_without_http_client(
+    capsys: pytest.CaptureFixture[str], stdin: BinaryIO
+) -> None:
+    with pytest.raises(SystemExit) as raised:
+        main([], _client_factory=unused_client, _stdin=stdin)
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert "private" not in captured.err
+    assert "xff" not in captured.err
+
+
+def test_exact_stdin_byte_limit_is_accepted(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = b"x" * 65_536
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys, [], httpx.MockTransport(handler), stdin=BytesIO(source)
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert json.loads(requests[0].content) == {"text": source.decode()}
+
+
+def test_oversized_stdin_stops_after_the_limit_without_transmission(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source = ShortReadStream([b"x" * 65_537, AssertionError("must not drain")])
+
+    with pytest.raises(SystemExit) as raised:
+        main([], _client_factory=unused_client, _stdin=source)
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert source.read_sizes == [65_537]
+
+
+def test_explicit_text_takes_precedence_without_reading_stdin(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys,
+        ["--text", "argument text"],
+        httpx.MockTransport(handler),
+        stdin=UnreadStream(),
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert json.loads(requests[0].content) == {"text": "argument text"}
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_stdout"),
+    [
+        ([], "summary\n"),
+        (
+            ["--verbose"],
+            "Response:\nsummary\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: cluster-model\n",
+        ),
+        (
+            ["--json"],
+            '{"content":"summary","adapter":"test-adapter",'
+            '"model":"cluster-model","node_id":"cluster-node"}\n',
+        ),
+    ],
+)
+def test_stdin_preserves_existing_output_modes(
+    capsys: pytest.CaptureFixture[str], arguments: list[str], expected_stdout: str
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        arguments,
+        httpx.MockTransport(handler),
+        stdin=BytesIO(b"source"),
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
 
 
 @pytest.mark.parametrize("output_arguments", [[], ["--verbose"], ["-v"], ["--json"]])

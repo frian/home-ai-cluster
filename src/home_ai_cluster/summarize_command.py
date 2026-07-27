@@ -1,9 +1,10 @@
 """One-shot client for the ordinary Home AI Cluster summarize endpoint."""
 
 import argparse
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, BinaryIO
 
 import httpx
 from pydantic import ValidationError
@@ -24,6 +25,7 @@ from home_ai_cluster.core.models import ClusterResult, SummarizeRequest
 
 _ORDINARY_SUMMARIZE_URL = "http://127.0.0.1:8000/v1/summarize"
 _NO_CAPABILITY = "error: no available summarize capability"
+_MAX_STDIN_BYTES = 65_537
 
 
 class _InvalidRequestInput(Exception):
@@ -45,7 +47,33 @@ class _SummarizeCommandInput:
     output_mode: str
 
 
-def _parse_input(argv: Sequence[str] | None) -> _SummarizeCommandInput:
+def _read_bounded_stdin(stdin: BinaryIO) -> str:
+    """Read one bounded UTF-8 stdin value without retaining excess bytes."""
+    source = bytearray()
+    while len(source) < _MAX_STDIN_BYTES:
+        remaining = _MAX_STDIN_BYTES - len(source)
+        try:
+            chunk = stdin.read(remaining)
+        except Exception:
+            raise _InvalidRequestInput from None
+        if not chunk:
+            break
+        source.extend(chunk[:remaining])
+        if len(chunk) > remaining:
+            break
+
+    if len(source) > _MAX_STDIN_BYTES - 1:
+        raise _InvalidRequestInput
+
+    try:
+        return bytes(source).decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        raise _InvalidRequestInput from None
+
+
+def _parse_input(
+    argv: Sequence[str] | None, *, stdin: BinaryIO | None = None
+) -> _SummarizeCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster summarize")
     parser.add_argument("--text", action="append")
     output_options = parser.add_mutually_exclusive_group()
@@ -54,11 +82,15 @@ def _parse_input(argv: Sequence[str] | None) -> _SummarizeCommandInput:
     args = parser.parse_args(argv)
 
     texts = args.text or []
-    if len(texts) != 1:
+    if len(texts) > 1:
         raise _InvalidRequestInput
+    if texts:
+        text = texts[0]
+    else:
+        text = _read_bounded_stdin(sys.stdin.buffer if stdin is None else stdin)
 
     try:
-        request = SummarizeRequest(text=texts[0])
+        request = SummarizeRequest(text=text)
     except ValidationError:
         raise _InvalidRequestInput from None
 
@@ -105,10 +137,11 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     _client_factory: Callable[..., httpx.Client] = httpx.Client,
+    _stdin: BinaryIO | None = None,
 ) -> None:
     """Send one native summarize request and emit one result or safe failure."""
     try:
-        command_input = _parse_input(argv)
+        command_input = _parse_input(argv, stdin=_stdin)
     except _InvalidRequestInput:
         _exit_with_failure(_INVALID_INPUT, 2)
 

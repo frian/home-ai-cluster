@@ -240,6 +240,18 @@ ordinary process, use:
 hac summarize --text "Long text to summarize"
 ```
 
+The same one bounded UTF-8 source can come from standard input:
+
+```sh
+cat README.md | hac summarize
+hac summarize < README.md
+git diff | hac summarize
+```
+
+When `--text` is present, it takes precedence and stdin is ignored. The
+65,536-byte limit applies to either source; oversized stdin is rejected rather
+than truncated.
+
 The canonical equivalent is:
 
 ```sh

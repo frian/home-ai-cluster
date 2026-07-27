@@ -154,6 +154,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("static-cluster", ["--declaration", "cluster.toml"]),
         ("compatibility", ["--declaration", "cluster.toml"]),
         ("chat", ["--message", "Hello"]),
+        ("summarize", []),
         ("summarize", ["--text", "Source text"]),
         ("preflight", ["--json"]),
         ("health", ["--json"]),

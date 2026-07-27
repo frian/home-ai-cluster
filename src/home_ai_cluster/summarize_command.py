@@ -1,6 +1,8 @@
 """One-shot client for the ordinary Home AI Cluster summarize endpoint."""
 
 import argparse
+import os
+import stat
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -25,7 +27,7 @@ from home_ai_cluster.core.models import ClusterResult, SummarizeRequest
 
 _ORDINARY_SUMMARIZE_URL = "http://127.0.0.1:8000/v1/summarize"
 _NO_CAPABILITY = "error: no available summarize capability"
-_MAX_STDIN_BYTES = 65_537
+_MAX_SOURCE_BYTES = 65_537
 
 
 class _InvalidRequestInput(Exception):
@@ -47,13 +49,13 @@ class _SummarizeCommandInput:
     output_mode: str
 
 
-def _read_bounded_stdin(stdin: BinaryIO) -> str:
-    """Read one bounded UTF-8 stdin value without retaining excess bytes."""
+def _read_bounded_utf8_source(source_input: BinaryIO) -> str:
+    """Read one bounded UTF-8 byte source without retaining excess bytes."""
     source = bytearray()
-    while len(source) < _MAX_STDIN_BYTES:
-        remaining = _MAX_STDIN_BYTES - len(source)
+    while len(source) < _MAX_SOURCE_BYTES:
+        remaining = _MAX_SOURCE_BYTES - len(source)
         try:
-            chunk = stdin.read(remaining)
+            chunk = source_input.read(remaining)
         except Exception:
             raise _InvalidRequestInput from None
         if not chunk:
@@ -62,7 +64,7 @@ def _read_bounded_stdin(stdin: BinaryIO) -> str:
         if len(chunk) > remaining:
             break
 
-    if len(source) > _MAX_STDIN_BYTES - 1:
+    if len(source) > _MAX_SOURCE_BYTES - 1:
         raise _InvalidRequestInput
 
     try:
@@ -71,23 +73,50 @@ def _read_bounded_stdin(stdin: BinaryIO) -> str:
         raise _InvalidRequestInput from None
 
 
+def _read_bounded_file(
+    path: str,
+    *,
+    file_opener: Callable[[str, str], BinaryIO],
+) -> str:
+    """Read one regular file through the bounded UTF-8 source boundary."""
+    try:
+        if not stat.S_ISREG(os.stat(path).st_mode):
+            raise _InvalidRequestInput
+        with file_opener(path, "rb") as source:
+            if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                raise _InvalidRequestInput
+            return _read_bounded_utf8_source(source)
+    except _InvalidRequestInput:
+        raise
+    except Exception:
+        raise _InvalidRequestInput from None
+
+
 def _parse_input(
-    argv: Sequence[str] | None, *, stdin: BinaryIO | None = None
+    argv: Sequence[str] | None,
+    *,
+    stdin: BinaryIO | None = None,
+    file_opener: Callable[[str, str], BinaryIO] = open,
 ) -> _SummarizeCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster summarize")
-    parser.add_argument("--text", action="append")
+    source_options = parser.add_mutually_exclusive_group()
+    source_options.add_argument("--text", action="append")
+    source_options.add_argument("--file", action="append")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
     output_options.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
     texts = args.text or []
-    if len(texts) > 1:
+    files = args.file or []
+    if len(texts) > 1 or len(files) > 1:
         raise _InvalidRequestInput
     if texts:
         text = texts[0]
+    elif files:
+        text = _read_bounded_file(files[0], file_opener=file_opener)
     else:
-        text = _read_bounded_stdin(sys.stdin.buffer if stdin is None else stdin)
+        text = _read_bounded_utf8_source(sys.stdin.buffer if stdin is None else stdin)
 
     try:
         request = SummarizeRequest(text=text)
@@ -138,10 +167,15 @@ def main(
     *,
     _client_factory: Callable[..., httpx.Client] = httpx.Client,
     _stdin: BinaryIO | None = None,
+    _file_opener: Callable[[str, str], BinaryIO] = open,
 ) -> None:
     """Send one native summarize request and emit one result or safe failure."""
     try:
-        command_input = _parse_input(argv, stdin=_stdin)
+        command_input = _parse_input(
+            argv,
+            stdin=_stdin,
+            file_opener=_file_opener,
+        )
     except _InvalidRequestInput:
         _exit_with_failure(_INVALID_INPUT, 2)
 

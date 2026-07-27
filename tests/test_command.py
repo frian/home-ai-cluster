@@ -156,6 +156,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("chat", ["--message", "Hello"]),
         ("summarize", []),
         ("summarize", ["--text", "Source text"]),
+        ("summarize", ["--file", "source.txt"]),
         ("preflight", ["--json"]),
         ("health", ["--json"]),
         ("status", ["--declaration", "cluster.toml", "--json"]),

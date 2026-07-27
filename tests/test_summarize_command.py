@@ -1,10 +1,13 @@
 import json
+import stat
 from io import BytesIO
+from pathlib import Path
 from typing import BinaryIO
 
 import httpx
 import pytest
 
+from home_ai_cluster import summarize_command
 from home_ai_cluster.chat_command import _REQUEST_TIMEOUT_SECONDS as _CHAT_TIMEOUT
 from home_ai_cluster.summarize_command import _REQUEST_TIMEOUT_SECONDS, main
 
@@ -30,13 +33,16 @@ def run_command(
     handler: httpx.MockTransport,
     *,
     stdin: BinaryIO | None = None,
+    file_opener=None,
 ) -> tuple[int, str, str]:
     try:
-        main(
-            argv,
-            _client_factory=client_factory(handler),
-            _stdin=BytesIO() if stdin is None else stdin,
-        )
+        kwargs = {
+            "_client_factory": client_factory(handler),
+            "_stdin": BytesIO() if stdin is None else stdin,
+        }
+        if file_opener is not None:
+            kwargs["_file_opener"] = file_opener
+        main(argv, **kwargs)
     except SystemExit as error:
         exit_code = error.code
     else:
@@ -76,6 +82,21 @@ class ShortReadStream:
 class UnreadStream:
     def read(self, size: int = -1) -> bytes:
         raise AssertionError("explicit --text must not read stdin")
+
+
+class OpenedShortReadFile(ShortReadStream):
+    def __init__(self, path: Path, chunks: list[bytes | Exception]) -> None:
+        super().__init__(chunks)
+        self.source = path.open("rb")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.source.close()
+
+    def fileno(self) -> int:
+        return self.source.fileno()
 
 
 @pytest.mark.parametrize(
@@ -232,6 +253,274 @@ def test_explicit_text_takes_precedence_without_reading_stdin(
     assert exit_code == 0
     assert stderr == ""
     assert json.loads(requests[0].content) == {"text": "argument text"}
+
+
+@pytest.mark.parametrize(
+    ("contents", "expected_text"),
+    [
+        (b"file source", "file source"),
+        ("Grüße 👋".encode(), "Grüße 👋"),
+        (b"  preserved file source  ", "  preserved file source  "),
+    ],
+)
+def test_regular_file_posts_one_decoded_native_request(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    contents: bytes,
+    expected_text: str,
+) -> None:
+    path = tmp_path / "source.txt"
+    path.write_bytes(contents)
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--file", str(path)],
+        httpx.MockTransport(handler),
+        stdin=UnreadStream(),
+    )
+
+    assert exit_code == 0
+    assert stdout == "summary\n"
+    assert stderr == ""
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.method == "POST"
+    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert json.loads(request.content) == {"text": expected_text}
+
+
+def test_relative_regular_file_uses_process_working_directory(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "relative.txt").write_bytes(b"relative source")
+    monkeypatch.chdir(tmp_path)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys,
+        ["--file", "relative.txt"],
+        httpx.MockTransport(handler),
+        stdin=UnreadStream(),
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [
+        b"",
+        b" \n\t",
+        b"\xff",
+        b"x" * 65_537,
+    ],
+)
+def test_invalid_file_has_one_safe_error_without_http_client(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, contents: bytes
+) -> None:
+    path = tmp_path / "invalid.txt"
+    path.write_bytes(contents)
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            ["--file", str(path)],
+            _client_factory=unused_client,
+            _stdin=UnreadStream(),
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert str(path) not in captured.err
+
+
+def test_exact_file_byte_limit_is_accepted(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    path = tmp_path / "limit.txt"
+    contents = b"x" * 65_536
+    path.write_bytes(contents)
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys, ["--file", str(path)], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+    assert json.loads(requests[0].content) == {"text": contents.decode()}
+
+
+def test_file_short_reads_and_read_failure_do_not_transmit_partial_input(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"regular descriptor")
+    source = OpenedShortReadFile(
+        path,
+        [b"partial ", OSError("private file read failure")],
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            ["--file", str(path)],
+            _client_factory=unused_client,
+            _stdin=UnreadStream(),
+            _file_opener=lambda _path, _mode: source,
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert "private" not in captured.err
+
+
+def test_opened_non_regular_file_descriptor_is_invalid(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"source")
+    monkeypatch.setattr(
+        summarize_command.os,
+        "fstat",
+        lambda _descriptor: type("Result", (), {"st_mode": stat.S_IFIFO})(),
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            ["--file", str(path)],
+            _client_factory=unused_client,
+            _stdin=UnreadStream(),
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+
+
+def test_file_symlink_to_regular_file_is_accepted(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    target = tmp_path / "target.txt"
+    target.write_bytes(b"linked source")
+    link = tmp_path / "link.txt"
+    try:
+        link.symlink_to(target)
+    except OSError as error:
+        pytest.skip(f"symlinks unavailable: {error.__class__.__name__}")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, _, stderr = run_command(
+        capsys, ["--file", str(link)], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0
+    assert stderr == ""
+
+
+@pytest.mark.parametrize("path_kind", ["missing", "directory", "broken-link"])
+def test_invalid_file_paths_are_safe(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, path_kind: str
+) -> None:
+    path = tmp_path / "path"
+    if path_kind == "directory":
+        path.mkdir()
+    elif path_kind == "broken-link":
+        try:
+            path.symlink_to(tmp_path / "missing-target")
+        except OSError as error:
+            pytest.skip(f"symlinks unavailable: {error.__class__.__name__}")
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            ["--file", str(path)],
+            _client_factory=unused_client,
+            _stdin=UnreadStream(),
+        )
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 2
+    assert captured.out == ""
+    assert captured.err == "error: invalid request input\n"
+    assert str(path) not in captured.err
+
+
+def test_file_option_conflicts_and_repetition_are_invalid(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for argv in (
+        ["--text", "source", "--file", "private.txt"],
+        ["--file", "first.txt", "--file", "second.txt"],
+    ):
+        with pytest.raises(SystemExit) as raised:
+            main(argv, _client_factory=unused_client, _stdin=UnreadStream())
+
+        captured = capsys.readouterr()
+        assert raised.value.code == 2
+        assert captured.out == ""
+        assert captured.err == "error: invalid request input\n"
+        assert "private" not in captured.err
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_stdout"),
+    [
+        ([], "summary\n"),
+        (
+            ["--verbose"],
+            "Response:\nsummary\n\nExecution:\n  Node: cluster-node\n"
+            "  Adapter: test-adapter\n  Model: cluster-model\n",
+        ),
+        (
+            ["--json"],
+            '{"content":"summary","adapter":"test-adapter",'
+            '"model":"cluster-model","node_id":"cluster-node"}\n',
+        ),
+    ],
+)
+def test_file_preserves_existing_output_modes(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    arguments: list[str],
+    expected_stdout: str,
+) -> None:
+    path = tmp_path / "source.txt"
+    path.write_bytes(b"source")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--file", str(path), *arguments],
+        httpx.MockTransport(handler),
+        stdin=UnreadStream(),
+    )
+
+    assert exit_code == 0
+    assert stdout == expected_stdout
+    assert stderr == ""
 
 
 @pytest.mark.parametrize(

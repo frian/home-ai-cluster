@@ -99,8 +99,10 @@ uv run home-ai-cluster summarize --text "<OPERATOR_SUPPLIED_TEXT>"
 ```
 
 After installation, `hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"` is the
-short equivalent. The client accepts only `--text`; it does not read standard
-input or files and does not start or inspect the process.
+short equivalent. The client also accepts one bounded UTF-8 source from stdin
+when no explicit source is supplied, or one bounded strict-UTF-8 regular file
+through `--file <PATH>`. `--text` and `--file` are mutually exclusive; either
+explicit source ignores stdin. The client does not start or inspect the process.
 
 ### 6. Stop manually
 

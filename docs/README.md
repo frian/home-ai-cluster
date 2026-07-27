@@ -13,6 +13,8 @@ architecture.
 ## Start here
 
 - [Project README](../README.md) — current project shape and basic commands.
+- [Command reference](command-reference.md) — current lookup reference for
+  ordinary installed commands, common forms, options, and boundaries.
 - [Roadmap](../ROADMAP.md) — completed phases and future direction.
 - [Canonical operator workflow](operator-workflow.md) — shortest supported
   operator path.
@@ -20,6 +22,8 @@ architecture.
 
 ## Operator entry points
 
+- [Command reference](command-reference.md) — current lookup reference for
+  ordinary installed commands, common forms, options, and boundaries.
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
   local-only and explicit static-cluster operation, including human-readable
   inspection defaults and explicit structured `--json` forms.

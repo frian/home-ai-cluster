@@ -164,8 +164,11 @@ established at a specific stage and do not replace the current workflow.
   input, ordinary static fallback, remote summarize execution, and
   caller-owned attribution; it does not run or retain that proof.
 - [Remote summarize file proof runbook](remote-summarize-file-proof-runbook.md)
-  — ready-to-run privacy-safe procedure for the standalone remote summarize-file
-  integration proof; no retained result yet.
+  — privacy-safe procedure for the standalone remote summarize-file integration
+  proof.
+- [Remote summarize file proof](remote-summarize-file-proof.md) — retained
+  privacy-safe result of one real two-machine `hac summarize --file` execution
+  through accepted local-first remote fallback.
 - [Phase 18 two-machine summarize proof runbook](phase-18-two-machine-summarize-proof.md)
   — repeatable privacy-safe procedure for the bounded real two-machine
   summarize proof.

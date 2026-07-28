@@ -13,6 +13,7 @@ from home_ai_cluster.core.remote_node import (
 )
 from home_ai_cluster.core.remote_transport import RemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
 
 
 class StaticRemoteWiringError(Exception):
@@ -202,21 +203,25 @@ def build_static_remote_proof_wiring(
     )
 
 
-def create_static_local_node_announcement() -> NodeDescription:
+def create_static_local_node_announcement(
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
+) -> NodeDescription:
     """Create the explicit static local node announcement for Phase 2."""
     return NodeDescription(
         id="local",
         name="Local node",
         availability="available",
         health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat"), Capability(name="summarize")],
+        capabilities=[Capability(name=name) for name in capabilities],
         adapters=["ollama"],
     )
 
 
-def create_static_local_node_registry() -> NodeRegistry:
+def create_static_local_node_registry(
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
+) -> NodeRegistry:
     """Create the temporary static local node registry."""
-    return NodeRegistry([create_static_local_node_announcement()])
+    return NodeRegistry([create_static_local_node_announcement(capabilities)])
 
 
 def create_static_runtime_adapter_registry() -> AdapterRegistry:

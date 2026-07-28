@@ -276,6 +276,55 @@ def test_ordered_toml_capabilities_reach_remote_node_construction(
     asyncio.run(client.aclose())
 
 
+def test_main_passes_toml_local_capabilities_to_caller_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        'local_capabilities = ["chat"]\n'
+        "[[remote_nodes]]\n"
+        'node_id = "summary-remote"\n'
+        'base_url = "https://remote.example"\n'
+        'capabilities = ["summarize"]\n',
+        encoding="utf-8",
+    )
+    recorded: dict[str, object] = {}
+
+    def create_collection_app(
+        remote_nodes: tuple[ParsedRemoteNodeDeclaration, ...],
+        *,
+        local_app_composition: LocalAppComposition,
+    ) -> FastAPI:
+        recorded["remote_nodes"] = remote_nodes
+        recorded["local_capabilities"] = (
+            local_app_composition.node_registry.list_nodes()[0].capabilities
+        )
+        return FastAPI()
+
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_collection_app",
+        create_collection_app,
+    )
+    monkeypatch.setattr(static_cluster.uvicorn, "run", lambda *_1, **_2: None)
+
+    main(["--declaration", str(declaration_path)])
+
+    assert recorded == {
+        "remote_nodes": (
+            ParsedRemoteNodeDeclaration(
+                node_id="summary-remote",
+                base_url="https://remote.example",
+                capabilities=("summarize",),
+            ),
+        ),
+        "local_capabilities": [Capability(name="chat")],
+    }
+
+
 def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> None:
     requests: list[httpx.Request] = []
 
@@ -412,6 +461,43 @@ def test_static_cluster_prefers_usable_local_candidate() -> None:
     assert response.json()["node_id"] == LOCAL_NODE_ID
     assert len(local.requests) == 1
     assert remote.requests == []
+
+
+def test_restricted_caller_local_capabilities_route_by_eligibility() -> None:
+    local = FakeAdapter()
+    remote = FakeRemoteTransport()
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry([make_local_node()]),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=create_remote_declaration(
+            "summary-remote",
+            "https://remote.test",
+            ("summarize",),
+        ),
+        remote_transport=remote,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    app = create_app(static_remote_wiring=wiring)
+
+    async def send_summarize() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post("/v1/summarize", json={"text": "Source"})
+
+    chat_response = post(app)
+    summarize_response = asyncio.run(send_summarize())
+
+    assert chat_response.status_code == 200
+    assert chat_response.json()["node_id"] == LOCAL_NODE_ID
+    assert len(local.requests) == 1
+    assert summarize_response.status_code == 200
+    assert summarize_response.json()["node_id"] == "summary-remote"
+    assert len(remote.requests) == 1
+    assert isinstance(remote.requests[0], SummarizeRequest)
+    assert remote.requests[0].text == "Source"
 
 
 def test_static_cluster_falls_back_once_and_attributes_declared_remote_node() -> None:

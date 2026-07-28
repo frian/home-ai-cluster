@@ -13,17 +13,19 @@ from home_ai_cluster.api.wiring import (
 )
 from home_ai_cluster.core.models import NodeDescription
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
+)
 from home_ai_cluster.static_cluster import (
     create_remote_declaration,
     remote_base_url,
     remote_node_id,
 )
 from home_ai_cluster.static_cluster_declaration import (
-    DEFAULT_REMOTE_CAPABILITY_NAMES,
     StaticClusterDeclarationError,
     StaticClusterDeclarations,
     load_static_cluster_declarations,
-    validate_remote_capabilities,
 )
 
 MISSING_ADAPTER_REASON = "declared adapter is not present in the inspected registry"
@@ -109,7 +111,7 @@ def evaluate_static_multi_node_preflight(
     remote_node_id_value: str,
     remote_base_url_value: str,
     *,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     node_registry: NodeRegistry | None = None,
     adapter_registry: AdapterRegistry | None = None,
 ) -> dict[str, Any]:
@@ -133,7 +135,7 @@ def evaluate_static_multi_node_preflight(
 def load_inline_remote_declaration(
     remote_node_id_value: str,
     remote_base_url_value: str,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ):
     """Convert the accepted inline pair into one declaration value."""
     from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
@@ -141,7 +143,7 @@ def load_inline_remote_declaration(
     return RemoteNodeDeclaration(
         node_id=remote_node_id_value,
         base_url=remote_base_url_value,
-        capabilities=validate_remote_capabilities(capabilities),
+        capabilities=validate_static_capabilities(capabilities, subject="remote"),
     )
 
 
@@ -155,7 +157,7 @@ def evaluate_static_declarations_preflight(
     local_nodes = (
         node_registry
         if node_registry is not None
-        else create_static_local_node_registry()
+        else create_static_local_node_registry(declarations.local_capabilities)
     )
     adapters = (
         adapter_registry
@@ -273,13 +275,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     if has_remote_capabilities:
         try:
-            args.remote_capability = validate_remote_capabilities(
-                args.remote_capability
+            args.remote_capability = validate_static_capabilities(
+                args.remote_capability,
+                subject="remote",
             )
         except ValueError as exc:
             parser.error(str(exc))
     else:
-        args.remote_capability = DEFAULT_REMOTE_CAPABILITY_NAMES
+        args.remote_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
     return args
 

@@ -24,14 +24,16 @@ from home_ai_cluster.local_runtime_composition import (
     validate_local_runtime_arguments,
 )
 from home_ai_cluster.main import create_app
-from home_ai_cluster.static_cluster_declaration import (
-    DEFAULT_REMOTE_CAPABILITY_NAMES,
-    StaticClusterDeclarationError,
-    load_static_cluster_declarations,
-    validate_remote_capabilities,
+from home_ai_cluster.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
+)
+from home_ai_cluster.static_cluster_declaration import (
+    StaticClusterDeclarationError,
+    load_static_cluster_declarations,
 )
 from home_ai_cluster.static_cluster_validation import (
     LOCAL_NODE_ID,  # noqa: F401
@@ -83,13 +85,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     if has_remote_capabilities:
         try:
-            args.remote_capability = validate_remote_capabilities(
-                args.remote_capability
+            args.remote_capability = validate_static_capabilities(
+                args.remote_capability,
+                subject="remote",
             )
         except ValueError as exc:
             parser.error(str(exc))
     else:
-        args.remote_capability = DEFAULT_REMOTE_CAPABILITY_NAMES
+        args.remote_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
     validate_local_runtime_arguments(parser, args)
     return args
@@ -98,7 +101,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def create_remote_declaration(
     node_id: str,
     base_url: str,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> RemoteNodeDeclaration:
     """Create one static runtime remote declaration for this process."""
     return RemoteNodeDeclaration(
@@ -136,7 +139,7 @@ def create_static_cluster_app(
     node_id: str,
     base_url: str,
     *,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
@@ -191,22 +194,28 @@ def create_static_cluster_collection_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
-    local_app_composition = create_local_runtime_composition(
-        runtime=args.runtime,
-        llama_server_base_url=args.llama_server_base_url,
-        llama_server_model=args.llama_server_model,
-    )
 
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
+        local_app_composition = create_local_runtime_composition(
+            runtime=args.runtime,
+            llama_server_base_url=args.llama_server_base_url,
+            llama_server_model=args.llama_server_model,
+            capabilities=declarations.local_capabilities,
+        )
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
             local_app_composition=local_app_composition,
         )
     else:
+        local_app_composition = create_local_runtime_composition(
+            runtime=args.runtime,
+            llama_server_base_url=args.llama_server_base_url,
+            llama_server_model=args.llama_server_model,
+        )
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,

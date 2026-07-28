@@ -354,11 +354,13 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         runtime: str,
         llama_server_base_url: str | None,
         llama_server_model: str | None,
+        capabilities: tuple[str, ...],
     ) -> object:
         recorded["composition_arguments"] = {
             "runtime": runtime,
             "llama_server_base_url": llama_server_base_url,
             "llama_server_model": llama_server_model,
+            "capabilities": capabilities,
         }
         return local_composition
 
@@ -385,6 +387,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         "runtime": "ollama",
         "llama_server_base_url": None,
         "llama_server_model": None,
+        "capabilities": ("chat", "summarize"),
     }
     assert recorded["local_app_composition"] is local_composition
     assert recorded["app"] is app
@@ -458,6 +461,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         "runtime": "llama-server",
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
+        "capabilities": ("chat", "summarize"),
     }
     assert recorded["local_app_composition"] is selected_composition
     assert [vars(remote) for remote in recorded["remote_nodes"]] == [

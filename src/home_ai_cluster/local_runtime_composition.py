@@ -1,6 +1,7 @@
 """Concrete local compositions for the supported ordinary runtimes."""
 
 import argparse
+from collections.abc import Sequence
 
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
@@ -8,6 +9,7 @@ from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
+from home_ai_cluster.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
 
 LOCAL_RUNTIMES = ("ollama", "llama-server")
 
@@ -83,22 +85,28 @@ def validate_local_runtime_arguments(
         parser.error(str(error))
 
 
-def _create_local_node(adapter_name: str) -> NodeDescription:
+def _create_local_node(
+    adapter_name: str,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
+) -> NodeDescription:
     return NodeDescription(
         id="local",
         name="Local node",
         availability="available",
         health=NodeHealth(healthy=True),
-        capabilities=[Capability(name="chat"), Capability(name="summarize")],
+        capabilities=[Capability(name=name) for name in capabilities],
         adapters=[adapter_name],
     )
 
 
-def create_ollama_local_app_composition() -> LocalAppComposition:
+def create_ollama_local_app_composition(
+    *,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
+) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
     adapter = OllamaAdapter()
     return LocalAppComposition(
-        node_registry=NodeRegistry([_create_local_node(adapter.name)]),
+        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
     )
 
@@ -107,11 +115,12 @@ def create_llama_server_local_app_composition(
     *,
     base_url: str,
     model: str,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
     adapter = LlamaServerAdapter(base_url=base_url, model=model)
     return LocalAppComposition(
-        node_registry=NodeRegistry([_create_local_node(adapter.name)]),
+        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
     )
 
@@ -121,6 +130,7 @@ def create_local_runtime_composition(
     runtime: str,
     llama_server_base_url: str | None = None,
     llama_server_model: str | None = None,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Validate and construct one supported ordinary local composition."""
     base_url = validate_local_runtime_values(
@@ -130,11 +140,12 @@ def create_local_runtime_composition(
     )
 
     if runtime == "ollama":
-        return create_ollama_local_app_composition()
+        return create_ollama_local_app_composition(capabilities=capabilities)
 
     assert base_url is not None
     assert llama_server_model is not None
     return create_llama_server_local_app_composition(
         base_url=base_url,
         model=llama_server_model,
+        capabilities=capabilities,
     )

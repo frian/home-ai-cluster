@@ -82,11 +82,12 @@ hac static-cluster --declaration <PATH>
 hac static-cluster \
   --remote-node-id <NODE_ID> \
   --remote-base-url <BASE_URL> \
+  --local-capability chat \
   --remote-capability chat \
   --remote-capability summarize
 ```
 
-**Important behavior:** Declaration and inline remote modes are mutually
+**Important behavior:** Declaration and inline topology modes are mutually
 exclusive. Declaration mode supports one or more ordered remote nodes. The
 retained inline mode supports exactly one remote node. The same verified local
 runtime-composition options as `hac local` are accepted. Topology is static and
@@ -96,10 +97,17 @@ Each remote may declare the closed capability set `chat` and/or `summarize`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
 ["..."]` in the legacy flat TOML form, or repeat `--remote-capability <NAME>`
 for the one-remote inline form. Omission retains `chat` plus `summarize`.
-Empty, duplicate, and unknown explicit capability values are invalid. Capability
-membership controls eligibility only; its order is not priority, and remote
-declaration order remains the only remote priority rule. Declarations do not
-probe remotes or schedule requests.
+Caller-local routing capabilities use `local_capabilities = ["..."]` at the
+TOML root or repeated `--local-capability <NAME>` in the complete inline form.
+They control only which capabilities the caller-side static-cluster router may
+consider locally; they do not disable adapters, change runtime health, remove
+endpoints, configure `hac local`, change receiver behavior, verify remote
+runtime capability, select a target node, or create scheduling or preference.
+Omission also retains local `chat` plus `summarize`. Explicit local and remote
+sets must be non-empty and use only `chat` or `summarize`; duplicates and unknown
+names are rejected. Capability membership controls eligibility only, and its
+order is not priority. Remote declaration order remains the only remote priority
+rule. Declarations do not probe remotes or schedule requests.
 
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.
@@ -180,12 +188,20 @@ hac preflight
 hac preflight --json
 hac preflight --declaration <PATH>
 hac preflight --declaration <PATH> --json
+hac preflight \
+  --remote-node-id <NODE_ID> \
+  --remote-base-url <BASE_URL> \
+  --local-capability chat \
+  --remote-capability summarize
 ```
 
 **Important behavior:** This is static validation only: it does not observe a
 runtime or remote network. Default output is human-readable; `--json` provides
 compact structured output. A coherent result does not prove that a runtime or
-remote application is available.
+remote application is available. Inline preflight projects the same caller-local
+routing capability set as inline `hac static-cluster`; declaration and inline
+topology modes remain mutually exclusive. `hac local` and standalone local-only
+preflight remain unchanged.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

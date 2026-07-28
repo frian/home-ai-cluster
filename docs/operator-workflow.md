@@ -224,6 +224,7 @@ For one remote, use these root keys:
 ```toml
 remote_node_id = "<DECLARED_REMOTE_NODE_ID>"
 remote_base_url = "http://<RECEIVER_ADDRESS>:8000"
+local_capabilities = ["chat"]
 remote_capabilities = ["chat", "summarize"]
 ```
 
@@ -241,25 +242,54 @@ base_url = "http://<RECEIVER_B_ADDRESS>:8000"
 capabilities = ["summarize"]
 ```
 
+To keep chat caller-local while allowing summarize only on an eligible remote,
+use this healthy-operation specialization:
+
+```toml
+local_capabilities = ["chat"]
+
+[[remote_nodes]]
+node_id = "summary-remote"
+base_url = "http://<RECEIVER_ADDRESS>:<PORT>"
+capabilities = ["summarize"]
+```
+
 For one inline remote, repeat the closed capability option as needed:
 
 ```sh
 uv run home-ai-cluster-static-cluster \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
   --remote-base-url http://<RECEIVER_ADDRESS>:8000 \
-  --remote-capability chat \
+  --local-capability chat \
   --remote-capability summarize
 ```
 
-The accepted names are `chat` and `summarize`. Omitted capability fields or
-options retain both capabilities; explicit sets cannot be empty, duplicated, or
-unknown. Capability membership controls eligibility only, and its order is not
-priority. Declaration order remains meaningful for the existing ordered remote
-behavior; declarations do not probe remote capability or schedule requests.
+`local_capabilities` and `--local-capability` define caller-local routing
+capabilities: they control only which capabilities the caller-side static-cluster
+router may consider locally. They do not disable adapters, change runtime health,
+remove endpoints, configure `hac local`, change receiver behavior, verify remote
+runtime capability, select a target node, or create scheduling or preference.
+The accepted names are `chat` and `summarize`. Omitted local or remote capability
+fields and options retain both capabilities; explicit sets cannot be empty,
+duplicated, or unknown, and order has no priority meaning. Declaration and
+inline topology modes are mutually exclusive. Declaration order remains
+meaningful for the existing ordered remote behavior; declarations do not probe
+remote capability or schedule requests.
+
+The healthy-operation specialization above has this eligibility result:
+
+```text
+chat      -> local
+summarize -> eligible remote
+```
+
+No local failure is needed for summarize because the local candidate is
+ineligible. The same caller-local routing capability set is projected by static
+preflight, which remains network-free. `hac local` remains unchanged.
 Do not add merging, include files, aliases, schema versions, environment
 expansion, lookup precedence, or automatic discovery.
 
-### 5. Run declaration-aware preflight
+### 5. Run static preflight
 
 On the calling machine:
 
@@ -271,6 +301,18 @@ This validates static declaration coherence and performs no remote network
 observation. Run it before status or startup. An unknown key is an invalid
 declaration; compare the retained file with the accepted single-remote or
 multi-remote shape rather than reconstructing its schema from memory.
+
+For the equivalent inline topology, provide the same complete inline pair and
+capability values to preflight; it projects the caller-local routing capability
+set without network activity:
+
+```sh
+uv run home-ai-cluster-preflight \
+  --remote-node-id <DECLARED_REMOTE_NODE_ID> \
+  --remote-base-url http://<RECEIVER_ADDRESS>:8000 \
+  --local-capability chat \
+  --remote-capability summarize
+```
 
 ### 6. Inspect the declared static cluster
 

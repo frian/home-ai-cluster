@@ -112,6 +112,7 @@ def evaluate_static_multi_node_preflight(
     remote_base_url_value: str,
     *,
     capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
+    local_capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     node_registry: NodeRegistry | None = None,
     adapter_registry: AdapterRegistry | None = None,
 ) -> dict[str, Any]:
@@ -123,7 +124,11 @@ def evaluate_static_multi_node_preflight(
                 remote_base_url_value,
                 capabilities,
             ),
-        )
+        ),
+        local_capabilities=validate_static_capabilities(
+            local_capabilities,
+            subject="local",
+        ),
     )
     return evaluate_static_declarations_preflight(
         declarations,
@@ -245,6 +250,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    parser.add_argument("--local-capability", action="append")
     parser.add_argument("--remote-capability", action="append")
     parser.add_argument("--json", action="store_true")
     return parser
@@ -258,12 +264,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
     has_remote_base_url = args.remote_base_url is not None
+    has_local_capabilities = args.local_capability is not None
     has_remote_capabilities = args.remote_capability is not None
 
     if has_declaration and (
-        has_remote_node_id or has_remote_base_url or has_remote_capabilities
+        has_remote_node_id
+        or has_remote_base_url
+        or has_local_capabilities
+        or has_remote_capabilities
     ):
-        parser.error("--declaration cannot be combined with inline remote arguments")
+        parser.error("--declaration cannot be combined with inline topology arguments")
+
+    if has_local_capabilities and (not has_remote_node_id or not has_remote_base_url):
+        parser.error(
+            "--local-capability requires --remote-node-id and --remote-base-url"
+        )
 
     if has_remote_capabilities and (not has_remote_node_id or not has_remote_base_url):
         parser.error(
@@ -284,6 +299,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     else:
         args.remote_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
+    if has_local_capabilities:
+        try:
+            args.local_capability = validate_static_capabilities(
+                args.local_capability,
+                subject="local",
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    else:
+        args.local_capability = DEFAULT_STATIC_CAPABILITY_NAMES
+
     return args
 
 
@@ -301,6 +327,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 args.remote_node_id,
                 args.remote_base_url,
                 capabilities=args.remote_capability,
+                local_capabilities=args.local_capability,
             )
         else:
             report = evaluate_static_preflight()

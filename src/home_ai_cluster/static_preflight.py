@@ -141,7 +141,7 @@ def load_inline_remote_declaration(
     return RemoteNodeDeclaration(
         node_id=remote_node_id_value,
         base_url=remote_base_url_value,
-        capabilities=tuple(capabilities),
+        capabilities=validate_remote_capabilities(capabilities),
     )
 
 

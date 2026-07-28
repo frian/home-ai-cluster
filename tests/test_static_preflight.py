@@ -368,6 +368,26 @@ def test_inline_multi_node_preflight_projects_explicit_capabilities(
     assert report["nodes"][-1]["capabilities"] == expected
 
 
+@pytest.mark.parametrize(
+    ("capabilities", "message"),
+    [
+        (("unknown",), "unknown remote capability"),
+        (("chat", "chat"), "duplicate remote capability"),
+        ((), "remote capabilities must not be empty"),
+    ],
+)
+def test_inline_multi_node_preflight_rejects_invalid_capabilities(
+    capabilities: tuple[str, ...],
+    message: str,
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        evaluate_static_multi_node_preflight(
+            "declared-remote",
+            "https://remote.example",
+            capabilities=capabilities,
+        )
+
+
 def test_main_json_emits_compact_coherent_report_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

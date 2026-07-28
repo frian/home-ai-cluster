@@ -14,9 +14,14 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.static_cluster import REMOTE_HTTP_ADAPTER_NAME
+from home_ai_cluster.static_cluster_declaration import (
+    StaticClusterDeclarationError,
+    load_static_cluster_declarations,
+)
 from home_ai_cluster.static_preflight import (
     MISSING_ADAPTER_REASON,
     PREFLIGHT_FAILURE_MESSAGE,
+    evaluate_static_declarations_preflight,
     evaluate_static_multi_node_preflight,
     evaluate_static_preflight,
     format_static_preflight_report,
@@ -386,6 +391,84 @@ def test_inline_multi_node_preflight_rejects_invalid_capabilities(
             "https://remote.example",
             capabilities=capabilities,
         )
+
+
+@pytest.mark.parametrize(
+    ("local_capabilities", "expected"),
+    [
+        ('["chat"]', ["chat"]),
+        ('["summarize"]', ["summarize"]),
+        ('["summarize", "chat"]', ["summarize", "chat"]),
+        (None, ["chat", "summarize"]),
+    ],
+)
+def test_declaration_preflight_projects_caller_local_capabilities_without_network_use(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    local_capabilities: str | None,
+    expected: list[str],
+) -> None:
+    def fail_network(*_: object, **__: object) -> None:
+        raise AssertionError("declaration preflight must not use the network")
+
+    monkeypatch.setattr(httpx, "AsyncClient", fail_network)
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+    local_line = (
+        f"local_capabilities = {local_capabilities}\n" if local_capabilities else ""
+    )
+    path = tmp_path / "cluster.toml"
+    path.write_text(
+        local_line
+        + "[[remote_nodes]]\n"
+        + 'node_id = "summary-remote"\n'
+        + 'base_url = "https://remote.example"\n'
+        + 'capabilities = ["summarize"]\n',
+        encoding="utf-8",
+    )
+
+    report = evaluate_static_declarations_preflight(
+        load_static_cluster_declarations(path)
+    )
+
+    assert report["nodes"] == [
+        {
+            "node_id": "local",
+            "capabilities": expected,
+            "declared_adapters": ["ollama"],
+        },
+        {
+            "node_id": "summary-remote",
+            "capabilities": ["summarize"],
+            "declared_adapters": [REMOTE_HTTP_ADAPTER_NAME],
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    "local_capabilities",
+    ["[]", '["chat", "chat"]', '["unknown"]'],
+)
+def test_declaration_preflight_rejects_invalid_local_capabilities_before_network_use(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+    local_capabilities: str,
+) -> None:
+    def fail_network(*_: object, **__: object) -> None:
+        raise AssertionError("invalid local capabilities must fail before network use")
+
+    monkeypatch.setattr(httpx, "AsyncClient", fail_network)
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+    path = tmp_path / "cluster.toml"
+    path.write_text(
+        f"local_capabilities = {local_capabilities}\n"
+        "[[remote_nodes]]\n"
+        'node_id = "summary-remote"\n'
+        'base_url = "https://remote.example"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(StaticClusterDeclarationError):
+        evaluate_static_declarations_preflight(load_static_cluster_declarations(path))
 
 
 def test_main_json_emits_compact_coherent_report_and_exits_zero(

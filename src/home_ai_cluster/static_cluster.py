@@ -191,22 +191,28 @@ def create_static_cluster_collection_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
-    local_app_composition = create_local_runtime_composition(
-        runtime=args.runtime,
-        llama_server_base_url=args.llama_server_base_url,
-        llama_server_model=args.llama_server_model,
-    )
 
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
+        local_app_composition = create_local_runtime_composition(
+            runtime=args.runtime,
+            llama_server_base_url=args.llama_server_base_url,
+            llama_server_model=args.llama_server_model,
+            capabilities=declarations.local_capabilities,
+        )
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
             local_app_composition=local_app_composition,
         )
     else:
+        local_app_composition = create_local_runtime_composition(
+            runtime=args.runtime,
+            llama_server_base_url=args.llama_server_base_url,
+            llama_server_model=args.llama_server_model,
+        )
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,

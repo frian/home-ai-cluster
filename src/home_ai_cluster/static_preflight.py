@@ -155,7 +155,7 @@ def evaluate_static_declarations_preflight(
     local_nodes = (
         node_registry
         if node_registry is not None
-        else create_static_local_node_registry()
+        else create_static_local_node_registry(declarations.local_capabilities)
     )
     adapters = (
         adapter_registry

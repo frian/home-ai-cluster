@@ -217,6 +217,65 @@ def test_omitted_flat_remote_capabilities_use_compatibility_default(
 
 
 @pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        ('["chat"]', ("chat",)),
+        ('["summarize"]', ("summarize",)),
+        ('["summarize", "chat"]', ("summarize", "chat")),
+    ],
+)
+def test_loads_explicit_flat_local_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected: tuple[str, ...],
+) -> None:
+    declaration = load_static_cluster_declaration(
+        write_declaration(
+            tmp_path,
+            valid_declaration() + f"local_capabilities = {capabilities}\n",
+        )
+    )
+
+    assert declaration.local_capabilities == expected
+
+
+def test_omitted_flat_local_capabilities_use_compatibility_default(
+    tmp_path: Path,
+) -> None:
+    declaration = load_static_cluster_declaration(
+        write_declaration(tmp_path, valid_declaration())
+    )
+
+    assert declaration.local_capabilities == ("chat", "summarize")
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected_message"),
+    [
+        ("[]", "local capabilities must not be empty"),
+        ('["chat", "chat"]', "duplicate local capability"),
+        ('["unknown"]', "unknown local capability"),
+        ("[7]", "local capability must be a string"),
+        ('"chat"', "local capabilities must be an array"),
+    ],
+)
+def test_rejects_invalid_flat_local_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected_message: str,
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declaration(
+            write_declaration(
+                tmp_path,
+                valid_declaration() + f"local_capabilities = {capabilities}\n",
+            )
+        )
+
+    assert str(raised.value) == expected_message
+
+
+@pytest.mark.parametrize(
     ("capabilities", "expected_message"),
     [
         ("[]", "remote capabilities must not be empty"),
@@ -281,6 +340,94 @@ def test_omitted_ordered_remote_capabilities_use_compatibility_default(
     )
 
     assert declarations.remote_nodes[0].capabilities == ("chat", "summarize")
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        ('["chat"]', ("chat",)),
+        ('["summarize"]', ("summarize",)),
+        ('["summarize", "chat"]', ("summarize", "chat")),
+    ],
+)
+def test_loads_explicit_ordered_local_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected: tuple[str, ...],
+) -> None:
+    declarations = load_static_cluster_declarations(
+        write_declaration(
+            tmp_path,
+            f"local_capabilities = {capabilities}\n"
+            "[[remote_nodes]]\n"
+            'node_id = "remote-node"\n'
+            'base_url = "http://192.0.2.10:8000"\n',
+        )
+    )
+
+    assert declarations.local_capabilities == expected
+
+
+def test_omitted_ordered_local_capabilities_use_compatibility_default(
+    tmp_path: Path,
+) -> None:
+    declarations = load_static_cluster_declarations(
+        write_declaration(
+            tmp_path,
+            "[[remote_nodes]]\n"
+            'node_id = "remote-node"\n'
+            'base_url = "http://192.0.2.10:8000"\n',
+        )
+    )
+
+    assert declarations.local_capabilities == ("chat", "summarize")
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected_message"),
+    [
+        ("[]", "local capabilities must not be empty"),
+        ('["chat", "chat"]', "duplicate local capability"),
+        ('["unknown"]', "unknown local capability"),
+        ("[7]", "local capability must be a string"),
+        ('"chat"', "local capabilities must be an array"),
+    ],
+)
+def test_rejects_invalid_ordered_local_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected_message: str,
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(
+            write_declaration(
+                tmp_path,
+                f"local_capabilities = {capabilities}\n"
+                "[[remote_nodes]]\n"
+                'node_id = "remote-node"\n'
+                'base_url = "http://192.0.2.10:8000"\n',
+            )
+        )
+
+    assert str(raised.value) == expected_message
+
+
+def test_rejects_unknown_ordered_root_key_with_local_capabilities(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(
+            write_declaration(
+                tmp_path,
+                'local_capabilities = ["chat"]\n'
+                'unexpected = "value"\n'
+                "[[remote_nodes]]\n"
+                'node_id = "remote-node"\n'
+                'base_url = "http://192.0.2.10:8000"\n',
+            )
+        )
+
+    assert str(raised.value) == "unknown declaration key"
 
 
 def test_ordered_remote_capabilities_preserve_declaration_order(

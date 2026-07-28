@@ -85,8 +85,32 @@ def test_shared_composition_constructs_one_ordinary_ollama_node_and_adapter() ->
     assert adapters[0].name == "ollama"
 
 
-def test_shared_composition_constructs_one_ordinary_llama_server_node_and_adapter(
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        (("chat",), [Capability(name="chat")]),
+        (("summarize",), [Capability(name="summarize")]),
+        (
+            ("summarize", "chat"),
+            [Capability(name="summarize"), Capability(name="chat")],
+        ),
+    ],
+)
+def test_shared_composition_accepts_explicit_caller_local_capabilities(
+    capabilities: tuple[str, ...],
+    expected: list[Capability],
 ) -> None:
+    composition = local_runtime_composition.create_local_runtime_composition(
+        runtime="ollama",
+        capabilities=capabilities,
+    )
+
+    assert composition.node_registry.list_nodes()[0].capabilities == expected
+
+
+def test_shared_composition_constructs_one_ordinary_llama_server_node_and_adapter() -> (
+    None
+):
     composition = local_runtime_composition.create_local_runtime_composition(
         runtime="llama-server",
         llama_server_base_url="http://127.0.0.1:8080/",

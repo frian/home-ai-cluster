@@ -25,11 +25,12 @@ from home_ai_cluster.local_runtime_composition import (
 )
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_cluster_declaration import (
-    RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
-)
-from home_ai_cluster.static_cluster_declaration import (
+    DEFAULT_REMOTE_CAPABILITY_NAMES,
     StaticClusterDeclarationError,
     load_static_cluster_declarations,
+)
+from home_ai_cluster.static_cluster_declaration import (
+    RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
 )
 from home_ai_cluster.static_cluster_validation import (
     LOCAL_NODE_ID,  # noqa: F401
@@ -65,9 +66,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error("--declaration cannot be combined with inline remote arguments")
 
     if has_remote_node_id != has_remote_base_url:
-        parser.error(
-            "--remote-node-id and --remote-base-url must be provided together"
-        )
+        parser.error("--remote-node-id and --remote-base-url must be provided together")
 
     if not has_declaration and not has_remote_node_id:
         parser.error("provide either --declaration or both inline remote arguments")
@@ -79,6 +78,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def create_remote_declaration(
     node_id: str,
     base_url: str,
+    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
 ) -> RemoteNodeDeclaration:
     """Create one static runtime remote declaration for this process."""
     return RemoteNodeDeclaration(
@@ -87,7 +87,7 @@ def create_remote_declaration(
             name=f"Declared remote node {node_id}",
             availability="available",
             health=NodeHealth(healthy=True),
-            capabilities=[Capability(name="chat"), Capability(name="summarize")],
+            capabilities=[Capability(name=name) for name in capabilities],
             adapters=[REMOTE_HTTP_ADAPTER_NAME],
         ),
         transport_address=base_url,
@@ -145,7 +145,11 @@ def create_static_cluster_collection_app(
     """Construct an application retaining one ordered remote collection."""
     process_client = client or create_static_cluster_http_client()
     declarations = [
-        create_remote_declaration(remote.node_id, remote.base_url)
+        create_remote_declaration(
+            remote.node_id,
+            remote.base_url,
+            remote.capabilities,
+        )
         for remote in remote_nodes
     ]
     wiring = build_static_remote_collection_wiring(

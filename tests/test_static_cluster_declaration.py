@@ -8,6 +8,7 @@ from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclaration,
     StaticClusterDeclarationError,
     load_static_cluster_declaration,
+    load_static_cluster_declarations,
 )
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
@@ -20,8 +21,7 @@ def write_declaration(tmp_path: Path, content: str) -> Path:
 
 def valid_declaration() -> str:
     return (
-        'remote_node_id = "remote-node"\n'
-        'remote_base_url = "http://192.0.2.10:8000"\n'
+        'remote_node_id = "remote-node"\nremote_base_url = "http://192.0.2.10:8000"\n'
     )
 
 
@@ -110,13 +110,12 @@ def test_unreadable_declaration_is_a_safe_local_failure(
         (
             'remote_node_id = "remote-node"\n'
             'remote_base_url = "http://192.0.2.10:8000"\n'
-            '[nested]\n'
+            "[nested]\n"
             'value = "not allowed"\n',
             "unknown declaration key",
         ),
         (
-            'remote_node_id = 7\n'
-            'remote_base_url = "http://192.0.2.10:8000"\n',
+            'remote_node_id = 7\nremote_base_url = "http://192.0.2.10:8000"\n',
             "declaration value must be a string: remote_node_id",
         ),
         (
@@ -175,11 +174,178 @@ def test_private_base_url_is_absent_from_failure_messages(tmp_path: Path) -> Non
     private_base_url = "private.example:9443"
     path = write_declaration(
         tmp_path,
-        'remote_node_id = "remote-node"\n'
-        f'remote_base_url = "{private_base_url}"\n',
+        f'remote_node_id = "remote-node"\nremote_base_url = "{private_base_url}"\n',
     )
 
     with pytest.raises(StaticClusterDeclarationError) as raised:
         load_static_cluster_declaration(path)
 
     assert private_base_url not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        ('["chat"]', ("chat",)),
+        ('["summarize"]', ("summarize",)),
+        ('["chat", "summarize"]', ("chat", "summarize")),
+    ],
+)
+def test_loads_explicit_flat_remote_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected: tuple[str, ...],
+) -> None:
+    declaration = load_static_cluster_declaration(
+        write_declaration(
+            tmp_path,
+            valid_declaration() + f"remote_capabilities = {capabilities}\n",
+        )
+    )
+
+    assert declaration.remote_capabilities == expected
+
+
+def test_omitted_flat_remote_capabilities_use_compatibility_default(
+    tmp_path: Path,
+) -> None:
+    declaration = load_static_cluster_declaration(
+        write_declaration(tmp_path, valid_declaration())
+    )
+
+    assert declaration.remote_capabilities == ("chat", "summarize")
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected_message"),
+    [
+        ("[]", "remote capabilities must not be empty"),
+        ('["chat", "chat"]', "duplicate remote capability"),
+        ('["unknown"]', "unknown remote capability"),
+        ("[7]", "remote capability must be a string"),
+        ('"chat"', "remote capabilities must be an array"),
+    ],
+)
+def test_rejects_invalid_flat_remote_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected_message: str,
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declaration(
+            write_declaration(
+                tmp_path,
+                valid_declaration() + f"remote_capabilities = {capabilities}\n",
+            )
+        )
+
+    assert str(raised.value) == expected_message
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        ('["chat"]', ("chat",)),
+        ('["summarize"]', ("summarize",)),
+        ('["chat", "summarize"]', ("chat", "summarize")),
+    ],
+)
+def test_loads_explicit_ordered_remote_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected: tuple[str, ...],
+) -> None:
+    declarations = load_static_cluster_declarations(
+        write_declaration(
+            tmp_path,
+            "[[remote_nodes]]\n"
+            'node_id = "remote-node"\n'
+            'base_url = "http://192.0.2.10:8000"\n'
+            f"capabilities = {capabilities}\n",
+        )
+    )
+
+    assert declarations.remote_nodes[0].capabilities == expected
+
+
+def test_omitted_ordered_remote_capabilities_use_compatibility_default(
+    tmp_path: Path,
+) -> None:
+    declarations = load_static_cluster_declarations(
+        write_declaration(
+            tmp_path,
+            "[[remote_nodes]]\n"
+            'node_id = "remote-node"\n'
+            'base_url = "http://192.0.2.10:8000"\n',
+        )
+    )
+
+    assert declarations.remote_nodes[0].capabilities == ("chat", "summarize")
+
+
+def test_ordered_remote_capabilities_preserve_declaration_order(
+    tmp_path: Path,
+) -> None:
+    declarations = load_static_cluster_declarations(
+        write_declaration(
+            tmp_path,
+            "[[remote_nodes]]\n"
+            'node_id = "chat-node"\n'
+            'base_url = "http://192.0.2.10:8000"\n'
+            'capabilities = ["chat"]\n\n'
+            "[[remote_nodes]]\n"
+            'node_id = "summary-node"\n'
+            'base_url = "http://192.0.2.11:8000"\n'
+            'capabilities = ["summarize"]\n',
+        )
+    )
+
+    actual = [(node.node_id, node.capabilities) for node in declarations.remote_nodes]
+    assert actual == [
+        ("chat-node", ("chat",)),
+        ("summary-node", ("summarize",)),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected_message"),
+    [
+        ("[]", "remote capabilities must not be empty"),
+        ('["chat", "chat"]', "duplicate remote capability"),
+        ('["unknown"]', "unknown remote capability"),
+        ("[7]", "remote capability must be a string"),
+        ('"chat"', "remote capabilities must be an array"),
+    ],
+)
+def test_rejects_invalid_ordered_remote_capabilities(
+    tmp_path: Path,
+    capabilities: str,
+    expected_message: str,
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(
+            write_declaration(
+                tmp_path,
+                "[[remote_nodes]]\n"
+                'node_id = "remote-node"\n'
+                'base_url = "http://192.0.2.10:8000"\n'
+                f"capabilities = {capabilities}\n",
+            )
+        )
+
+    assert str(raised.value) == expected_message
+
+
+def test_ordered_remote_unknown_keys_remain_rejected(tmp_path: Path) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(
+            write_declaration(
+                tmp_path,
+                "[[remote_nodes]]\n"
+                'node_id = "remote-node"\n'
+                'base_url = "http://192.0.2.10:8000"\n'
+                'unexpected = "value"\n',
+            )
+        )
+
+    assert str(raised.value) == "unknown remote node declaration key"

@@ -9,11 +9,18 @@ from typing import Any
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 _SINGLE_DECLARATION_KEYS = ("remote_node_id", "remote_base_url")
-_SINGLE_DECLARATION_KEY_SET = frozenset(_SINGLE_DECLARATION_KEYS)
+_SINGLE_CAPABILITY_KEY = "remote_capabilities"
+_SINGLE_DECLARATION_KEY_SET = frozenset(
+    (*_SINGLE_DECLARATION_KEYS, _SINGLE_CAPABILITY_KEY)
+)
 _MULTI_DECLARATION_KEY = "remote_nodes"
 _MULTI_DECLARATION_KEY_SET = frozenset({_MULTI_DECLARATION_KEY})
 _REMOTE_ENTRY_KEYS = ("node_id", "base_url")
-_REMOTE_ENTRY_KEY_SET = frozenset(_REMOTE_ENTRY_KEYS)
+_REMOTE_CAPABILITY_KEY = "capabilities"
+_REMOTE_ENTRY_KEY_SET = frozenset((*_REMOTE_ENTRY_KEYS, _REMOTE_CAPABILITY_KEY))
+
+DEFAULT_REMOTE_CAPABILITY_NAMES = ("chat", "summarize")
+_VALID_REMOTE_CAPABILITY_NAMES = frozenset(DEFAULT_REMOTE_CAPABILITY_NAMES)
 
 
 class StaticClusterDeclarationError(Exception):
@@ -26,6 +33,7 @@ class RemoteNodeDeclaration:
 
     node_id: str
     base_url: str
+    capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
 
 
 @dataclass(frozen=True)
@@ -41,6 +49,7 @@ class StaticClusterDeclaration:
 
     remote_node_id: str
     remote_base_url: str
+    remote_capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
 
 
 def load_static_cluster_declarations(
@@ -75,6 +84,7 @@ def load_static_cluster_declaration(
     return StaticClusterDeclaration(
         remote_node_id=remote.node_id,
         remote_base_url=remote.base_url,
+        remote_capabilities=remote.capabilities,
     )
 
 
@@ -120,6 +130,11 @@ def _parse_single_remote(
     return RemoteNodeDeclaration(
         node_id=_validated_remote_node_id(document["remote_node_id"], path),
         base_url=_validated_remote_base_url(document["remote_base_url"], path),
+        capabilities=(
+            _parse_remote_capabilities(document[_SINGLE_CAPABILITY_KEY])
+            if _SINGLE_CAPABILITY_KEY in document
+            else DEFAULT_REMOTE_CAPABILITY_NAMES
+        ),
     )
 
 
@@ -161,7 +176,26 @@ def _parse_remote_entry(entry: Any, path: Path) -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
         node_id=_validated_remote_node_id(entry["node_id"], path),
         base_url=_validated_remote_base_url(entry["base_url"], path),
+        capabilities=(
+            _parse_remote_capabilities(entry[_REMOTE_CAPABILITY_KEY])
+            if _REMOTE_CAPABILITY_KEY in entry
+            else DEFAULT_REMOTE_CAPABILITY_NAMES
+        ),
     )
+
+
+def _parse_remote_capabilities(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise StaticClusterDeclarationError("remote capabilities must be an array")
+    if not value:
+        raise StaticClusterDeclarationError("remote capabilities must not be empty")
+    if any(not isinstance(name, str) for name in value):
+        raise StaticClusterDeclarationError("remote capability must be a string")
+    if any(name not in _VALID_REMOTE_CAPABILITY_NAMES for name in value):
+        raise StaticClusterDeclarationError("unknown remote capability")
+    if len(value) != len(set(value)):
+        raise StaticClusterDeclarationError("duplicate remote capability")
+    return tuple(value)
 
 
 def _validate_unique_remote_nodes(

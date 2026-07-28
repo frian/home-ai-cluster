@@ -11,10 +11,10 @@ from home_ai_cluster.static_preflight import main, parse_args
 def write_declaration(tmp_path: Path) -> Path:
     path = tmp_path / "cluster.toml"
     path.write_text(
-        '[[remote_nodes]]\n'
+        "[[remote_nodes]]\n"
         'node_id = "remote-a"\n'
         'base_url = "https://private-a.example:8000"\n\n'
-        '[[remote_nodes]]\n'
+        "[[remote_nodes]]\n"
         'node_id = "remote-b"\n'
         'base_url = "https://private-b.example:8000"\n',
         encoding="utf-8",
@@ -91,3 +91,45 @@ def test_main_rejects_invalid_declaration_before_projection(
     captured = capsys.readouterr()
     assert captured.out == ""
     assert "remote_nodes must not be empty" in captured.err
+
+
+def test_main_projects_explicit_remote_capabilities_in_declaration_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def fail_network(*_: object, **__: object) -> None:
+        raise AssertionError("preflight must not use the network")
+
+    path = tmp_path / "cluster.toml"
+    path.write_text(
+        "[[remote_nodes]]\n"
+        'node_id = "chat-node"\n'
+        'base_url = "http://example.invalid:8000"\n'
+        'capabilities = ["chat"]\n\n'
+        "[[remote_nodes]]\n"
+        'node_id = "summary-node"\n'
+        'base_url = "http://example.invalid:8001"\n'
+        'capabilities = ["summarize"]\n\n'
+        "[[remote_nodes]]\n"
+        'node_id = "default-node"\n'
+        'base_url = "http://example.invalid:8002"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(httpx, "AsyncClient", fail_network)
+    monkeypatch.setattr(socket, "getaddrinfo", fail_network)
+
+    main(["--declaration", str(path), "--json"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert [node["node_id"] for node in report["nodes"]] == [
+        "local",
+        "chat-node",
+        "summary-node",
+        "default-node",
+    ]
+    assert [node["capabilities"] for node in report["nodes"][1:]] == [
+        ["chat"],
+        ["summarize"],
+        ["chat", "summarize"],
+    ]

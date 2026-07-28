@@ -186,6 +186,9 @@ established at a specific stage and do not replace the current workflow.
 - [Heterogeneous static capabilities proof](heterogeneous-static-capabilities-proof.md)
   — retained ordinary process-and-HTTP proof that explicit remote capability
   declarations control eligibility without changing local-first routing.
+- [Local capability ownership investigation](local-capability-ownership-investigation.md)
+  — standalone documentation-only investigation of the contract gap for
+  restricting fixed local-node routing capabilities.
 
 ## Document roles
 

@@ -55,6 +55,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0059: Caller-local static capabilities](RFC-0059-caller-local-static-capabilities.md)
+  — accepts bounded caller-local routing capabilities for ordinary static
+  clusters while preserving local-first routing and receiver behavior.
 - [RFC-0058: Explicit static remote capabilities](RFC-0058-explicit-static-remote-capabilities.md)
   — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.

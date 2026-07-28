@@ -9,7 +9,7 @@ from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
-from home_ai_cluster.static_cluster_declaration import DEFAULT_REMOTE_CAPABILITY_NAMES
+from home_ai_cluster.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
 
 LOCAL_RUNTIMES = ("ollama", "llama-server")
 
@@ -87,7 +87,7 @@ def validate_local_runtime_arguments(
 
 def _create_local_node(
     adapter_name: str,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> NodeDescription:
     return NodeDescription(
         id="local",
@@ -101,7 +101,7 @@ def _create_local_node(
 
 def create_ollama_local_app_composition(
     *,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
     adapter = OllamaAdapter()
@@ -115,7 +115,7 @@ def create_llama_server_local_app_composition(
     *,
     base_url: str,
     model: str,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
     adapter = LlamaServerAdapter(base_url=base_url, model=model)
@@ -130,7 +130,7 @@ def create_local_runtime_composition(
     runtime: str,
     llama_server_base_url: str | None = None,
     llama_server_model: str | None = None,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Validate and construct one supported ordinary local composition."""
     base_url = validate_local_runtime_values(

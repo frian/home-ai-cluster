@@ -2,11 +2,14 @@
 
 import argparse
 import tomllib
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from home_ai_cluster.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
+)
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 _SINGLE_DECLARATION_KEYS = ("remote_node_id", "remote_base_url")
@@ -21,9 +24,6 @@ _REMOTE_ENTRY_KEYS = ("node_id", "base_url")
 _REMOTE_CAPABILITY_KEY = "capabilities"
 _REMOTE_ENTRY_KEY_SET = frozenset((*_REMOTE_ENTRY_KEYS, _REMOTE_CAPABILITY_KEY))
 
-DEFAULT_REMOTE_CAPABILITY_NAMES = ("chat", "summarize")
-_VALID_REMOTE_CAPABILITY_NAMES = frozenset(DEFAULT_REMOTE_CAPABILITY_NAMES)
-
 
 class StaticClusterDeclarationError(Exception):
     """Raised when one static cluster declaration cannot be loaded safely."""
@@ -35,7 +35,7 @@ class RemoteNodeDeclaration:
 
     node_id: str
     base_url: str
-    capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
+    capabilities: tuple[str, ...] = DEFAULT_STATIC_CAPABILITY_NAMES
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ class StaticClusterDeclarations:
     """One caller-local declaration plus ordered immutable remote nodes."""
 
     remote_nodes: tuple[RemoteNodeDeclaration, ...]
-    local_capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
+    local_capabilities: tuple[str, ...] = DEFAULT_STATIC_CAPABILITY_NAMES
 
 
 @dataclass(frozen=True)
@@ -52,8 +52,8 @@ class StaticClusterDeclaration:
 
     remote_node_id: str
     remote_base_url: str
-    remote_capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
-    local_capabilities: tuple[str, ...] = DEFAULT_REMOTE_CAPABILITY_NAMES
+    remote_capabilities: tuple[str, ...] = DEFAULT_STATIC_CAPABILITY_NAMES
+    local_capabilities: tuple[str, ...] = DEFAULT_STATIC_CAPABILITY_NAMES
 
 
 def load_static_cluster_declarations(
@@ -78,7 +78,7 @@ def load_static_cluster_declarations(
         local_capabilities=(
             _parse_local_capabilities(document[_LOCAL_CAPABILITY_KEY])
             if _LOCAL_CAPABILITY_KEY in document
-            else DEFAULT_REMOTE_CAPABILITY_NAMES
+            else DEFAULT_STATIC_CAPABILITY_NAMES
         ),
     )
 
@@ -147,7 +147,7 @@ def _parse_single_remote(
         capabilities=(
             _parse_remote_capabilities(document[_SINGLE_CAPABILITY_KEY])
             if _SINGLE_CAPABILITY_KEY in document
-            else DEFAULT_REMOTE_CAPABILITY_NAMES
+            else DEFAULT_STATIC_CAPABILITY_NAMES
         ),
     )
 
@@ -193,7 +193,7 @@ def _parse_remote_entry(entry: Any, path: Path) -> RemoteNodeDeclaration:
         capabilities=(
             _parse_remote_capabilities(entry[_REMOTE_CAPABILITY_KEY])
             if _REMOTE_CAPABILITY_KEY in entry
-            else DEFAULT_REMOTE_CAPABILITY_NAMES
+            else DEFAULT_STATIC_CAPABILITY_NAMES
         ),
     )
 
@@ -202,7 +202,7 @@ def _parse_remote_capabilities(value: Any) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise StaticClusterDeclarationError("remote capabilities must be an array")
     try:
-        return validate_remote_capabilities(value)
+        return validate_static_capabilities(value, subject="remote")
     except ValueError as exc:
         raise StaticClusterDeclarationError(str(exc)) from exc
 
@@ -211,26 +211,9 @@ def _parse_local_capabilities(value: Any) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise StaticClusterDeclarationError("local capabilities must be an array")
     try:
-        return validate_remote_capabilities(value)
+        return validate_static_capabilities(value, subject="local")
     except ValueError as exc:
-        raise StaticClusterDeclarationError(
-            str(exc)
-            .replace("remote capabilities", "local capabilities")
-            .replace("remote capability", "local capability")
-        ) from exc
-
-
-def validate_remote_capabilities(value: Sequence[object]) -> tuple[str, ...]:
-    """Validate the accepted explicit remote capability set."""
-    if not value:
-        raise ValueError("remote capabilities must not be empty")
-    if any(not isinstance(name, str) for name in value):
-        raise ValueError("remote capability must be a string")
-    if any(name not in _VALID_REMOTE_CAPABILITY_NAMES for name in value):
-        raise ValueError("unknown remote capability")
-    if len(value) != len(set(value)):
-        raise ValueError("duplicate remote capability")
-    return tuple(value)
+        raise StaticClusterDeclarationError(str(exc)) from exc
 
 
 def _validate_unique_remote_nodes(

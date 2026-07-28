@@ -24,14 +24,16 @@ from home_ai_cluster.local_runtime_composition import (
     validate_local_runtime_arguments,
 )
 from home_ai_cluster.main import create_app
-from home_ai_cluster.static_cluster_declaration import (
-    DEFAULT_REMOTE_CAPABILITY_NAMES,
-    StaticClusterDeclarationError,
-    load_static_cluster_declarations,
-    validate_remote_capabilities,
+from home_ai_cluster.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
+)
+from home_ai_cluster.static_cluster_declaration import (
+    StaticClusterDeclarationError,
+    load_static_cluster_declarations,
 )
 from home_ai_cluster.static_cluster_validation import (
     LOCAL_NODE_ID,  # noqa: F401
@@ -83,13 +85,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     if has_remote_capabilities:
         try:
-            args.remote_capability = validate_remote_capabilities(
-                args.remote_capability
+            args.remote_capability = validate_static_capabilities(
+                args.remote_capability,
+                subject="remote",
             )
         except ValueError as exc:
             parser.error(str(exc))
     else:
-        args.remote_capability = DEFAULT_REMOTE_CAPABILITY_NAMES
+        args.remote_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
     validate_local_runtime_arguments(parser, args)
     return args
@@ -98,7 +101,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def create_remote_declaration(
     node_id: str,
     base_url: str,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> RemoteNodeDeclaration:
     """Create one static runtime remote declaration for this process."""
     return RemoteNodeDeclaration(
@@ -136,7 +139,7 @@ def create_static_cluster_app(
     node_id: str,
     base_url: str,
     *,
-    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
+    capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:

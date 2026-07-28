@@ -180,6 +180,9 @@ established at a specific stage and do not replace the current workflow.
   and local-first summarize observations.
 - [Phase 18 closeout](phase-18-closeout.md) — completion record for the bounded
   second executable capability phase.
+- [Heterogeneous static capabilities investigation](heterogeneous-static-capabilities-investigation.md)
+  — standalone documentation-only investigation that distinguishes capability
+  eligibility from scheduling and records an Outcome C contract gap.
 
 ## Document roles
 

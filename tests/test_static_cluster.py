@@ -674,7 +674,10 @@ def test_main_runs_fixed_loopback_static_cluster_server(
     )
 
     assert recorded == {
-        "composition_arguments": composition_arguments,
+        "composition_arguments": {
+            **composition_arguments,
+            "capabilities": ("chat", "summarize"),
+        },
         "capabilities": ("chat", "summarize"),
         "local_app_composition": local_composition,
         "app": app,
@@ -691,10 +694,14 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
     recorded: dict[str, object] = {}
     local_composition = object()
 
+    def create_local_composition(**kwargs: object) -> object:
+        recorded["local_capabilities"] = kwargs["capabilities"]
+        return local_composition
+
     monkeypatch.setattr(
         static_cluster,
         "create_local_runtime_composition",
-        lambda **_: local_composition,
+        create_local_composition,
     )
     monkeypatch.setattr(
         static_cluster,
@@ -715,12 +722,15 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
             "operator-remote",
             "--remote-base-url",
             "https://remote.test",
+            "--local-capability",
+            "chat",
             "--remote-capability",
             "summarize",
         ]
     )
 
     assert recorded == {
+        "local_capabilities": ("chat",),
         "capabilities": ("summarize",),
         "local_app_composition": local_composition,
     }

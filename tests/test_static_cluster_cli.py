@@ -28,6 +28,7 @@ def test_parse_args_accepts_inline_mode() -> None:
     assert args.declaration is None
     assert args.remote_node_id == "operator-remote"
     assert args.remote_base_url == "https://remote.example:8000"
+    assert args.local_capability == ("chat", "summarize")
     assert args.remote_capability == ("chat", "summarize")
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
@@ -91,6 +92,35 @@ def test_parse_args_accepts_explicit_inline_remote_capabilities(
     )
 
     assert args.remote_capability == expected
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        (["chat"], ("chat",)),
+        (["summarize"], ("summarize",)),
+        (["summarize", "chat"], ("summarize", "chat")),
+    ],
+)
+def test_parse_args_accepts_explicit_inline_local_capabilities(
+    capabilities: list[str],
+    expected: tuple[str, ...],
+) -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            *[
+                option
+                for capability in capabilities
+                for option in ("--local-capability", capability)
+            ],
+        ]
+    )
+
+    assert args.local_capability == expected
 
 
 def test_parse_args_accepts_llama_server_with_declaration_topology(
@@ -229,6 +259,7 @@ def test_parse_args_matches_standalone_runtime_validation_errors(
             "https://remote.example:8000",
         ],
         ["--remote-capability", "chat"],
+        ["--local-capability", "chat"],
         [
             "--remote-node-id",
             "operator-remote",
@@ -246,6 +277,42 @@ def test_parse_args_matches_standalone_runtime_validation_errors(
             "cluster.toml",
             "--remote-capability",
             "chat",
+        ],
+        [
+            "--declaration",
+            "cluster.toml",
+            "--local-capability",
+            "chat",
+        ],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--local-capability",
+            "chat",
+        ],
+        [
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--local-capability",
+            "chat",
+        ],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--local-capability",
+            "chat",
+            "--local-capability",
+            "chat",
+        ],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--local-capability",
+            "unknown",
         ],
         [
             "--remote-node-id",
@@ -287,6 +354,7 @@ def test_inline_and_flat_toml_capabilities_construct_equivalent_remotes(
     declaration_path.write_text(
         'remote_node_id = "operator-remote"\n'
         'remote_base_url = "https://remote.example:8000/"\n'
+        'local_capabilities = ["chat"]\n'
         'remote_capabilities = ["chat", "summarize"]\n',
         encoding="utf-8",
     )
@@ -297,6 +365,8 @@ def test_inline_and_flat_toml_capabilities_construct_equivalent_remotes(
             "operator-remote",
             "--remote-base-url",
             "https://remote.example:8000/",
+            "--local-capability",
+            "chat",
             "--remote-capability",
             "chat",
             "--remote-capability",
@@ -316,6 +386,18 @@ def test_inline_and_flat_toml_capabilities_construct_equivalent_remotes(
     )
 
     assert inline_remote == toml_remote
+    assert args.local_capability == toml.local_capabilities
+    inline_local = create_local_runtime_composition(
+        runtime="ollama",
+        capabilities=args.local_capability,
+    )
+    toml_local = create_local_runtime_composition(
+        runtime="ollama",
+        capabilities=toml.local_capabilities,
+    )
+    assert (
+        inline_local.node_registry.list_nodes() == toml_local.node_registry.list_nodes()
+    )
 
 
 def test_main_loads_single_declaration_collection_before_starting_server(

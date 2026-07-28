@@ -52,6 +52,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    parser.add_argument("--local-capability", action="append")
     parser.add_argument("--remote-capability", action="append")
     add_local_runtime_arguments(parser)
     return parser
@@ -65,12 +66,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
     has_remote_base_url = args.remote_base_url is not None
+    has_local_capabilities = args.local_capability is not None
     has_remote_capabilities = args.remote_capability is not None
 
     if has_declaration and (
-        has_remote_node_id or has_remote_base_url or has_remote_capabilities
+        has_remote_node_id
+        or has_remote_base_url
+        or has_local_capabilities
+        or has_remote_capabilities
     ):
-        parser.error("--declaration cannot be combined with inline remote arguments")
+        parser.error("--declaration cannot be combined with inline topology arguments")
+
+    if has_local_capabilities and (not has_remote_node_id or not has_remote_base_url):
+        parser.error(
+            "--local-capability requires --remote-node-id and --remote-base-url"
+        )
 
     if has_remote_capabilities and (not has_remote_node_id or not has_remote_base_url):
         parser.error(
@@ -93,6 +103,17 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error(str(exc))
     else:
         args.remote_capability = DEFAULT_STATIC_CAPABILITY_NAMES
+
+    if has_local_capabilities:
+        try:
+            args.local_capability = validate_static_capabilities(
+                args.local_capability,
+                subject="local",
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    else:
+        args.local_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
     validate_local_runtime_arguments(parser, args)
     return args
@@ -215,6 +236,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             runtime=args.runtime,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
+            capabilities=args.local_capability,
         )
         app = create_static_cluster_app(
             args.remote_node_id,

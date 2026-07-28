@@ -183,6 +183,9 @@ established at a specific stage and do not replace the current workflow.
 - [Heterogeneous static capabilities investigation](heterogeneous-static-capabilities-investigation.md)
   — standalone documentation-only investigation that distinguishes capability
   eligibility from scheduling and records an Outcome C contract gap.
+- [Heterogeneous static capabilities proof](heterogeneous-static-capabilities-proof.md)
+  — retained ordinary process-and-HTTP proof that explicit remote capability
+  declarations control eligibility without changing local-first routing.
 
 ## Document roles
 

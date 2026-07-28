@@ -224,6 +224,7 @@ For one remote, use these root keys:
 ```toml
 remote_node_id = "<DECLARED_REMOTE_NODE_ID>"
 remote_base_url = "http://<RECEIVER_ADDRESS>:8000"
+remote_capabilities = ["chat", "summarize"]
 ```
 
 For multiple remotes, use ordered tables:
@@ -232,13 +233,29 @@ For multiple remotes, use ordered tables:
 [[remote_nodes]]
 node_id = "<DECLARED_REMOTE_NODE_A_ID>"
 base_url = "http://<RECEIVER_A_ADDRESS>:8000"
+capabilities = ["chat"]
 
 [[remote_nodes]]
 node_id = "<DECLARED_REMOTE_NODE_B_ID>"
 base_url = "http://<RECEIVER_B_ADDRESS>:8000"
+capabilities = ["summarize"]
 ```
 
-Declaration order remains meaningful for the existing ordered remote behavior.
+For one inline remote, repeat the closed capability option as needed:
+
+```sh
+uv run home-ai-cluster-static-cluster \
+  --remote-node-id <DECLARED_REMOTE_NODE_ID> \
+  --remote-base-url http://<RECEIVER_ADDRESS>:8000 \
+  --remote-capability chat \
+  --remote-capability summarize
+```
+
+The accepted names are `chat` and `summarize`. Omitted capability fields or
+options retain both capabilities; explicit sets cannot be empty, duplicated, or
+unknown. Capability membership controls eligibility only, and its order is not
+priority. Declaration order remains meaningful for the existing ordered remote
+behavior; declarations do not probe remote capability or schedule requests.
 Do not add merging, include files, aliases, schema versions, environment
 expansion, lookup precedence, or automatic discovery.
 

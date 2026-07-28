@@ -212,6 +212,30 @@ def test_ordinary_remote_declaration_is_eligible_for_summarize() -> None:
     assert candidate.capability == Capability(name="summarize")
 
 
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        (("chat",), [Capability(name="chat")]),
+        (("summarize",), [Capability(name="summarize")]),
+        (
+            ("chat", "summarize"),
+            [Capability(name="chat"), Capability(name="summarize")],
+        ),
+    ],
+)
+def test_inline_capabilities_reach_remote_node_construction(
+    capabilities: tuple[str, ...],
+    expected: list[Capability],
+) -> None:
+    declaration = create_remote_declaration(
+        "operator-remote",
+        "https://remote.test",
+        capabilities,
+    )
+
+    assert declaration.node.capabilities == expected
+
+
 def test_ordered_toml_capabilities_reach_remote_node_construction(
     tmp_path: Path,
 ) -> None:
@@ -537,8 +561,12 @@ def test_main_runs_fixed_loopback_static_cluster_server(
     monkeypatch.setattr(
         static_cluster,
         "create_static_cluster_app",
-        lambda *_, local_app_composition: (
-            recorded.update(local_app_composition=local_app_composition) or app
+        lambda *_, capabilities, local_app_composition: (
+            recorded.update(
+                capabilities=capabilities,
+                local_app_composition=local_app_composition,
+            )
+            or app
         ),
     )
     monkeypatch.setattr(
@@ -561,10 +589,54 @@ def test_main_runs_fixed_loopback_static_cluster_server(
 
     assert recorded == {
         "composition_arguments": composition_arguments,
+        "capabilities": ("chat", "summarize"),
         "local_app_composition": local_composition,
         "app": app,
         "host": STATIC_CLUSTER_HOST,
         "port": STATIC_CLUSTER_PORT,
+    }
+
+
+def test_main_passes_explicit_inline_capabilities_to_static_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    recorded: dict[str, object] = {}
+    local_composition = object()
+
+    monkeypatch.setattr(
+        static_cluster,
+        "create_local_runtime_composition",
+        lambda **_: local_composition,
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_app",
+        lambda *_, capabilities, local_app_composition: (
+            recorded.update(
+                capabilities=capabilities,
+                local_app_composition=local_app_composition,
+            )
+            or FastAPI()
+        ),
+    )
+    monkeypatch.setattr(static_cluster.uvicorn, "run", lambda *_1, **_2: None)
+
+    main(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.test",
+            "--remote-capability",
+            "summarize",
+        ]
+    )
+
+    assert recorded == {
+        "capabilities": ("summarize",),
+        "local_app_composition": local_composition,
     }
 
 

@@ -18,6 +18,49 @@ Local-only is the default, shortest, and least operationally complex path.
 All external runtimes remain operator-owned. Home AI Cluster does not start,
 stop, supervise, repair, or discover runtimes or remote machines.
 
+## Daily-use overview
+
+The ordinary process is started once and can serve repeated requests. `chat` and
+`summarize` are finite clients of that already-running process; they do not
+start it.
+
+**Local-only (the shortest default path):**
+
+```text
+external runtime
+  -> hac local
+  -> repeated hac chat / hac summarize requests
+  -> stop hac local
+```
+
+**Explicit static cluster:**
+
+```text
+receiver runtime + receiver hac local
+  -> caller preflight/status when useful
+  -> caller hac static-cluster
+  -> repeated caller hac chat / hac summarize requests
+  -> stop caller, then receiver
+```
+
+The second path adds an explicit caller, receiver, and retained declaration;
+it does not replace the local-only default. A declared remote does not guarantee
+remote execution because ordinary routing is local-first.
+
+Inspection commands are finite observations, not mandatory prerequisites for
+every startup or request:
+
+- `hac preflight --declaration <DECLARATION_PATH>` checks static declaration
+  coherence, not runtime or network availability.
+- `hac health` observes the selected machine's local runtime composition, not
+  declared remote nodes.
+- `hac status --declaration <DECLARATION_PATH>` makes one bounded observation
+  of the caller's local node and its declared remotes.
+
+None starts, supervises, repairs, or guarantees later request success.
+Historical proof runbooks and retained proof records are supporting evidence,
+not required steps in either ordinary daily path.
+
 ## Mode 1: Ordinary local-only operation
 
 ### 1. Prepare the external local runtime

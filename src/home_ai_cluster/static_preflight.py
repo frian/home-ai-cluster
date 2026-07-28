@@ -19,9 +19,11 @@ from home_ai_cluster.static_cluster import (
     remote_node_id,
 )
 from home_ai_cluster.static_cluster_declaration import (
+    DEFAULT_REMOTE_CAPABILITY_NAMES,
     StaticClusterDeclarationError,
     StaticClusterDeclarations,
     load_static_cluster_declarations,
+    validate_remote_capabilities,
 )
 
 MISSING_ADAPTER_REASON = "declared adapter is not present in the inspected registry"
@@ -107,6 +109,7 @@ def evaluate_static_multi_node_preflight(
     remote_node_id_value: str,
     remote_base_url_value: str,
     *,
+    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
     node_registry: NodeRegistry | None = None,
     adapter_registry: AdapterRegistry | None = None,
 ) -> dict[str, Any]:
@@ -116,6 +119,7 @@ def evaluate_static_multi_node_preflight(
             load_inline_remote_declaration(
                 remote_node_id_value,
                 remote_base_url_value,
+                capabilities,
             ),
         )
     )
@@ -129,6 +133,7 @@ def evaluate_static_multi_node_preflight(
 def load_inline_remote_declaration(
     remote_node_id_value: str,
     remote_base_url_value: str,
+    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
 ):
     """Convert the accepted inline pair into one declaration value."""
     from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
@@ -136,6 +141,7 @@ def load_inline_remote_declaration(
     return RemoteNodeDeclaration(
         node_id=remote_node_id_value,
         base_url=remote_base_url_value,
+        capabilities=tuple(capabilities),
     )
 
 
@@ -237,6 +243,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    parser.add_argument("--remote-capability", action="append")
     parser.add_argument("--json", action="store_true")
     return parser
 
@@ -249,12 +256,30 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
     has_remote_base_url = args.remote_base_url is not None
+    has_remote_capabilities = args.remote_capability is not None
 
-    if has_declaration and (has_remote_node_id or has_remote_base_url):
+    if has_declaration and (
+        has_remote_node_id or has_remote_base_url or has_remote_capabilities
+    ):
         parser.error("--declaration cannot be combined with inline remote arguments")
+
+    if has_remote_capabilities and (not has_remote_node_id or not has_remote_base_url):
+        parser.error(
+            "--remote-capability requires --remote-node-id and --remote-base-url"
+        )
 
     if has_remote_node_id != has_remote_base_url:
         parser.error("--remote-node-id and --remote-base-url must be supplied together")
+
+    if has_remote_capabilities:
+        try:
+            args.remote_capability = validate_remote_capabilities(
+                args.remote_capability
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    else:
+        args.remote_capability = DEFAULT_REMOTE_CAPABILITY_NAMES
 
     return args
 
@@ -272,6 +297,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             report = evaluate_static_multi_node_preflight(
                 args.remote_node_id,
                 args.remote_base_url,
+                capabilities=args.remote_capability,
             )
         else:
             report = evaluate_static_preflight()

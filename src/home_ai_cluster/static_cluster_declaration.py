@@ -2,6 +2,7 @@
 
 import argparse
 import tomllib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -187,14 +188,22 @@ def _parse_remote_entry(entry: Any, path: Path) -> RemoteNodeDeclaration:
 def _parse_remote_capabilities(value: Any) -> tuple[str, ...]:
     if not isinstance(value, list):
         raise StaticClusterDeclarationError("remote capabilities must be an array")
+    try:
+        return validate_remote_capabilities(value)
+    except ValueError as exc:
+        raise StaticClusterDeclarationError(str(exc)) from exc
+
+
+def validate_remote_capabilities(value: Sequence[object]) -> tuple[str, ...]:
+    """Validate the accepted explicit remote capability set."""
     if not value:
-        raise StaticClusterDeclarationError("remote capabilities must not be empty")
+        raise ValueError("remote capabilities must not be empty")
     if any(not isinstance(name, str) for name in value):
-        raise StaticClusterDeclarationError("remote capability must be a string")
+        raise ValueError("remote capability must be a string")
     if any(name not in _VALID_REMOTE_CAPABILITY_NAMES for name in value):
-        raise StaticClusterDeclarationError("unknown remote capability")
+        raise ValueError("unknown remote capability")
     if len(value) != len(set(value)):
-        raise StaticClusterDeclarationError("duplicate remote capability")
+        raise ValueError("duplicate remote capability")
     return tuple(value)
 
 

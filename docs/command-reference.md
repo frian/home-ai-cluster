@@ -81,7 +81,9 @@ and one or more declared remote nodes.
 hac static-cluster --declaration <PATH>
 hac static-cluster \
   --remote-node-id <NODE_ID> \
-  --remote-base-url <BASE_URL>
+  --remote-base-url <BASE_URL> \
+  --remote-capability chat \
+  --remote-capability summarize
 ```
 
 **Important behavior:** Declaration and inline remote modes are mutually
@@ -90,6 +92,14 @@ retained inline mode supports exactly one remote node. The same verified local
 runtime-composition options as `hac local` are accepted. Topology is static and
 explicit, and routing remains local-first and capability-centered. The process
 does not discover, start, stop, supervise, or repair remote machines or runtimes.
+Each remote may declare the closed capability set `chat` and/or `summarize`:
+use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
+["..."]` in the legacy flat TOML form, or repeat `--remote-capability <NAME>`
+for the one-remote inline form. Omission retains `chat` plus `summarize`.
+Empty, duplicate, and unknown explicit capability values are invalid. Capability
+membership controls eligibility only; its order is not priority, and remote
+declaration order remains the only remote priority rule. Declarations do not
+probe remotes or schedule requests.
 
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.

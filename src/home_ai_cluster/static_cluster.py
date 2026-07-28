@@ -28,6 +28,7 @@ from home_ai_cluster.static_cluster_declaration import (
     DEFAULT_REMOTE_CAPABILITY_NAMES,
     StaticClusterDeclarationError,
     load_static_cluster_declarations,
+    validate_remote_capabilities,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -49,6 +50,7 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
+    parser.add_argument("--remote-capability", action="append")
     add_local_runtime_arguments(parser)
     return parser
 
@@ -61,15 +63,33 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
     has_remote_base_url = args.remote_base_url is not None
+    has_remote_capabilities = args.remote_capability is not None
 
-    if has_declaration and (has_remote_node_id or has_remote_base_url):
+    if has_declaration and (
+        has_remote_node_id or has_remote_base_url or has_remote_capabilities
+    ):
         parser.error("--declaration cannot be combined with inline remote arguments")
+
+    if has_remote_capabilities and (not has_remote_node_id or not has_remote_base_url):
+        parser.error(
+            "--remote-capability requires --remote-node-id and --remote-base-url"
+        )
 
     if has_remote_node_id != has_remote_base_url:
         parser.error("--remote-node-id and --remote-base-url must be provided together")
 
     if not has_declaration and not has_remote_node_id:
         parser.error("provide either --declaration or both inline remote arguments")
+
+    if has_remote_capabilities:
+        try:
+            args.remote_capability = validate_remote_capabilities(
+                args.remote_capability
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    else:
+        args.remote_capability = DEFAULT_REMOTE_CAPABILITY_NAMES
 
     validate_local_runtime_arguments(parser, args)
     return args
@@ -116,6 +136,7 @@ def create_static_cluster_app(
     node_id: str,
     base_url: str,
     *,
+    capabilities: Sequence[str] = DEFAULT_REMOTE_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
@@ -124,7 +145,7 @@ def create_static_cluster_app(
     wiring = build_static_remote_wiring(
         node_registry=local_app_composition.node_registry,
         adapter_registry=local_app_composition.adapter_registry,
-        remote_declaration=create_remote_declaration(node_id, base_url),
+        remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
     )
@@ -189,6 +210,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,
+            capabilities=args.remote_capability,
             local_app_composition=local_app_composition,
         )
 

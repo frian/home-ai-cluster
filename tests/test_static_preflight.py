@@ -201,6 +201,8 @@ def test_parse_args_preserves_local_only_without_remote_declaration() -> None:
             "declared-remote",
             "--remote-base-url",
             "https://remote.example",
+            "--remote-capability",
+            "chat",
             "--json",
         ],
     ],
@@ -255,6 +257,25 @@ def test_parse_args_rejects_invalid_json_usage(argv: list[str]) -> None:
             "--remote-base-url",
             "https://remote.example",
             "--json",
+        ],
+        ["--remote-capability", "chat"],
+        [
+            "--remote-node-id",
+            "declared-remote",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--remote-base-url",
+            "https://remote.example",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--declaration",
+            "cluster.toml",
+            "--remote-capability",
+            "chat",
         ],
     ],
 )
@@ -326,6 +347,27 @@ def test_multi_node_preflight_does_not_resolve_remote_http_boundary_locally() ->
     assert report["nodes"][-1]["declared_adapters"] == [REMOTE_HTTP_ADAPTER_NAME]
 
 
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        (("chat",), ["chat"]),
+        (("summarize",), ["summarize"]),
+        (("chat", "summarize"), ["chat", "summarize"]),
+    ],
+)
+def test_inline_multi_node_preflight_projects_explicit_capabilities(
+    capabilities: tuple[str, ...],
+    expected: list[str],
+) -> None:
+    report = evaluate_static_multi_node_preflight(
+        "declared-remote",
+        "https://remote.example",
+        capabilities=capabilities,
+    )
+
+    assert report["nodes"][-1]["capabilities"] == expected
+
+
 def test_main_json_emits_compact_coherent_report_and_exits_zero(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -362,10 +404,15 @@ def test_main_json_emits_static_multi_node_report_without_remote_url(
         "issues": [],
     }
     remote_url = "https://private.example:9443"
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, tuple[str, ...]]] = []
 
-    def evaluate_multi(node_id: str, base_url: str) -> dict[str, object]:
-        calls.append((node_id, base_url))
+    def evaluate_multi(
+        node_id: str,
+        base_url: str,
+        *,
+        capabilities: tuple[str, ...],
+    ) -> dict[str, object]:
+        calls.append((node_id, base_url, capabilities))
         return report
 
     monkeypatch.setattr(
@@ -379,12 +426,14 @@ def test_main_json_emits_static_multi_node_report_without_remote_url(
             "declared-remote",
             "--remote-base-url",
             remote_url,
+            "--remote-capability",
+            "summarize",
             "--json",
         ]
     )
 
     captured = capsys.readouterr()
-    assert calls == [("declared-remote", remote_url)]
+    assert calls == [("declared-remote", remote_url, ("summarize",))]
     assert captured.out == json.dumps(report, separators=(",", ":")) + "\n"
     assert captured.err == ""
     assert remote_url not in captured.out

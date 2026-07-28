@@ -8,9 +8,11 @@ from home_ai_cluster.local_runtime_composition import create_local_runtime_compo
 from home_ai_cluster.static_cluster import (
     STATIC_CLUSTER_HOST,
     STATIC_CLUSTER_PORT,
+    create_remote_declaration,
     main,
     parse_args,
 )
+from home_ai_cluster.static_cluster_declaration import load_static_cluster_declaration
 
 
 def test_parse_args_accepts_inline_mode() -> None:
@@ -26,6 +28,7 @@ def test_parse_args_accepts_inline_mode() -> None:
     assert args.declaration is None
     assert args.remote_node_id == "operator-remote"
     assert args.remote_base_url == "https://remote.example:8000"
+    assert args.remote_capability == ("chat", "summarize")
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
@@ -59,6 +62,35 @@ def test_parse_args_accepts_explicit_ollama_runtime() -> None:
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
+
+
+@pytest.mark.parametrize(
+    ("capabilities", "expected"),
+    [
+        (["chat"], ("chat",)),
+        (["summarize"], ("summarize",)),
+        (["chat", "summarize"], ("chat", "summarize")),
+    ],
+)
+def test_parse_args_accepts_explicit_inline_remote_capabilities(
+    capabilities: list[str],
+    expected: tuple[str, ...],
+) -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            *[
+                option
+                for capability in capabilities
+                for option in ("--remote-capability", capability)
+            ],
+        ]
+    )
+
+    assert args.remote_capability == expected
 
 
 def test_parse_args_accepts_llama_server_with_declaration_topology(
@@ -196,6 +228,43 @@ def test_parse_args_matches_standalone_runtime_validation_errors(
             "--remote-base-url",
             "https://remote.example:8000",
         ],
+        ["--remote-capability", "chat"],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--declaration",
+            "cluster.toml",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--remote-capability",
+            "chat",
+            "--remote-capability",
+            "chat",
+        ],
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--remote-capability",
+            "unknown",
+        ],
         [
             "--declaration",
             "cluster.toml",
@@ -209,6 +278,44 @@ def test_parse_args_matches_standalone_runtime_validation_errors(
 def test_parse_args_rejects_incomplete_or_combined_modes(argv: list[str]) -> None:
     with pytest.raises(SystemExit):
         parse_args(argv)
+
+
+def test_inline_and_flat_toml_capabilities_construct_equivalent_remotes(
+    tmp_path: Path,
+) -> None:
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        'remote_node_id = "operator-remote"\n'
+        'remote_base_url = "https://remote.example:8000/"\n'
+        'remote_capabilities = ["chat", "summarize"]\n',
+        encoding="utf-8",
+    )
+    toml = load_static_cluster_declaration(declaration_path)
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000/",
+            "--remote-capability",
+            "chat",
+            "--remote-capability",
+            "summarize",
+        ]
+    )
+
+    inline_remote = create_remote_declaration(
+        args.remote_node_id,
+        args.remote_base_url,
+        args.remote_capability,
+    )
+    toml_remote = create_remote_declaration(
+        toml.remote_node_id,
+        toml.remote_base_url,
+        toml.remote_capabilities,
+    )
+
+    assert inline_remote == toml_remote
 
 
 def test_main_loads_single_declaration_collection_before_starting_server(

@@ -30,6 +30,9 @@ architecture.
 - [Daily operator workflow investigation](daily-operator-workflow-investigation.md)
   — bounded investigation of repeatable local role operation; not a proposal or
   accepted workflow change.
+- [Ordinary daily-use friction investigation](ordinary-daily-use-friction-investigation.md)
+  — documentation-only evaluation of ordinary local and one-receiver static
+  operation after the retained remote summarize-file proof.
 - [Daily operator workflow evidence protocol](daily-operator-workflow-evidence-protocol.md)
   — privacy-safe protocol for gathering operator workflow evidence; not a
   proof, accepted workflow, or Phase 17 plan.

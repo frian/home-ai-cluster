@@ -53,10 +53,10 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Current draft
+## Accepted RFCs
 
 - [RFC-0058: Explicit static remote capabilities](RFC-0058-explicit-static-remote-capabilities.md)
-  — proposes bounded operator-declared capabilities for ordinary static remote
+  — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.
 
 ---

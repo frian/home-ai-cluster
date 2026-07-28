@@ -1,6 +1,6 @@
 # RFC-0058: Explicit static remote capabilities
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-28
 
@@ -340,4 +340,4 @@ question.
 
 ## Decision
 
-Pending.
+Accepted.

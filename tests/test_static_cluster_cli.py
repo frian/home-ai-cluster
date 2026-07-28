@@ -241,6 +241,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         "create_static_cluster_collection_app",
         create_app,
     )
+
     def create_local_composition(
         *,
         runtime: str,
@@ -356,6 +357,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         {
             "node_id": "operator-remote",
             "base_url": "https://remote.example:8000",
+            "capabilities": ("chat", "summarize"),
         }
     ]
     assert recorded["app"] is app
@@ -458,8 +460,7 @@ def test_main_does_not_start_server_when_declaration_loading_fails(
     declaration_path = tmp_path / "cluster.toml"
     private_url = "private.example:9443"
     declaration_path.write_text(
-        'remote_node_id = "operator-remote"\n'
-        f'remote_base_url = "{private_url}"\n',
+        f'remote_node_id = "operator-remote"\nremote_base_url = "{private_url}"\n',
         encoding="utf-8",
     )
     started = False

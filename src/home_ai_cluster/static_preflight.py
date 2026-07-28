@@ -157,7 +157,11 @@ def evaluate_static_declarations_preflight(
         else create_static_runtime_adapter_registry()
     )
     remote_nodes = [
-        create_remote_declaration(remote.node_id, remote.base_url).node
+        create_remote_declaration(
+            remote.node_id,
+            remote.base_url,
+            remote.capabilities,
+        ).node
         for remote in declarations.remote_nodes
     ]
     return project_static_preflight_nodes(

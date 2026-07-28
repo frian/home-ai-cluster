@@ -212,6 +212,46 @@ def test_ordinary_remote_declaration_is_eligible_for_summarize() -> None:
     assert candidate.capability == Capability(name="summarize")
 
 
+def test_ordered_toml_capabilities_reach_remote_node_construction(
+    tmp_path: Path,
+) -> None:
+    declaration_path = tmp_path / "cluster.toml"
+    declaration_path.write_text(
+        "[[remote_nodes]]\n"
+        'node_id = "chat-node"\n'
+        'base_url = "http://chat.example:8000"\n'
+        'capabilities = ["chat"]\n\n'
+        "[[remote_nodes]]\n"
+        'node_id = "summary-node"\n'
+        'base_url = "http://summary.example:8000"\n'
+        'capabilities = ["summarize"]\n',
+        encoding="utf-8",
+    )
+    declarations = load_static_cluster_declarations(declaration_path)
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(500))
+    )
+    app = create_static_cluster_collection_app(
+        declarations.remote_nodes,
+        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+        client=client,
+    )
+
+    remote_registry = app.state.static_remote_collection_wiring.remote_registry
+    remote_nodes = remote_registry.list_declarations()
+
+    assert [declaration.node.id for declaration in remote_nodes] == [
+        "chat-node",
+        "summary-node",
+    ]
+    assert [declaration.node.capabilities for declaration in remote_nodes] == [
+        [Capability(name="chat")],
+        [Capability(name="summarize")],
+    ]
+
+    asyncio.run(client.aclose())
+
+
 def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> None:
     requests: list[httpx.Request] = []
 
@@ -252,11 +292,11 @@ def test_ordered_declaration_reaches_remote_http_fallback(
 ) -> None:
     declaration_path = tmp_path / "cluster.toml"
     declaration_path.write_text(
-        '[[remote_nodes]]\n'
+        "[[remote_nodes]]\n"
         'node_id = "remote-a"\n'
         'base_url = "http://remote-a.test:8000"\n'
-        '\n'
-        '[[remote_nodes]]\n'
+        "\n"
+        "[[remote_nodes]]\n"
         'node_id = "remote-b"\n'
         'base_url = "http://remote-b.test:8000"\n',
         encoding="utf-8",
@@ -287,9 +327,7 @@ def test_ordered_declaration_reaches_remote_http_fallback(
     local = FakeAdapter(RuntimeConnectionUnavailableBeforeRequestError("unavailable"))
     local_composition = make_local_composition(local)
 
-    remote_client = httpx.AsyncClient(
-        transport=httpx.MockTransport(remote_handler)
-    )
+    remote_client = httpx.AsyncClient(transport=httpx.MockTransport(remote_handler))
     app = create_static_cluster_collection_app(
         declarations.remote_nodes,
         local_app_composition=local_composition,
@@ -499,10 +537,9 @@ def test_main_runs_fixed_loopback_static_cluster_server(
     monkeypatch.setattr(
         static_cluster,
         "create_static_cluster_app",
-        lambda *_, local_app_composition: recorded.update(
-            local_app_composition=local_app_composition
-        )
-        or app,
+        lambda *_, local_app_composition: (
+            recorded.update(local_app_composition=local_app_composition) or app
+        ),
     )
     monkeypatch.setattr(
         static_cluster.uvicorn,
@@ -574,9 +611,7 @@ def test_static_cluster_constructors_accept_llama_server_composition_without_pro
         model="local-model",
     )
     inline_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None))
-    collection_client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _: None)
-    )
+    collection_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None))
     inline_app = create_static_cluster_app(
         "operator-remote",
         "https://remote.test",

@@ -1,6 +1,6 @@
 # RFC-0059: Caller-local static capabilities
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-28
 
@@ -396,4 +396,4 @@ nor authorizes that question.
 
 ## Decision
 
-Pending.
+Accepted.

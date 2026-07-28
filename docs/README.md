@@ -159,6 +159,10 @@ established at a specific stage and do not replace the current workflow.
 - [Second capability investigation](second-capability-investigation.md) —
   investigated the smallest credible second executable capability before
   RFC-0051.
+- [Remote summarize file proof investigation](remote-summarize-file-proof-investigation.md)
+  — investigation of one standalone post-roadmap composition of regular-file
+  input, ordinary static fallback, remote summarize execution, and
+  caller-owned attribution; it does not run or retain that proof.
 - [Phase 18 two-machine summarize proof runbook](phase-18-two-machine-summarize-proof.md)
   — repeatable privacy-safe procedure for the bounded real two-machine
   summarize proof.

@@ -189,6 +189,10 @@ established at a specific stage and do not replace the current workflow.
 - [Local capability ownership investigation](local-capability-ownership-investigation.md)
   — standalone documentation-only investigation of the contract gap for
   restricting fixed local-node routing capabilities.
+- [Caller-local static capabilities proof](caller-local-static-capabilities-proof.md)
+  — retained ordinary process-and-HTTP proof that a healthy chat-only caller-local
+  candidate excludes summarize before selection and reaches a summarize-only
+  declared remote.
 
 ## Document roles
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from home_ai_cluster import static_cluster, static_cluster_declaration
+from home_ai_cluster.static_capabilities import validate_static_capabilities
 from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclaration,
     StaticClusterDeclarationError,
@@ -30,6 +31,32 @@ def test_static_cluster_and_declaration_share_neutral_validation() -> None:
     assert static_cluster.remote_base_url is remote_base_url
     assert static_cluster_declaration.remote_node_id is remote_node_id
     assert static_cluster_declaration.remote_base_url is remote_base_url
+
+
+def test_static_capabilities_accept_explicit_classify_without_changing_defaults() -> (
+    None
+):
+    assert validate_static_capabilities(
+        ["classify", "chat", "summarize"], subject="remote"
+    ) == ("classify", "chat", "summarize")
+    assert validate_static_capabilities(["chat", "classify"], subject="local") == (
+        "chat",
+        "classify",
+    )
+
+
+@pytest.mark.parametrize(
+    "capabilities",
+    ["Classify", "classification", "classify ", " classify", "CLASSIFY"],
+)
+def test_static_capabilities_reject_classify_aliases_and_case_variants(
+    capabilities: str,
+) -> None:
+    with pytest.raises(ValueError, match="unknown remote capability"):
+        validate_static_capabilities([capabilities], subject="remote")
+
+    with pytest.raises(ValueError, match="duplicate local capability"):
+        validate_static_capabilities(["classify", "classify"], subject="local")
 
 
 def test_loads_valid_static_cluster_declaration_without_network_use(
@@ -188,7 +215,8 @@ def test_private_base_url_is_absent_from_failure_messages(tmp_path: Path) -> Non
     [
         ('["chat"]', ("chat",)),
         ('["summarize"]', ("summarize",)),
-        ('["chat", "summarize"]', ("chat", "summarize")),
+        ('["classify"]', ("classify",)),
+        ('["classify", "chat", "summarize"]', ("classify", "chat", "summarize")),
     ],
 )
 def test_loads_explicit_flat_remote_capabilities(
@@ -221,7 +249,7 @@ def test_omitted_flat_remote_capabilities_use_compatibility_default(
     [
         ('["chat"]', ("chat",)),
         ('["summarize"]', ("summarize",)),
-        ('["summarize", "chat"]', ("summarize", "chat")),
+        ('["summarize", "classify", "chat"]', ("summarize", "classify", "chat")),
     ],
 )
 def test_loads_explicit_flat_local_capabilities(
@@ -306,7 +334,8 @@ def test_rejects_invalid_flat_remote_capabilities(
     [
         ('["chat"]', ("chat",)),
         ('["summarize"]', ("summarize",)),
-        ('["chat", "summarize"]', ("chat", "summarize")),
+        ('["classify"]', ("classify",)),
+        ('["classify", "chat", "summarize"]', ("classify", "chat", "summarize")),
     ],
 )
 def test_loads_explicit_ordered_remote_capabilities(
@@ -347,7 +376,7 @@ def test_omitted_ordered_remote_capabilities_use_compatibility_default(
     [
         ('["chat"]', ("chat",)),
         ('["summarize"]', ("summarize",)),
-        ('["summarize", "chat"]', ("summarize", "chat")),
+        ('["summarize", "classify", "chat"]', ("summarize", "classify", "chat")),
     ],
 )
 def test_loads_explicit_ordered_local_capabilities(

@@ -94,11 +94,15 @@ home-ai-cluster status --declaration <path>
 home-ai-cluster summarize --text "Long text to summarize"
 ```
 
-After changing checked-out source, refresh an installed tool snapshot with:
+After changing checked-out source, rebuild and refresh the installed tool
+snapshot without reusing cached build artifacts:
 
 ```sh
-uv tool install --force .
+uv tool install --force --no-cache .
 ```
+
+`--force` replaces the installed tool environment. `--no-cache` ensures the
+refresh does not reuse cached build artifacts from an earlier checkout state.
 
 ### Repository-checkout and development usage
 

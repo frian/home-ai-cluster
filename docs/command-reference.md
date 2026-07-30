@@ -18,11 +18,15 @@ Install the package for ordinary operator use:
 uv tool install .
 ```
 
-After changing a checkout, refresh that installed snapshot with:
+After changing a checkout, rebuild and refresh that installed snapshot without
+reusing cached build artifacts:
 
 ```sh
 uv tool install --force --no-cache .
 ```
+
+`--force` replaces the installed tool environment. `--no-cache` ensures the
+refresh does not reuse cached build artifacts from an earlier checkout state.
 
 Use either root form:
 

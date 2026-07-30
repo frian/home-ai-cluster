@@ -199,6 +199,9 @@ established at a specific stage and do not replace the current workflow.
 - [Explicit remote capabilities investigation](explicit-remote-capabilities-investigation.md)
   — documents the accepted RFC-0058 operator-declared remote capability
   contract and its relevance before any third executable capability.
+- [Third executable capability investigation](third-executable-capability-investigation.md)
+  — compares `rewrite`, `question-answer`, and `classify`; it selects
+  `classify` as investigation guidance for a future RFC, not an accepted change.
 - [Native client timeout configurability investigation](native-client-timeout-configurability-investigation.md)
   — standalone documentation-only investigation prompted by a sanitized
   repeated slow-remote request observation; it records Outcome C and requires

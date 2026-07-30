@@ -4,6 +4,7 @@ import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.core.executor import (
+    InvalidClassificationLabelError,
     execute_declared_routing_decision,
     execute_local_routing_decision,
     execute_remote_routing_decision,
@@ -13,6 +14,8 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ChatMessage,
+    ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     NodeDescription,
@@ -37,6 +40,7 @@ class RecordingAdapter:
         self._result = result or RuntimeResult(content="result", adapter="adapter")
         self._error = error
         self.chat_requests: list[ClusterRequest] = []
+        self.summarize_requests: list[SummarizeRequest] = []
 
     @property
     def name(self) -> str:
@@ -56,11 +60,14 @@ class RecordingAdapter:
 
         return self._result
 
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        self.summarize_requests.append(request)
+        return self._result
+
 
 class SummarizeRecordingAdapter(RecordingAdapter):
     def __init__(self, result: RuntimeResult | None = None) -> None:
         super().__init__(result=result)
-        self.summarize_requests: list[SummarizeRequest] = []
 
     def capabilities(self) -> list[Capability]:
         return [Capability(name="summarize")]
@@ -68,6 +75,20 @@ class SummarizeRecordingAdapter(RecordingAdapter):
     async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
         self.summarize_requests.append(request)
         return self._result
+
+
+class ClassifyRecordingAdapter(RecordingAdapter):
+    def __init__(self, proposal: str) -> None:
+        super().__init__()
+        self._proposal = proposal
+        self.classify_requests: list[ClassifyRequest] = []
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="classify")]
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        self.classify_requests.append(request)
+        return self._proposal
 
 
 class FakeRemoteTransport:
@@ -188,6 +209,70 @@ def test_execute_local_routing_decision_dispatches_summarize_with_attribution() 
         model="model",
         node_id="selected-local",
     )
+
+
+@pytest.mark.parametrize(
+    ("labels", "proposal"),
+    [
+        (["invoice", "personal"], "invoice"),
+        (["invoice", "Invoice"], "Invoice"),
+        (["invoice", " invoice"], " invoice"),
+        (["invoice", "étiquette"], "étiquette"),
+    ],
+)
+def test_execute_local_routing_decision_dispatches_classify_with_exact_attribution(
+    labels: list[str],
+    proposal: str,
+) -> None:
+    adapter = ClassifyRecordingAdapter(proposal)
+    request = ClassifyRequest(text="Source text", labels=labels)
+    decision = RoutingDecision(
+        node=NodeDescription(
+            id="selected-local",
+            name="Selected local node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["adapter"],
+        ),
+        adapter=adapter,
+        capability=Capability(name="classify"),
+        reason="test classify decision",
+    )
+
+    actual = asyncio.run(execute_local_routing_decision(request, decision))
+
+    assert adapter.classify_requests == [request]
+    assert adapter.classify_requests[0] is request
+    assert adapter.chat_requests == []
+    assert adapter.summarize_requests == []
+    assert isinstance(actual, ClassifyResult)
+    assert actual.selected_label == proposal
+    assert actual.node_id == "selected-local"
+
+
+@pytest.mark.parametrize(
+    "proposal",
+    ["unknown", "Invoice", " invoice", "invoice ", "The label is invoice", ""],
+)
+def test_execute_local_routing_decision_rejects_invalid_classification_proposals(
+    proposal: str,
+) -> None:
+    adapter = ClassifyRecordingAdapter(proposal)
+    request = ClassifyRequest(text="Source text", labels=["invoice", "personal"])
+    decision = RoutingDecision(
+        node=make_node(),
+        adapter=adapter,
+        capability=Capability(name="classify"),
+        reason="test classify decision",
+    )
+
+    with pytest.raises(InvalidClassificationLabelError):
+        asyncio.run(execute_local_routing_decision(request, decision))
+
+    assert adapter.classify_requests == [request]
+    assert adapter.chat_requests == []
+    assert adapter.summarize_requests == []
 
 
 def test_execute_routing_decision_delegates_to_local_execution_path() -> None:

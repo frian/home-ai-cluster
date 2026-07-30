@@ -133,9 +133,10 @@ def test_recording_creates_owner_only_compact_jsonl_in_temporary_state(
 
     path = history_file()
     expected = record_for_account(successful_account())
-    assert path.read_text(encoding="utf-8") == json.dumps(
-        expected, separators=(",", ":")
-    ) + "\n"
+    assert (
+        path.read_text(encoding="utf-8")
+        == json.dumps(expected, separators=(",", ":")) + "\n"
+    )
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
@@ -210,9 +211,10 @@ def test_history_command_returns_newest_records_first_and_compact_output(
         record_for_account(failed_account()),
         record_for_account(successful_account("older")),
     ]
-    assert captured.out == json.dumps(
-        json.loads(captured.out), separators=(",", ":")
-    ) + "\n"
+    assert (
+        captured.out
+        == json.dumps(json.loads(captured.out), separators=(",", ":")) + "\n"
+    )
     assert captured.err == ""
 
 

@@ -243,7 +243,7 @@ The generated token sequence was sliced after the input token count and decoded
 locally:
 
 ```python
-generated_ids = output_ids[0, inputs["input_ids"].shape[1]:]
+generated_ids = output_ids[0, inputs["input_ids"].shape[1] :]
 content = tokenizer.decode(
     generated_ids,
     skip_special_tokens=True,

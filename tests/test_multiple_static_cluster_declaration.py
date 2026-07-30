@@ -20,11 +20,11 @@ def write_declaration(tmp_path: Path, content: str) -> Path:
 
 def valid_multi_declaration() -> str:
     return (
-        '[[remote_nodes]]\n'
+        "[[remote_nodes]]\n"
         'node_id = "remote-a"\n'
         'base_url = "http://192.0.2.10:8000"\n'
-        '\n'
-        '[[remote_nodes]]\n'
+        "\n"
+        "[[remote_nodes]]\n"
         'node_id = "remote-b"\n'
         'base_url = "http://192.0.2.11:8000/"\n'
     )
@@ -94,24 +94,21 @@ def test_existing_single_remote_loader_rejects_multi_remote_startup_integration(
         (
             'remote_node_id = "remote-a"\n'
             'remote_base_url = "http://192.0.2.10:8000"\n'
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-b"\n'
             'base_url = "http://192.0.2.11:8000"\n',
             "invalid declaration shape",
         ),
         (
-            '[[remote_nodes]]\n'
-            'node_id = "remote-a"\n',
+            '[[remote_nodes]]\nnode_id = "remote-a"\n',
             "missing remote node declaration key: base_url",
         ),
         (
-            '[[remote_nodes]]\n'
-            'node_id = "remote-a"\n'
-            'base_url = 7\n',
+            '[[remote_nodes]]\nnode_id = "remote-a"\nbase_url = 7\n',
             "remote node declaration value must be a string: base_url",
         ),
         (
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-a"\n'
             'base_url = "http://192.0.2.10:8000"\n'
             'unexpected = "value"\n',
@@ -134,19 +131,19 @@ def test_rejects_invalid_multi_remote_shapes(
     ("content", "expected_message"),
     [
         (
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-a"\n'
             'base_url = "http://192.0.2.10:8000"\n'
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-a"\n'
             'base_url = "http://192.0.2.11:8000"\n',
             "duplicate remote node ID declaration",
         ),
         (
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-a"\n'
             'base_url = "http://192.0.2.10:8000/"\n'
-            '[[remote_nodes]]\n'
+            "[[remote_nodes]]\n"
             'node_id = "remote-b"\n'
             'base_url = "http://192.0.2.10:8000"\n',
             "duplicate remote base URL declaration",
@@ -168,9 +165,7 @@ def test_multi_remote_failure_does_not_expose_private_base_url(tmp_path: Path) -
     private_base_url = "private.example:9443"
     path = write_declaration(
         tmp_path,
-        '[[remote_nodes]]\n'
-        'node_id = "remote-a"\n'
-        f'base_url = "{private_base_url}"\n',
+        f'[[remote_nodes]]\nnode_id = "remote-a"\nbase_url = "{private_base_url}"\n',
     )
 
     with pytest.raises(StaticClusterDeclarationError) as raised:

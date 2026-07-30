@@ -253,9 +253,10 @@ def test_status_command_preserves_multiple_declaration_order(
     main(["--declaration", str(declaration), "--json"])
 
     assert calls == 1
-    assert json.loads(capsys.readouterr().out)["nodes"] == status_result(
-        "remote-z", "remote-a"
-    ).model_dump(mode="json")["nodes"]
+    assert (
+        json.loads(capsys.readouterr().out)["nodes"]
+        == status_result("remote-z", "remote-a").model_dump(mode="json")["nodes"]
+    )
 
 
 def test_status_command_creates_and_closes_one_http_client(

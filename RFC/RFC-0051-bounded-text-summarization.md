@@ -202,8 +202,7 @@ remote transport failure handling; neither may return runtime-private details.
 `RuntimeAdapter` gains one explicit operation, conceptually:
 
 ```python
-async def summarize(request: SummarizeRequest) -> RuntimeResult:
-    ...
+async def summarize(request: SummarizeRequest) -> RuntimeResult: ...
 ```
 
 An adapter advertises `Capability(name="summarize")` only when it implements

@@ -73,9 +73,7 @@ def test_projects_declared_node_metadata_without_rewriting_it() -> None:
         "unavailable", AdapterHealth(available=False, reason="runtime unavailable")
     )
 
-    snapshot = project_health_snapshot(
-        NodeRegistry([node]), AdapterRegistry([adapter])
-    )
+    snapshot = project_health_snapshot(NodeRegistry([node]), AdapterRegistry([adapter]))
 
     assert snapshot == {
         "nodes": [
@@ -201,8 +199,9 @@ def test_projects_completed_local_health_observation_to_normalized_cluster_statu
     assert adapter.chat_calls == 0
 
 
-def test_local_cluster_status_uses_cluster_owned_local_id_and_no_private_fields(
-) -> None:
+def test_local_cluster_status_uses_cluster_owned_local_id_and_no_private_fields() -> (
+    None
+):
     snapshot = {
         "nodes": [
             {
@@ -405,7 +404,7 @@ def test_main_defaults_to_human_readable_health_snapshot(
         "    Reason: none\n"
     )
     assert captured.err == ""
-    assert "{\"nodes\"" not in captured.out
+    assert '{"nodes"' not in captured.out
     assert "\x1b" not in captured.out
 
 

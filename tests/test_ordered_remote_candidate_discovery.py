@@ -57,8 +57,7 @@ def test_discovers_all_eligible_remote_candidates_in_declaration_order() -> None
         candidate.capability == Capability(name="chat") for candidate in candidates
     )
     assert all(
-        candidate.reason == DECLARED_REMOTE_ROUTING_REASON
-        for candidate in candidates
+        candidate.reason == DECLARED_REMOTE_ROUTING_REASON for candidate in candidates
     )
 
 

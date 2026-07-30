@@ -66,6 +66,12 @@ A superseded RFC has been replaced by a newer RFC.
   — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.
 
+## Draft RFCs
+
+- [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
+  — proposes one explicit bounded `classify` capability with an exact
+  operator-supplied selected-label result and explicit static eligibility.
+
 ---
 
 ## File naming

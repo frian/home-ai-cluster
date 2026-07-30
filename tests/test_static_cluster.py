@@ -11,10 +11,12 @@ from home_ai_cluster.api.wiring import LocalAppComposition, build_static_remote_
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     ClusterResult,
     NodeDescription,
     NodeHealth,
+    RequestConstraints,
     RuntimeResult,
     SummarizeRequest,
 )
@@ -25,7 +27,11 @@ from home_ai_cluster.core.remote_node import (
     declared_remote_routing_candidate_for_request,
 )
 from home_ai_cluster.core.remote_transport import RemoteTransportError
-from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.core.routing_candidates import (
+    RoutingCandidateSelectionMode,
+    routing_candidates_for_request,
+    select_automatic_capability_routing_candidate,
+)
 from home_ai_cluster.local_runtime_composition import (
     create_llama_server_local_app_composition,
     create_local_runtime_composition,
@@ -212,14 +218,74 @@ def test_ordinary_remote_declaration_is_eligible_for_summarize() -> None:
     assert candidate.capability == Capability(name="summarize")
 
 
+def test_explicit_classify_remote_declaration_is_eligible_for_classify() -> None:
+    declaration = create_remote_declaration(
+        "operator-remote", "https://remote.test", ("classify",)
+    )
+    request = ClassifyRequest(
+        text="Source text",
+        labels=["invoice", "personal"],
+        constraints=RequestConstraints(local_only=False),
+    )
+
+    candidate = declared_remote_routing_candidate_for_request(
+        request,
+        RemoteNodeDeclarationRegistry([declaration]),
+    )
+
+    assert candidate is not None
+    assert candidate.node is declaration.node
+    assert candidate.capability == Capability(name="classify")
+
+
+def test_explicit_classify_declaration_routes_to_the_eligible_remote() -> None:
+    local = FakeAdapter()
+    remote = FakeRemoteTransport()
+    remote_declaration = create_remote_declaration(
+        "classification-remote", "https://remote.test", ("classify",)
+    )
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry([make_local_node()]),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=remote_declaration,
+        remote_transport=remote,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    request = ClassifyRequest(
+        text="Source text",
+        labels=["invoice", "personal"],
+        constraints=RequestConstraints(local_only=False),
+    )
+
+    candidates = routing_candidates_for_request(
+        request,
+        wiring.node_registry,
+        wiring.adapter_registry,
+        wiring.remote_registry,
+    )
+    selection = select_automatic_capability_routing_candidate(request, candidates)
+
+    assert candidates.local is None
+    assert candidates.declared_remote is not None
+    assert selection.selected is not None
+    assert selection.selected.local is None
+    assert selection.selected.declared_remote is not None
+    assert selection.selected.declared_remote.node.id == "classification-remote"
+
+
 @pytest.mark.parametrize(
     ("capabilities", "expected"),
     [
         (("chat",), [Capability(name="chat")]),
         (("summarize",), [Capability(name="summarize")]),
+        (("classify",), [Capability(name="classify")]),
         (
-            ("chat", "summarize"),
-            [Capability(name="chat"), Capability(name="summarize")],
+            ("classify", "chat", "summarize"),
+            [
+                Capability(name="classify"),
+                Capability(name="chat"),
+                Capability(name="summarize"),
+            ],
         ),
     ],
 )

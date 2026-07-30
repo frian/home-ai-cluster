@@ -70,7 +70,8 @@ def test_parse_args_accepts_explicit_ollama_runtime() -> None:
     [
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
-        (["chat", "summarize"], ("chat", "summarize")),
+        (["classify"], ("classify",)),
+        (["classify", "chat", "summarize"], ("classify", "chat", "summarize")),
     ],
 )
 def test_parse_args_accepts_explicit_inline_remote_capabilities(
@@ -99,7 +100,7 @@ def test_parse_args_accepts_explicit_inline_remote_capabilities(
     [
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
-        (["summarize", "chat"], ("summarize", "chat")),
+        (["summarize", "classify", "chat"], ("summarize", "classify", "chat")),
     ],
 )
 def test_parse_args_accepts_explicit_inline_local_capabilities(

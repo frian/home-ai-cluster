@@ -90,9 +90,14 @@ def test_shared_composition_constructs_one_ordinary_ollama_node_and_adapter() ->
     [
         (("chat",), [Capability(name="chat")]),
         (("summarize",), [Capability(name="summarize")]),
+        (("classify",), [Capability(name="classify")]),
         (
-            ("summarize", "chat"),
-            [Capability(name="summarize"), Capability(name="chat")],
+            ("summarize", "classify", "chat"),
+            [
+                Capability(name="summarize"),
+                Capability(name="classify"),
+                Capability(name="chat"),
+            ],
         ),
     ],
 )

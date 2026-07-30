@@ -310,7 +310,8 @@ def test_parse_args_normalizes_remote_url_like_static_cluster() -> None:
     [
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
-        (["summarize", "chat"], ("summarize", "chat")),
+        (["classify"], ("classify",)),
+        (["summarize", "classify", "chat"], ("summarize", "classify", "chat")),
     ],
 )
 def test_parse_args_accepts_inline_local_capabilities(
@@ -421,7 +422,8 @@ def test_multi_node_preflight_projects_local_then_remote_without_network_use(
     [
         (("chat",), ["chat"]),
         (("summarize",), ["summarize"]),
-        (("summarize", "chat"), ["summarize", "chat"]),
+        (("classify",), ["classify"]),
+        (("summarize", "classify", "chat"), ["summarize", "classify", "chat"]),
     ],
 )
 def test_inline_multi_node_preflight_projects_explicit_local_capabilities(
@@ -475,7 +477,8 @@ def test_multi_node_preflight_does_not_resolve_remote_http_boundary_locally() ->
     [
         (("chat",), ["chat"]),
         (("summarize",), ["summarize"]),
-        (("chat", "summarize"), ["chat", "summarize"]),
+        (("classify",), ["classify"]),
+        (("classify", "chat", "summarize"), ["classify", "chat", "summarize"]),
     ],
 )
 def test_inline_multi_node_preflight_projects_explicit_capabilities(
@@ -516,7 +519,8 @@ def test_inline_multi_node_preflight_rejects_invalid_capabilities(
     [
         ('["chat"]', ["chat"]),
         ('["summarize"]', ["summarize"]),
-        ('["summarize", "chat"]', ["summarize", "chat"]),
+        ('["classify"]', ["classify"]),
+        ('["summarize", "classify", "chat"]', ["summarize", "classify", "chat"]),
         (None, ["chat", "summarize"]),
     ],
 )

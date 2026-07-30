@@ -123,7 +123,7 @@ Each of those would be a separate architectural question.
 | Static topology TOML or remote-node field | Would associate waiting policy with a declared remote address or expected hardware behavior. | Wrong hop and wrong data domain; see the static declaration assessment. |
 | More specific read timeout | Can better express response waiting but changes the established scalar semantics and requires a distinct HTTP contract. | Not selected merely because the observed non-streaming wait is plausibly a read wait. |
 | Strict total deadline | Has a materially different meaning from HTTPX's current scalar and needs cancellation/elapsed-time semantics to be stated honestly. | Separate architectural decision; do not relabel a scalar as a total deadline. |
-| Different fixed default only | Keeps RFC-0055's implementation-owned boundary. | A possible RFC alternative, but the repeated observation establishes need for an operator choice, not a justified universal replacement value. |
+| Different fixed default only | Keeps RFC-0055's implementation-owned boundary. | A credible RFC alternative: the repeated observation establishes that the current fixed boundary is insufficient, but does not select a replacement or configurability. |
 | No public configuration | Retains the existing accepted fixed contract. | Insufficient for the demonstrated legitimate request that repeatedly exceeds it. |
 
 Every public configuration alternative changes the ordinary client contract and
@@ -160,12 +160,12 @@ valid routed summarize case. It does not prove that summarize needs a different
 policy, that chat would not also need more time, or that runtime/model facts
 belong at the client edge.
 
-The smallest credible RFC scope is therefore one shared optional
-per-invocation ordinary-client waiting value, with omission preserving 120.0.
-It must apply identically through `hac` and `home-ai-cluster`, and preserve
-chat/summarize output, failure, routing, and fallback behavior. A later RFC
-may instead choose a revised fixed default after evaluating the alternatives;
-this investigation does not choose syntax or a value.
+One shared optional per-invocation ordinary-client waiting value is the leading
+smallest credible RFC candidate, with omission preserving 120.0. It would apply
+identically through `hac` and `home-ai-cluster`, and preserve chat/summarize
+output, failure, routing, and fallback behavior. A revised implementation-owned
+fixed default remains an RFC alternative. This investigation selects neither
+alternative, syntax, nor value.
 
 ## HTTPX semantic considerations
 
@@ -234,22 +234,30 @@ cancellation or absence of server-side work after client timeout.
 **Outcome C — a bounded architectural contract change is required.**
 
 The concrete repeated timeout of a legitimate ordinary routed request
-establishes that one implementation-owned universal value is not sufficient for
-every accepted ordinary use. Making that client waiting boundary
-operator-controlled changes the public command contract, validation and
-compatibility rules, and the meaning of a timeout value. An RFC is therefore
-required before implementation.
+establishes that the accepted fixed 120.0-second boundary is insufficient for
+at least one accepted ordinary use. Any change to that accepted fixed timeout
+contract changes public waiting, validation, and compatibility behavior and
+therefore requires an RFC before implementation.
+
+One shared explicit per-invocation finite timeout is the smallest credible
+candidate identified here. A revised implementation-owned fixed boundary
+remains an RFC alternative. This investigation does not select between them.
 
 The smallest RFC question is:
 
-> May ordinary native clients accept one explicit finite operator-selected
-> waiting timeout while preserving the current 120-second default, topology
-> blindness, no-retry behavior, and unchanged server/runtime timeout ownership?
+> What is the smallest finite shared ordinary native-client waiting contract
+> that supports demonstrated slow-but-valid workloads: an explicit
+> operator-selected timeout preserving the 120-second default, or a revised
+> implementation-owned fixed boundary, while preserving topology blindness, no
+> retry, and unchanged server/runtime timeout ownership without capability-,
+> model-, runtime-, remote-, or topology-specific policy?
 
 ## Conclusion
 
 The observation does not justify remote topology timeout data, capability-
 specific policy, environment/configuration policy, retries, cancellation,
 streaming, background work, or runtime lifecycle changes. It does justify a
-narrow RFC investigation of one shared per-invocation ordinary-client waiting
-boundary. No behavior is changed by this document.
+narrow RFC to reconsider the shared ordinary-client waiting boundary. Shared
+per-invocation configurability is the leading candidate, not a selected
+solution; a revised implementation-owned fixed boundary remains an alternative.
+No behavior is changed by this document.

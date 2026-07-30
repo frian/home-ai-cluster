@@ -13,6 +13,7 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ChatMessage,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
     SummarizeRequest,
@@ -33,6 +34,13 @@ def make_summarize_request(text: str = "Source text") -> SummarizeRequest:
     return SummarizeRequest(text=text)
 
 
+def make_classify_request(
+    text: str = "Source text",
+    labels: list[str] | None = None,
+) -> ClassifyRequest:
+    return ClassifyRequest(text=text, labels=labels or ["invoice", "personal"])
+
+
 def test_ollama_adapter_name_and_capabilities() -> None:
     adapter = OllamaAdapter()
 
@@ -40,8 +48,10 @@ def test_ollama_adapter_name_and_capabilities() -> None:
     assert adapter.capabilities() == [
         Capability(name="chat"),
         Capability(name="summarize"),
+        Capability(name="classify"),
     ]
     assert Capability(name="summarization") not in adapter.capabilities()
+    assert Capability(name="classification") not in adapter.capabilities()
 
 
 def test_ollama_adapter_health_returns_available_when_version_responds() -> None:
@@ -171,6 +181,165 @@ def test_ollama_adapter_summarize_preserves_existing_empty_content_behavior() ->
     )
 
     assert result.content == ""
+
+
+def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() -> None:
+    source = '  Source </source> "quoted" étiquette\n'
+    labels = ["invoice", "Invoice", " invoice ", '</label> "étiquette"']
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/chat"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "invoice"}})
+
+    result = asyncio.run(
+        OllamaAdapter(
+            model="configured-model",
+            transport=httpx.MockTransport(handler),
+        ).classify(make_classify_request(source, labels))
+    )
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Choose exactly one label from the allowed labels below for "
+                        "the source text.\n"
+                        "Return only the exact label, with no explanation or "
+                        "additional "
+                        "text.\n\n"
+                        "<allowed-labels>\n"
+                        "<label>invoice</label>\n"
+                        "<label>Invoice</label>\n"
+                        "<label> invoice </label>\n"
+                        '<label></label> "étiquette"</label>\n'
+                        "</allowed-labels>\n\n"
+                        f"<source>\n{source}\n</source>"
+                    ),
+                }
+            ],
+            "stream": False,
+        }
+    ]
+    assert result == "invoice"
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["invoice", "invoice\n", '"invoice"', "The label is invoice", ""],
+)
+def test_ollama_adapter_classify_returns_extracted_content_without_repair(
+    content: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"message": {"content": content}})
+
+    result = asyncio.run(
+        OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+            make_classify_request()
+        )
+    )
+
+    assert result == content
+
+
+def test_ollama_adapter_classify_preserves_existing_missing_content_behavior() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"message": {}})
+
+    result = asyncio.run(
+        OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+            make_classify_request()
+        )
+    )
+
+    assert result == ""
+
+
+def test_ollama_adapter_classify_client_has_no_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created_kwargs: dict[str, object] = {}
+
+    class CapturingAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            created_kwargs.update(kwargs)
+
+        async def __aenter__(self) -> "CapturingAsyncClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def post(self, path: str, *, json: dict[str, object]) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"message": {"content": "invoice"}},
+                request=httpx.Request("POST", "http://localhost:11434/api/chat"),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", CapturingAsyncClient)
+
+    asyncio.run(OllamaAdapter().classify(make_classify_request()))
+
+    assert created_kwargs["timeout"] is None
+
+
+def test_ollama_adapter_classify_translates_connection_failure_before_sending() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as exc_info:
+        asyncio.run(
+            OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+                make_classify_request()
+            )
+        )
+
+    assert str(exc_info.value) == (
+        "Runtime connection unavailable before request transmission"
+    )
+    assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
+
+
+@pytest.mark.parametrize("error_type", [httpx.ReadTimeout, httpx.RemoteProtocolError])
+def test_ollama_adapter_classify_translates_ambiguous_transport_failures(
+    error_type: type[httpx.HTTPError],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise error_type("transport failed", request=request)
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(
+            OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+                make_classify_request()
+            )
+        )
+
+    assert not isinstance(
+        exc_info.value, RuntimeConnectionUnavailableBeforeRequestError
+    )
+    assert isinstance(exc_info.value.__cause__, error_type)
+
+
+def test_ollama_adapter_classify_translates_non_2xx_response_to_adapter_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": "warming up"}, request=request)
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(
+            OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+                make_classify_request()
+            )
+        )
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
 
 
 def test_ollama_adapter_summarize_translates_connection_failure() -> None:

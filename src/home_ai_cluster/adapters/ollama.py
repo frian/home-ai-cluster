@@ -9,6 +9,7 @@ from home_ai_cluster.adapters.base import (
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
     SummarizeRequest,
@@ -34,7 +35,11 @@ class OllamaAdapter:
         return "ollama"
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat"), Capability(name="summarize")]
+        return [
+            Capability(name="chat"),
+            Capability(name="summarize"),
+            Capability(name="classify"),
+        ]
 
     def health(self) -> AdapterHealth:
         try:
@@ -129,3 +134,40 @@ class OllamaAdapter:
             adapter=self.name,
             model=self.model,
         )
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        """Map bounded source text and labels to Ollama's chat transport."""
+        labels = "\n".join(f"<label>{label}</label>" for label in request.labels)
+        prompt = (
+            "Choose exactly one label from the allowed labels below for the "
+            "source text.\n"
+            "Return only the exact label, with no explanation or additional text.\n\n"
+            f"<allowed-labels>\n{labels}\n</allowed-labels>\n\n"
+            f"<source>\n{request.text}\n</source>"
+        )
+
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                transport=self._transport,
+                timeout=None,
+            ) as client:
+                response = await client.post(
+                    "/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeConnectionUnavailableBeforeRequestError(
+                "Runtime connection unavailable before request transmission",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        return response.json().get("message", {}).get("content", "")

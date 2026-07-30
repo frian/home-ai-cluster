@@ -36,8 +36,7 @@ def project_health_snapshot(
     """Project static node declarations and direct adapter health observations."""
     return {
         "nodes": [
-            _project_node(node, adapter_registry)
-            for node in node_registry.list_nodes()
+            _project_node(node, adapter_registry) for node in node_registry.list_nodes()
         ]
     }
 

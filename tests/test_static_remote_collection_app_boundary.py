@@ -164,8 +164,9 @@ def test_create_app_stores_ordered_static_remote_collection_wiring() -> None:
     assert transport.requests == []
 
 
-def test_collection_wiring_uses_ordered_fallback_after_local_connection_failure(
-) -> None:
+def test_collection_wiring_uses_ordered_fallback_after_local_connection_failure() -> (
+    None
+):
     local = RecordingLocalAdapter(
         RuntimeConnectionUnavailableBeforeRequestError("local unavailable")
     )
@@ -181,8 +182,9 @@ def test_collection_wiring_uses_ordered_fallback_after_local_connection_failure(
     assert transport.requests[0].constraints.local_only is False
 
 
-def test_collection_wiring_advances_to_second_remote_after_first_is_unavailable(
-) -> None:
+def test_collection_wiring_advances_to_second_remote_after_first_is_unavailable() -> (
+    None
+):
     transport = RecordingRemoteTransport(
         {
             "remote-a": RuntimeConnectionUnavailableBeforeRequestError("unavailable"),

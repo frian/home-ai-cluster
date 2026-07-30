@@ -86,9 +86,7 @@ def test_parse_args_preserves_runtime_validation_error_wording(
     with pytest.raises(SystemExit):
         local_runtime.parse_args(argv)
 
-    assert (
-        f"home-ai-cluster-local: error: {error}\n" in capsys.readouterr().err
-    )
+    assert f"home-ai-cluster-local: error: {error}\n" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

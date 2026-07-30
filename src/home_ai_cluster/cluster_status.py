@@ -22,9 +22,7 @@ async def collect_static_cluster_status(
 ) -> ClusterStatusResult:
     """Collect local then declared-remote observations after declaration validation."""
     local_snapshot = project_health_snapshot(node_registry, adapter_registry)
-    nodes: list[ClusterStatusNode] = [
-        project_local_cluster_status(local_snapshot)
-    ]
+    nodes: list[ClusterStatusNode] = [project_local_cluster_status(local_snapshot)]
 
     for declaration in remote_registry.list_declarations():
         nodes.append(await remote_status_transport.observe(declaration))

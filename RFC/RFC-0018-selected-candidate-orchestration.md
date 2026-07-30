@@ -113,8 +113,7 @@ async def orchestrate_request_with_selected_candidate(
     selected: SelectedRoutingCandidate,
     *,
     remote_transport: RemoteTransport | None = None,
-) -> ClusterResult:
-    ...
+) -> ClusterResult: ...
 ```
 
 The exact implementation shape may vary, but the architectural boundary should

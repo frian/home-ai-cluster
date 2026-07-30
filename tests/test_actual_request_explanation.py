@@ -191,9 +191,7 @@ def test_evaluate_selects_and_executes_at_most_once(
         record_selection,
     )
 
-    account, adapter = evaluate(
-        RuntimeResult(content="response", adapter="recording")
-    )
+    account, adapter = evaluate(RuntimeResult(content="response", adapter="recording"))
 
     assert account["status"] == "succeeded"
     assert selections == 1
@@ -267,8 +265,10 @@ def test_evaluate_uses_default_local_registries_and_empty_remote_registry(
     )
     monkeypatch.setattr(
         "home_ai_cluster.actual_request_explanation.build_remote_node_declaration_registry",
-        lambda declarations: calls.append("remotes")
-        or build_remote_node_declaration_registry(declarations),
+        lambda declarations: (
+            calls.append("remotes")
+            or build_remote_node_declaration_registry(declarations)
+        ),
     )
 
     account = asyncio.run(evaluate_actual_request("chat", "Hello"))

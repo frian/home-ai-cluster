@@ -55,6 +55,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
+  — accepts one bounded `classify` capability with an exact operator-supplied
+  selected-label result and explicit static eligibility.
 - [RFC-0060: Explicit Native Client Timeout](RFC-0060-explicit-native-client-timeout.md)
   — accepts one shared finite per-invocation timeout for ordinary native clients
   while preserving the 120.0-second default and existing timeout ownership
@@ -65,12 +68,6 @@ A superseded RFC has been replaced by a newer RFC.
 - [RFC-0058: Explicit static remote capabilities](RFC-0058-explicit-static-remote-capabilities.md)
   — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.
-
-## Draft RFCs
-
-- [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
-  — proposes one explicit bounded `classify` capability with an exact
-  operator-supplied selected-label result and explicit static eligibility.
 
 ---
 

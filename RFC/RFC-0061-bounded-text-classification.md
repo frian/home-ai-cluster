@@ -1,6 +1,6 @@
 # RFC-0061: Bounded Text Classification
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-30
 
@@ -465,4 +465,35 @@ receiver, CLI, and privacy decisions are not open.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts `classify` as its third executable capability.
+
+`classify` selects exactly one label from a finite operator-supplied label set
+for one bounded text source. The request has one non-blank UTF-8 source of at
+most 65,536 bytes and between 2 and 32 non-empty labels. Labels are unique by
+exact string equality, at most 128 UTF-8 bytes each, and retain supplied order.
+
+A successful result contains exactly one `selected_label` that exactly equals
+one supplied label. Home AI Cluster performs no trimming, case folding, Unicode
+normalization, fuzzy matching, prose repair, or implicit fallback-label
+handling. There is no reserved `unknown`, `none`, or `other` label; operators
+include one explicitly when needed.
+
+The accepted explicit static capability vocabulary is `chat`, `summarize`, and
+`classify`. The omission compatibility default remains `chat` plus `summarize`,
+so `classify` eligibility is always explicit for caller-local and remote static
+declarations.
+
+The capability reuses existing local-first routing, ordered declared remotes,
+bounded pre-request fallback, closed internal receiver transport, native client
+timeout semantics, preflight projection, normalized attribution, and safe
+structured failure boundaries. Implementation must add one complete
+capability-specific vertical slice: dedicated request and classification result,
+one adapter method, local and receiver-local execution, one closed internal
+transport variant, trust-boundary validation, native `hac classify` and
+`home-ai-cluster classify` commands, exact membership validation, and focused
+local, remote, heterogeneous, and privacy-safe proof coverage.
+
+This decision does not authorize generic structured output, arbitrary schemas,
+multi-label classification, scores, rationales, persistence, retrieval,
+discovery, scheduling, model selection, OpenAI-compatible expansion, or
+receiver capability verification.

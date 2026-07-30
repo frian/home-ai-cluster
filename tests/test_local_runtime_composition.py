@@ -24,6 +24,7 @@ def assert_ordinary_local_node(composition, adapter_name: str) -> None:
     assert nodes[0].capabilities == [
         Capability(name="chat"),
         Capability(name="summarize"),
+        Capability(name="classify"),
     ]
     assert nodes[0].adapters == [adapter_name]
 

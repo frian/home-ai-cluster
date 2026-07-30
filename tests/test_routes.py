@@ -10,6 +10,7 @@ from home_ai_cluster.api.wiring import build_static_remote_wiring
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     ClusterResult,
     NodeDescription,
@@ -67,6 +68,36 @@ class RecordingSummarizeAdapter:
     async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
         self.requests.append(request)
         return RuntimeResult(content="summary", adapter=self.name, model="test-model")
+
+
+class RecordingClassifyAdapter:
+    def __init__(self, proposal: str) -> None:
+        self.proposal = proposal
+        self.requests: list[ClassifyRequest] = []
+        self.chat_calls = 0
+        self.summarize_calls = 0
+
+    @property
+    def name(self) -> str:
+        return "classify-test"
+
+    def health(self) -> AdapterHealth:
+        return AdapterHealth(available=True)
+
+    def capabilities(self) -> list[Capability]:
+        return [Capability(name="classify")]
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_calls += 1
+        raise AssertionError("classify adapter must not receive chat")
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        self.summarize_calls += 1
+        raise AssertionError("classify adapter must not receive summarize")
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        self.requests.append(request)
+        return self.proposal
 
 
 class UnavailableSummarizeAdapter(RecordingSummarizeAdapter):
@@ -733,6 +764,137 @@ def test_internal_cluster_request_executes_tagged_summarize_locally(
     }
     assert adapter.requests == [SummarizeRequest(text="  Source\n</source>  ")]
     assert not history_file().exists()
+
+
+def test_internal_cluster_request_executes_classify_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter(" invoice")
+    node = NodeDescription(
+        id="receiver-local",
+        name="Receiver local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_internal_cluster_request(
+        {
+            "kind": "classify",
+            "request": {
+                "text": "Source text étiquette",
+                "labels": ["invoice", "Invoice", " invoice", "étiquette"],
+            },
+        }
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "selected_label": " invoice",
+        "node_id": "receiver-local",
+    }
+    assert adapter.requests == [
+        ClassifyRequest(
+            text="Source text étiquette",
+            labels=["invoice", "Invoice", " invoice", "étiquette"],
+        )
+    ]
+    assert adapter.chat_calls == 0
+    assert adapter.summarize_calls == 0
+
+
+def test_internal_cluster_request_maps_invalid_classify_proposal_safely(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter("private proposal")
+    node = NodeDescription(
+        id="receiver",
+        name="Receiver",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_internal_cluster_request(
+        {
+            "kind": "classify",
+            "request": {"text": "private source", "labels": ["invoice", "personal"]},
+        }
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "execution-failed"}
+    assert adapter.requests == [
+        ClassifyRequest(text="private source", labels=["invoice", "personal"])
+    ]
+    assert "private proposal" not in response.text
+    assert "invoice" not in response.text
+    assert "private source" not in response.text
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"kind": "classify"},
+        {"kind": "classify", "request": {"labels": ["a", "b"]}},
+        {"kind": "classify", "request": {"text": " ", "labels": ["a", "b"]}},
+        {"kind": "classify", "request": {"text": "a" * 65_537, "labels": ["a", "b"]}},
+        {"kind": "classify", "request": {"text": "x"}},
+        {"kind": "classify", "request": {"text": "x", "labels": ["a"]}},
+        {
+            "kind": "classify",
+            "request": {"text": "x", "labels": [str(i) for i in range(33)]},
+        },
+        {"kind": "classify", "request": {"text": "x", "labels": ["a", ""]}},
+        {"kind": "classify", "request": {"text": "x", "labels": ["a", "é" * 65]}},
+        {"kind": "classify", "request": {"text": "x", "labels": ["a", "a"]}},
+        {"kind": "classify", "request": {"text": "x", "labels": ["a", 2]}},
+        {
+            "kind": "classify",
+            "request": {"text": "x", "labels": ["a", "b"], "extra": True},
+        },
+        {"kind": "unknown", "request": {}},
+    ],
+)
+def test_internal_cluster_request_rejects_malformed_classify_before_execution(
+    monkeypatch: pytest.MonkeyPatch, payload: dict[str, object]
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter("invoice")
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_internal_cluster_request(payload)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
+    assert adapter.requests == []
 
 
 @pytest.mark.parametrize(

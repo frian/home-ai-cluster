@@ -11,6 +11,7 @@ from home_ai_cluster.adapters.base import (
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
     SummarizeRequest,
@@ -36,7 +37,11 @@ class LlamaServerAdapter:
         return "llama-server"
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat"), Capability(name="summarize")]
+        return [
+            Capability(name="chat"),
+            Capability(name="summarize"),
+            Capability(name="classify"),
+        ]
 
     def health(self) -> AdapterHealth:
         try:
@@ -133,6 +138,48 @@ class LlamaServerAdapter:
 
         return RuntimeResult(content=content, adapter=self.name, model=model)
 
+    async def classify(self, request: ClassifyRequest) -> str:
+        """Map bounded source text and labels to llama-server's chat transport."""
+        labels = "\n".join(f"<label>{label}</label>" for label in request.labels)
+        prompt = (
+            "Choose exactly one label from the allowed labels below for the "
+            "source text.\n"
+            "Return only the exact label, with no explanation or additional text.\n\n"
+            f"<allowed-labels>\n{labels}\n</allowed-labels>\n\n"
+            f"<source>\n{request.text}\n</source>"
+        )
+
+        try:
+            async with httpx.AsyncClient(
+                base_url=self.base_url,
+                transport=self._transport,
+                timeout=None,
+            ) as client:
+                response = await client.post(
+                    "/v1/chat/completions",
+                    json={
+                        "model": self.model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeConnectionUnavailableBeforeRequestError(
+                "Runtime connection unavailable before request transmission",
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        try:
+            return self._classification_content(response.json())
+        except (IndexError, KeyError, TypeError, ValueError) as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
     def _normalize_response(self, body: Any) -> tuple[str, str]:
         content = body["choices"][0]["message"]["content"]
         model = body.get("model", self.model)
@@ -141,3 +188,10 @@ class LlamaServerAdapter:
             raise ValueError("llama-server response has invalid content or model")
 
         return content, model
+
+    def _classification_content(self, body: Any) -> str:
+        """Extract one unmodified classification proposal from llama-server."""
+        content = body["choices"][0]["message"]["content"]
+        if not isinstance(content, str):
+            raise ValueError("llama-server response has invalid classification content")
+        return content

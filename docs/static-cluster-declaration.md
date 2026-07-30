@@ -35,7 +35,7 @@ or its remote URL.
 Copy the repository example to an operator-owned local path:
 
 ```sh
-cp examples/static-cluster.toml <operator-owned-declaration-path>
+cp examples/static-cluster-single-remote.toml <operator-owned-declaration-path>
 ```
 
 Edit only the two values:
@@ -47,6 +47,10 @@ remote_base_url = "http://<receiving-lan-address>:8000"
 
 Do not commit a real private LAN address, machine name, secret, prompt, or
 response to the repository.
+
+For the accepted ordered multi-remote and caller-local eligibility examples,
+see [`examples/README.md`](../examples/README.md). This document remains the
+single-remote declaration guide.
 
 The declaration path is always supplied explicitly. There is no default path,
 search path, environment-variable source, or precedence system.

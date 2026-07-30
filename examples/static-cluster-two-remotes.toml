@@ -1,0 +1,7 @@
+[[remote_nodes]]
+node_id = "remote-a"
+base_url = "http://192.0.2.10:8000"
+
+[[remote_nodes]]
+node_id = "remote-b"
+base_url = "http://192.0.2.11:8000"

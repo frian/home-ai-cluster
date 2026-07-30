@@ -17,6 +17,7 @@ from home_ai_cluster.core.models import (
     RuntimeStatus,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
+from home_ai_cluster.local_runtime_composition import LOCAL_RUNTIME_CAPABILITY_NAMES
 
 MISSING_ADAPTER_REASON = "declared adapter is not present in the inspected registry"
 PROBE_FAILED_REASON = "adapter health observation failed"
@@ -99,7 +100,7 @@ def evaluate_health_snapshot(
     return project_health_snapshot(
         node_registry
         if node_registry is not None
-        else create_static_local_node_registry(),
+        else create_static_local_node_registry(LOCAL_RUNTIME_CAPABILITY_NAMES),
         adapter_registry
         if adapter_registry is not None
         else create_static_runtime_adapter_registry(),

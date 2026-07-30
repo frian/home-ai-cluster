@@ -148,7 +148,7 @@ def test_evaluate_health_snapshot_uses_ordinary_static_local_registries(
     )
     calls: list[str] = []
 
-    def create_nodes() -> NodeRegistry:
+    def create_nodes(*_: object) -> NodeRegistry:
         calls.append("nodes")
         return node_registry
 
@@ -169,6 +169,46 @@ def test_evaluate_health_snapshot_uses_ordinary_static_local_registries(
 
     assert calls == ["nodes", "adapters"]
     assert snapshot["nodes"][0]["node_id"] == "configured-local"
+
+
+def test_default_health_snapshot_uses_ordinary_local_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.local_runtime_composition import LOCAL_RUNTIME_CAPABILITY_NAMES
+
+    captured: list[tuple[str, ...]] = []
+    node = make_node("available")
+    adapter = FakeAdapter("available", AdapterHealth(available=True))
+
+    def create_nodes(capabilities: tuple[str, ...]) -> NodeRegistry:
+        captured.append(capabilities)
+        return NodeRegistry(
+            [
+                node.model_copy(
+                    update={
+                        "capabilities": [Capability(name=name) for name in capabilities]
+                    }
+                )
+            ]
+        )
+
+    monkeypatch.setattr(
+        "home_ai_cluster.local_health_snapshot.create_static_local_node_registry",
+        create_nodes,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.local_health_snapshot.create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    snapshot = evaluate_health_snapshot()
+
+    assert captured == [LOCAL_RUNTIME_CAPABILITY_NAMES]
+    assert snapshot["nodes"][0]["declared"]["capabilities"] == [
+        "chat",
+        "summarize",
+        "classify",
+    ]
 
 
 @pytest.mark.parametrize(

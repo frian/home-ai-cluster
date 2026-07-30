@@ -1,6 +1,6 @@
 # RFC-0060: Explicit Native Client Timeout
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-30
 
@@ -324,9 +324,18 @@ not required.
 
 ## Open questions
 
-Pending review of this draft, including whether the selected upper bound is the
-smallest useful durable validation contract.
+None for the accepted narrow contract. Internal parser or helper placement
+remains an implementation detail within the boundaries of this RFC.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts one shared optional `--timeout-seconds SECONDS` input
+for one ordinary native chat or summarize client invocation, including the
+existing standalone chat executable. `SECONDS` is a base-10 integer from `1`
+through `3600`; omission retains the internal 120.0-second HTTPX scalar
+default.
+
+The selected value retains HTTPX scalar pool, connect, write, and read
+semantics. It is not a total deadline and adds no retry, cancellation, topology
+policy, or server/runtime timeout change. Invalid values fail before HTTP client
+construction or request sending.

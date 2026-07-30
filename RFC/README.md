@@ -53,14 +53,12 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
-
-- [RFC-0060: Explicit Native Client Timeout](RFC-0060-explicit-native-client-timeout.md)
-  — proposes one shared explicit finite per-invocation timeout for ordinary
-  native clients while retaining the accepted 120.0-second default on omission.
-
 ## Accepted RFCs
 
+- [RFC-0060: Explicit Native Client Timeout](RFC-0060-explicit-native-client-timeout.md)
+  — accepts one shared finite per-invocation timeout for ordinary native clients
+  while preserving the 120.0-second default and existing timeout ownership
+  boundaries.
 - [RFC-0059: Caller-local static capabilities](RFC-0059-caller-local-static-capabilities.md)
   — accepts bounded caller-local routing capabilities for ordinary static
   clusters while preserving local-first routing and receiver behavior.

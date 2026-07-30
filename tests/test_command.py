@@ -25,6 +25,7 @@ Foreground process commands:
 
 Finite commands:
   chat            Send one ordinary chat request.
+  classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
@@ -45,6 +46,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "static-cluster",
         "compatibility",
         "chat",
+        "classify",
         "summarize",
         "preflight",
         "health",

@@ -21,6 +21,7 @@ from home_ai_cluster.chat_command import (
     _REQUEST_TIMEOUT_SECONDS,
     _RUNTIME_UNAVAILABLE,
     _exit_with_failure,
+    _parse_timeout_seconds,
     _write_success,
 )
 from home_ai_cluster.core.models import ClusterResult, SummarizeRequest
@@ -47,6 +48,7 @@ class _SummarizeCommandInput:
 
     request: SummarizeRequest
     output_mode: str
+    timeout_seconds: float
 
 
 def _read_bounded_utf8_source(source_input: BinaryIO) -> str:
@@ -102,6 +104,7 @@ def _parse_input(
     source_options = parser.add_mutually_exclusive_group()
     source_options.add_argument("--text", action="append")
     source_options.add_argument("--file", action="append")
+    parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
     output_options.add_argument("--json", action="store_true")
@@ -130,7 +133,19 @@ def _parse_input(
     else:
         output_mode = "content"
 
-    return _SummarizeCommandInput(request=request, output_mode=output_mode)
+    try:
+        timeout_seconds = (
+            _REQUEST_TIMEOUT_SECONDS
+            if args.timeout_seconds is None
+            else _parse_timeout_seconds(args.timeout_seconds)
+        )
+    except ValueError:
+        raise _InvalidRequestInput from None
+    return _SummarizeCommandInput(
+        request=request,
+        output_mode=output_mode,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _native_request(request: SummarizeRequest) -> dict[str, Any]:
@@ -141,10 +156,11 @@ def _native_request(request: SummarizeRequest) -> dict[str, Any]:
 def _post_native_request(
     request: dict[str, Any],
     *,
+    timeout_seconds: float,
     client_factory: Callable[..., httpx.Client],
 ) -> httpx.Response:
     with client_factory(
-        timeout=_REQUEST_TIMEOUT_SECONDS,
+        timeout=timeout_seconds,
         follow_redirects=False,
     ) as client:
         return client.post(_ORDINARY_SUMMARIZE_URL, json=request)
@@ -182,6 +198,7 @@ def main(
     try:
         response = _post_native_request(
             _native_request(command_input.request),
+            timeout_seconds=command_input.timeout_seconds,
             client_factory=_client_factory,
         )
     except httpx.ConnectError:

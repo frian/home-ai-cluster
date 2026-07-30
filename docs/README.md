@@ -200,6 +200,9 @@ established at a specific stage and do not replace the current workflow.
   — standalone documentation-only investigation prompted by a sanitized
   repeated slow-remote request observation; it records Outcome C and requires
   an RFC before any timeout behavior can change.
+- [Native client timeout override proof](native-client-timeout-override-proof.md)
+  — retained privacy-safe evidence that one real slow-but-valid routed
+  summarize request completed with the accepted per-invocation client override.
 
 ## Document roles
 

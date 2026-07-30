@@ -139,6 +139,7 @@ is not supported through this surface.
 ```sh
 hac chat "Hello"
 hac chat --message "Hello"
+hac chat --timeout-seconds 300 "Hello"
 hac chat "Hello" --verbose
 hac chat "Hello" --json
 ```
@@ -146,7 +147,12 @@ hac chat "Hello" --json
 **Important behavior:** The command sends one request to the fixed local caller
 endpoint; it does not start the application. It remains topology-blind and
 returns cluster-owned execution attribution. Request content is not retained by
-this command.
+this command. `--timeout-seconds SECONDS` accepts one base-10 integer from `1`
+through `3600` for this invocation; omission keeps the 120-second default. The
+value is the HTTP client's pool/connect/write/read scalar timeout, not a total
+deadline. It adds no retry or cancellation. A timeout does not prove work has
+stopped elsewhere, so do not immediately repeat a timed-out request on slow
+hardware without accepting that it can create additional work.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -159,6 +165,7 @@ ordinary process.
 
 ```sh
 hac summarize --text "Text to summarize"
+hac summarize --timeout-seconds 300 --text "Text to summarize"
 printf 'Text to summarize' | hac summarize
 hac summarize --file README.md
 hac summarize < README.md
@@ -173,7 +180,12 @@ one regular file using ordinary operating-system path semantics: it does not
 expand `~`, environment variables, or globs, and does not treat `--file -`
 specially. Sources must be strict UTF-8 and at most 65,536 bytes. Oversized
 input is rejected, never truncated. Content, `--verbose`, and `--json` are the
-supported output modes.
+supported output modes. `--timeout-seconds SECONDS` uses the same base-10
+integer range (`1` through `3600`) and 120-second omission default as `hac
+chat`. It is the HTTP client's pool/connect/write/read scalar timeout, not a
+total deadline; it adds no retry or cancellation. A timeout does not prove that
+work has stopped elsewhere, so avoid immediately repeating a timed-out request
+on slow hardware unless additional work is acceptable.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

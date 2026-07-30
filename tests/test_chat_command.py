@@ -21,6 +21,36 @@ def test_client_uses_the_accepted_shared_timeout() -> None:
     assert _REQUEST_TIMEOUT_SECONDS == 120.0
 
 
+@pytest.mark.parametrize(
+    ("timeout_value", "expected_timeout"),
+    [("1", 1.0), ("300", 300.0), ("3600", 3600.0)],
+)
+def test_client_accepts_integer_timeout_override(
+    capsys: pytest.CaptureFixture[str],
+    timeout_value: str,
+    expected_timeout: float,
+) -> None:
+    requests: list[httpx.Request] = []
+    captured_timeouts: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="response"))
+
+    def create_client(**kwargs: object) -> httpx.Client:
+        captured_timeouts.append(kwargs["timeout"])  # type: ignore[arg-type]
+        return httpx.Client(transport=httpx.MockTransport(handler), **kwargs)
+
+    main(
+        ["--timeout-seconds", timeout_value, "Hello"],
+        _client_factory=create_client,
+    )
+
+    assert capsys.readouterr().out == "response\n"
+    assert captured_timeouts == [expected_timeout]
+    assert len(requests) == 1
+
+
 def run_command(
     capsys: pytest.CaptureFixture[str],
     argv: list[str],
@@ -63,6 +93,18 @@ def unused_client(**kwargs: object) -> httpx.Client:
         ["--message", "first", "--message", "second"],
         ["positional", "--message", "option"],
         ["first", "second"],
+        ["Hello", "--timeout-seconds"],
+        ["--timeout-seconds", "0", "Hello"],
+        ["--timeout-seconds", "-1", "Hello"],
+        ["--timeout-seconds", "+1", "Hello"],
+        ["--timeout-seconds", "01", "Hello"],
+        ["--timeout-seconds", "0.5", "Hello"],
+        ["--timeout-seconds", "300.5", "Hello"],
+        ["--timeout-seconds", "1e3", "Hello"],
+        ["--timeout-seconds", "NaN", "Hello"],
+        ["--timeout-seconds", "Infinity", "Hello"],
+        ["--timeout-seconds", "3601", "Hello"],
+        ["--timeout-seconds", "5m", "Hello"],
     ],
 )
 def test_invalid_input_has_one_safe_error(

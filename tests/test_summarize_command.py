@@ -27,6 +27,37 @@ def test_client_uses_the_chat_shared_timeout() -> None:
     assert _REQUEST_TIMEOUT_SECONDS == _CHAT_TIMEOUT == 120.0
 
 
+@pytest.mark.parametrize(
+    ("timeout_value", "expected_timeout"),
+    [("1", 1.0), ("300", 300.0), ("3600", 3600.0)],
+)
+def test_client_accepts_integer_timeout_override(
+    capsys: pytest.CaptureFixture[str],
+    timeout_value: str,
+    expected_timeout: float,
+) -> None:
+    requests: list[httpx.Request] = []
+    captured_timeouts: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="summary"))
+
+    def create_client(**kwargs: object) -> httpx.Client:
+        captured_timeouts.append(kwargs["timeout"])  # type: ignore[arg-type]
+        return httpx.Client(transport=httpx.MockTransport(handler), **kwargs)
+
+    main(
+        ["--timeout-seconds", timeout_value, "--text", "source"],
+        _client_factory=create_client,
+        _stdin=UnreadStream(),
+    )
+
+    assert capsys.readouterr().out == "summary\n"
+    assert captured_timeouts == [expected_timeout]
+    assert len(requests) == 1
+
+
 def run_command(
     capsys: pytest.CaptureFixture[str],
     argv: list[str],
@@ -110,6 +141,18 @@ class OpenedShortReadFile(ShortReadStream):
         ["--unknown"],
         ["--text", "source", "--verbose", "--json"],
         ["--text", "ä" * 32_769],
+        ["--text", "source", "--timeout-seconds"],
+        ["--timeout-seconds", "0", "--text", "source"],
+        ["--timeout-seconds", "-1", "--text", "source"],
+        ["--timeout-seconds", "+1", "--text", "source"],
+        ["--timeout-seconds", "01", "--text", "source"],
+        ["--timeout-seconds", "0.5", "--text", "source"],
+        ["--timeout-seconds", "300.5", "--text", "source"],
+        ["--timeout-seconds", "1e3", "--text", "source"],
+        ["--timeout-seconds", "NaN", "--text", "source"],
+        ["--timeout-seconds", "Infinity", "--text", "source"],
+        ["--timeout-seconds", "3601", "--text", "source"],
+        ["--timeout-seconds", "5m", "--text", "source"],
     ],
 )
 def test_invalid_input_has_one_safe_error(

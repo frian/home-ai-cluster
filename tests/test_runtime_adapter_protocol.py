@@ -3,6 +3,7 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ChatMessage,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
     SummarizeRequest,
@@ -33,6 +34,9 @@ class InMemoryAdapter:
             adapter=self.name,
             model="test-model",
         )
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        return request.labels[0]
 
 
 async def _send_chat(adapter: RuntimeAdapter) -> RuntimeResult:
@@ -78,3 +82,17 @@ def test_runtime_adapter_protocol_exposes_summarize() -> None:
         adapter="in-memory",
         model="test-model",
     )
+
+
+def test_runtime_adapter_protocol_exposes_classify() -> None:
+    adapter: RuntimeAdapter = InMemoryAdapter()
+
+    import asyncio
+
+    result = asyncio.run(
+        adapter.classify(
+            ClassifyRequest(text="Source text", labels=["first", "second"])
+        )
+    )
+
+    assert result == "first"

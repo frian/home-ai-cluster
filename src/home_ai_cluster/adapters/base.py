@@ -5,6 +5,7 @@ from typing import Protocol
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
     SummarizeRequest,
@@ -41,4 +42,8 @@ class RuntimeAdapter(Protocol):
 
     async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
         """Execute a normalized text summarization request."""
+        ...
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        """Propose one label for a normalized bounded classification request."""
         ...

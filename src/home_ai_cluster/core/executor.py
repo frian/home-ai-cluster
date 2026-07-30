@@ -4,6 +4,8 @@ from home_ai_cluster.core.execution_target import (
     remote_declaration_for_routing_decision,
 )
 from home_ai_cluster.core.models import (
+    ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     SummarizeRequest,
@@ -17,27 +19,47 @@ from home_ai_cluster.core.remote_transport import RemoteTransport
 from home_ai_cluster.core.router import RoutingDecision
 
 
+class InvalidClassificationLabelError(Exception):
+    """Raised when an adapter proposes a label outside the request's label set."""
+
+
 async def execute_local_routing_decision(
-    request: ClusterRequest | SummarizeRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     decision: RoutingDecision,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     """Execute the selected local adapter for a routing decision."""
     if isinstance(request, ClusterRequest):
         result = await decision.adapter.chat(request)
-    else:
+        return ClusterResult(
+            content=result.content,
+            adapter=result.adapter,
+            model=result.model,
+            node_id=decision.node.id,
+        )
+
+    if isinstance(request, SummarizeRequest):
         result = await decision.adapter.summarize(request)
-    return ClusterResult(
-        content=result.content,
-        adapter=result.adapter,
-        model=result.model,
+        return ClusterResult(
+            content=result.content,
+            adapter=result.adapter,
+            model=result.model,
+            node_id=decision.node.id,
+        )
+
+    proposal = await decision.adapter.classify(request)
+    if proposal not in request.labels:
+        raise InvalidClassificationLabelError("Invalid classification label")
+
+    return ClassifyResult(
+        selected_label=proposal,
         node_id=decision.node.id,
     )
 
 
 async def execute_routing_decision(
-    request: ClusterRequest | SummarizeRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     decision: RoutingDecision,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     """Execute a routing decision using the current local execution path."""
     return await execute_local_routing_decision(request, decision)
 

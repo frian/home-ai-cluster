@@ -67,6 +67,18 @@ def test_posts_exact_body_with_default_timeout_and_preserved_order(capsys):
         ["--text", "x", "--label", "a", "--label", "a"],
         ["--text", "x", "--label", "a", "--label", "b", "--timeout-seconds", "01"],
         ["--text", "x", "--label", "a", "--label", "b", "--timeout-seconds", "0"],
+        [
+            "--text",
+            "source",
+            "--label",
+            "a",
+            "--label",
+            "b",
+            "--timeout-seconds",
+            "10",
+            "--timeout-seconds",
+            "20",
+        ],
         ["--text", "x", "--label", "a", "--label", "b", "--timeout-seconds", "1.5"],
     ],
 )
@@ -175,3 +187,35 @@ def test_file_and_stdin_boundaries(capsys, tmp_path):
         stdin=b"x" * 65_537,
     )
     assert (code, out, err) == (2, "", "error: invalid request input\n")
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (
+            httpx.ConnectError("private connection"),
+            "error: ordinary cluster unavailable\n",
+        ),
+        (
+            httpx.TimeoutException("private timeout"),
+            "error: ordinary request timed out\n",
+        ),
+        (httpx.ReadError("private request"), "error: ordinary request failed\n"),
+        (RuntimeError("private unexpected"), "error: ordinary request failed\n"),
+    ],
+)
+def test_client_exceptions_are_safe(capsys, error, message):
+    def factory(**_):
+        raise error
+
+    try:
+        classify_command.main(
+            ["--label", "a", "--label", "b"],
+            _stdin=BytesIO(b"source"),
+            _client_factory=factory,
+        )
+    except SystemExit as raised:
+        code = raised.code
+    captured = capsys.readouterr()
+    assert (code, captured.out, captured.err) == (1, "", message)
+    assert "private" not in captured.err

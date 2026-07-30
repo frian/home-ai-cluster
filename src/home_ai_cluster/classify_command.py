@@ -51,7 +51,7 @@ def _parse_input(
     sources.add_argument("--text", action="append")
     sources.add_argument("--file", action="append")
     parser.add_argument("--label", action="append")
-    parser.add_argument("--timeout-seconds")
+    parser.add_argument("--timeout-seconds", action="append")
     output = parser.add_mutually_exclusive_group()
     output.add_argument("-v", "--verbose", action="store_true")
     output.add_argument("--json", action="store_true")
@@ -70,10 +70,13 @@ def _parse_input(
     )
     try:
         request = ClassifyRequest(text=text, labels=args.label or [])
+        timeout_values = args.timeout_seconds or []
+        if len(timeout_values) > 1:
+            raise _InvalidRequestInput
         timeout = (
             _REQUEST_TIMEOUT_SECONDS
-            if args.timeout_seconds is None
-            else _parse_timeout_seconds(args.timeout_seconds)
+            if not timeout_values
+            else _parse_timeout_seconds(timeout_values[0])
         )
     except (ValidationError, ValueError):
         raise _InvalidRequestInput from None

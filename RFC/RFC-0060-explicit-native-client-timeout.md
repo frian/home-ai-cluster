@@ -141,16 +141,18 @@ cancellation timeout.
 
 ### Validation and local failure
 
-`SECONDS` is one decimal number of seconds satisfying:
+`SECONDS` is one base-10 integer number of seconds satisfying:
 
 ```text
 1 <= SECONDS <= 3600
 ```
 
-Valid examples include `1`, `120`, `300`, `300.5`, and `3600`. Missing values,
-malformed text, non-finite values, zero, negative values, values below `1`, and
-values above `3600` are invalid. Seconds are the only unit; duration strings
-such as `5m` and `2h` are not accepted.
+Valid examples include `1`, `120`, `300`, and `3600`. Invalid examples include
+`0`, `-1`, `0.5`, `300.5`, `NaN`, `Infinity`, `3601`, and `5m`. Missing values,
+malformed text, values below `1`, and values above `3600` are also invalid.
+Seconds are the only unit; no generic duration parser is introduced. A valid
+integer override is converted to the scalar seconds value passed to
+`httpx.Client`.
 
 The parser must reject invalid values before constructing an HTTP client or
 sending a request. Current ordinary client parser failures already produce no
@@ -210,6 +212,11 @@ creates no ambient configuration or precedence, and does not contaminate
 static topology declarations with performance expectations. It permits a
 slow-but-valid request to wait longer while retaining finite behavior and one
 shared client contract. It does not guarantee completion.
+
+Integer seconds are sufficient for the demonstrated workloads measured in
+minutes. They avoid unnecessary floating-point and non-finite-value parsing
+rules while preserving the existing HTTPX scalar pool/connect/write/read
+semantics.
 
 ## Alternatives considered
 
@@ -293,9 +300,10 @@ A later implementation must prove at minimum that:
    HTTPX for summarize;
 3. both root executable names and the standalone chat executable expose the
    accepted chat behavior;
-4. the minimum, maximum, and decimal finite values are accepted;
-5. zero, negative, malformed, non-finite, below-minimum, and above-maximum
-   values fail before HTTP client construction and send no request;
+4. the minimum, maximum, and representative ordinary integer values are
+   accepted;
+5. decimal, malformed, zero, negative, below-minimum, and above-maximum values
+   fail before HTTP client construction and send no request;
 6. each valid invocation sends at most one request;
 7. timeout, connection, generic request failure, and success behavior remain
    unchanged; and
@@ -316,8 +324,8 @@ not required.
 
 ## Open questions
 
-Pending review of this draft, including whether the selected upper bound and
-decimal representation are the smallest useful durable validation contract.
+Pending review of this draft, including whether the selected upper bound is the
+smallest useful durable validation contract.
 
 ## Decision
 

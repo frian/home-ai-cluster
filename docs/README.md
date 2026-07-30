@@ -193,6 +193,9 @@ established at a specific stage and do not replace the current workflow.
   — retained ordinary process-and-HTTP proof that a healthy chat-only caller-local
   candidate excludes summarize before selection and reaches a summarize-only
   declared remote.
+- [Post-RFC-0059 next gap investigation](post-rfc-0059-next-gap-investigation.md)
+  — standalone documentation-only investigation concluding Outcome A: no
+  justified follow-up gap is currently established.
 
 ## Document roles
 

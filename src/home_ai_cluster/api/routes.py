@@ -12,11 +12,15 @@ from home_ai_cluster.api.wiring import (
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
 )
+from home_ai_cluster.core.executor import InvalidClassificationLabelError
 from home_ai_cluster.core.models import (
     INTERNAL_CLUSTER_REQUEST_ADAPTER,
     Capability,
     ChatInternalRequest,
     ChatMessage,
+    ClassifyInternalRequest,
+    ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     InternalClusterStatusResponse,
@@ -68,10 +72,10 @@ def _resolve_local_registries(
 
 
 async def handle_static_local_cluster_request(
-    cluster_request: ClusterRequest | SummarizeRequest,
+    cluster_request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     proof_receiving_app_wiring: ProofReceivingAppWiring | None = None,
     local_app_composition: LocalAppComposition | None = None,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     if proof_receiving_app_wiring is not None:
         node_registry = proof_receiving_app_wiring.node_registry
         adapter_registry = proof_receiving_app_wiring.adapter_registry
@@ -91,6 +95,8 @@ async def handle_static_local_cluster_request(
             status_code=503,
             detail="Runtime adapter unavailable",
         ) from exc
+    except InvalidClassificationLabelError as exc:
+        raise HTTPException(status_code=500, detail="execution-failed") from exc
     except NoMatchingAdapterError as exc:
         raise HTTPException(
             status_code=404,
@@ -259,10 +265,10 @@ async def summarize(http_request: Request) -> ClusterResult:
     )
 
 
-@router.post("/internal/cluster/request", response_model=ClusterResult)
+@router.post("/internal/cluster/request", response_model=ClusterResult | ClassifyResult)
 async def internal_cluster_request(
     http_request: Request,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     try:
         envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
             await http_request.json()
@@ -273,11 +279,12 @@ async def internal_cluster_request(
             detail="Invalid internal cluster request",
         ) from None
 
-    request = (
-        envelope.request
-        if isinstance(envelope, ChatInternalRequest)
-        else envelope.request.normalized_request()
-    )
+    if isinstance(envelope, ChatInternalRequest):
+        request = envelope.request
+    elif isinstance(envelope, ClassifyInternalRequest):
+        request = envelope.request.normalized_request()
+    else:
+        request = envelope.request.normalized_request()
     proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
     if proof_receiving_app_wiring is not None:
         return await handle_static_local_cluster_request(

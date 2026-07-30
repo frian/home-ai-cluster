@@ -65,21 +65,21 @@ async def execute_routing_decision(
 
 
 async def execute_remote_routing_decision(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     decision: RoutingDecision,
     declaration: RemoteNodeDeclaration,
     transport: RemoteTransport,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     """Execute a routing decision through an explicit remote transport."""
     result = await transport.send(request, declaration)
     return result.model_copy(update={"node_id": declaration.node.id})
 
 
 async def execute_declared_remote_routing_candidate(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     candidate: DeclaredRemoteRoutingCandidate,
     transport: RemoteTransport,
-) -> ClusterResult:
+) -> ClusterResult | ClassifyResult:
     """Execute a declared remote candidate through explicit remote transport."""
     result = await transport.send(request, candidate.declaration)
     return result.model_copy(update={"node_id": candidate.node.id})

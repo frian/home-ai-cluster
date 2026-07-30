@@ -11,6 +11,9 @@ from home_ai_cluster.adapters.base import (
 from home_ai_cluster.core.models import (
     ApplicationStatus,
     ChatInternalRequest,
+    ClassifyInternalRequest,
+    ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
@@ -35,9 +38,9 @@ class RemoteTransport(Protocol):
 
     async def send(
         self,
-        request: ClusterRequest | SummarizeRequest,
+        request: ClusterRequest | SummarizeRequest | ClassifyRequest,
         declaration: RemoteNodeDeclaration,
-    ) -> ClusterResult:
+    ) -> ClusterResult | ClassifyResult:
         """Send a normalized request to a manually declared remote node."""
         ...
 
@@ -50,9 +53,9 @@ class HttpRemoteTransport:
 
     async def send(
         self,
-        request: ClusterRequest | SummarizeRequest,
+        request: ClusterRequest | SummarizeRequest | ClassifyRequest,
         declaration: RemoteNodeDeclaration,
-    ) -> ClusterResult:
+    ) -> ClusterResult | ClassifyResult:
         endpoint = internal_cluster_request_url(declaration)
 
         try:
@@ -69,6 +72,8 @@ class HttpRemoteTransport:
             raise RemoteTransportError(message) from exc
 
         try:
+            if isinstance(request, ClassifyRequest):
+                return ClassifyResult.model_validate(response.json())
             return ClusterResult.model_validate(response.json())
         except (ValueError, ValidationError) as exc:
             message = "HTTP remote transport returned invalid result"
@@ -136,19 +141,26 @@ def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
 
 
 def internal_cluster_request_body(
-    request: ClusterRequest | SummarizeRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
 ) -> dict[str, object]:
-    """Serialize one of the two accepted internal request variants."""
+    """Serialize one of the three accepted internal request variants."""
     if isinstance(request, ClusterRequest):
         envelope: InternalClusterRequest = ChatInternalRequest(
             kind="chat",
             request=request,
         )
-    else:
+    elif isinstance(request, SummarizeRequest):
         envelope = SummarizeInternalRequest.model_validate(
             {
                 "kind": "summarize",
                 "request": request.model_dump(mode="json"),
+            }
+        )
+    else:
+        envelope = ClassifyInternalRequest.model_validate(
+            {
+                "kind": "classify",
+                "request": {"text": request.text, "labels": request.labels},
             }
         )
     return envelope.model_dump(mode="json")

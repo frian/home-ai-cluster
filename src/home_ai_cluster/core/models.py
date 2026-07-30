@@ -3,7 +3,14 @@
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 
 class Capability(BaseModel):
@@ -136,6 +143,24 @@ class InternalSummarizeRequestBody(BaseModel):
         return SummarizeRequest(text=self.text, constraints=self.constraints)
 
 
+class InternalClassifyRequestBody(BaseModel):
+    """Strict classify body used only by the closed internal envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    labels: list[str]
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "InternalClassifyRequestBody":
+        ClassifyRequest(text=self.text, labels=self.labels)
+        return self
+
+    def normalized_request(self) -> ClassifyRequest:
+        """Reconstruct the accepted normalized classification request."""
+        return ClassifyRequest(text=self.text, labels=self.labels)
+
+
 class ChatInternalRequest(BaseModel):
     """The closed internal envelope for one normalized chat request."""
 
@@ -154,8 +179,17 @@ class SummarizeInternalRequest(BaseModel):
     request: InternalSummarizeRequestBody
 
 
+class ClassifyInternalRequest(BaseModel):
+    """The closed internal envelope for one normalized classify request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["classify"]
+    request: InternalClassifyRequestBody
+
+
 InternalClusterRequest = Annotated[
-    ChatInternalRequest | SummarizeInternalRequest,
+    ChatInternalRequest | SummarizeInternalRequest | ClassifyInternalRequest,
     Field(discriminator="kind"),
 ]
 INTERNAL_CLUSTER_REQUEST_ADAPTER = TypeAdapter(InternalClusterRequest)

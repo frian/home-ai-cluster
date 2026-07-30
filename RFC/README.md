@@ -55,6 +55,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
+  — accepts one bounded `classify` capability with an exact operator-supplied
+  selected-label result and explicit static eligibility.
 - [RFC-0060: Explicit Native Client Timeout](RFC-0060-explicit-native-client-timeout.md)
   — accepts one shared finite per-invocation timeout for ordinary native clients
   while preserving the 120.0-second default and existing timeout ownership

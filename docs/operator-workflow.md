@@ -150,6 +150,21 @@ when no explicit source is supplied, or one bounded strict-UTF-8 regular file
 through `--file <PATH>`. `--text` and `--file` are mutually exclusive; either
 explicit source ignores stdin. The client does not start or inspect the process.
 
+For one slow-but-valid ordinary request, chat and summarize accept one
+per-invocation `--timeout-seconds SECONDS` value, for example:
+
+```sh
+hac summarize --timeout-seconds 300 --text "<OPERATOR_SUPPLIED_TEXT>"
+```
+
+`SECONDS` is a base-10 integer from `1` through `3600`; omission keeps the
+120-second default. The value is the one-shot HTTP client's
+pool/connect/write/read scalar timeout, not a total deadline. It adds no retry
+or cancellation and does not change routing, remote, receiver, or runtime
+timeout ownership. A timeout does not prove work has stopped elsewhere; avoid
+immediately repeating a timed-out command on slow hardware unless additional
+work is acceptable.
+
 ### 6. Stop manually
 
 Stop the ordinary application with normal process interruption. Leave the

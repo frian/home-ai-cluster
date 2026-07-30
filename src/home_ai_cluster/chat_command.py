@@ -19,6 +19,8 @@ from home_ai_cluster.core.models import (
 
 _ORDINARY_CHAT_URL = "http://127.0.0.1:8000/v1/chat"
 _REQUEST_TIMEOUT_SECONDS = 120.0
+_MIN_REQUEST_TIMEOUT_SECONDS = 1
+_MAX_REQUEST_TIMEOUT_SECONDS = 3600
 
 _INVALID_INPUT = "error: invalid request input"
 _CLUSTER_UNAVAILABLE = "error: ordinary cluster unavailable"
@@ -40,6 +42,7 @@ class _ChatCommandInput:
 
     message: str
     output_mode: str
+    timeout_seconds: float
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -49,10 +52,27 @@ class _ArgumentParser(argparse.ArgumentParser):
         raise _InvalidRequestInput from None
 
 
+def _parse_timeout_seconds(value: str) -> float:
+    """Validate one RFC-0060 base-10 integer timeout value."""
+    if (
+        not value
+        or not value.isascii()
+        or not value.isdigit()
+        or (len(value) > 1 and value.startswith("0"))
+    ):
+        raise ValueError("invalid timeout seconds")
+
+    seconds = int(value)
+    if not _MIN_REQUEST_TIMEOUT_SECONDS <= seconds <= _MAX_REQUEST_TIMEOUT_SECONDS:
+        raise ValueError("invalid timeout seconds")
+    return float(seconds)
+
+
 def _parse_input(argv: Sequence[str] | None) -> _ChatCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster-chat")
     parser.add_argument("message_positional", nargs="?")
     parser.add_argument("--message", action="append")
+    parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
     output_options.add_argument("--json", action="store_true")
@@ -78,7 +98,19 @@ def _parse_input(argv: Sequence[str] | None) -> _ChatCommandInput:
     else:
         output_mode = "content"
 
-    return _ChatCommandInput(message=message, output_mode=output_mode)
+    try:
+        timeout_seconds = (
+            _REQUEST_TIMEOUT_SECONDS
+            if args.timeout_seconds is None
+            else _parse_timeout_seconds(args.timeout_seconds)
+        )
+    except ValueError:
+        raise _InvalidRequestInput from None
+    return _ChatCommandInput(
+        message=message,
+        output_mode=output_mode,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _native_request(message: str) -> dict[str, Any]:
@@ -95,10 +127,11 @@ def _native_request(message: str) -> dict[str, Any]:
 def _post_native_request(
     request: dict[str, Any],
     *,
+    timeout_seconds: float,
     client_factory: Callable[..., httpx.Client],
 ) -> httpx.Response:
     with client_factory(
-        timeout=_REQUEST_TIMEOUT_SECONDS,
+        timeout=timeout_seconds,
         follow_redirects=False,
     ) as client:
         return client.post(_ORDINARY_CHAT_URL, json=request)
@@ -174,6 +207,7 @@ def main(
     try:
         response = _post_native_request(
             _native_request(command_input.message),
+            timeout_seconds=command_input.timeout_seconds,
             client_factory=_client_factory,
         )
     except httpx.ConnectError:

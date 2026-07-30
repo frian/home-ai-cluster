@@ -235,7 +235,10 @@ def test_chat_root_delegation_preserves_command_owned_request_and_output(
 ) -> None:
     requests: list[dict[str, object]] = []
 
-    def post(request: dict[str, object], *, client_factory: object) -> httpx.Response:
+    def post(
+        request: dict[str, object], *, timeout_seconds: float, client_factory: object
+    ) -> httpx.Response:
+        assert timeout_seconds == 120.0
         requests.append(request)
         return httpx.Response(
             200,
@@ -273,7 +276,10 @@ def test_summarize_root_delegation_preserves_command_owned_request_and_output(
 ) -> None:
     requests: list[dict[str, object]] = []
 
-    def post(request: dict[str, object], *, client_factory: object) -> httpx.Response:
+    def post(
+        request: dict[str, object], *, timeout_seconds: float, client_factory: object
+    ) -> httpx.Response:
+        assert timeout_seconds == 120.0
         requests.append(request)
         return httpx.Response(
             200,
@@ -294,6 +300,31 @@ def test_summarize_root_delegation_preserves_command_owned_request_and_output(
 
     assert root == standalone
     assert requests == standalone_requests == [{"text": "Source text"}]
+
+
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("chat", ["--timeout-seconds", "300", "Hello"]),
+        ("summarize", ["--timeout-seconds", "300", "--text", "Source text"]),
+    ],
+)
+def test_root_delegates_timeout_option_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    arguments: list[str],
+) -> None:
+    received: list[list[str]] = []
+
+    def delegate(argv: list[str] | None = None) -> None:
+        assert argv is not None
+        received.append(argv)
+
+    monkeypatch.setitem(command._COMMANDS, name, delegate)
+
+    command.main([name, *arguments])
+
+    assert received == [arguments]
 
 
 def test_preflight_root_delegation_preserves_command_owned_output(

@@ -3,7 +3,13 @@
 from dataclasses import dataclass
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
-from home_ai_cluster.core.models import Capability, ClusterRequest, NodeDescription
+from home_ai_cluster.core.models import (
+    Capability,
+    ClassifyRequest,
+    ClusterRequest,
+    NodeDescription,
+    SummarizeRequest,
+)
 from home_ai_cluster.core.node import node_declared_adapter_names
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
@@ -23,7 +29,7 @@ class RoutingDecision:
 
 
 def route_request(
-    request: ClusterRequest,
+    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
 ) -> RoutingDecision:

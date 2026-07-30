@@ -196,6 +196,10 @@ established at a specific stage and do not replace the current workflow.
 - [Post-RFC-0059 next gap investigation](post-rfc-0059-next-gap-investigation.md)
   — standalone documentation-only investigation concluding Outcome A: no
   justified follow-up gap is currently established.
+- [Native client timeout configurability investigation](native-client-timeout-configurability-investigation.md)
+  — standalone documentation-only investigation prompted by a sanitized
+  repeated slow-remote request observation; it records Outcome C and requires
+  an RFC before any timeout behavior can change.
 
 ## Document roles
 

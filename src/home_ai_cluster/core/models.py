@@ -82,6 +82,42 @@ class SummarizeRequest(BaseModel):
         return Capability(name="summarize")
 
 
+class ClassifyRequest(BaseModel):
+    """A normalized bounded source-text classification request."""
+
+    text: str
+    labels: list[str] = Field(min_length=2, max_length=32)
+    constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value: str) -> str:
+        """Keep source text non-blank and within its UTF-8 byte bound."""
+        if not value.strip():
+            raise ValueError("text must not be blank")
+        if len(value.encode("utf-8")) > 65_536:
+            raise ValueError("text must not exceed 65,536 UTF-8 bytes")
+        return value
+
+    @field_validator("labels")
+    @classmethod
+    def validate_labels(cls, value: list[str]) -> list[str]:
+        """Keep ordered labels bounded, non-empty, and exactly unique."""
+        for label in value:
+            if not label:
+                raise ValueError("labels must not contain empty values")
+            if len(label.encode("utf-8")) > 128:
+                raise ValueError("labels must not exceed 128 UTF-8 bytes")
+        if len(set(value)) != len(value):
+            raise ValueError("labels must be unique")
+        return value
+
+    @property
+    def capability(self) -> Capability:
+        """The fixed capability exposed to capability-based routing."""
+        return Capability(name="classify")
+
+
 class InternalSummarizeRequestBody(BaseModel):
     """Strict summarize body used only by the closed internal envelope."""
 
@@ -139,6 +175,13 @@ class ClusterResult(BaseModel):
     content: str
     adapter: str = Field(min_length=1)
     model: str | None = None
+    node_id: str = Field(min_length=1)
+
+
+class ClassifyResult(BaseModel):
+    """A successful normalized bounded classification result."""
+
+    selected_label: str
     node_id: str = Field(min_length=1)
 
 

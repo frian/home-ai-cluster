@@ -14,6 +14,8 @@ from home_ai_cluster.core.models import (
     ApplicationStatus,
     Capability,
     ChatMessage,
+    ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
@@ -228,9 +230,9 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
     hints = get_type_hints(RemoteTransport.send)
 
     assert list(signature.parameters) == ["self", "request", "declaration"]
-    assert hints["request"] == ClusterRequest | SummarizeRequest
+    assert hints["request"] == ClusterRequest | SummarizeRequest | ClassifyRequest
     assert hints["declaration"] is RemoteNodeDeclaration
-    assert hints["return"] is ClusterResult
+    assert hints["return"] == ClusterResult | ClassifyResult
 
 
 def test_internal_cluster_request_url_uses_declaration_transport_address() -> None:
@@ -265,9 +267,7 @@ def test_http_remote_status_transport_gets_one_status_endpoint_without_body() ->
         return httpx.Response(200, json={"runtime_status": "available"})
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(node_id="cluster-owned-remote"),
@@ -322,9 +322,7 @@ def test_http_remote_status_transport_keeps_valid_remote_statuses_reachable(
         return httpx.Response(200, json={"runtime_status": runtime_status})
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -350,9 +348,7 @@ def test_http_remote_status_transport_maps_connection_failures_to_unreachable(
         )
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration("http://private-host:8000"),
@@ -377,9 +373,7 @@ def test_http_remote_status_transport_maps_completed_request_failures(
         raise error_type("request failed", request=request)
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -410,9 +404,7 @@ def test_http_remote_status_transport_rejects_invalid_protocol_response(
         return response
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -425,8 +417,9 @@ def test_http_remote_status_transport_rejects_invalid_protocol_response(
     assert "private failure" not in result.model_dump_json()
 
 
-def test_http_remote_status_transport_observes_one_remote_once_without_retries(
-) -> None:
+def test_http_remote_status_transport_observes_one_remote_once_without_retries() -> (
+    None
+):
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -434,9 +427,7 @@ def test_http_remote_status_transport_observes_one_remote_once_without_retries(
         raise httpx.ConnectError("unreachable", request=request)
 
     async def run() -> ClusterStatusNode:
-        async with httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        ) as client:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
             return await _observe_remote(
                 HttpRemoteStatusTransport(client),
                 make_declaration(),
@@ -544,6 +535,39 @@ def test_internal_cluster_request_body_serializes_summarize_exactly() -> None:
     }
 
 
+def test_internal_cluster_request_body_serializes_classify_exactly() -> None:
+    request = ClassifyRequest(
+        text="  Source étiquette  ", labels=["invoice", "Invoice", " invoice"]
+    )
+
+    assert internal_cluster_request_body(request) == {
+        "kind": "classify",
+        "request": {
+            "text": "  Source étiquette  ",
+            "labels": ["invoice", "Invoice", " invoice"],
+        },
+    }
+
+
+def test_http_remote_transport_validates_classify_result_by_request_type() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"selected_label": "invoice", "node_id": "receiver-local"},
+        )
+
+    async def run() -> ClassifyResult:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await HttpRemoteTransport(client).send(  # type: ignore[return-value]
+                ClassifyRequest(text="Source", labels=["invoice", "personal"]),
+                make_declaration(),
+            )
+
+    assert asyncio.run(run()) == ClassifyResult(
+        selected_label="invoice", node_id="receiver-local"
+    )
+
+
 def test_http_remote_transport_raises_normalized_error_for_http_failure() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503, json={"detail": "unavailable"})
@@ -563,8 +587,9 @@ def test_http_remote_transport_raises_normalized_error_for_http_failure() -> Non
     assert str(raised.value) == "HTTP remote transport could not send request"
 
 
-def test_http_remote_transport_maps_connection_failure_without_sensitive_details(
-) -> None:
+def test_http_remote_transport_maps_connection_failure_without_sensitive_details() -> (
+    None
+):
     private_address = "http://private-remote.example:8000"
     request_body = "private request body"
     captured_requests: list[httpx.Request] = []

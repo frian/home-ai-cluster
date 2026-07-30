@@ -56,6 +56,13 @@ class SummarizePublicRequest(BaseModel):
     text: str
 
 
+class ClassifyPublicRequest(BaseModel):
+    """The deliberately narrow public body for one text classification."""
+
+    text: str
+    labels: list[str]
+
+
 def _resolve_local_registries(
     local_app_composition: LocalAppComposition | None,
 ) -> tuple[NodeRegistry, AdapterRegistry]:
@@ -197,6 +204,48 @@ async def handle_summarize_cluster_request(
         ) from exc
 
 
+async def handle_classify_cluster_request(
+    cluster_request: ClassifyRequest,
+    static_remote_wiring: StaticRemoteWiring | None = None,
+    static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
+    local_app_composition: LocalAppComposition | None = None,
+) -> ClassifyResult:
+    """Use existing local-first static routing for classification only."""
+    try:
+        if static_remote_wiring is not None:
+            return await orchestrate_request_with_static_remote_fallback(
+                cluster_request,
+                static_remote_wiring.node_registry,
+                static_remote_wiring.adapter_registry,
+                static_remote_wiring.remote_registry,
+                static_remote_wiring.remote_transport,
+            )
+        if static_remote_collection_wiring is not None:
+            return await orchestrate_request_with_ordered_static_remote_fallback(
+                cluster_request,
+                static_remote_collection_wiring.node_registry,
+                static_remote_collection_wiring.adapter_registry,
+                static_remote_collection_wiring.remote_registry,
+                static_remote_collection_wiring.remote_transport,
+            )
+        return await handle_static_local_cluster_request(
+            cluster_request,
+            local_app_composition=local_app_composition,
+        )
+    except (RuntimeAdapterUnavailableError, NoSelectableRoutingCandidateError) as exc:
+        if isinstance(exc, NoSelectableRoutingCandidateError):
+            raise HTTPException(
+                status_code=404,
+                detail="No adapter provides capability: classify",
+            ) from exc
+        raise HTTPException(
+            status_code=503,
+            detail="Runtime adapter unavailable",
+        ) from exc
+    except InvalidClassificationLabelError as exc:
+        raise HTTPException(status_code=500, detail="execution-failed") from exc
+
+
 @router.post("/v1/chat", response_model=ClusterResult)
 async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     automatic_proof_orchestrator = http_request.app.state.automatic_proof_orchestrator
@@ -258,6 +307,41 @@ async def summarize(http_request: Request) -> ClusterResult:
         ) from None
 
     return await handle_summarize_cluster_request(
+        cluster_request,
+        http_request.app.state.static_remote_wiring,
+        http_request.app.state.static_remote_collection_wiring,
+        local_app_composition=http_request.app.state.local_app_composition,
+    )
+
+
+@router.post("/v1/classify", response_model=ClassifyResult)
+async def classify(http_request: Request) -> ClassifyResult:
+    """Execute one locally normalized text classification request."""
+    try:
+        body = await http_request.json()
+        public_request = ClassifyPublicRequest.model_validate(body)
+        cluster_request = ClassifyRequest(
+            text=public_request.text,
+            labels=public_request.labels,
+            constraints=(
+                RequestConstraints(local_only=False)
+                if (
+                    http_request.app.state.static_remote_wiring is not None
+                    or (
+                        http_request.app.state.static_remote_collection_wiring
+                        is not None
+                    )
+                )
+                else RequestConstraints()
+            ),
+        )
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid classify request",
+        ) from None
+
+    return await handle_classify_cluster_request(
         cluster_request,
         http_request.app.state.static_remote_wiring,
         http_request.app.state.static_remote_collection_wiring,

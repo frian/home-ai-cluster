@@ -4,13 +4,20 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
 from home_ai_cluster.api.routes import InternalClusterStatusResponse
-from home_ai_cluster.api.wiring import build_static_remote_wiring
+from home_ai_cluster.api.wiring import (
+    build_static_remote_collection_wiring,
+    build_static_remote_wiring,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ClassifyRequest,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
     NodeDescription,
@@ -102,6 +109,12 @@ class RecordingClassifyAdapter:
 
 class UnavailableSummarizeAdapter(RecordingSummarizeAdapter):
     async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        raise RuntimeAdapterUnavailableError("private runtime detail")
+
+
+class UnavailableClassifyAdapter(RecordingClassifyAdapter):
+    async def classify(self, request: ClassifyRequest) -> str:
+        self.requests.append(request)
         raise RuntimeAdapterUnavailableError("private runtime detail")
 
 
@@ -200,8 +213,16 @@ async def post_summarize_async(payload: object) -> httpx.Response:
     return await post_async("/v1/summarize", payload)  # type: ignore[arg-type]
 
 
+async def post_classify_async(payload: object) -> httpx.Response:
+    return await post_async("/v1/classify", payload)  # type: ignore[arg-type]
+
+
 def post_summarize(payload: object) -> httpx.Response:
     return asyncio.run(post_summarize_async(payload))
+
+
+def post_classify(payload: object) -> httpx.Response:
+    return asyncio.run(post_classify_async(payload))
 
 
 def post_chat(payload: dict[str, object]) -> httpx.Response:
@@ -551,6 +572,368 @@ def test_summarize_endpoint_uses_eligible_declared_remote_when_local_is_chat_onl
     ]
     assert local.requests == []
     assert not history_file().exists()
+
+
+def test_classify_endpoint_executes_local_adapter_with_exact_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter(" Personal ")
+    node = NodeDescription(
+        id="selected-local",
+        name="Selected local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+    labels = ["invoice", " Personal ", "Résumé"]
+
+    response = post_classify({"text": "  Source\ntext  ", "labels": labels})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "selected_label": " Personal ",
+        "node_id": "selected-local",
+    }
+    assert adapter.requests == [ClassifyRequest(text="  Source\ntext  ", labels=labels)]
+    assert adapter.chat_calls == 0
+    assert adapter.summarize_calls == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"text": "Source"},
+        {"text": "   ", "labels": ["invoice", "personal"]},
+        {"text": "a" * 65_537, "labels": ["invoice", "personal"]},
+        {"text": "Source", "labels": ["invoice"]},
+        {"text": "Source", "labels": ["a"] * 33},
+        {"text": "Source", "labels": ["invoice", ""]},
+        {"text": "Source", "labels": ["invoice", "é" * 65]},
+        {"text": "Source", "labels": ["invoice", "invoice"]},
+        {"text": "Source", "labels": ["invoice", 2]},
+        [],
+    ],
+)
+def test_classify_endpoint_returns_uniform_validation_error_without_execution(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: object,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter("invoice")
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_classify(payload)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid classify request"}
+    assert adapter.requests == []
+
+
+def test_classify_endpoint_returns_uniform_error_for_malformed_json() -> None:
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app())
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            return await client.post("/v1/classify", content=b'{"text":')
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid classify request"}
+
+
+def test_classify_endpoint_excludes_local_candidate_without_classify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingChatAdapter()
+    monkeypatch.setattr(
+        routes,
+        "create_static_local_node_registry",
+        create_test_node_registry,
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_classify({"text": "Source", "labels": ["invoice", "personal"]})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No adapter provides capability: classify"}
+    assert adapter.requests == []
+
+
+def test_classify_endpoint_returns_safe_runtime_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = UnavailableClassifyAdapter("invoice")
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_classify({"text": "Source", "labels": ["invoice", "personal"]})
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert "private runtime detail" not in response.text
+
+
+def test_classify_endpoint_returns_safe_invalid_proposal_without_fallback() -> None:
+    adapter = RecordingClassifyAdapter("private proposal")
+    local = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    declaration = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="remote",
+            name="Declared remote",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(
+            self, request: ClassifyRequest, _: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.calls += 1
+            return ClassifyResult(selected_label="invoice", node_id="receiver")
+
+    transport = RemoteTransport()
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry([local]),
+        adapter_registry=AdapterRegistry([adapter]),
+        remote_declaration=declaration,
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        app = create_app(static_remote_wiring=wiring)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/classify",
+                json={"text": "Source", "labels": ["invoice", "personal"]},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "execution-failed"}
+    assert "private proposal" not in response.text
+    assert adapter.requests == [
+        ClassifyRequest(
+            text="Source",
+            labels=["invoice", "personal"],
+            constraints={"local_only": False},
+        )
+    ]
+    assert transport.calls == 0
+
+
+def test_classify_endpoint_uses_eligible_declared_remote_with_exact_request() -> None:
+    local = RecordingChatAdapter()
+    declaration = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="declared-remote",
+            name="Declared remote",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        def __init__(self) -> None:
+            self.requests: list[ClassifyRequest] = []
+
+        async def send(
+            self, request: ClassifyRequest, _: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.requests.append(request)
+            return ClassifyResult(selected_label="Résumé", node_id="receiver")
+
+    transport = RemoteTransport()
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="Local node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="chat")],
+                    adapters=[local.name],
+                )
+            ]
+        ),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=declaration,
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        app = create_app(static_remote_wiring=wiring)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/classify",
+                json={"text": "Source", "labels": ["invoice", "Résumé"]},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "selected_label": "Résumé",
+        "node_id": "declared-remote",
+    }
+    assert transport.requests == [
+        ClassifyRequest(
+            text="Source",
+            labels=["invoice", "Résumé"],
+            constraints={"local_only": False},
+        )
+    ]
+    assert local.requests == []
+
+
+def test_classify_endpoint_falls_through_ordered_eligible_remotes_once() -> None:
+    local = RecordingChatAdapter()
+
+    def declaration(node_id: str, capability: str) -> RemoteNodeDeclaration:
+        return RemoteNodeDeclaration(
+            node=NodeDescription(
+                id=node_id,
+                name=f"Declared {node_id}",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name=capability)],
+                adapters=["remote"],
+            ),
+            transport_address=f"http://{node_id}.example:8000",
+        )
+
+    class RemoteTransport:
+        def __init__(self) -> None:
+            self.attempts: list[str] = []
+
+        async def send(
+            self, request: ClassifyRequest, remote: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.attempts.append(remote.node.id)
+            assert request.labels == ["invoice", "personal"]
+            if remote.node.id == "first":
+                raise RuntimeConnectionUnavailableBeforeRequestError("unavailable")
+            return ClassifyResult(selected_label="personal", node_id="receiver")
+
+    transport = RemoteTransport()
+    wiring = build_static_remote_collection_wiring(
+        node_registry=NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="Local node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="chat")],
+                    adapters=[local.name],
+                )
+            ]
+        ),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declarations=[
+            declaration("chat-only", "chat"),
+            declaration("first", "classify"),
+            declaration("second", "classify"),
+        ],
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        app = create_app(static_remote_collection_wiring=wiring)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/classify",
+                json={"text": "Source", "labels": ["invoice", "personal"]},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 200
+    assert response.json() == {"selected_label": "personal", "node_id": "second"}
+    assert transport.attempts == ["first", "second"]
+    assert local.requests == []
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:

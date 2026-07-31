@@ -590,6 +590,45 @@ two-machine summarize proof](docs/phase-18-two-machine-summarize-proof.md), and
 
 ---
 
+## Post-roadmap completion records
+
+### Explicit static remote capabilities — RFC-0058
+
+Status: Complete
+
+RFC-0058 established caller-owned explicit static remote capability declarations.
+They control eligibility only, preserve declared remote order, and do not
+discover or verify receiver runtime support.
+
+### Caller-local static capabilities — RFC-0059
+
+Status: Complete
+
+RFC-0059 established caller-local static capability declarations. A local
+candidate that is ineligible for a requested capability is excluded before
+selection, allowing an eligible declared remote to be selected directly without
+local runtime failure; local-first remains unchanged for eligible local work.
+
+### Explicit native client timeout — RFC-0060
+
+Status: Complete
+
+RFC-0060 established one finite per-invocation native client timeout while
+preserving the existing 120-second default and timeout ownership boundaries. It
+does not add retries, cancellation, total deadlines, or runtime timeouts.
+
+### Bounded text classification — RFC-0061
+
+Status: Complete
+
+RFC-0061 established `classify` as the third executable capability. Ordinary
+local Ollama and llama-server execution, loopback static remote execution, and
+physical two-machine LAN execution passed. The executor retains exact-membership
+validation; runtime-specific structured output remains adapter-local. See the
+[retained bounded classification proof](docs/bounded-classification-proof.md).
+
+---
+
 ## Standalone post-roadmap integration proof
 
 Status: Complete

@@ -1,5 +1,6 @@
 """llama.cpp server runtime adapter."""
 
+import json
 from typing import Any
 
 import httpx
@@ -140,13 +141,9 @@ class LlamaServerAdapter:
 
     async def classify(self, request: ClassifyRequest) -> str:
         """Map bounded source text and labels to llama-server's chat transport."""
-        labels = "\n".join(f"<label>{label}</label>" for label in request.labels)
         prompt = (
-            "Choose exactly one label from the allowed labels below for the "
-            "source text.\n"
-            "Return only the exact label, with no explanation or additional text.\n\n"
-            f"<allowed-labels>\n{labels}\n</allowed-labels>\n\n"
-            f"<source>\n{request.text}\n</source>"
+            "Choose the single best matching label for the source text.\n\n"
+            f"Source text:\n{request.text}"
         )
 
         try:
@@ -161,6 +158,21 @@ class LlamaServerAdapter:
                         "model": self.model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
+                        "response_format": {
+                            "type": "json_object",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {
+                                        "type": "string",
+                                        "enum": list(request.labels),
+                                    }
+                                },
+                                "required": ["label"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "temperature": 0,
                     },
                 )
                 response.raise_for_status()
@@ -190,8 +202,14 @@ class LlamaServerAdapter:
         return content, model
 
     def _classification_content(self, body: Any) -> str:
-        """Extract one unmodified classification proposal from llama-server."""
+        """Extract one JSON-structured classification proposal from llama-server."""
         content = body["choices"][0]["message"]["content"]
         if not isinstance(content, str):
             raise ValueError("llama-server response has invalid classification content")
-        return content
+        proposal = json.loads(content)
+        if not isinstance(proposal, dict) or set(proposal) != {"label"}:
+            raise ValueError("llama-server response has invalid classification shape")
+        label = proposal["label"]
+        if not isinstance(label, str):
+            raise ValueError("llama-server response has invalid classification label")
+        return label

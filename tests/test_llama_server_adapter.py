@@ -226,7 +226,7 @@ def test_llama_server_adapter_classify_maps_normalized_values_to_chat_transport(
         seen_payloads.append(json.loads(request.content))
         return httpx.Response(
             200,
-            json={"choices": [{"message": {"content": "invoice"}}]},
+            json={"choices": [{"message": {"content": '{"label":"invoice"}'}}]},
         )
 
     result = asyncio.run(
@@ -243,54 +243,63 @@ def test_llama_server_adapter_classify_maps_normalized_values_to_chat_transport(
                 {
                     "role": "user",
                     "content": (
-                        "Choose exactly one label from the allowed labels below for "
-                        "the source text.\n"
-                        "Return only the exact label, with no explanation or "
-                        "additional text.\n\n"
-                        "<allowed-labels>\n"
-                        "<label>invoice</label>\n"
-                        "<label>Invoice</label>\n"
-                        "<label> invoice </label>\n"
-                        '<label></label> "étiquette"</label>\n'
-                        "</allowed-labels>\n\n"
-                        f"<source>\n{source}\n</source>"
+                        "Choose the single best matching label for the source text.\n\n"
+                        f"Source text:\n{source}"
                     ),
                 }
             ],
             "stream": False,
+            "response_format": {
+                "type": "json_object",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "label": {
+                            "type": "string",
+                            "enum": [
+                                "invoice",
+                                "Invoice",
+                                " invoice ",
+                                '</label> "étiquette"',
+                            ],
+                        }
+                    },
+                    "required": ["label"],
+                    "additionalProperties": False,
+                },
+            },
+            "temperature": 0,
         }
     ]
     assert result == "invoice"
 
 
 @pytest.mark.parametrize(
-    "content,model",
+    ("content", "labels", "expected"),
     [
-        ("invoice", None),
-        ("invoice\n", 42),
-        ('"invoice"', "loaded-model"),
-        ("The label is invoice", None),
-        ("", None),
+        ('{"label":"medical"}', ["finance", "medical"], "medical"),
+        ('{\n  "label": "medical"\n}', ["finance", "medical"], "medical"),
+        ('{"label":"unknown"}', ["invoice", "personal"], "unknown"),
     ],
 )
-def test_llama_server_adapter_classify_returns_content_without_repair_or_model_metadata(
+def test_llama_server_adapter_classify_returns_decoded_label_without_membership_repair(
     content: str,
-    model: object,
+    labels: list[str],
+    expected: str,
 ) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        body: dict[str, object] = {"choices": [{"message": {"content": content}}]}
-        if model is not None:
-            body["model"] = model
-        return httpx.Response(200, json=body)
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": content}}]}
+        )
 
     result = asyncio.run(
         LlamaServerAdapter(
             model="configured-model",
             transport=httpx.MockTransport(handler),
-        ).classify(make_classify_request())
+        ).classify(make_classify_request(labels=labels))
     )
 
-    assert result == content
+    assert result == expected
 
 
 @pytest.mark.parametrize(
@@ -301,6 +310,12 @@ def test_llama_server_adapter_classify_returns_content_without_repair_or_model_m
         {"choices": [{}]},
         {"choices": [{"message": {}}]},
         {"choices": [{"message": {"content": 42}}]},
+        {"choices": [{"message": {"content": "not json"}}]},
+        {"choices": [{"message": {"content": '"invoice"'}}]},
+        {"choices": [{"message": {"content": "[]"}}]},
+        {"choices": [{"message": {"content": "{}"}}]},
+        {"choices": [{"message": {"content": '{"label": 42}'}}]},
+        {"choices": [{"message": {"content": '{"label":"invoice","extra":true}'}}]},
     ],
 )
 def test_llama_server_adapter_classify_translates_malformed_response(
@@ -342,7 +357,7 @@ def test_llama_server_adapter_classify_client_has_no_timeout(
         async def post(self, path: str, *, json: dict[str, object]) -> httpx.Response:
             return httpx.Response(
                 200,
-                json={"choices": [{"message": {"content": "invoice"}}]},
+                json={"choices": [{"message": {"content": '{"label":"invoice"}'}}]},
                 request=httpx.Request(
                     "POST",
                     "http://localhost:8080/v1/chat/completions",

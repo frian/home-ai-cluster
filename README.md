@@ -50,6 +50,7 @@ home-ai-cluster static-cluster
 home-ai-cluster compatibility
 home-ai-cluster chat
 home-ai-cluster summarize
+home-ai-cluster classify
 home-ai-cluster preflight
 home-ai-cluster health
 home-ai-cluster status
@@ -85,6 +86,7 @@ hac static-cluster --declaration <path>
 hac compatibility
 hac chat "Hello"
 hac summarize --text "Long text to summarize"
+hac classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
 
 The long namespace remains canonical and fully supported:
@@ -92,6 +94,7 @@ The long namespace remains canonical and fully supported:
 ```sh
 home-ai-cluster status --declaration <path>
 home-ai-cluster summarize --text "Long text to summarize"
+home-ai-cluster classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
 
 After changing checked-out source, rebuild and refresh the installed tool
@@ -135,7 +138,8 @@ established `uv run` commands.
 The normal FastAPI application:
 
 * runs as one local process;
-* exposes the cluster-native `POST /v1/chat` and `POST /v1/summarize` endpoints;
+* exposes the cluster-native `POST /v1/chat`, `POST /v1/summarize`, and
+  `POST /v1/classify` endpoints;
 * uses a static local node registry by default;
 * routes by capability, not by machine, adapter, or runtime-model name;
 * keeps runtime-specific behavior behind adapters;
@@ -148,12 +152,19 @@ runtime composition through the closed choices `ollama` and `llama-server`.
 Runtime choice is consumed only at process startup and does not enter requests,
 routing, remote declarations, attribution, or normalized status.
 
-The executable normalized request family is closed to `chat` and `summarize`.
-Both adapter families map summarize explicitly, and ordinary local and
-static-cluster compositions support it through the existing local-first and
-bounded fallback behavior. OpenAI-compatible access remains chat-only. The root
-command has the eight subcommands shown above, including the ordinary native
-`summarize` client.
+The executable normalized request family is closed to `chat`, `summarize`, and
+`classify`. Both adapter families map summarize and classify explicitly, and
+ordinary local and static-cluster compositions support them through existing
+capability-centered selection. OpenAI-compatible access remains chat-only. The
+root command has the nine subcommands shown above, including the ordinary native
+`summarize` and `classify` clients. Accepted RFC-0061 classification is
+implemented and has retained ordinary proof evidence.
+
+The accepted explicit static capability names are `chat`, `summarize`, and
+`classify`. Omitted local or remote capability declarations retain only the
+compatibility default `chat` plus `summarize`; `classify` eligibility must be
+declared explicitly. Capability membership controls eligibility, not priority;
+declared remote order remains the only remote priority.
 
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
 small static cluster from an operator-owned declaration. Its one local
@@ -278,6 +289,18 @@ explicit source is supplied. `--text` and `--file` are mutually exclusive, and
 an explicit source ignores stdin. It uses the existing native
 `POST /v1/summarize` contract and the same topology-blind local-only or
 explicit static-cluster process boundary as chat.
+
+To choose one exact label from an operator-supplied ordered set, use the bounded
+classification client:
+
+```sh
+hac classify --text "The invoice is due tomorrow." --label invoice --label personal
+```
+
+It accepts one bounded source through `--text`, `--file`, or stdin, and repeated
+ordered `--label` options. A successful minimal result contains `selected_label`
+and `node_id`; the selected label must exactly equal one supplied label. See the
+[command reference](docs/command-reference.md) for complete syntax and bounds.
 
 The command is a topology-blind client of the already running ordinary process;
 it does not start, configure, inspect, or manage that process. The same command

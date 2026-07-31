@@ -2,7 +2,7 @@
 
 Status: Canonical
 
-Date: 2026-07-17
+Date: 2026-07-31
 
 This document is the shortest supported operator path for the current Home AI
 Cluster architecture. It defines three distinct modes:
@@ -20,8 +20,8 @@ stop, supervise, repair, or discover runtimes or remote machines.
 
 ## Daily-use overview
 
-The ordinary process is started once and can serve repeated requests. `chat` and
-`summarize` are finite clients of that already-running process; they do not
+The ordinary process is started once and can serve repeated requests. `chat`,
+`summarize`, and `classify` are finite clients of that already-running process; they do not
 start it.
 
 **Local-only (the shortest default path):**
@@ -29,7 +29,7 @@ start it.
 ```text
 external runtime
   -> hac local
-  -> repeated hac chat / hac summarize requests
+  -> repeated hac chat / hac summarize / hac classify requests
   -> stop hac local
 ```
 
@@ -39,7 +39,7 @@ external runtime
 receiver runtime + receiver hac local
   -> caller preflight/status when useful
   -> caller hac static-cluster
-  -> repeated caller hac chat / hac summarize requests
+  -> repeated caller hac chat / hac summarize / hac classify requests
   -> stop caller, then receiver
 ```
 
@@ -124,6 +124,12 @@ The same process also exposes the native bounded summarize endpoint:
 http://127.0.0.1:8000/v1/summarize
 ```
 
+It also exposes the native bounded classification endpoint:
+
+```text
+http://127.0.0.1:8000/v1/classify
+```
+
 ### 5. Send one native request
 
 Replace `<OPERATOR_SUPPLIED_MESSAGE>` at invocation time. Do not retain the
@@ -150,7 +156,21 @@ when no explicit source is supplied, or one bounded strict-UTF-8 regular file
 through `--file <PATH>`. `--text` and `--file` are mutually exclusive; either
 explicit source ignores stdin. The client does not start or inspect the process.
 
-For one slow-but-valid ordinary request, chat and summarize accept one
+To classify one bounded source against one ordered operator-supplied label set,
+use the ordinary root client:
+
+```sh
+hac classify --text "The invoice is due tomorrow." --label invoice --label personal
+```
+
+`classify` uses the same bounded source selection as summarize: `--text`,
+`--file`, or stdin; explicit `--text` and `--file` are mutually exclusive and
+ignore stdin. Labels use repeated ordered `--label` options. The result contains
+one exact selected label and cluster-owned node attribution; the executor, not
+the adapter, validates exact membership. See the command reference for bounds
+and output forms.
+
+For one slow-but-valid ordinary request, chat, summarize, and classify accept one
 per-invocation `--timeout-seconds SECONDS` value, for example:
 
 ```sh
@@ -284,8 +304,9 @@ capabilities: they control only which capabilities the caller-side static-cluste
 router may consider locally. They do not disable adapters, change runtime health,
 remove endpoints, configure `hac local`, change receiver behavior, verify remote
 runtime capability, select a target node, or create scheduling or preference.
-The accepted names are `chat` and `summarize`. Omitted local or remote capability
-fields and options retain both capabilities; explicit sets cannot be empty,
+The accepted explicit names are `chat`, `summarize`, and `classify`. Omitted
+local or remote capability fields and options retain only `chat` plus
+`summarize`; `classify` eligibility is explicit. Explicit sets cannot be empty,
 duplicated, or unknown, and order has no priority meaning. Declaration and
 inline topology modes are mutually exclusive. Declaration order remains
 meaningful for the existing ordered remote behavior; declarations do not probe
@@ -303,6 +324,24 @@ ineligible. The same caller-local routing capability set is projected by static
 preflight, which remains network-free. `hac local` remains unchanged.
 Do not add merging, include files, aliases, schema versions, environment
 expansion, lookup precedence, or automatic discovery.
+
+To keep the caller-local node eligible for chat and summarize while making an
+eligible declared remote handle classification directly, use this specialization:
+
+```toml
+local_capabilities = ["chat", "summarize"]
+
+[[remote_nodes]]
+node_id = "classification-remote"
+base_url = "http://<RECEIVER_ADDRESS>:8000"
+capabilities = ["classify"]
+```
+
+For a `classify` request, the caller-local candidate is ineligible and the
+declared remote is eligible, so capability-centered remote selection occurs
+without local runtime failure. This is distinct from the accepted bounded
+fallback, which applies only when an eligible local candidate becomes
+unavailable before transmission.
 
 ### 5. Run static preflight
 
@@ -379,6 +418,9 @@ It binds the calling machine's native endpoint to:
 http://127.0.0.1:8000/v1/chat
 ```
 
+The same process also exposes `/v1/summarize` and `/v1/classify` on that native
+endpoint.
+
 The process owns only its HTTP client and application lifecycle; it does not
 start, stop, supervise, repair, or discover the remote machine or runtime.
 
@@ -388,13 +430,15 @@ start, stop, supervise, repair, or discover the remote machine or runtime.
 uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
 
-A usable local candidate has precedence. The declared remote candidate is used
-only through the accepted narrow fallback when the local runtime fails before
-request execution with the accepted connection-unavailable condition. There is
-no direct node targeting, retry loop, balancing, scoring, scheduling, or
-discovery. A declared remote node does not guarantee that the first request uses
-the remote path. Do not retain the supplied message or generated response in
-proof records.
+A usable eligible local candidate has precedence. A declared remote can be
+selected directly when the local candidate is ineligible for the requested
+capability, as in the classification specialization above. Separately, the
+accepted narrow fallback can select the next eligible candidate only when an
+eligible local runtime fails before transmission with the accepted
+connection-unavailable condition. There is no direct node targeting, retry loop,
+balancing, scoring, scheduling, or discovery. A declared remote node does not
+guarantee that the first request uses the remote path. Do not retain the supplied
+message or generated response in proof records.
 
 ### 10. Stop in canonical order
 

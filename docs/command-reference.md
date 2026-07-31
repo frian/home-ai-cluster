@@ -41,6 +41,9 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
+The ordinary root surface has nine commands: three foreground processes and six
+finite commands.
+
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
 | `local` | Run one local ordinary application. | Foreground service |
@@ -48,6 +51,7 @@ home-ai-cluster-preflight`.
 | `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
 | `chat` | Send one native chat request. | One-shot request |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
+| `classify` | Send one native bounded classification request. | One-shot request |
 | `preflight` | Inspect static declaration coherence. | Finite inspection |
 | `health` | Observe local runtime health. | Finite inspection |
 | `status` | Inspect one declared static cluster. | Finite inspection |
@@ -71,6 +75,8 @@ hac local \
 are `ollama` and `llama-server`; llama-server requires both of its explicit
 arguments. The application runs in the foreground. Home AI Cluster does not
 install, start, stop, download models for, or supervise the external runtime.
+Ordinary local compositions advertise and execute `chat`, `summarize`, and
+`classify`.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -97,10 +103,11 @@ retained inline mode supports exactly one remote node. The same verified local
 runtime-composition options as `hac local` are accepted. Topology is static and
 explicit, and routing remains local-first and capability-centered. The process
 does not discover, start, stop, supervise, or repair remote machines or runtimes.
-Each remote may declare the closed capability set `chat` and/or `summarize`:
+The accepted explicit capability names are `chat`, `summarize`, and `classify`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
 ["..."]` in the legacy flat TOML form, or repeat `--remote-capability <NAME>`
-for the one-remote inline form. Omission retains `chat` plus `summarize`.
+for the one-remote inline form. Omission retains only `chat` plus `summarize`,
+so `classify` eligibility is always explicit.
 Caller-local routing capabilities use `local_capabilities = ["..."]` at the
 TOML root or repeated `--local-capability <NAME>` in the complete inline form.
 They control only which capabilities the caller-side static-cluster router may
@@ -108,8 +115,8 @@ consider locally; they do not disable adapters, change runtime health, remove
 endpoints, configure `hac local`, change receiver behavior, verify remote
 runtime capability, select a target node, or create scheduling or preference.
 Omission also retains local `chat` plus `summarize`. Explicit local and remote
-sets must be non-empty and use only `chat` or `summarize`; duplicates and unknown
-names are rejected. Capability membership controls eligibility only, and its
+sets must be non-empty and use only the accepted explicit names; duplicates and
+unknown names are rejected. Capability membership controls eligibility only, and its
 order is not priority. Remote declaration order remains the only remote priority
 rule. Declarations do not probe remotes or schedule requests.
 
@@ -130,7 +137,7 @@ hac compatibility --declaration <PATH>
 **Important behavior:** It is loopback-only by default and runs in the
 foreground. It provides narrow, non-streaming chat-completions compatibility,
 not the internal cluster protocol or general OpenAI API compatibility. Summarize
-is not supported through this surface.
+and classify are not supported through this surface.
 
 **See also:** [README compatibility guidance](../README.md#run-the-minimal-openai-compatible-endpoint).
 
@@ -190,6 +197,42 @@ chat`. It is the HTTP client's pool/connect/write/read scalar timeout, not a
 total deadline; it adds no retry or cancellation. A timeout does not prove that
 work has stopped elsewhere, so avoid immediately repeating a timed-out request
 on slow hardware unless additional work is acceptable.
+
+**See also:** [Canonical operator workflow](operator-workflow.md).
+
+## `hac classify`
+
+**Purpose:** Send one native bounded classification request to an already-running
+ordinary process.
+
+**Common forms:**
+
+```sh
+hac classify --text "The invoice is due tomorrow." --label invoice --label personal
+hac classify --timeout-seconds 300 --text "The invoice is due tomorrow." --label invoice --label personal
+printf '%s' 'The payment failed.' | hac classify --label technical --label billing
+hac classify --file <PATH> --label label-a --label label-b --verbose
+hac classify --file <PATH> --label label-a --label label-b --json
+```
+
+**Important behavior:** The command accepts exactly one bounded source through
+`--text`, `--file`, or stdin when neither explicit source is supplied. `--text`
+and `--file` are mutually exclusive, and either explicit source ignores stdin.
+Sources are strict UTF-8 and at most 65,536 bytes; they are never truncated.
+Labels are supplied through repeated ordered `--label` options: at least two and
+at most 32 are required. Labels are exact values; there is no trimming, case
+folding, Unicode normalization, fuzzy matching, prose repair, implicit
+`unknown`, score, rationale, or multi-label result. The adapter proposes one
+label and the cluster accepts it only when it exactly belongs to the supplied
+label set. A successful minimal result contains `selected_label` and `node_id`.
+
+Default, `--verbose`, and `--json` are the supported output modes.
+`--timeout-seconds SECONDS` has the same `1` through `3600` range, 120-second
+omission default, and one-shot HTTP-client ownership as chat and summarize; it
+adds no retry, cancellation, total deadline, server timeout, or runtime timeout.
+The client is topology-blind and does not start, configure, inspect, or manage
+the process. Safe failures do not expose source text, labels, runtime details,
+or raw adapter output.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -266,11 +309,11 @@ without making the command invocation invalid.
 
 ## Output conventions
 
-Service commands stay in the foreground. Request commands return content by
-default; their `--verbose` forms include execution attribution and their `--json`
-forms return compact structured results. Inspection commands are human-readable
-by default and offer `--json` for automation. Individual command support is
-shown above.
+Service commands stay in the foreground. Chat and summarize return content by
+default; classify returns its selected label. Their `--verbose` forms include
+execution attribution and their `--json` forms return compact structured
+results. Inspection commands are human-readable by default and offer `--json`
+for automation. Individual command support is shown above.
 
 ## Common failure boundaries
 
@@ -294,14 +337,14 @@ scripts:
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
 
-`hac summarize` is available through the ordinary root command; there is no
-separate installed summarize checkout script.
+`hac summarize` and `hac classify` are available through the ordinary root
+command; neither has a separate installed checkout script.
 
 ## Historical and specialized commands
 
 The repository also retains historical proof and specialized operator commands,
 including static proof, routing explanation, actual-request explanation, and
-history inspection and clearing. They are not part of the ordinary eight-command
+history inspection and clearing. They are not part of the ordinary nine-command
 root surface and are intentionally not fully documented here.
 
 **See also:** [Documentation index](README.md), retained proof documents, and

@@ -192,7 +192,7 @@ def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() 
         assert request.method == "POST"
         assert request.url.path == "/api/chat"
         seen_payloads.append(json.loads(request.content))
-        return httpx.Response(200, json={"message": {"content": "invoice"}})
+        return httpx.Response(200, json={"message": {"content": '"invoice"'}})
 
     result = asyncio.run(
         OllamaAdapter(
@@ -208,57 +208,78 @@ def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() 
                 {
                     "role": "user",
                     "content": (
-                        "Choose exactly one label from the allowed labels below for "
-                        "the source text.\n"
-                        "Return only the exact label, with no explanation or "
-                        "additional "
-                        "text.\n\n"
-                        "<allowed-labels>\n"
-                        "<label>invoice</label>\n"
-                        "<label>Invoice</label>\n"
-                        "<label> invoice </label>\n"
-                        '<label></label> "étiquette"</label>\n'
-                        "</allowed-labels>\n\n"
-                        f"<source>\n{source}\n</source>"
+                        "Choose the single best matching label for the source text.\n\n"
+                        f"Source text:\n{source}"
                     ),
                 }
             ],
             "stream": False,
+            "format": {
+                "type": "string",
+                "enum": ["invoice", "Invoice", " invoice ", '</label> "étiquette"'],
+            },
+            "options": {"temperature": 0},
         }
     ]
     assert result == "invoice"
 
 
 @pytest.mark.parametrize(
-    "content",
-    ["invoice", "invoice\n", '"invoice"', "The label is invoice", ""],
+    ("content", "labels", "expected"),
+    [
+        ('"medical"', ["finance", "medical"], "medical"),
+        ('"unknown"', ["invoice", "personal"], "unknown"),
+    ],
 )
-def test_ollama_adapter_classify_returns_extracted_content_without_repair(
+def test_ollama_adapter_classify_returns_decoded_json_string_without_membership_repair(
     content: str,
+    labels: list[str],
+    expected: str,
 ) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": {"content": content}})
 
     result = asyncio.run(
         OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
-            make_classify_request()
+            make_classify_request(labels=labels)
         )
     )
 
-    assert result == content
+    assert result == expected
 
 
-def test_ollama_adapter_classify_preserves_existing_missing_content_behavior() -> None:
+@pytest.mark.parametrize(
+    "content",
+    ["invoice", "The label is invoice", "", "null", "[]", "123"],
+)
+def test_ollama_adapter_classify_rejects_malformed_or_non_string_json_content(
+    content: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"message": {"content": content}})
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(
+            OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+                make_classify_request()
+            )
+        )
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+
+
+def test_ollama_adapter_classify_rejects_missing_content() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": {}})
 
-    result = asyncio.run(
-        OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
-            make_classify_request()
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(
+            OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
+                make_classify_request()
+            )
         )
-    )
 
-    assert result == ""
+    assert str(exc_info.value) == "Runtime adapter unavailable"
 
 
 def test_ollama_adapter_classify_client_has_no_timeout(
@@ -279,7 +300,7 @@ def test_ollama_adapter_classify_client_has_no_timeout(
         async def post(self, path: str, *, json: dict[str, object]) -> httpx.Response:
             return httpx.Response(
                 200,
-                json={"message": {"content": "invoice"}},
+                json={"message": {"content": '"invoice"'}},
                 request=httpx.Request("POST", "http://localhost:11434/api/chat"),
             )
 

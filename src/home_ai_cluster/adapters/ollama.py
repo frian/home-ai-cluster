@@ -1,5 +1,7 @@
 """Ollama runtime adapter."""
 
+import json
+
 import httpx
 
 from home_ai_cluster.adapters.base import (
@@ -137,13 +139,9 @@ class OllamaAdapter:
 
     async def classify(self, request: ClassifyRequest) -> str:
         """Map bounded source text and labels to Ollama's chat transport."""
-        labels = "\n".join(f"<label>{label}</label>" for label in request.labels)
         prompt = (
-            "Choose exactly one label from the allowed labels below for the "
-            "source text.\n"
-            "Return only the exact label, with no explanation or additional text.\n\n"
-            f"<allowed-labels>\n{labels}\n</allowed-labels>\n\n"
-            f"<source>\n{request.text}\n</source>"
+            "Choose the single best matching label for the source text.\n\n"
+            f"Source text:\n{request.text}"
         )
 
         try:
@@ -158,6 +156,11 @@ class OllamaAdapter:
                         "model": self.model,
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
+                        "format": {
+                            "type": "string",
+                            "enum": list(request.labels),
+                        },
+                        "options": {"temperature": 0},
                     },
                 )
                 response.raise_for_status()
@@ -170,4 +173,14 @@ class OllamaAdapter:
                 "Runtime adapter unavailable",
             ) from exc
 
-        return response.json().get("message", {}).get("content", "")
+        try:
+            content = response.json()["message"]["content"]
+            proposal = json.loads(content)
+            if not isinstance(proposal, str):
+                raise ValueError("Ollama classification output must be a JSON string")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
+
+        return proposal

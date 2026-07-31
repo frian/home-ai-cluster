@@ -210,6 +210,13 @@ established at a specific stage and do not replace the current workflow.
   — retained privacy-safe evidence that one real slow-but-valid routed
   summarize request completed with the accepted per-invocation client override.
 
+### RFC-0061 — Bounded text classification
+
+- [Bounded classification proof](bounded-classification-proof.md) — retained
+  privacy-safe evidence for accepted local, loopback static-remote, and
+  physical-LAN bounded classification execution; it does not change RFC-0061
+  or add distributed infrastructure.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

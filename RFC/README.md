@@ -55,6 +55,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0062: Minimal Loopback Web Client](RFC-0062-minimal-loopback-web-client.md)
+  — accepts one fixed same-origin browser client over existing native
+  capabilities, without changing network exposure.
 - [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
   — accepts one bounded `classify` capability with an exact operator-supplied
   selected-label result and explicit static eligibility.

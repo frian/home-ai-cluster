@@ -85,9 +85,34 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'post("/v1/chat"' in script
     assert 'post("/v1/summarize"' in script
     assert 'post("/v1/classify"' in script
+    assert "`${message.role}: ${message.content}`" not in script
+    assert "message message-${message.role}" in script
+    assert 'message.role === "user" ? "You" : "Home AI Cluster"' in script
+    assert ".message-user" in web.joinpath("assets", "app.css").read_text(
+        encoding="utf-8"
+    )
+    assert ".message-assistant" in web.joinpath("assets", "app.css").read_text(
+        encoding="utf-8"
+    )
+    assert "const assistantAttribution = new WeakMap()" in script
+    assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
+    assert 'post("/v1/chat", { capability: "chat", messages }, "Sending…")' in script
+    assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
+    assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
+    assert 'status.textContent = active ? message : ""' in script
+    assert "finally {\n      setRequestActive(false);" in script
     assert "function rollbackPendingMessage(pendingMessage)" in script
     assert "rollbackPendingMessage(pendingMessage);" in script
     assert "messages.splice(pendingIndex, 1)" in script
     assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
+    assert (
+        'aria-live="polite" class="request-status" id="request-status" role="status"'
+        in html
+    )
+    assert "@media (prefers-reduced-motion: reduce)" in web.joinpath(
+        "assets", "app.css"
+    ).read_text(encoding="utf-8")
+    classify_section = html.split('id="classify-view"', 1)[1].split("</section>", 1)[0]
+    assert 'type="file"' not in classify_section

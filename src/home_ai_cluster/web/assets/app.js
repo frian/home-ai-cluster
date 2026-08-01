@@ -1,11 +1,15 @@
 (() => {
   const byteLimit = 65536;
   const messages = [];
+  const assistantAttribution = new WeakMap();
   let requestActive = false;
   const error = document.querySelector("#request-error");
+  const status = document.querySelector("#request-status");
 
-  function setRequestActive(active) {
+  function setRequestActive(active, message = "") {
     requestActive = active;
+    status.dataset.active = String(active);
+    status.textContent = active ? message : "";
     document.querySelectorAll("[data-submit]").forEach((button) => {
       button.disabled = active;
     });
@@ -26,9 +30,9 @@
     return `${response.status}: ${detail}`;
   }
 
-  async function post(path, body) {
+  async function post(path, body, activeMessage) {
     if (requestActive) return null;
-    setRequestActive(true);
+    setRequestActive(true, activeMessage);
     clearError();
     try {
       const response = await fetch(path, {
@@ -58,9 +62,22 @@
     const container = document.querySelector("#chat-conversation");
     container.replaceChildren();
     messages.forEach((message) => {
-      const entry = document.createElement("p");
-      entry.className = "message";
-      entry.textContent = `${message.role}: ${message.content}`;
+      const entry = document.createElement("article");
+      entry.className = `message message-${message.role}`;
+      const label = document.createElement("div");
+      label.className = "message-label";
+      label.textContent = message.role === "user" ? "You" : "Home AI Cluster";
+      const content = document.createElement("div");
+      content.className = "message-content";
+      content.textContent = message.content;
+      entry.append(label, content);
+      const nodeId = assistantAttribution.get(message);
+      if (nodeId) {
+        const attribution = document.createElement("div");
+        attribution.className = "attribution";
+        attribution.textContent = `Handled by node ${nodeId}`;
+        entry.append(attribution);
+      }
       container.append(entry);
     });
   }
@@ -88,15 +105,13 @@
     const pendingMessage = { role: "user", content: input.value };
     messages.push(pendingMessage);
     renderChat();
-    const result = await post("/v1/chat", { capability: "chat", messages });
+    const result = await post("/v1/chat", { capability: "chat", messages }, "Sending…");
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
-      messages.push({ role: "assistant", content: result.content });
+      const assistantMessage = { role: "assistant", content: result.content };
+      assistantAttribution.set(assistantMessage, result.node_id);
+      messages.push(assistantMessage);
       input.value = "";
       renderChat();
-      const attribution = document.createElement("p");
-      attribution.className = "attribution";
-      attribution.textContent = `Handled by node ${result.node_id}`;
-      document.querySelector("#chat-conversation").append(attribution);
     } else {
       rollbackPendingMessage(pendingMessage);
       if (result) showError("Request failed");
@@ -120,7 +135,7 @@
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit) {
       return showError("Text must be non-blank and within the accepted limit");
     }
-    const result = await post("/v1/summarize", { text });
+    const result = await post("/v1/summarize", { text }, "Summarizing…");
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       renderResult(document.querySelector("#summarize-result"), result.content, result.node_id);
     } else if (result) showError("Request failed");
@@ -153,7 +168,7 @@
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit || labels.length < 2) {
       return showError("Text and at least two labels are required");
     }
-    const result = await post("/v1/classify", { text, labels });
+    const result = await post("/v1/classify", { text, labels }, "Classifying…");
     if (result && typeof result.selected_label === "string" && typeof result.node_id === "string") {
       renderResult(document.querySelector("#classify-result"), result.selected_label, result.node_id);
     } else if (result) showError("Request failed");

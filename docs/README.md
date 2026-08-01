@@ -27,6 +27,9 @@ architecture.
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
   local-only and explicit static-cluster operation, including human-readable
   inspection defaults and explicit structured `--json` forms.
+- [Minimal local web client investigation](minimal-local-web-client-investigation.md)
+  — documentation-only investigation of a browser surface for the existing
+  native capabilities; it does not authorize a UI or architectural change.
 - [Daily operator workflow investigation](daily-operator-workflow-investigation.md)
   — bounded investigation of repeatable local role operation; not a proposal or
   accepted workflow change.

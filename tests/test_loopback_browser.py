@@ -114,5 +114,8 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "@media (prefers-reduced-motion: reduce)" in web.joinpath(
         "assets", "app.css"
     ).read_text(encoding="utf-8")
+    assert ".conversation:empty { display: none; }" in web.joinpath(
+        "assets", "app.css"
+    ).read_text(encoding="utf-8")
     classify_section = html.split('id="classify-view"', 1)[1].split("</section>", 1)[0]
     assert 'type="file"' not in classify_section

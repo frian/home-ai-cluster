@@ -78,6 +78,16 @@ install, start, stop, download models for, or supervise the external runtime.
 Ordinary local compositions advertise and execute `chat`, `summarize`, and
 `classify`.
 
+When the selected host is exactly `127.0.0.1`, open
+`http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
+only Chat, Summarize, and Classify. The page keeps Chat only in memory, shows
+per-assistant node attribution, and shows accessible active feedback while a
+request is running. A selected Summarize file is read locally as UTF-8 text and
+submitted through the existing JSON text request; Classify accepts entered text
+and ordered labels and has no file selector. Every other `--host` value remains
+API-only, including `0.0.0.0`, `localhost`, and `::1`; the page is not a LAN
+browser interface, dashboard, operator console, or compatibility interface.
+
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
 ## `hac static-cluster`

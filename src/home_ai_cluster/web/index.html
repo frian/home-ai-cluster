@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Home AI Cluster</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body>
+    <main class="page">
+      <h1>Home AI Cluster</h1>
+      <nav aria-label="Capabilities" class="tabs" role="tablist">
+        <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" type="button">Chat</button>
+        <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" type="button">Summarize</button>
+        <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" type="button">Classify</button>
+      </nav>
+
+      <section aria-labelledby="chat-tab" id="chat-view" role="tabpanel">
+        <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+        <form id="chat-form">
+          <label for="chat-message">Message</label>
+          <textarea id="chat-message" required rows="4"></textarea>
+          <button data-submit type="submit">Send</button>
+        </form>
+      </section>
+
+      <section aria-labelledby="summarize-tab" hidden id="summarize-view" role="tabpanel">
+        <form id="summarize-form">
+          <label for="summarize-text">Text to summarize</label>
+          <textarea id="summarize-text" rows="8"></textarea>
+          <label for="summarize-file">Or choose a UTF-8 text file</label>
+          <input accept="text/plain,.txt" id="summarize-file" type="file">
+          <button data-submit type="submit">Summarize</button>
+        </form>
+        <output class="result" id="summarize-result"></output>
+      </section>
+
+      <section aria-labelledby="classify-tab" hidden id="classify-view" role="tabpanel">
+        <form id="classify-form">
+          <label for="classify-text">Text to classify</label>
+          <textarea id="classify-text" rows="6"></textarea>
+          <fieldset>
+            <legend>Labels in order</legend>
+            <div id="label-inputs"></div>
+            <button id="add-label" type="button">Add label</button>
+          </fieldset>
+          <button data-submit type="submit">Classify</button>
+        </form>
+        <output class="result" id="classify-result"></output>
+      </section>
+
+      <p aria-live="polite" class="error" id="request-error" role="status"></p>
+    </main>
+    <script src="/assets/app.js"></script>
+  </body>
+</html>

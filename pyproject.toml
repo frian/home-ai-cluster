@@ -42,6 +42,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/home_ai_cluster"]
+include = ["src/home_ai_cluster/web/**"]
 
 [tool.ruff]
 line-length = 88

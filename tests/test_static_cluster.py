@@ -342,6 +342,76 @@ def test_ordered_toml_capabilities_reach_remote_node_construction(
     asyncio.run(client.aclose())
 
 
+def test_main_wraps_the_fixed_loopback_static_cluster_application(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    api_app = FastAPI()
+    browser_app = FastAPI()
+    recorded: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        static_cluster,
+        "create_local_runtime_composition",
+        lambda **_: object(),
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_app",
+        lambda *_args, **_kwargs: api_app,
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "add_loopback_browser_routes",
+        lambda app: recorded.setdefault("api_app", app) and browser_app,
+    )
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda app, *, host, port: recorded.update(app=app, host=host, port=port),
+    )
+
+    static_cluster.main(
+        [
+            "--remote-node-id",
+            "remote-node",
+            "--remote-base-url",
+            "http://remote.example:8000",
+        ]
+    )
+
+    assert recorded == {
+        "api_app": api_app,
+        "app": browser_app,
+        "host": STATIC_CLUSTER_HOST,
+        "port": STATIC_CLUSTER_PORT,
+    }
+
+
+def test_reusable_static_cluster_factory_remains_page_free() -> None:
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(500))
+    )
+    app = create_static_cluster_app(
+        "remote-node",
+        "http://remote.example:8000",
+        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+        client=client,
+    )
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.get("/")
+
+    assert asyncio.run(send()).status_code == 404
+
+    asyncio.run(client.aclose())
+
+
 def test_main_passes_toml_local_capabilities_to_caller_composition(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

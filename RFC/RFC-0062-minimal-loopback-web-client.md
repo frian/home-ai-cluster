@@ -8,19 +8,23 @@ Author: @frian
 
 ## Summary
 
-Home AI Cluster should serve one deliberately small browser client from the
-existing native application. The client consists of fixed plain HTML, CSS, and
-JavaScript assets and makes same-origin calls only to the existing native
-`POST /v1/chat`, `POST /v1/summarize`, and `POST /v1/classify` routes.
+Home AI Cluster should define two explicit application-composition outcomes:
+the **native API application** and the **loopback browser application**. The
+browser application consists of fixed plain HTML, CSS, and JavaScript assets and
+makes same-origin calls only to the existing native `POST /v1/chat`,
+`POST /v1/summarize`, and `POST /v1/classify` routes.
 
-The first surface is loopback-only through the ordinary application's existing
-default `127.0.0.1:8000` bind. It adds neither CORS nor a proxy, second process,
-authentication mechanism, persistent state, dashboard, operator console, or
-new orchestration layer.
+Only the loopback browser application serves the page and assets, and only
+loopback-owned launch paths may construct it. The native API application serves
+the existing native and internal routes only and remains suitable for explicitly
+authorized trusted-LAN receiver binds. Route ownership and socket binding are
+separate concerns. This proposal therefore adds neither CORS nor a proxy, second
+process, authentication mechanism, persistent state, dashboard, operator
+console, or new orchestration layer.
 
 ## Context
 
-The current ordinary native application is the small capability-centered surface
+The current native API application is the small capability-centered surface
 for `chat`, `summarize`, and `classify`. Its normalized successful results
 already provide content or an exact selected label and cluster-owned `node_id`
 attribution. The ordinary local-only application is constructed by
@@ -28,7 +32,17 @@ attribution. The ordinary local-only application is constructed by
 are constructed by `create_static_cluster_app` or
 `create_static_cluster_collection_app`, both of which call `create_app(...)`.
 The generic `create_app` factory is also used by the dedicated compatibility
-process, so it cannot itself become the unconditional page-serving seam.
+process, proof applications, and module-level `home_ai_cluster.main:app`.
+The latter is documented both for local development and for historical
+trusted-LAN receiver operation. It cannot itself become the unconditional
+page-serving seam.
+
+The current `home-ai-cluster-local` launcher accepts an operator-supplied
+`--host`; the canonical receiver workflow deliberately uses `--host 0.0.0.0`.
+The static-cluster launcher itself has a fixed `127.0.0.1` bind, but its
+`create_static_cluster_app` and `create_static_cluster_collection_app` factory
+functions are reused by the compatibility composition. Current construction
+therefore cannot truthfully add browser routes to those generic factories.
 
 The dedicated OpenAI-compatible process is a separate loopback process on port
 8001. It adds its compatibility router to a separately created application and
@@ -76,19 +90,60 @@ pipeline.
 
 ## Decision
 
+### Application composition and launcher ownership
+
+This RFC defines two outcomes with an explicit relationship:
+
+* The **native API application** is the existing lower-level
+  `home_ai_cluster.main.create_app` outcome. It exposes the existing native and
+  internal routers only. It never serves `/` or `/assets/`. All existing
+  generic factories, the module-level `home_ai_cluster.main:app`, compatibility
+  construction, proof construction, and LAN receiver construction retain this
+  API-only outcome unless a later RFC says otherwise.
+* The **loopback browser application** reuses one already composed native API
+  application and adds only the fixed page and asset routes defined below. It
+  does not alter native routers, orchestration, routing, request/response
+  contracts, or application state. It must be constructed only by a launcher
+  whose bind is owned as loopback, not by a FastAPI request-time check.
+
+Route ownership and socket binding are separate concerns. A route attached to a
+generic FastAPI object does not itself constrain Uvicorn's bind address. The
+architectural guarantee is therefore composition plus launcher ownership: no
+runtime socket inspection from FastAPI, host-header or client-IP check,
+middleware authorization, CORS, token, second server, or network heuristic is
+introduced.
+
+The future implementation has one narrow launcher decision in scope:
+
+* `home-ai-cluster-local` constructs the loopback browser application only when
+  its selected host is exactly its existing `LOCAL_RUNTIME_HOST`,
+  `127.0.0.1`; every other `--host` value constructs the native API application.
+  Thus the documented receiver form `home-ai-cluster-local --host 0.0.0.0`
+  cannot expose the browser surface.
+* `home-ai-cluster-static-cluster` constructs the loopback browser application
+  because its existing launcher owns a fixed `STATIC_CLUSTER_HOST` of
+  `127.0.0.1`. Its reusable `create_static_cluster_app` and
+  `create_static_cluster_collection_app` factories remain API-only, so the
+  compatibility composition that calls them cannot receive the page.
+
+No new process or second server is required. This is a narrow application and
+launcher-composition change, not a new host option, runtime inspection, or
+network-control mechanism.
+
 ### Page and asset ownership
 
-The existing ordinary native application owns one browser page at the fixed path
-`/`. That path is currently not an application route, so it is unambiguous and
-does not replace an accepted behavior. The page is the only browser entry path;
-no redirect is required.
+The loopback browser application owns one browser page at the fixed path `/`.
+That path is currently not an application route, so it is unambiguous and does
+not replace an accepted behavior. The page is the only browser entry path; no
+redirect is required. The native API application has no route at `/`.
 
-The application also serves a fixed project-owned, read-only asset namespace at
-`/assets/`. Those asset paths cannot collide with the existing `/v1/*` native
-routes or `/internal/*` transport routes. Assets are packaged with Home AI
-Cluster and the application serves only that fixed set. It exposes no arbitrary
-filesystem path, directory listing, or user-provided file. Cache headers remain
-an implementation detail unless they affect privacy or correctness.
+Only the loopback browser application serves a fixed project-owned, read-only
+asset namespace at `/assets/`. Those asset paths cannot collide with the
+existing `/v1/*` native routes or `/internal/*` transport routes. Assets are
+packaged with Home AI Cluster and the application serves only that fixed set. It
+exposes no arbitrary filesystem path, directory listing, or user-provided file.
+The native API application has no `/assets/` namespace. Cache headers remain an
+implementation detail unless they affect privacy or correctness.
 
 There is no deep-link handling, client-side routing, single-page-application
 router, or route fallback. A request for an unknown page or asset remains an
@@ -100,21 +155,25 @@ they must not require a new runtime dependency or frontend toolchain.
 
 ### Existing application compositions
 
-This RFC accepts one explicit **ordinary native application composition seam**:
-a small application-construction step, following generic `create_app` creation,
-that attaches the fixed browser page and assets only to an ordinary native
-application. The ordinary local-only constructor and both ordinary
-static-cluster constructors must use that same step. It is the exact accepted
-boundary that makes the page available in both ordinary compositions without
-changing request routing or creating composition-specific browser behavior.
+The exact API-only composition boundary is
+`home_ai_cluster.main.create_app`: it remains the lower-level factory for native
+and internal routes and never attaches browser assets. The exact loopback-browser
+composition boundary is a new wrapper applied to an already constructed
+API-only application by the two launcher-owned loopback paths above. It alone
+attaches `/` and `/assets/`.
 
-The existing generic `home_ai_cluster.main.create_app` remains a lower-level
-native-router factory and must not unconditionally attach the page, because the
-dedicated compatibility process also uses it.
+The ordinary local-only default launcher and the ordinary static-cluster
+launcher are therefore the only ordinary launch paths covered by the first
+browser proof. A local runtime receiver started with any non-default host,
+including the documented trusted-LAN `0.0.0.0` form, remains API-only. The
+module-level `home_ai_cluster.main:app` is API-only; repository documentation
+uses that same object for both local development and documented LAN receiver
+examples, so it must remain free of the page and assets.
 
 The dedicated `home-ai-cluster-openai-compatibility` process remains unchanged
-and must not serve this page. It is a deliberately separate compatibility edge,
-not a browser backend.
+and API-only except for its existing compatibility router. Its static-cluster
+composition must use the API-only static factories and must not serve this page.
+It is a deliberately separate compatibility edge, not a browser backend.
 
 ### Capability behavior
 
@@ -158,11 +217,12 @@ request behavior.
 
 ### Network and origin boundary
 
-The page is served only by the existing ordinary application's loopback default:
-`127.0.0.1:8000`. Its calls to `/v1/chat`, `/v1/summarize`, and `/v1/classify`
-are direct same-origin browser calls. No CORS middleware, cross-origin
-allow-list, proxy, second web-client process, additional port, or browser
-backend is introduced.
+The loopback browser application is served only by launcher paths that own the
+existing `127.0.0.1:8000` bind. Its calls to `/v1/chat`, `/v1/summarize`, and
+`/v1/classify` are direct same-origin browser calls. The API-only application
+remains the only application object available to LAN receiver binds. No CORS
+middleware, cross-origin allow-list, proxy, second web-client process,
+additional port, or browser backend is introduced.
 
 This RFC does not authorize LAN or any non-loopback browser access. It also
 introduces no authentication, authorization, token, identity, or account
@@ -210,8 +270,9 @@ existing privacy-safe native validation and error boundaries.
 ## Compatibility and operator-surface boundary
 
 The page is not OpenAI-compatible access and must not call or be served by the
-dedicated compatibility process. It does not expose compatibility-only features,
-including model identifiers, streaming, tools, or model listing.
+dedicated compatibility process or any API-only receiver composition. It does
+not expose compatibility-only features, including model identifiers, streaming,
+tools, or model listing.
 
 Preflight, health, and static-cluster status remain explicit finite
 operator commands. The page has no views for those surfaces, topology
@@ -223,7 +284,8 @@ views. It cannot inspect, select, or edit any of those things.
 
 After implementation, the smallest retained proof must:
 
-1. start the ordinary native application on its default loopback address;
+1. start the loopback-browser composition through one ordinary default
+   loopback launcher;
 2. open `/` and complete one real local chat request;
 3. complete one real local summarize request from entered text;
 4. complete one real local summarize request from one explicitly selected small
@@ -232,8 +294,11 @@ After implementation, the smallest retained proof must:
 6. confirm existing `node_id` attribution is displayed for each completion;
 7. confirm one existing native safe failure is displayed without raw details;
 8. confirm page reload clears chat state; and
-9. confirm no CORS request, second process, proxy, storage, cookie, database,
-   background polling, operator surface, or non-loopback exposure exists.
+9. verify that the API-only composition has no `/` or `/assets/` routes,
+    including the documented LAN receiver construction; and
+10. confirm no CORS request, second process, proxy, storage, cookie, database,
+    background polling, operator surface, or non-loopback browser exposure
+    exists.
 
 The retained artifact must not contain real prompts, responses, file contents,
 labels, private addresses, machine names, paths, or raw logs.
@@ -242,8 +307,9 @@ labels, private addresses, machine names, paths, or raw logs.
 
 If accepted, implementation should use two small PRs:
 
-1. add the fixed page/assets, serving seam, focused route/static-asset tests,
-   and the minimal three capability views; and
+1. add the API-only and loopback-browser composition seam, narrow launcher
+   ownership described above, fixed page/assets, focused composition and
+   route/static-asset tests, and the minimal three capability views; and
 2. after successful real use, add the privacy-safe proof and only the necessary
    documentation alignment.
 
@@ -254,11 +320,13 @@ complexity without reducing architectural risk.
 
 ## Rationale
 
-Serving fixed assets from the existing application is the smallest truthful
-shape: one process, one loopback origin, and direct use of the current native
-contracts. It avoids adding CORS or a request proxy, both of which create new
-privacy and HTTP responsibilities. A small `node_id` display supports
-transparency without expanding into topology or status visualization.
+Serving fixed assets from a distinct loopback browser composition is the
+smallest truthful shape: one process, one loopback origin, and direct use of the
+current native contracts. It avoids adding CORS or a request proxy, both of
+which create new privacy and HTTP responsibilities, without accidentally
+placing browser routes on a deliberate LAN receiver bind. A small `node_id`
+display supports transparency without expanding into topology or status
+visualization.
 
 The narrow state and file rules make a browser convenient without introducing a
 history, upload service, or additional retention surface. Keeping operator and
@@ -287,7 +355,7 @@ which is broader than this RFC's purpose.
 
 ### Assets served by the existing native application
 
-This is the accepted proposal because it has one origin and process, direct
+This is the proposed shape because it has one origin and process, direct
 native calls, and no new dependency or request-handling boundary.
 
 ### Adopt a frontend framework immediately
@@ -316,28 +384,36 @@ architecture.
 
 The page gives a convenient browser surface but deliberately exposes only three
 fixed request views. It does not provide persistent conversation, remote access,
-or operational visibility. Serving assets from the native application modestly
-expands its HTTP responsibility, which is why this is an RFC rather than an
-implementation detail. The resulting single-origin boundary is simpler and
-more private than the alternatives.
+or operational visibility. The explicit composition split adds a small launcher
+responsibility and makes the default local launcher's selected host meaningful
+to application construction. That cost is necessary: mounting page routes alone
+cannot guarantee loopback exposure. The resulting API-only receiver and
+single-origin browser boundaries are simpler and more private than the
+alternatives.
 
 ## Impact
 
-If accepted, a later implementation changes the ordinary native application
-only to serve fixed project assets and a page alongside unchanged native routes.
-It adds tests and proof documentation, but no new API request or response
-contract, dependency, runtime, process, database, CORS policy, compatibility
-behavior, or network exposure. Existing ordinary local-only and static-cluster
-processes share the page through the accepted ordinary-native composition seam;
-the generic factory and dedicated compatibility process remain unchanged.
+If accepted, a later implementation preserves `create_app` as the API-only
+factory and adds a loopback-browser wrapper plus the narrow launcher selection
+above. It adds fixed project assets, tests, and proof documentation, but no new
+API request or response contract, dependency, runtime, process, database, CORS
+policy, compatibility behavior, or LAN exposure. API-only receiver and
+compatibility constructions remain unchanged and page-free.
 
 ## Acceptance criteria
 
 An implementation is acceptable only when it:
 
-* serves `/` and fixed `/assets/` files from both ordinary native compositions
-  through the same accepted ordinary-native composition seam;
+* preserves `create_app` as the API-only native/internal-route factory, with no
+  `/` or `/assets/` routes;
+* serves `/` and fixed `/assets/` files only from the loopback-browser wrapper
+  used by the default local and fixed-loopback static-cluster launchers;
+* ensures `home-ai-cluster-local --host 0.0.0.0`, module-level `main:app`,
+  reusable static-cluster factories, proof constructions, and compatibility
+  constructions remain API-only and page-free;
 * makes same-origin direct calls only to the three existing native endpoints;
+* prevents LAN browser exposure structurally through composition and launcher
+  ownership, not FastAPI bind inspection or request-time network heuristics;
 * remains loopback-only by default with no CORS, proxy, second process, or
   authentication;
 * preserves native validation, safe failures, routing, and result contracts;

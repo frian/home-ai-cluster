@@ -1,6 +1,6 @@
 # RFC-0062: Minimal Loopback Web Client
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-01
 
@@ -18,7 +18,7 @@ Only the loopback browser application serves the page and assets, and only
 loopback-owned launch paths may construct it. The native API application serves
 the existing native and internal routes only and remains suitable for explicitly
 authorized trusted-LAN receiver binds. Route ownership and socket binding are
-separate concerns. This proposal therefore adds neither CORS nor a proxy, second
+separate concerns. This decision therefore adds neither CORS nor a proxy, second
 process, authentication mechanism, persistent state, dashboard, operator
 console, or new orchestration layer.
 
@@ -50,7 +50,7 @@ is intentionally a distinct compatibility boundary.
 
 The prior [minimal local web client investigation](../docs/minimal-local-web-client-investigation.md)
 identified a same-origin fixed client served by the ordinary native application
-as the smallest candidate. This RFC proposes that architectural choice; it does
+as the smallest candidate. This RFC records that architectural choice; it does
 not implement it.
 
 ## Problem
@@ -305,7 +305,7 @@ labels, private addresses, machine names, paths, or raw logs.
 
 ## Implementation sequence
 
-If accepted, implementation should use two small PRs:
+Implementation should use two small PRs:
 
 1. add the API-only and loopback-browser composition seam, narrow launcher
    ownership described above, fixed page/assets, focused composition and
@@ -355,7 +355,7 @@ which is broader than this RFC's purpose.
 
 ### Assets served by the existing native application
 
-This is the proposed shape because it has one origin and process, direct
+This is the accepted shape because it has one origin and process, direct
 native calls, and no new dependency or request-handling boundary.
 
 ### Adopt a frontend framework immediately
@@ -393,7 +393,7 @@ alternatives.
 
 ## Impact
 
-If accepted, a later implementation preserves `create_app` as the API-only
+A later implementation preserves `create_app` as the API-only
 factory and adds a loopback-browser wrapper plus the narrow launcher selection
 above. It adds fixed project assets, tests, and proof documentation, but no new
 API request or response contract, dependency, runtime, process, database, CORS

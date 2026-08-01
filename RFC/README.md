@@ -55,6 +55,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0062: Minimal Loopback Web Client](RFC-0062-minimal-loopback-web-client.md)
+  — accepts one fixed same-origin browser client over existing native
+  capabilities, without changing network exposure.
 - [RFC-0061: Bounded Text Classification](RFC-0061-bounded-text-classification.md)
   — accepts one bounded `classify` capability with an exact operator-supplied
   selected-label result and explicit static eligibility.
@@ -68,12 +71,6 @@ A superseded RFC has been replaced by a newer RFC.
 - [RFC-0058: Explicit static remote capabilities](RFC-0058-explicit-static-remote-capabilities.md)
   — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.
-
-## Draft RFCs
-
-- [RFC-0062: Minimal Loopback Web Client](RFC-0062-minimal-loopback-web-client.md)
-  — proposes one fixed same-origin browser client over existing native
-  capabilities, without authorizing implementation or changing network exposure.
 
 ---
 

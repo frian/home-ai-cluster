@@ -23,6 +23,7 @@ from home_ai_cluster.local_runtime_composition import (
     create_local_runtime_composition,
     validate_local_runtime_arguments,
 )
+from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
@@ -246,7 +247,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
 
     uvicorn.run(
-        app,
+        add_loopback_browser_routes(app),
         host=STATIC_CLUSTER_HOST,
         port=STATIC_CLUSTER_PORT,
     )

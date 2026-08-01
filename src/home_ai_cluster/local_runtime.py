@@ -11,6 +11,7 @@ from home_ai_cluster.local_runtime_composition import (
     create_local_runtime_composition,
     validate_local_runtime_arguments,
 )
+from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
@@ -40,7 +41,10 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
         llama_server_base_url=args.llama_server_base_url,
         llama_server_model=args.llama_server_model,
     )
-    return create_app(local_app_composition=composition)
+    app = create_app(local_app_composition=composition)
+    if args.host == LOCAL_RUNTIME_HOST:
+        return add_loopback_browser_routes(app)
+    return app
 
 
 def main(argv: Sequence[str] | None = None) -> None:

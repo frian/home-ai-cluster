@@ -235,6 +235,44 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     assert isinstance(adapter, OllamaAdapter)
 
 
+@pytest.mark.parametrize(
+    ("host", "uses_browser"),
+    [
+        ("127.0.0.1", True),
+        ("0.0.0.0", False),
+        ("localhost", False),
+        ("::1", False),
+    ],
+)
+def test_create_local_runtime_app_selects_browser_only_for_exact_loopback_host(
+    host: str,
+    uses_browser: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api_app = FastAPI()
+    browser_app = FastAPI()
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        local_runtime,
+        "create_local_runtime_composition",
+        lambda **_: object(),
+    )
+    monkeypatch.setattr(local_runtime, "create_app", lambda **_: api_app)
+    monkeypatch.setattr(
+        local_runtime,
+        "add_loopback_browser_routes",
+        lambda app: calls.append("browser") or browser_app,
+    )
+
+    result = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(["--host", host])
+    )
+
+    assert result is (browser_app if uses_browser else api_app)
+    assert calls == (["browser"] if uses_browser else [])
+
+
 def test_invalid_input_does_not_start_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

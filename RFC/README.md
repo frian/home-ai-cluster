@@ -69,6 +69,12 @@ A superseded RFC has been replaced by a newer RFC.
   — accepts bounded operator-declared capabilities for ordinary static remote
   nodes while preserving existing routing and compatibility boundaries.
 
+## Draft RFCs
+
+- [RFC-0062: Minimal Loopback Web Client](RFC-0062-minimal-loopback-web-client.md)
+  — proposes one fixed same-origin browser client over existing native
+  capabilities, without authorizing implementation or changing network exposure.
+
 ---
 
 ## File naming

@@ -85,6 +85,9 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'post("/v1/chat"' in script
     assert 'post("/v1/summarize"' in script
     assert 'post("/v1/classify"' in script
+    assert "function rollbackPendingMessage(pendingMessage)" in script
+    assert "rollbackPendingMessage(pendingMessage);" in script
+    assert "messages.splice(pendingIndex, 1)" in script
     assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script

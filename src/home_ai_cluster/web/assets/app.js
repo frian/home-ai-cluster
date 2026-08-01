@@ -65,6 +65,12 @@
     });
   }
 
+  function rollbackPendingMessage(pendingMessage) {
+    const pendingIndex = messages.indexOf(pendingMessage);
+    if (pendingIndex !== -1) messages.splice(pendingIndex, 1);
+    renderChat();
+  }
+
   function renderResult(container, content, nodeId) {
     container.replaceChildren();
     const value = document.createElement("div");
@@ -79,7 +85,8 @@
     event.preventDefault();
     const input = document.querySelector("#chat-message");
     if (!input.value.trim()) return showError("Message is required");
-    messages.push({ role: "user", content: input.value });
+    const pendingMessage = { role: "user", content: input.value };
+    messages.push(pendingMessage);
     renderChat();
     const result = await post("/v1/chat", { capability: "chat", messages });
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
@@ -90,7 +97,10 @@
       attribution.className = "attribution";
       attribution.textContent = `Handled by node ${result.node_id}`;
       document.querySelector("#chat-conversation").append(attribution);
-    } else if (result) showError("Request failed");
+    } else {
+      rollbackPendingMessage(pendingMessage);
+      if (result) showError("Request failed");
+    }
   });
 
   document.querySelector("#summarize-file").addEventListener("change", async (event) => {

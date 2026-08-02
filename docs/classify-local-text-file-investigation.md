@@ -66,9 +66,13 @@ ordinary form submission; native validation would remain authoritative.
 Under the proposed narrow behavior, the user explicitly chooses one file; the
 browser strictly decodes it as UTF-8 and places the decoded value in the
 existing textarea. Existing blank-text and 65,536-UTF-8-byte checks apply
-before the existing JSON request. No multipart request, filename, file object,
-file persistence, browser storage, history entry, logging, or retention change
-is introduced.
+before the existing JSON request. No multipart request, server-side file
+object, file persistence, browser storage, history entry, logging, or retention
+change is introduced. A native HTML file input may present the selected
+filename as browser-controlled UI. The project adds no rendered filename
+metadata, and the filename is not included in the Classify JSON request or
+retained in JavaScript application state, browser storage, server state,
+history records, or logs.
 
 For content transmission and server-side retention, this is materially the
 same as pasting the same text: only text reaches the existing classification
@@ -84,9 +88,11 @@ the text area. It should remain view-local unless later evidence shows a shared
 abstraction is necessary.
 
 It should not add drag-and-drop, multiple files, previews, filename display or
-retention, binary formats, MIME sniffing, encoding choices, document parsing,
-or background processing. The existing `accept` hint may guide a picker but is
-not validation; strict decoding and native validation remain the boundary.
+retention beyond the browser-controlled native input presentation, binary
+formats, MIME sniffing, encoding choices, document parsing, or background
+processing. It should add no project-rendered filename metadata. The existing
+`accept` hint may guide a picker but is not validation; strict decoding and
+native validation remain the boundary.
 
 ## Validation behavior
 

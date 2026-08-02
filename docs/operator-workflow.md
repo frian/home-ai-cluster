@@ -134,11 +134,13 @@ With this ordinary default exact host, the same process also serves the fixed
 browser page at `http://127.0.0.1:8000/`. Its only views are Chat, Summarize,
 and Classify, which make same-origin calls to the existing native endpoints.
 Chat is memory-only and shows discreet attribution per assistant response. The
-page provides accessible active feedback for each request. A selected Summarize
-file is read locally as UTF-8 text and submitted through the existing JSON text
-contract; Classify accepts directly entered text and labels in displayed order,
-and has no file selector. This is not a dashboard, operator inspection surface,
-compatibility interface, or LAN browser interface.
+page provides accessible active feedback for each request. One explicitly
+selected Summarize or Classify file is read locally with strict UTF-8 decoding
+and populates that view's editable text area; the current textarea value is
+submitted through the existing JSON text contract. Classify labels remain in
+displayed order, and no multipart data or filename is submitted. This is not a
+dashboard, operator inspection surface, compatibility interface, or LAN browser
+interface.
 
 The page is attached only when the selected `home-ai-cluster-local --host`
 value is exactly `127.0.0.1`. Any other value, including the trusted-LAN

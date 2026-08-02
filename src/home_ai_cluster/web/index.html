@@ -32,13 +32,15 @@
           <input accept="text/plain,.txt" id="summarize-file" type="file">
           <button data-submit type="submit">Summarize</button>
         </form>
-        <output class="result" id="summarize-result"></output>
+        <output class="result" hidden id="summarize-result"></output>
       </section>
 
       <section aria-labelledby="classify-tab" hidden id="classify-view" role="tabpanel">
         <form id="classify-form">
           <label for="classify-text">Text to classify</label>
           <textarea id="classify-text" rows="6"></textarea>
+          <label for="classify-file">Or choose a UTF-8 text file</label>
+          <input accept="text/plain,.txt" id="classify-file" type="file">
           <fieldset>
             <legend>Labels in order</legend>
             <div id="label-inputs"></div>
@@ -46,7 +48,7 @@
           </fieldset>
           <button data-submit type="submit">Classify</button>
         </form>
-        <output class="result" id="classify-result"></output>
+        <output class="result" hidden id="classify-result"></output>
       </section>
 
       <p aria-live="polite" class="error" id="request-error" role="status"></p>

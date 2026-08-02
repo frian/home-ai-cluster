@@ -1,6 +1,6 @@
 # RFC-0063: Classify Local Text File Input
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-02
 
@@ -241,4 +241,11 @@ decisions within this RFC's boundaries.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts one explicit browser-local strict UTF-8 text-file
+selection convenience for the Classify view. Decoded text populates the existing
+Classify textarea, which remains the sole submitted source; `POST /v1/classify`
+and its JSON contract remain unchanged. No multipart request, upload endpoint,
+filename submission, persistence, dependency, or exposure change is introduced.
+
+RFC-0063 supersedes only RFC-0062's Classify browser-input asymmetry, not
+RFC-0062 as a whole.

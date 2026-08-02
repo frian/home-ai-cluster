@@ -53,14 +53,11 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
-
-- [RFC-0063: Classify Local Text File Input](RFC-0063-classify-local-text-file-input.md)
-  — proposes one browser-local UTF-8 text-file convenience for Classify while
-  preserving the existing JSON contract and exposure boundaries.
-
 ## Accepted RFCs
 
+- [RFC-0063: Classify Local Text File Input](RFC-0063-classify-local-text-file-input.md)
+  — accepts one browser-local UTF-8 text-file convenience for Classify while
+  preserving the existing JSON contract and exposure boundaries.
 - [RFC-0062: Minimal Loopback Web Client](RFC-0062-minimal-loopback-web-client.md)
   — accepts one fixed same-origin browser client over existing native
   capabilities, without changing network exposure.

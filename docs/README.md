@@ -27,6 +27,9 @@ architecture.
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
   local-only and explicit static-cluster operation, including human-readable
   inspection defaults and explicit structured `--json` forms.
+- [Loopback web client proof](loopback-web-client-proof.md) — retained
+  privacy-safe evidence and current boundary for the accepted minimal browser
+  surface.
 - [Minimal local web client investigation](minimal-local-web-client-investigation.md)
   — documentation-only investigation of a browser surface for the existing
   native capabilities; it does not authorize a UI or architectural change.

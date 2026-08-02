@@ -130,6 +130,21 @@ It also exposes the native bounded classification endpoint:
 http://127.0.0.1:8000/v1/classify
 ```
 
+With this ordinary default exact host, the same process also serves the fixed
+browser page at `http://127.0.0.1:8000/`. Its only views are Chat, Summarize,
+and Classify, which make same-origin calls to the existing native endpoints.
+Chat is memory-only and shows discreet attribution per assistant response. The
+page provides accessible active feedback for each request. A selected Summarize
+file is read locally as UTF-8 text and submitted through the existing JSON text
+contract; Classify accepts directly entered text and labels in displayed order,
+and has no file selector. This is not a dashboard, operator inspection surface,
+compatibility interface, or LAN browser interface.
+
+The page is attached only when the selected `home-ai-cluster-local --host`
+value is exactly `127.0.0.1`. Any other value, including the trusted-LAN
+receiver form `0.0.0.0`, remains API-only and has no `/` or `/assets/` browser
+surface.
+
 ### 5. Send one native request
 
 Replace `<OPERATOR_SUPPLIED_MESSAGE>` at invocation time. Do not retain the

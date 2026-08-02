@@ -161,6 +161,17 @@
   addLabel();
   document.querySelector("#add-label").addEventListener("click", () => addLabel());
 
+  document.querySelector("#classify-file").addEventListener("change", async (event) => {
+    const [file] = event.target.files;
+    if (!file) return;
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
+      document.querySelector("#classify-text").value = text;
+    } catch (_) {
+      showError("Selected file is not valid UTF-8 text");
+    }
+  });
+
   document.querySelector("#classify-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = document.querySelector("#classify-text").value;

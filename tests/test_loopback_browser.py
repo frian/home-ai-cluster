@@ -107,6 +107,9 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
+    assert "FormData" not in script
+    assert "multipart/form-data" not in script
+    assert ".name" not in script
     assert (
         'aria-live="polite" class="request-status" id="request-status" role="status"'
         in html
@@ -118,4 +121,27 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         "assets", "app.css"
     ).read_text(encoding="utf-8")
     classify_section = html.split('id="classify-view"', 1)[1].split("</section>", 1)[0]
-    assert 'type="file"' not in classify_section
+    assert 'for="classify-file"' in classify_section
+    assert 'accept="text/plain,.txt" id="classify-file" type="file"' in classify_section
+    assert classify_section.count('type="file"') == 1
+    assert "multiple" not in classify_section
+
+    classify_file_handler = script.split(
+        'document.querySelector("#classify-file").addEventListener('
+        '"change", async (event) => {',
+        1,
+    )[1].split('document.querySelector("#classify-form")', 1)[0]
+    assert "const [file] = event.target.files;" in classify_file_handler
+    assert "if (!file) return;" in classify_file_handler
+    assert 'new TextDecoder("utf-8", { fatal: true })' in classify_file_handler
+    assert (
+        'document.querySelector("#classify-text").value = text;'
+        in classify_file_handler
+    )
+    assert 'showError("Selected file is not valid UTF-8 text")' in classify_file_handler
+    assert 'const text = document.querySelector("#classify-text").value;' in script
+    assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
+    assert (
+        'Array.from(document.querySelectorAll(".classify-label"), '
+        "(input) => input.value)" in script
+    )

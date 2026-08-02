@@ -76,6 +76,7 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
 def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
     assert 'href="/assets/app.css"' in html
@@ -88,12 +89,8 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "`${message.role}: ${message.content}`" not in script
     assert "message message-${message.role}" in script
     assert 'message.role === "user" ? "You" : "Home AI Cluster"' in script
-    assert ".message-user" in web.joinpath("assets", "app.css").read_text(
-        encoding="utf-8"
-    )
-    assert ".message-assistant" in web.joinpath("assets", "app.css").read_text(
-        encoding="utf-8"
-    )
+    assert ".message-user" in stylesheet
+    assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
     assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
     assert 'post("/v1/chat", { capability: "chat", messages }, "Sending…")' in script
@@ -114,12 +111,9 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         'aria-live="polite" class="request-status" id="request-status" role="status"'
         in html
     )
-    assert "@media (prefers-reduced-motion: reduce)" in web.joinpath(
-        "assets", "app.css"
-    ).read_text(encoding="utf-8")
-    assert ".conversation:empty { display: none; }" in web.joinpath(
-        "assets", "app.css"
-    ).read_text(encoding="utf-8")
+    assert "@media (prefers-reduced-motion: reduce)" in stylesheet
+    assert ".conversation:empty { display: none; }" in stylesheet
+    assert "[hidden] { display: none !important; }" in stylesheet
     assert '<output class="result" hidden id="summarize-result"></output>' in html
     assert '<output class="result" hidden id="classify-result"></output>' in html
     render_result = script.split("function renderResult", 1)[1].split(
@@ -127,6 +121,9 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     )[0]
     assert "container.hidden = false;" in render_result
     assert "container.replaceChildren();" in render_result
+    assert render_result.index("container.hidden = false;") < render_result.index(
+        "container.append(value, attribution);"
+    )
     classify_section = html.split('id="classify-view"', 1)[1].split("</section>", 1)[0]
     assert 'for="classify-file"' in classify_section
     assert 'accept="text/plain,.txt" id="classify-file" type="file"' in classify_section

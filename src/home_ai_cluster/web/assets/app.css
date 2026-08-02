@@ -3,6 +3,7 @@ body { background: #f6f7f8; color: #1d252c; margin: 0; }
 .page { margin: 0 auto; max-width: 48rem; padding: 1.5rem; }
 .tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
 button, input, textarea { font: inherit; }
+[hidden] { display: none !important; }
 button { cursor: pointer; padding: .45rem .75rem; }
 button[aria-selected="true"] { font-weight: 700; }
 button:disabled { cursor: wait; opacity: .6; }

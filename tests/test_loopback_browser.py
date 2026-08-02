@@ -120,6 +120,13 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".conversation:empty { display: none; }" in web.joinpath(
         "assets", "app.css"
     ).read_text(encoding="utf-8")
+    assert '<output class="result" hidden id="summarize-result"></output>' in html
+    assert '<output class="result" hidden id="classify-result"></output>' in html
+    render_result = script.split("function renderResult", 1)[1].split(
+        'document.querySelector("#chat-form")', 1
+    )[0]
+    assert "container.hidden = false;" in render_result
+    assert "container.replaceChildren();" in render_result
     classify_section = html.split('id="classify-view"', 1)[1].split("</section>", 1)[0]
     assert 'for="classify-file"' in classify_section
     assert 'accept="text/plain,.txt" id="classify-file" type="file"' in classify_section

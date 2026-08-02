@@ -89,6 +89,7 @@
   }
 
   function renderResult(container, content, nodeId) {
+    container.hidden = false;
     container.replaceChildren();
     const value = document.createElement("div");
     value.textContent = content;

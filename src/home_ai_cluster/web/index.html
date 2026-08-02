@@ -32,7 +32,7 @@
           <input accept="text/plain,.txt" id="summarize-file" type="file">
           <button data-submit type="submit">Summarize</button>
         </form>
-        <output class="result" id="summarize-result"></output>
+        <output class="result" hidden id="summarize-result"></output>
       </section>
 
       <section aria-labelledby="classify-tab" hidden id="classify-view" role="tabpanel">
@@ -48,7 +48,7 @@
           </fieldset>
           <button data-submit type="submit">Classify</button>
         </form>
-        <output class="result" id="classify-result"></output>
+        <output class="result" hidden id="classify-result"></output>
       </section>
 
       <p aria-live="polite" class="error" id="request-error" role="status"></p>

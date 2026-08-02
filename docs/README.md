@@ -30,6 +30,9 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [Classify local text-file input investigation](classify-local-text-file-investigation.md)
+  — evaluates a narrowly bounded browser-local text-file convenience for
+  Classify; it does not authorize an implementation or alter RFC-0062.
 - [Minimal local web client investigation](minimal-local-web-client-investigation.md)
   — documentation-only investigation of a browser surface for the existing
   native capabilities; it does not authorize a UI or architectural change.

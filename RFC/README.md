@@ -53,12 +53,12 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
+## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
-  — proposes one explicit caller-local hac summarize --url source with a
-  bounded public-destination retrieval boundary; it is not accepted and
-  authorizes no implementation.
+  — considered caller-local bounded URL summarization; hostname safety could
+  not be guaranteed with the existing high-level stack, and the literal-IP-only
+  narrowing was not useful enough. No implementation was authorized.
 
 ## Accepted RFCs
 

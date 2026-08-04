@@ -1,26 +1,30 @@
 # RFC-0064: Bounded Public URL Summarization
 
-Status: Draft
+Status: Rejected
 
 Date: 2026-08-04
 
 Author: frian
 
+This document preserves the original proposal and records its final rejection.
+It authorizes no retrieval implementation.
+
 ## Summary
 
-This RFC proposes one explicit, caller-local hac summarize --url URL source. It
-is a fourth mutually exclusive source for the existing native summarize command,
-alongside --text, --file, and standard input. The command would retrieve one
-public HTTP URL before constructing the existing bounded SummarizeRequest. The
-existing capability-based routing then selects a local or explicitly declared
-remote summarize execution candidate.
+This RFC originally proposed one explicit, caller-local hac summarize --url URL
+source. It would have been a fourth mutually exclusive source for the existing
+native summarize command, alongside --text, --file, and standard input. The
+command would have retrieved one public HTTP URL before constructing the
+existing bounded SummarizeRequest. The existing capability-based routing would
+then have selected a local or explicitly declared remote summarize execution
+candidate.
 
 The selected runtime node receives only normalized bounded source text. It does
 not receive the URL and does not access the Internet. This is input acquisition,
 not a runtime capability, retrieval framework, or browser feature.
 
-This Draft proposes an architectural boundary only. It authorizes no
-implementation until accepted.
+The proposal was rejected after the supporting HTTP-client investigation. It
+does not authorize implementation.
 
 ## Problem
 
@@ -349,4 +353,47 @@ prompts, generated summaries, credentials, or private topology.
 
 ## Decision
 
-Pending.
+RFC-0064 is rejected. Home AI Cluster will not implement project-owned public
+URL summarization under the contract proposed here.
+
+The rejection is not a claim that bounded retrieval is impossible in principle.
+It follows from the evidence in [the RFC-0064 HTTP client boundaries
+investigation](../docs/rfc-0064-http-client-boundaries-investigation.md): the
+documented high-level HTTPX stack does not establish that validating hostname
+DNS answers controls the address ultimately connected. The investigation found
+no supported high-level peer-validation or address-pinning seam that preserves
+ordinary hostname, HTTPS certificate, and SNI semantics without substantial
+custom networking or a new dependency.
+
+The evidence did identify a smaller technical contract: public literal IPv4 or
+IPv6 URLs only, strict UTF-8 text/plain, identity content encoding, no
+redirects, a fresh isolated client, and finite inactivity and byte bounds. That
+contract is also rejected as the first project-owned web increment. Most
+ordinary public resources use hostnames; HTTPS certificates commonly validate
+names rather than IP literals; and many useful public documents are HTML rather
+than text/plain. It would prove a mechanism while providing too little ordinary
+operator value. Adding low-level connection control or a new networking
+dependency now would be disproportionate to that value.
+
+The current supported composition remains:
+
+```text
+operator-owned retrieval
+  -> local bounded UTF-8 text or file
+  -> existing hac summarize source input
+  -> existing routing and execution
+```
+
+This preserves local-first, privacy-first operation without granting Home AI
+Cluster project-owned Internet authority. No URL retrieval command, endpoint,
+capability, adapter operation, remote-node behavior, dependency, browser
+surface, or runtime behavior is authorized by this rejected RFC.
+
+A future RFC could reconsider a differently scoped retrieval proposal only with
+concrete evidence for a small supported mechanism that binds hostname validation
+to the actual connected public peer while preserving HTTPS hostname and
+certificate semantics; a dependency already justified by another accepted
+project need that provides that boundary; a deliberately accepted and
+inspectable low-level transport seam; or a different contract with clear
+ordinary operator value. This RFC proposes none of those paths, reserves no
+follow-up RFC, and does not plan further work.

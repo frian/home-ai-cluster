@@ -62,6 +62,13 @@ established at a specific stage and do not replace the current workflow.
 
 ## Project history
 
+### RFC-0064 — Bounded public URL summarization
+
+- [RFC-0064 HTTP client boundaries investigation](rfc-0064-http-client-boundaries-investigation.md)
+  — records HTTPX, Python, and controlled-transport evidence needed before the
+  Draft RFC can be accepted; it authorizes no retrieval implementation and
+  selects Outcome C: narrow the proposed contract.
+
 ### Phase 1 — Single-machine orchestrator
 
 - [Phase 1 current state](phase-1-current-state.md) — descriptive snapshot of the

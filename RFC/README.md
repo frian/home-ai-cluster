@@ -53,6 +53,13 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
+## Rejected RFCs
+
+- [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
+  — considered caller-local bounded URL summarization; hostname safety could
+  not be guaranteed with the existing high-level stack, and the literal-IP-only
+  narrowing was not useful enough. No implementation was authorized.
+
 ## Accepted RFCs
 
 - [RFC-0063: Classify Local Text File Input](RFC-0063-classify-local-text-file-input.md)

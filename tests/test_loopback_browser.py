@@ -101,6 +101,34 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "function rollbackPendingMessage(pendingMessage)" in script
     assert "rollbackPendingMessage(pendingMessage);" in script
     assert "messages.splice(pendingIndex, 1)" in script
+    chat_handler = script.split(
+        'document.querySelector("#chat-form").addEventListener('
+        '"submit", async (event) => {',
+        1,
+    )[1].split('document.querySelector("#summarize-file")', 1)[0]
+    pending_message = 'const pendingMessage = { role: "user", content: input.value };'
+    assert pending_message in chat_handler
+    assert "messages.push(pendingMessage);" in chat_handler
+    assert (
+        "renderChat();\n    input.value = \"\";\n    const result = await post("
+        in chat_handler
+    )
+    assert chat_handler.index(pending_message) < chat_handler.index(
+        "messages.push(pendingMessage);"
+    )
+    assert chat_handler.index("messages.push(pendingMessage);") < chat_handler.index(
+        'input.value = "";'
+    ) < chat_handler.index('await post("/v1/chat"')
+    success_handler = chat_handler.split(
+        'if (result && typeof result.content === "string"', 1
+    )[1].split("    } else {", 1)[0]
+    assert "input.value =" not in success_handler
+    failure_handler = chat_handler.split("    } else {\n", 1)[1]
+    assert "rollbackPendingMessage(pendingMessage);" in failure_handler
+    assert (
+        'if (input.value === "") input.value = pendingMessage.content;'
+        in failure_handler
+    )
     assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script

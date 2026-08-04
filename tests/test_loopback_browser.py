@@ -104,6 +104,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
+    assert "matchMedia" not in script
     assert "FormData" not in script
     assert "multipart/form-data" not in script
     assert ".name" not in script
@@ -112,6 +113,13 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         in html
     )
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
+    assert "color-scheme: light dark;" in stylesheet
+    assert "@media (prefers-color-scheme: dark)" in stylesheet
+    dark_mode = stylesheet.split("@media (prefers-color-scheme: dark)", 1)[1]
+    assert "--page-background:" in dark_mode
+    assert "--surface-background:" in dark_mode
+    assert "--text-primary:" in dark_mode
+    assert "--focus-color:" in dark_mode
     assert ".conversation:empty { display: none; }" in stylesheet
     assert "[hidden] { display: none !important; }" in stylesheet
     assert '<output class="result" hidden id="summarize-result"></output>' in html

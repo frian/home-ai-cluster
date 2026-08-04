@@ -30,6 +30,9 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
+  — evaluates the smallest explicit caller-local public-URL retrieval boundary;
+  it authorizes no network access, capability, endpoint, or browser change.
 - [Classify local text-file input investigation](classify-local-text-file-investigation.md)
   — evaluates a narrowly bounded browser-local text-file convenience for
   Classify; it does not authorize an implementation or alter RFC-0062.

@@ -33,6 +33,10 @@ architecture.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.
+- [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
+  — finds current operator-owned extraction sufficient for the existing bounded
+  Summarize and Classify text-input paths; it authorizes no PDF feature or
+  document-ingestion contract.
 - [Classify local text-file input investigation](classify-local-text-file-investigation.md)
   — evaluates a narrowly bounded browser-local text-file convenience for
   Classify; it does not authorize an implementation or alter RFC-0062.

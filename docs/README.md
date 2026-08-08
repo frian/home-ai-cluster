@@ -99,6 +99,10 @@ established at a specific stage and do not replace the current workflow.
   — investigation of ordinary tool access.
 - [Aider access proof](phase-6-aider-access-proof.md) — retained real Aider
   integration evidence.
+- [Aider static-cluster access investigation](aider-static-cluster-access-investigation.md)
+  — concludes that the existing declaration-backed compatibility composition
+  already supports the bounded Aider-to-declared-remote proof without a new
+  contract or implementation.
 - [Aider static-cluster compatibility proof](aider-static-cluster-proof.md) —
   retained privacy-safe evidence of one bounded two-machine Aider execution.
 

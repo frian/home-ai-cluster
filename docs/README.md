@@ -37,6 +37,9 @@ architecture.
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or
   document-ingestion contract.
+- [Browser-local PDF extraction investigation](browser-local-pdf-extraction-investigation.md)
+  — identifies a narrowly vendored PDF.js main/worker pair as a credible future
+  browser-only preprocessing seam; it authorizes no implementation or RFC.
 - [Classify local text-file input investigation](classify-local-text-file-investigation.md)
   — evaluates a narrowly bounded browser-local text-file convenience for
   Classify; it does not authorize an implementation or alter RFC-0062.

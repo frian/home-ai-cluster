@@ -195,24 +195,48 @@ cluster manager, compatibility interface, nor remote browser interface.
 
 ## RFC-0065 browser PDF proof status
 
-Date: 2026-08-09
+Date: 2026-08-10
 
-The real-browser proof required by accepted RFC-0065 is **not yet complete**.
-This record does not claim that browser-local PDF extraction passed.
+The real-browser proof required by accepted RFC-0065 is **complete for its
+bounded browser-local text-PDF scope**. This conclusion combines the following
+repository-owner manual Firefox evidence with the unchanged static/test and
+ordinary browser/process evidence retained above.
 
-The proof environment had an ordinary temporary loopback application, a
-privacy-safe one-page text PDF generated from two synthetic sentences, Firefox
-152, and its installed WebDriver. The automation session could start the
-browser executable but did not complete with observable page results in this
-environment. It therefore established no browser-runtime result for PDF.js
-module or worker loading, extraction, textarea editability, request shape,
-failure handling, reload, or ordinary-surface regressions.
+### Repository-owner manual browser evidence
 
-An operator with a working real-browser automation or manual session must still
-exercise the RFC-0065 success path (select, extract, edit, and submit), inspect
-the same-origin main/worker and JSON-only request evidence, check oversized and
-malformed or no-text local failures, confirm reload clears page state, and run
-the small ordinary Summarize, text-file, Classify-file, and Chat smoke checks.
-Password-protected and over-limit extracted-text cases remain separate
-obligations where practical; existing automated coverage does not turn either
-into browser-runtime evidence.
+After merged PR #423 corrected the PDF.js cleanup lifecycle exposed by the
+original browser attempt, the repository owner manually confirmed that:
+
+* one explicitly selected small synthetic text-based PDF loaded its PDF.js main
+  module and worker from the loopback same origin;
+* extracted text appeared in the existing Summarize textarea, could be edited,
+  and was edited before submission;
+* the existing `POST /v1/summarize` request contained only the current `text`
+  JSON field, with no PDF binary, filename, MIME value, or PDF metadata;
+* Summarize completed through its existing path; and
+* reloading cleared the textarea and browser state.
+
+The owner also manually confirmed safe local feedback, with no intentional
+`/v1/summarize` submission, for an oversized PDF, malformed PDF, valid PDF
+with no extractable text, password-protected PDF, and a PDF whose extracted
+text exceeded the existing 65,536-byte UTF-8 bound. The over-limit text
+populated the textarea and received the existing accepted-limit feedback.
+
+### Existing retained boundary evidence
+
+The static implementation and focused tests retained above establish the fixed
+same-origin asset routes, 8 MiB pre-parse bound, unchanged JSON-only Summarize
+request shape, and absence of multipart/upload behavior or browser storage.
+The existing ordinary browser and process evidence remains the retained support
+for unchanged entered-text and text-file Summarize behavior, Classify and Chat
+behavior, API-only and compatibility page-free boundaries, and related reload
+and retention boundaries. Those checks were not represented as rerun during the
+PDF session.
+
+### Bounded conclusion
+
+Together, this retained evidence satisfies the accepted RFC-0065 proof
+obligations for one browser-local, text-based PDF selected for Summarize. It
+does not establish arbitrary PDF support, OCR or scanned/image-only extraction,
+general reading order, document ingestion, PDF upload or server-side parsing,
+password entry, or PDF support in Classify or Chat.

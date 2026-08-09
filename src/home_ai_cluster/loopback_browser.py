@@ -36,4 +36,20 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
             headers=_CACHE_HEADERS,
         )
 
+    @app.get("/assets/pdfjs-6.2.108/pdf.min.mjs", include_in_schema=False)
+    def pdfjs_main() -> FileResponse:
+        return FileResponse(
+            _WEB_DIRECTORY / "assets" / "pdfjs-6.2.108" / "pdf.min.mjs",
+            media_type="application/javascript",
+            headers=_CACHE_HEADERS,
+        )
+
+    @app.get("/assets/pdfjs-6.2.108/pdf.worker.min.mjs", include_in_schema=False)
+    def pdfjs_worker() -> FileResponse:
+        return FileResponse(
+            _WEB_DIRECTORY / "assets" / "pdfjs-6.2.108" / "pdf.worker.min.mjs",
+            media_type="application/javascript",
+            headers=_CACHE_HEADERS,
+        )
+
     return app

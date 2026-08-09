@@ -30,6 +30,8 @@
           <textarea id="summarize-text" rows="8"></textarea>
           <label for="summarize-file">Or choose a UTF-8 text file</label>
           <input accept="text/plain,.txt" id="summarize-file" type="file">
+          <label for="summarize-pdf">Or choose a text-based PDF (up to 8 MiB)</label>
+          <input accept="application/pdf,.pdf" id="summarize-pdf" type="file">
           <button data-submit type="submit">Summarize</button>
         </form>
         <output class="result" hidden id="summarize-result"></output>

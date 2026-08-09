@@ -108,9 +108,20 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "if (file.size > pdfByteLimit)" in script
     assert "new Uint8Array(await file.arrayBuffer())" in script
     assert "pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl" in script
-    assert "new pdfjs.PDFWorker({ name: \"summarize-pdf\" })" in script
-    assert "await documentProxy.destroy();" in script
-    assert "await worker.destroy();" in script
+    read_pdf_text = script.split("async function readPdfText(file)", 1)[1].split(
+        'document.querySelector("#summarize-pdf").addEventListener(', 1
+    )[0]
+    assert "let loadingTask;" in read_pdf_text
+    assert "loadingTask = pdfjs.getDocument({ data: bytes });" in read_pdf_text
+    assert "new pdfjs.PDFWorker" not in read_pdf_text
+    assert "documentProxy.destroy" not in read_pdf_text
+    assert "worker.destroy" not in read_pdf_text
+    assert "await loadingTask.destroy();" in read_pdf_text
+    assert read_pdf_text.index("loadingTask = pdfjs.getDocument") < read_pdf_text.index(
+        "await loadingTask.promise"
+    ) < read_pdf_text.index("finally {") < read_pdf_text.index(
+        "await loadingTask.destroy();"
+    )
     assert "post(\"/v1/summarize\", { text }, \"Summarizing…\")" in script
     assert 'document.querySelector("#summarize-pdf")' in script
     assert 'document.querySelector("#classify-pdf")' not in script

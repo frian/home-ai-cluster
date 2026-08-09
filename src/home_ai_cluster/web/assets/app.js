@@ -142,12 +142,11 @@
   async function readPdfText(file) {
     const pdfjs = await import(pdfjsMainUrl);
     pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
-    const worker = new pdfjs.PDFWorker({ name: "summarize-pdf" });
-    let documentProxy;
+    let loadingTask;
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const loadingTask = pdfjs.getDocument({ data: bytes, worker });
-      documentProxy = await loadingTask.promise;
+      loadingTask = pdfjs.getDocument({ data: bytes });
+      const documentProxy = await loadingTask.promise;
       const pages = [];
       for (let number = 1; number <= documentProxy.numPages; number += 1) {
         const page = await documentProxy.getPage(number);
@@ -159,8 +158,13 @@
       if (exception instanceof pdfjs.PasswordException) throw "password-protected";
       throw "unreadable";
     } finally {
-      if (documentProxy) await documentProxy.destroy();
-      await worker.destroy();
+      if (loadingTask) {
+        try {
+          await loadingTask.destroy();
+        } catch (_) {
+          // A teardown failure must not turn successfully extracted text unreadable.
+        }
+      }
     }
   }
 

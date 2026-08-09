@@ -60,6 +60,12 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0065: Browser-Local PDF Text Input for Summarize](RFC-0065-browser-local-pdf-text-input-for-summarize.md)
+  — proposes one 8 MiB-bounded browser-local PDF.js text-extraction convenience
+  for the existing Summarize textarea and text-only request path.
+
 ## Accepted RFCs
 
 - [RFC-0063: Classify Local Text File Input](RFC-0063-classify-local-text-file-input.md)

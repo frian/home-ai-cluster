@@ -1,6 +1,6 @@
 # RFC-0065: Browser-Local PDF Text Input for Summarize
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-09
 
@@ -143,4 +143,18 @@ addresses, and runtime/model identity.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The loopback web client may accept one explicitly selected local text-based PDF
+for Summarize. PDF parsing occurs entirely in browser memory using Mozilla
+PDF.js, with only matched vendored `build/pdf.min.mjs` and
+`build/pdf.worker.min.mjs` authorized for the first implementation. The PDF is
+limited to 8 MiB before parsing; extracted text must satisfy the existing
+non-blank 65,536-byte UTF-8 source boundary, populate the existing editable
+Summarize textarea, and be submitted only as current textarea text through the
+unchanged `/v1/summarize` contract.
+
+The PDF binary and metadata never reach the server, cluster request, remote
+transport, runtime adapter, or model. This decision does not authorize OCR,
+server-side parsing, upload or multipart input, persistence, document identity,
+Classify PDF input, or Chat PDF/document-context support.

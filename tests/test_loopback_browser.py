@@ -1,4 +1,5 @@
 import asyncio
+from hashlib import sha256
 from importlib.resources import files
 
 import httpx
@@ -50,6 +51,7 @@ def test_api_only_applications_remain_page_free() -> None:
     ):
         assert get(app, "/").status_code == 404
         assert get(app, "/assets/app.css").status_code == 404
+        assert get(app, "/assets/pdfjs-6.2.108/pdf.min.mjs").status_code == 404
 
 
 def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
@@ -58,6 +60,8 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
     page = get(app, "/")
     stylesheet = get(app, "/assets/app.css")
     script = get(app, "/assets/app.js")
+    pdfjs_main = get(app, "/assets/pdfjs-6.2.108/pdf.min.mjs")
+    pdfjs_worker = get(app, "/assets/pdfjs-6.2.108/pdf.worker.min.mjs")
 
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
@@ -66,6 +70,10 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
     assert stylesheet.headers["content-type"].startswith("text/css")
     assert script.status_code == 200
     assert script.headers["content-type"].startswith("application/javascript")
+    assert pdfjs_main.status_code == 200
+    assert pdfjs_main.headers["content-type"].startswith("application/javascript")
+    assert pdfjs_worker.status_code == 200
+    assert pdfjs_worker.headers["content-type"].startswith("application/javascript")
     assert get(app, "/unknown-page").status_code == 404
     assert get(app, "/assets/").status_code == 404
     assert get(app, "/assets/unknown.css").status_code == 404
@@ -78,14 +86,67 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     html = web.joinpath("index.html").read_text(encoding="utf-8")
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+    pdfjs_assets = web.joinpath("assets", "pdfjs-6.2.108")
 
     assert 'href="/assets/app.css"' in html
     assert 'src="/assets/app.js"' in html
     assert "http://" not in html
     assert "https://" not in html
+    assert "http://" not in script
+    assert "https://" not in script
     assert 'post("/v1/chat"' in script
     assert 'post("/v1/summarize"' in script
     assert 'post("/v1/classify"' in script
+    assert 'accept="application/pdf,.pdf" id="summarize-pdf" type="file"' in html
+    assert "const pdfByteLimit = 8388608;" in script
+    assert 'const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";' in script
+    assert (
+        'const pdfjsWorkerUrl = "/assets/pdfjs-6.2.108/pdf.worker.min.mjs";'
+        in script
+    )
+    assert "PDF.js 6.2.108: matched vendored main/worker assets." in script
+    assert "if (file.size > pdfByteLimit)" in script
+    assert "new Uint8Array(await file.arrayBuffer())" in script
+    assert "pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl" in script
+    assert "new pdfjs.PDFWorker({ name: \"summarize-pdf\" })" in script
+    assert "await documentProxy.destroy();" in script
+    assert "await worker.destroy();" in script
+    assert "post(\"/v1/summarize\", { text }, \"Summarizing…\")" in script
+    assert 'document.querySelector("#summarize-pdf")' in script
+    assert 'document.querySelector("#classify-pdf")' not in script
+    assert 'document.querySelector("#chat-pdf")' not in script
+    assert "Selected PDF must be at most 8 MiB" in script
+    assert "Selected PDF is password-protected" in script
+    assert "Selected PDF contains no extractable text" in script
+    assert "Selected PDF could not be read" in script
+    assert ".name" not in script
+    pdf_handler = script.split(
+        'document.querySelector("#summarize-pdf").addEventListener(', 1
+    )[1].split('document.querySelector("#summarize-form")', 1)[0]
+    assert "post(" not in pdf_handler
+    assert pdf_handler.index("if (file.size > pdfByteLimit)") < pdf_handler.index(
+        "await readPdfText(file)"
+    )
+    assert 'document.querySelector("#summarize-text")' in pdf_handler
+    summarize_file_handler = script.split(
+        'document.querySelector("#summarize-file").addEventListener(', 1
+    )[1].split("function extractedPdfText", 1)[0]
+    assert 'new TextDecoder("utf-8", { fatal: true })' in summarize_file_handler
+    assert (
+        'document.querySelector("#summarize-text").value = text;'
+        in summarize_file_handler
+    )
+    assert {asset.name for asset in pdfjs_assets.iterdir()} == {
+        "pdf.min.mjs",
+        "pdf.worker.min.mjs",
+    }
+    assert sha256(pdfjs_assets.joinpath("pdf.min.mjs").read_bytes()).hexdigest() == (
+        "e0be3863c23c8af2305b16548febd58e7f8874a460253317d7771cddbc1c0f6d"
+    )
+    worker_hash = sha256(pdfjs_assets.joinpath("pdf.worker.min.mjs").read_bytes())
+    assert worker_hash.hexdigest() == (
+        "0613f41490dd6aaceed7a93fbbd38c85e6d6aa60474b6588c6e7709cfbe18cb3"
+    )
     assert "`${message.role}: ${message.content}`" not in script
     assert "message message-${message.role}" in script
     assert 'message.role === "user" ? "You" : "Home AI Cluster"' in script

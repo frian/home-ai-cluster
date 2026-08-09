@@ -1,5 +1,9 @@
 (() => {
   const byteLimit = 65536;
+  const pdfByteLimit = 8388608;
+  // PDF.js 6.2.108: matched vendored main/worker assets.
+  const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";
+  const pdfjsWorkerUrl = "/assets/pdfjs-6.2.108/pdf.worker.min.mjs";
   const messages = [];
   const assistantAttribution = new WeakMap();
   let requestActive = false;
@@ -128,6 +132,60 @@
       document.querySelector("#summarize-text").value = text;
     } catch (_) {
       showError("Selected file is not valid UTF-8 text");
+    }
+  });
+
+  function extractedPdfText(items) {
+    return items.map((item) => item.str + (item.hasEOL ? "\n" : " ")).join("");
+  }
+
+  async function readPdfText(file) {
+    const pdfjs = await import(pdfjsMainUrl);
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
+    const worker = new pdfjs.PDFWorker({ name: "summarize-pdf" });
+    let documentProxy;
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const loadingTask = pdfjs.getDocument({ data: bytes, worker });
+      documentProxy = await loadingTask.promise;
+      const pages = [];
+      for (let number = 1; number <= documentProxy.numPages; number += 1) {
+        const page = await documentProxy.getPage(number);
+        const content = await page.getTextContent();
+        pages.push(extractedPdfText(content.items));
+      }
+      return pages.join("\n\n");
+    } catch (exception) {
+      if (exception instanceof pdfjs.PasswordException) throw "password-protected";
+      throw "unreadable";
+    } finally {
+      if (documentProxy) await documentProxy.destroy();
+      await worker.destroy();
+    }
+  }
+
+  document.querySelector("#summarize-pdf").addEventListener("change", async (event) => {
+    const [file] = event.target.files;
+    if (!file) return;
+    event.target.value = "";
+    clearError();
+    if (file.size > pdfByteLimit) {
+      return showError("Selected PDF must be at most 8 MiB");
+    }
+    try {
+      const text = await readPdfText(file);
+      if (!text.trim()) return showError("Selected PDF contains no extractable text");
+      const input = document.querySelector("#summarize-text");
+      input.value = text;
+      if (new TextEncoder().encode(text).length > byteLimit) {
+        showError("Text must be non-blank and within the accepted limit");
+      }
+    } catch (failure) {
+      if (failure === "password-protected") {
+        showError("Selected PDF is password-protected");
+      } else {
+        showError("Selected PDF could not be read");
+      }
     }
   });
 

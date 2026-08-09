@@ -192,3 +192,27 @@ composition, compatibility, and exposure boundaries remain unchanged.
 
 This remains neither a generic upload system, dashboard, operator console,
 cluster manager, compatibility interface, nor remote browser interface.
+
+## RFC-0065 browser PDF proof status
+
+Date: 2026-08-09
+
+The real-browser proof required by accepted RFC-0065 is **not yet complete**.
+This record does not claim that browser-local PDF extraction passed.
+
+The proof environment had an ordinary temporary loopback application, a
+privacy-safe one-page text PDF generated from two synthetic sentences, Firefox
+152, and its installed WebDriver. The automation session could start the
+browser executable but did not complete with observable page results in this
+environment. It therefore established no browser-runtime result for PDF.js
+module or worker loading, extraction, textarea editability, request shape,
+failure handling, reload, or ordinary-surface regressions.
+
+An operator with a working real-browser automation or manual session must still
+exercise the RFC-0065 success path (select, extract, edit, and submit), inspect
+the same-origin main/worker and JSON-only request evidence, check oversized and
+malformed or no-text local failures, confirm reload clears page state, and run
+the small ordinary Summarize, text-file, Classify-file, and Chat smoke checks.
+Password-protected and over-limit extracted-text cases remain separate
+obligations where practical; existing automated coverage does not turn either
+into browser-runtime evidence.

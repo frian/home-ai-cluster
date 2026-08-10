@@ -29,11 +29,9 @@ local-first, privacy-first request handling.
 Capabilities are cluster-facing semantic requirements, not model, runtime,
 machine, prompt-preset, or UI names. The core `Capability` model is name-based,
 but the accepted static capability vocabulary is intentionally closed and
-currently contains `chat`, `summarize`, and `classify`. A node is eligible only
-when its static declaration and a registered adapter both provide the requested
-capability; routing then applies existing local-first and declared-remote order
-only among eligible candidates. Capability membership filters eligibility. It
-does not score response quality, inspect models, probe runtimes, or select a
+currently contains `chat`, `summarize`, and `classify`. Existing routing filters
+by capability membership before applying local-first and declared-remote order.
+It does not score response quality, inspect models, probe runtimes, or select a
 machine directly.
 
 | Capability | Request and input semantics | Result semantics | Eligibility and adapter consequence |
@@ -45,26 +43,63 @@ machine directly.
 `summarize` and especially `classify` therefore add more than a caller
 instruction. They introduce distinct normalized inputs that the cluster owns
 and, for `classify`, an exact result invariant that it can enforce. The
-adapters may use a runtime's chat transport internally, but that does not erase
-the separate cluster request/result contract. Conversely, the accepted browser
-PDF path is input acquisition before an unchanged `summarize` request; it is
-not a PDF capability. This is a useful precedent for separating caller-side
-convenience from cluster semantics.
+adapters may use a runtime's chat transport internally, so distinct capability
+does not necessarily mean distinct transport primitive. Conversely, the
+accepted browser PDF path is input acquisition before an unchanged `summarize`
+request; it is not a PDF capability.
 
-### Capability admission test
+The existing examples do not establish a universal admission rule. They prove
+that contract-backed capabilities are valid. They do not decide whether an
+explicit operator-owned suitability promise may itself be a valid semantic
+eligibility distinction when request, result, and adapter transport are shared.
 
-A proposed capability earns a new name only when all of the following have a
-concrete, cluster-owned answer:
+## Declaration ownership and the specialized-node counterexample
 
-1. It has a request semantic that is not merely Chat messages plus instructions.
-2. It has a result semantic or invariant that is not merely free-form text.
-3. An explicit, operator-owned declaration can truthfully make a node eligible
-   or ineligible without referring to model or runtime identity, heuristics, or
-   presumed quality.
-4. It needs a distinct adapter responsibility rather than only a different
-   prompt convention over Chat.
-5. Removing the proposed name would lose an observable architectural behavior,
-   not merely a caller UX label.
+The accepted static-declaration RFCs make capabilities caller-owned routing
+permissions. A declaration says which capabilities the caller permits the
+router to consider; it does not verify that a receiving application, adapter,
+or runtime implements a capability, discover runtime state, or derive facts
+from a model. The same distinction applies to caller-local static capability
+restrictions. This is compatible with a repository owner knowing an external
+fact about their local composition and using a static declaration to constrain
+routing.
+
+That makes this conceptual topology coherent at the declaration layer:
+
+```text
+node-a: chat
+node-b: chat, code
+```
+
+An operator may have chosen node-b because they consider its model or local
+runtime composition suited to coding work. That model or runtime is the
+operator's reason for the declaration, not a cluster-facing selector. HAC need
+not inspect, name, benchmark, inventory, or compare it. In that limited sense,
+the topology can remain engine- and model-name-independent.
+
+However, current RFCs use closed declaration vocabularies for capabilities that
+already have defined cluster contracts. They explicitly reject arbitrary
+capability names, and the adapter boundary says adapters report capabilities
+they can provide. The accepted architecture does not say whether a shared
+free-text adapter operation can truthfully provide a second capability solely
+because an operator considers its composition more suitable. It also does not
+define what `code` promises to a caller beyond a vague quality category.
+
+The risk is not that every operator declaration must be mechanically verified;
+accepted static declarations already reject that premise. The risk is that an
+undefined label becomes hidden model preference: users cannot tell whether
+`code` means syntax-aware generation, a bounded source transformation, an
+operator's quality judgment, or execution authority. The current record gives
+no general boundary that separates a clear semantic suitability promise from an
+arbitrary label.
+
+### Capability truthfulness interpretations
+
+| Interpretation | Fit with accepted evidence | Consequence for `code` |
+| --- | --- | --- |
+| Contract-backed capability | Directly demonstrated by `summarize` and `classify`; their declarations remain unverified routing permissions, but the capability meaning is cluster-defined. | The text-only candidate remains Chat unless a distinct contract is defined. |
+| Operator-declared suitability capability | Static ownership supports an operator controlling eligibility without runtime inspection. | Could make node-b eligible if `code` has a bounded semantic promise, but current RFCs do not establish that this type of capability is permitted. |
+| Hybrid | Consistent with explicit operator control and engine independence if the semantic category is closed, bounded, and not inferred from model identity. | Plausible, but needs an architecture decision defining truthfulness, adapter reporting, and caller requirements before it can authorize `code`. |
 
 ## Candidate `code` semantics and routing value
 
@@ -75,60 +110,49 @@ response text, and no cluster-verifiable success property. Adding language,
 filename, repository, model, runtime, execution permission, or similar fields
 would broaden the problem without establishing a need.
 
-This makes the candidate indistinguishable from a Chat request whose messages
-ask for a Bash administration script, a Python maintenance utility, or an
-explanation or transformation of pasted code. The current native Chat request
-already carries plain-text messages and returns plain text through the existing
-adapter and routing path.
+This remains textually representable as a Chat request whose messages ask for a
+Bash administration script, a Python maintenance utility, or an explanation or
+transformation of pasted code. The current native Chat request already carries
+plain-text messages and returns plain text through the existing runtime path.
 
-The conceptual topology below is not yet an honest routing fact:
+If a caller could explicitly require `code`, however, removing `code` could
+also remove the operator's ability to exclude node-a and route only to
+coding-designated node-b. That is a real routing consequence, not a different
+transport consequence. It may be legitimate operator policy if `code` is an
+accepted semantic suitability category. It is hidden model selection if the
+label merely means “the operator prefers this model” without a defined promise.
+The accepted architecture does not provide the criterion needed to choose
+between those descriptions.
 
-```text
-node-a: chat
-node-b: chat, code
-```
+## Request, routing, and adapter implications
 
-For it to be meaningful, an operator would need an objective fact that makes
-node-b able to satisfy the `code` request while node-a cannot. In the proposed
-text-in/text-out scope, neither the request nor result establishes such a fact.
-Declaring `code` from a model name, runtime name, benchmark, automatic model
-inspection, or a quality judgment would violate the accepted capability and
-engine-independence boundaries. An unverified operator declaration could state
-the distinction, but would not make it truthful or explain what adapter-level
-contract node-b supports.
+Three conceptual first shapes have different implications:
 
-The existing architecture already establishes that static capability ownership,
-where valid, is operator-owned routing permission rather than runtime discovery
-or health. It does not supply a semantic basis for a `code` declaration. A new
-declaration mechanism is therefore not the missing piece; a distinct capability
-contract is.
+| Shape | What it establishes | What remains unresolved |
+| --- | --- | --- |
+| A. `CodeRequest(text=...)` | A new cluster request could define a distinct input boundary. | No evidence yet requires a new input or result shape. Adding one only to justify routing would be circular. |
+| B. Existing `ClusterRequest(messages=..., capability=code)` | The core request concept already carries a requested named capability, so shared Chat messages and a stronger required capability are conceptually representable. | Current accepted public, static-vocabulary, adapter, and transport contracts do not authorize `code`; deciding caller requirement semantics would be architectural work. |
+| C. Caller-side Chat only | Preserves present text-in/text-out behavior and needs no new architecture. | Cannot exclude a chat-only node through a `code` eligibility requirement. |
 
-## Request and adapter implications
-
-No new first request/result shape is justified by the candidate. A conceptual
-`instruction -> generated text` request duplicates the free-form message and
-content semantics of Chat. The existing adapters already translate Chat text to
-their runtime chat operations. A `code` adapter method that differs only by its
-prompt wording would be a prompt convention disguised as a capability.
-
-This differs from the accepted `classify` adapter responsibility, which receives
-labels and returns a proposal the cluster can validate exactly. It also differs
-from `summarize`, whose bounded source-text normalization is owned outside a
-conversation. No evidence shows that code text needs an engine-independent
-adapter operation, result normalization rule, or closed transport variant that
-Chat lacks.
+The adapter evidence is similarly mixed. Existing `summarize` and `classify`
+have named adapter responsibilities, even where adapters use their runtime's
+chat transport. This demonstrates that transport primitive is not the sole
+test. It does not decide whether one adapter `chat` operation may honestly
+support both `chat` and a suitability-only `code` declaration. If it may, the
+declaration must not imply tool access, code execution, or a runtime feature
+the adapter does not provide.
 
 ## Operator usefulness
 
 | Bounded use | Does `code` improve routing? | Current architectural fit |
 | --- | --- | --- |
-| Generate a small Bash administration script from explicit instructions. | No identified eligibility fact distinguishes it from text Chat. | Chat with caller-owned instructions. The script is output, not authority to execute it. |
-| Produce a short Python maintenance utility. | No identified eligibility fact distinguishes it from text Chat. | Chat with caller-owned instructions. No filesystem, test, or repository action follows. |
-| Explain or transform a pasted code fragment. | No identified eligibility fact distinguishes it from text Chat. | Chat with caller-owned instructions; the pasted fragment remains private request content under existing rules. |
+| Generate a small Bash administration script from explicit instructions. | A declared code-suitability category could restrict routing, but present architecture does not define it. | Text remains Chat-representable; the script is output, not authority to execute it. |
+| Produce a short Python maintenance utility. | The same unresolved suitability declaration could affect eligibility. | Text remains Chat-representable; no filesystem, test, or repository action follows. |
+| Explain or transform a pasted code fragment. | The same unresolved suitability declaration could affect eligibility. | Text remains Chat-representable; the pasted fragment remains private request content. |
 
 These uses may be valuable to operators, but usefulness or expected response
-quality alone is not a routing criterion. The cluster would behave exactly as
-it does for a well-formed Chat request.
+quality alone is not a routing criterion under the current accepted contracts.
+Their request and result behavior remains that of well-formed Chat.
 
 ## Compatibility and coding-tool relationship
 
@@ -145,23 +169,35 @@ evidence that the cluster needs a new capability. In particular, this does not
 claim that Aider's full workflow fits the current compatibility subset or
 authorize configuration, implementation, or compatibility expansion.
 
-## Duplication test
+## Revised duplication test
 
-Removing the word `code` and submitting the same instruction and pasted text
-through Chat loses no identified cluster-owned request validation, result
-invariant, adapter responsibility, routing rule, eligibility fact, privacy
-boundary, or attribution behavior. It only loses a caller label or prompt
-convention. Under the capability admission test, that is insufficient.
+The duplication question has two layers:
+
+| Layer | Result |
+| --- | --- |
+| Request/result duplication | Yes. The same textual instruction and pasted source are representable through Chat and return free-form text. |
+| Routing duplication | Underspecified. Removing `code` removes a possible operator-owned eligibility restriction to node-b, but accepted architecture does not say whether suitability alone makes that restriction a capability rather than preference or hidden model selection. |
+
+Request/result duplication alone does not settle the question. Routing
+non-duplication would be sufficient only if the project first accepts a bounded
+operator-declared suitability capability as a valid capability kind.
 
 ## Next-step guidance
 
-No RFC is warranted next. A future investigation would need evidence of a
-bounded, engine-independent code-specific request/result contract and an
-objective operator-owned eligibility fact that cannot be expressed truthfully
-as Chat. A caller-side UX or coding-tool integration investigation could be
-useful later, provided it begins from existing Chat boundaries and does not
-silently add execution authority or expand compatibility.
+Do not write a `code` RFC yet. The smallest next architectural question is
+whether Home AI Cluster permits a closed, explicitly operator-owned semantic
+suitability capability whose request/result transport is shared with another
+capability. That question must define the minimum truthfulness boundary,
+relationship between node declaration and adapter reporting, caller expression
+of the required capability, explainability, and the line between semantic
+eligibility and hidden model preference. It must preserve the bans on automatic
+model classification, model inventory, benchmarking, scoring, runtime-aware
+routing, arbitrary labels, generic policy engines, and execution authority.
+
+A later `code` proposal is appropriate only after that general question is
+decided. A caller-side UX or coding-tool integration investigation may still be
+useful under existing Chat boundaries, but does not resolve it.
 
 ## Primary outcome
 
-Outcome B — code should remain Chat usage
+Outcome C — Capability semantics are underspecified

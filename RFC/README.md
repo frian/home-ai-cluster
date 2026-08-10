@@ -62,6 +62,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0066: Capability Admission Semantics](RFC-0066-capability-admission-semantics.md)
+  — accepts a closed, explicit, model-independent admission rule for future
+  capability proposals without authorizing a new capability or implementation.
 - [RFC-0065: Browser-Local PDF Text Input for Summarize](RFC-0065-browser-local-pdf-text-input-for-summarize.md)
   — accepts one 8 MiB-bounded browser-local PDF.js preprocessing path for the
   existing Summarize textarea and unchanged text-only request.

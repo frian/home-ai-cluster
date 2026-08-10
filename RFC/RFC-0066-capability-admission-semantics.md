@@ -1,6 +1,6 @@
 # RFC-0066: Capability Admission Semantics
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-10
 
@@ -316,4 +316,4 @@ implementation evidence.
 
 ## Decision
 
-Pending.
+Accepted.

@@ -41,7 +41,7 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has nine commands: three foreground processes and six
+The ordinary root surface has ten commands: three foreground processes and seven
 finite commands.
 
 | Command | Purpose | Process type |
@@ -50,6 +50,7 @@ finite commands.
 | `static-cluster` | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
 | `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
 | `chat` | Send one native chat request. | One-shot request |
+| `code` | Send one native bounded textual code request. | One-shot request |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
 | `classify` | Send one native bounded classification request. | One-shot request |
 | `preflight` | Inspect static declaration coherence. | Finite inspection |
@@ -75,8 +76,8 @@ hac local \
 are `ollama` and `llama-server`; llama-server requires both of its explicit
 arguments. The application runs in the foreground. Home AI Cluster does not
 install, start, stop, download models for, or supervise the external runtime.
-Ordinary local compositions advertise and execute `chat`, `summarize`, and
-`classify`.
+Ordinary local compositions advertise and execute `chat`, `summarize`,
+`classify`, and `code`.
 
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
@@ -115,11 +116,12 @@ retained inline mode supports exactly one remote node. The same verified local
 runtime-composition options as `hac local` are accepted. Topology is static and
 explicit, and routing remains local-first and capability-centered. The process
 does not discover, start, stop, supervise, or repair remote machines or runtimes.
-The accepted explicit capability names are `chat`, `summarize`, and `classify`:
+The accepted explicit capability names are `chat`, `summarize`, `classify`, and
+`code`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
 ["..."]` in the legacy flat TOML form, or repeat `--remote-capability <NAME>`
 for the one-remote inline form. Omission retains only `chat` plus `summarize`,
-so `classify` eligibility is always explicit.
+so `classify` and `code` eligibility are always explicit.
 Caller-local routing capabilities use `local_capabilities = ["..."]` at the
 TOML root or repeated `--local-capability <NAME>` in the complete inline form.
 They control only which capabilities the caller-side static-cluster router may
@@ -148,8 +150,8 @@ hac compatibility --declaration <PATH>
 
 **Important behavior:** It is loopback-only by default and runs in the
 foreground. It provides narrow, non-streaming chat-completions compatibility,
-not the internal cluster protocol or general OpenAI API compatibility. Summarize
-and classify are not supported through this surface.
+not the internal cluster protocol or general OpenAI API compatibility.
+Summarize, classify, and code are not supported through this Chat-only surface.
 
 **See also:** [README compatibility guidance](../README.md#run-the-minimal-openai-compatible-endpoint).
 
@@ -176,6 +178,36 @@ value is the HTTP client's pool/connect/write/read scalar timeout, not a total
 deadline. It adds no retry or cancellation. A timeout does not prove work has
 stopped elsewhere, so do not immediately repeat a timed-out request on slow
 hardware without accepting that it can create additional work.
+
+**See also:** [Canonical operator workflow](operator-workflow.md).
+
+## `hac code`
+
+**Purpose:** Send one native bounded textual code request to an already-running
+ordinary process.
+
+**Common forms:**
+
+```sh
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code --timeout-seconds 300 --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --verbose
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --json
+```
+
+**Important behavior:** The command requires exactly one explicit, non-blank
+`--message`; it does not read code from a file or stdin. Its initial one-message
+request is limited to 65,536 UTF-8 bytes and is never truncated. The client is
+topology-blind: it explicitly sends `capability=code` through the existing
+native `POST /v1/chat` endpoint, does not start or inspect the process, and
+uses the existing 120-second omission default and per-invocation HTTP-client
+timeout behavior. Default output is free-form text, `--verbose` adds execution
+attribution, and `--json` returns the structured result. A topology with no
+eligible code capability produces a safe no-capability failure.
+
+Generated code is response text only. This command grants no filesystem,
+repository, shell, Git, testing, tool, function, agent, or execution authority.
+It does not add `/v1/code` or a standalone `home-ai-cluster-code` command.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -321,9 +353,9 @@ without making the command invocation invalid.
 
 ## Output conventions
 
-Service commands stay in the foreground. Chat and summarize return content by
-default; classify returns its selected label. Their `--verbose` forms include
-execution attribution and their `--json` forms return compact structured
+Service commands stay in the foreground. Chat, code, and summarize return
+content by default; classify returns its selected label. Their `--verbose` forms
+include execution attribution and their `--json` forms return compact structured
 results. Inspection commands are human-readable by default and offer `--json`
 for automation. Individual command support is shown above.
 
@@ -349,14 +381,14 @@ scripts:
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
 
-`hac summarize` and `hac classify` are available through the ordinary root
-command; neither has a separate installed checkout script.
+`hac code`, `hac summarize`, and `hac classify` are available through the
+ordinary root command; none has a separate installed checkout script.
 
 ## Historical and specialized commands
 
 The repository also retains historical proof and specialized operator commands,
 including static proof, routing explanation, actual-request explanation, and
-history inspection and clearing. They are not part of the ordinary nine-command
+history inspection and clearing. They are not part of the ordinary ten-command
 root surface and are intentionally not fully documented here.
 
 **See also:** [Documentation index](README.md), retained proof documents, and

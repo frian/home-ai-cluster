@@ -49,6 +49,7 @@ home-ai-cluster local
 home-ai-cluster static-cluster
 home-ai-cluster compatibility
 home-ai-cluster chat
+home-ai-cluster code
 home-ai-cluster summarize
 home-ai-cluster classify
 home-ai-cluster preflight
@@ -85,6 +86,7 @@ hac local
 hac static-cluster --declaration <path>
 hac compatibility
 hac chat "Hello"
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac summarize --text "Long text to summarize"
 hac classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
@@ -93,6 +95,7 @@ The long namespace remains canonical and fully supported:
 
 ```sh
 home-ai-cluster status --declaration <path>
+home-ai-cluster code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 home-ai-cluster summarize --text "Long text to summarize"
 home-ai-cluster classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
@@ -152,18 +155,21 @@ runtime composition through the closed choices `ollama` and `llama-server`.
 Runtime choice is consumed only at process startup and does not enter requests,
 routing, remote declarations, attribution, or normalized status.
 
-The executable normalized request family is closed to `chat`, `summarize`, and
-`classify`. Both adapter families map summarize and classify explicitly, and
-ordinary local and static-cluster compositions support them through existing
-capability-centered selection. OpenAI-compatible access remains chat-only. The
-root command has the nine subcommands shown above, including the ordinary native
-`summarize` and `classify` clients. Accepted RFC-0061 classification is
-implemented and has retained ordinary proof evidence.
+The accepted ordinary capability vocabulary is `chat`, `summarize`, `classify`,
+and `code`. `code` is explicit bounded textual code assistance: it shares the
+ordered-message `ClusterRequest` representation and free-form textual result,
+uses `POST /v1/chat` with `capability=code`, and introduces no `/v1/code`.
+Both ordinary local Ollama and llama-server compositions advertise and execute
+it through their existing Chat-like execution path. OpenAI-compatible access
+remains Chat-only, and the fixed browser page remains Chat, Summarize, and
+Classify only. The root command has the ten subcommands shown above, including
+the ordinary native `summarize`, `classify`, and `code` clients.
 
-The accepted explicit static capability names are `chat`, `summarize`, and
-`classify`. Omitted local or remote capability declarations retain only the
-compatibility default `chat` plus `summarize`; `classify` eligibility must be
-declared explicitly. Capability membership controls eligibility, not priority;
+The accepted explicit static capability names are `chat`, `summarize`,
+`classify`, and `code`. Omitted local or remote capability declarations retain
+exactly the compatibility default `chat` plus `summarize`; `classify` and
+`code` eligibility must be declared explicitly. Capability membership controls
+hard eligibility, not priority, model preference, or runtime preference;
 declared remote order remains the only remote priority.
 
 The explicit `home-ai-cluster-static-cluster` entry point can start an ordinary
@@ -257,6 +263,20 @@ ordinary process, use:
 ```sh
 hac summarize --text "Long text to summarize"
 ```
+
+For one explicit bounded textual code request, use the same native
+ordered-message endpoint through the root command:
+
+```sh
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+```
+
+The long equivalent is `home-ai-cluster code --message
+"<OPERATOR_SUPPLIED_CODE_REQUEST>"`. It accepts exactly one non-blank explicit
+message and limits that message to 65,536 UTF-8 bytes; it never reads a file or
+stdin and never truncates input. Generated code is response text only: it
+grants no filesystem, repository, shell, Git, testing, tool, agent, or
+execution authority.
 
 The same one bounded UTF-8 source can come from standard input:
 

@@ -247,6 +247,13 @@ established at a specific stage and do not replace the current workflow.
   physical-LAN bounded classification execution; it does not change RFC-0061
   or add distributed infrastructure.
 
+### RFC-0067 — Bounded textual code assistance
+
+- [Bounded textual code assistance proof](bounded-textual-code-assistance-proof.md)
+  — retains privacy-safe local positive and no-eligible-capability evidence for
+  accepted RFC-0067. A physical two-machine code proof remains pending; this is
+  not a full RFC-0067 proof closeout.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

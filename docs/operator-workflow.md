@@ -2,7 +2,7 @@
 
 Status: Canonical
 
-Date: 2026-07-31
+Date: 2026-08-11
 
 This document is the shortest supported operator path for the current Home AI
 Cluster architecture. It defines three distinct modes:
@@ -21,15 +21,15 @@ stop, supervise, repair, or discover runtimes or remote machines.
 ## Daily-use overview
 
 The ordinary process is started once and can serve repeated requests. `chat`,
-`summarize`, and `classify` are finite clients of that already-running process; they do not
-start it.
+`code`, `summarize`, and `classify` are finite clients of that already-running
+process; they do not start it.
 
 **Local-only (the shortest default path):**
 
 ```text
 external runtime
   -> hac local
-  -> repeated hac chat / hac summarize / hac classify requests
+  -> repeated hac chat / hac summarize / hac classify / hac code requests
   -> stop hac local
 ```
 
@@ -39,7 +39,7 @@ external runtime
 receiver runtime + receiver hac local
   -> caller preflight/status when useful
   -> caller hac static-cluster
-  -> repeated caller hac chat / hac summarize / hac classify requests
+  -> repeated caller hac chat / hac summarize / hac classify / hac code requests
   -> stop caller, then receiver
 ```
 
@@ -118,6 +118,9 @@ The native endpoint is:
 http://127.0.0.1:8000/v1/chat
 ```
 
+This existing ordered-message endpoint carries both ordinary `chat` and `code`;
+there is no `/v1/code` endpoint.
+
 The same process also exposes the native bounded summarize endpoint:
 
 ```text
@@ -187,7 +190,20 @@ one exact selected label and cluster-owned node attribution; the executor, not
 the adapter, validates exact membership. See the command reference for bounds
 and output forms.
 
-For one slow-but-valid ordinary request, chat, summarize, and classify accept one
+To request bounded textual code assistance, use the ordinary root client:
+
+```sh
+hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+```
+
+`code` is explicit: the client constructs `capability=code`, accepts exactly
+one non-blank message, and limits its aggregate message content to 65,536 UTF-8
+bytes without truncation. It is topology-blind and uses the existing native
+`POST /v1/chat` path, timeout, and output conventions. Its generated text is
+not executed and grants no filesystem, repository, shell, Git, testing, tool,
+agent, or execution authority.
+
+For one slow-but-valid ordinary request, chat, code, summarize, and classify accept one
 per-invocation `--timeout-seconds SECONDS` value, for example:
 
 ```sh
@@ -321,9 +337,9 @@ capabilities: they control only which capabilities the caller-side static-cluste
 router may consider locally. They do not disable adapters, change runtime health,
 remove endpoints, configure `hac local`, change receiver behavior, verify remote
 runtime capability, select a target node, or create scheduling or preference.
-The accepted explicit names are `chat`, `summarize`, and `classify`. Omitted
-local or remote capability fields and options retain only `chat` plus
-`summarize`; `classify` eligibility is explicit. Explicit sets cannot be empty,
+The accepted explicit names are `chat`, `summarize`, `classify`, and `code`.
+Omitted local or remote capability fields and options retain only `chat` plus
+`summarize`; `classify` and `code` eligibility are explicit. Explicit sets cannot be empty,
 duplicated, or unknown, and order has no priority meaning. Declaration and
 inline topology modes are mutually exclusive. Declaration order remains
 meaningful for the existing ordered remote behavior; declarations do not probe
@@ -436,7 +452,8 @@ http://127.0.0.1:8000/v1/chat
 ```
 
 The same process also exposes `/v1/summarize` and `/v1/classify` on that native
-endpoint.
+endpoint. Its existing `/v1/chat` ordered-message endpoint carries ordinary
+`chat` and explicit `code`; no `/v1/code` endpoint exists.
 
 The process owns only its HTTP client and application lifecycle; it does not
 start, stop, supervise, repair, or discover the remote machine or runtime.
@@ -446,6 +463,12 @@ start, stop, supervise, repair, or discover the remote machine or runtime.
 ```sh
 uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
+
+The same process also accepts an explicit bounded textual code request through
+`hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"`. A declared code-capable
+node can be selected only when `code` is explicit in its static declaration;
+omission remains exactly `chat` plus `summarize`. This does not make the browser
+page a Code surface or expand the Chat-only OpenAI-compatible process.
 
 A usable eligible local candidate has precedence. A declared remote can be
 selected directly when the local candidate is ineligible for the requested

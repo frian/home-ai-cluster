@@ -134,7 +134,18 @@ async def handle_chat_cluster_request(
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
             )
-        except RuntimeAdapterUnavailableError as exc:
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+        ) as exc:
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "No adapter provides capability: "
+                        f"{cluster_request.capability.name}"
+                    ),
+                ) from exc
             raise HTTPException(
                 status_code=503,
                 detail="Runtime adapter unavailable",
@@ -149,7 +160,18 @@ async def handle_chat_cluster_request(
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
             )
-        except RuntimeAdapterUnavailableError as exc:
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+        ) as exc:
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail=(
+                        "No adapter provides capability: "
+                        f"{cluster_request.capability.name}"
+                    ),
+                ) from exc
             raise HTTPException(
                 status_code=503,
                 detail="Runtime adapter unavailable",

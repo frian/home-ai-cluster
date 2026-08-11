@@ -253,19 +253,22 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     static_remote_collection_wiring = (
         http_request.app.state.static_remote_collection_wiring
     )
-    cluster_request = ClusterRequest(
-        messages=request.messages,
-        capability=Capability(name=request.capability),
-        constraints=(
-            RequestConstraints(local_only=False)
-            if (
-                automatic_proof_orchestrator
-                or static_remote_wiring is not None
-                or static_remote_collection_wiring is not None
-            )
-            else RequestConstraints()
-        ),
-    )
+    try:
+        cluster_request = ClusterRequest(
+            messages=request.messages,
+            capability=Capability(name=request.capability),
+            constraints=(
+                RequestConstraints(local_only=False)
+                if (
+                    automatic_proof_orchestrator
+                    or static_remote_wiring is not None
+                    or static_remote_collection_wiring is not None
+                )
+                else RequestConstraints()
+            ),
+        )
+    except ValidationError:
+        raise HTTPException(status_code=422, detail="Invalid chat request") from None
 
     if automatic_proof_orchestrator:
         return await automatic_proof_orchestrator(cluster_request)

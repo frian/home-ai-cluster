@@ -7,7 +7,11 @@ from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
     ClusterRequest,
+    NodeDescription,
+    NodeHealth,
 )
+from home_ai_cluster.core.registry import NodeRegistry
+from home_ai_cluster.core.remote_transport import internal_cluster_request_body
 from home_ai_cluster.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
@@ -57,9 +61,57 @@ def test_internal_message_envelope_preserves_code_and_rejects_vision() -> None:
         )
 
 
+def test_code_eligibility_excludes_chat_only_node() -> None:
+    nodes = NodeRegistry(
+        [
+            NodeDescription(
+                id="chat", name="chat", availability="available",
+                health=NodeHealth(healthy=True), capabilities=[Capability(name="chat")],
+                adapters=["test"],
+            ),
+            NodeDescription(
+                id="code", name="code", availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="chat"), Capability(name="code")],
+                adapters=["test"],
+            ),
+        ]
+    )
+
+    assert [node.id for node in nodes.nodes_for(Capability(name="code"))] == ["code"]
+
+
+def test_code_uses_legacy_chat_transport_envelope() -> None:
+    body = internal_cluster_request_body(make_request(["code"]))
+
+    assert body["kind"] == "chat"
+    assert body["request"]["capability"] == {"name": "code"}
+
+
 def test_code_command_requires_one_bounded_explicit_message() -> None:
     assert code_command._native_request("hello")["capability"] == "code"
     with pytest.raises(code_command.chat_command._InvalidRequestInput):
         code_command._parse_input(["--message", "x" * 65_537])
     with pytest.raises(code_command.chat_command._InvalidRequestInput):
         code_command._parse_input([])
+
+
+def test_code_command_uses_chat_path_and_code_specific_404(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    recorded: dict[str, object] = {}
+
+    class Response:
+        status_code = 404
+
+    def post(request: dict[str, object], **kwargs: object) -> Response:
+        recorded.update(request)
+        return Response()
+
+    monkeypatch.setattr(code_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit) as error:
+        code_command.main(["--message", "hello"])
+
+    assert error.value.code == 1
+    assert recorded["capability"] == "code"
+    assert capsys.readouterr().err == "error: no available code capability\n"

@@ -74,6 +74,13 @@ def _native_request(message: str) -> dict[str, Any]:
     }
 
 
+def _failure_for_status(status_code: int) -> str | None:
+    """Keep the native code capability failure name truthful."""
+    if status_code == 404:
+        return "error: no available code capability"
+    return chat_command._failure_for_status(status_code)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -100,7 +107,7 @@ def main(
     except Exception:
         chat_command._exit_with_failure(chat_command._ORDINARY_REQUEST_FAILED, 1)
 
-    failure = chat_command._failure_for_status(response.status_code)
+    failure = _failure_for_status(response.status_code)
     if failure is not None:
         chat_command._exit_with_failure(failure, 1)
 

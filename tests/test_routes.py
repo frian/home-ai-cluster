@@ -982,6 +982,73 @@ def test_chat_endpoint_rejects_oversized_code_before_execution(
     assert response.json() == {"detail": "Invalid chat request"}
 
 
+def test_static_chat_path_returns_404_without_calling_ineligible_remote() -> None:
+    local = RecordingChatAdapter()
+    declaration = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="remote",
+            name="remote",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="chat")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(
+            self,
+            request: ClusterRequest,
+            _: RemoteNodeDeclaration,
+        ) -> ClusterResult:
+            self.calls += 1
+            raise AssertionError("ineligible remote must not be called")
+
+    transport = RemoteTransport()
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="local",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[Capability(name="chat")],
+                    adapters=[local.name],
+                )
+            ]
+        ),
+        adapter_registry=AdapterRegistry([local]),
+        remote_declaration=declaration,
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        app = create_app(static_remote_wiring=wiring)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/chat",
+                json={
+                    "messages": [{"role": "user", "content": "code"}],
+                    "capability": "code",
+                },
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No adapter provides capability: code"}
+    assert local.requests == []
+    assert transport.calls == 0
+
+
 def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -58,7 +58,7 @@ The retained local observations support these two bounded outcomes:
 
 ```text
 explicit code request
-    -> eligible local code execution
+    -> eligible local `code` capability handling
     -> textual result with attribution
 ```
 

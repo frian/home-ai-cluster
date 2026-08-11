@@ -451,8 +451,8 @@ It binds the calling machine's native endpoint to:
 http://127.0.0.1:8000/v1/chat
 ```
 
-The same process also exposes `/v1/summarize` and `/v1/classify` on that native
-endpoint. Its existing `/v1/chat` ordered-message endpoint carries ordinary
+The same process also exposes the separate native `/v1/summarize` and
+`/v1/classify` endpoints. Its existing `/v1/chat` ordered-message endpoint carries ordinary
 `chat` and explicit `code`; no `/v1/code` endpoint exists.
 
 The process owns only its HTTP client and application lifecycle; it does not

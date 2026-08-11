@@ -41,6 +41,7 @@ class OllamaAdapter:
             Capability(name="chat"),
             Capability(name="summarize"),
             Capability(name="classify"),
+            Capability(name="code"),
         ]
 
     def health(self) -> AdapterHealth:

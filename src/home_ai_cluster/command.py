@@ -7,6 +7,7 @@ from importlib.metadata import version
 from home_ai_cluster import (
     chat_command,
     classify_command,
+    code_command,
     local_health_snapshot,
     local_runtime,
     openai_compatibility,
@@ -25,6 +26,7 @@ Foreground process commands:
 
 Finite commands:
   chat            Send one ordinary chat request.
+  code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -39,6 +41,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "static-cluster": static_cluster.main,
     "compatibility": openai_compatibility.main,
     "chat": chat_command.main,
+    "code": code_command.main,
     "classify": classify_command.main,
     "summarize": summarize_command.main,
     "preflight": static_preflight.main,

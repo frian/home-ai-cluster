@@ -208,6 +208,7 @@ def test_default_health_snapshot_uses_ordinary_local_capabilities(
         "chat",
         "summarize",
         "classify",
+        "code",
     ]
 
 

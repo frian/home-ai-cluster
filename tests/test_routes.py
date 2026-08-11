@@ -1059,10 +1059,8 @@ def test_internal_cluster_request_endpoint_rejects_unsupported_capability(
         },
     )
 
-    assert response.status_code == 404
-    assert response.json() == {
-        "detail": "No adapter provides capability: embeddings",
-    }
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
 
 
 @pytest.mark.parametrize(

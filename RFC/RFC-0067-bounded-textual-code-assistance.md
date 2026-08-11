@@ -1,6 +1,6 @@
 # RFC-0067: Bounded Textual Code Assistance
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-11
 
@@ -272,4 +272,20 @@ independent, bounded decision.
 
 ## Decision
 
-Pending.
+Accepted. `code` is the closed semantic capability for bounded textual code
+generation, transformation, and explanation, explicitly required by callers.
+It reuses the ordered-message `ClusterRequest` representation and free-form
+`ClusterResult`; `ClusterRequest` itself remains structurally open so RFC-0034
+diagnostic requests may use another non-empty capability name. Ordinary
+executable `code` input is limited to 65,536 aggregate UTF-8 message-content
+bytes and uses hard eligibility with explicit static opt-in; omission defaults
+remain `chat` plus `summarize`.
+
+`code` reuses existing Chat-like adapter execution without a dedicated adapter
+method. Ordinary remote `chat` and `code` reuse the legacy
+`ChatInternalRequest` / `kind: "chat"` wire representation, with the embedded
+capability owning semantics; receivers preserve `code`, revalidate its bound,
+and never downgrade it to Chat. The native surface is `home-ai-cluster code` /
+`hac code`; browser and OpenAI-compatible surfaces remain unchanged. Generated
+code is response text only and grants no filesystem, repository, shell, Git,
+testing, tool, agent, or execution authority.

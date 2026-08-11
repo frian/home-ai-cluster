@@ -127,14 +127,32 @@ Preflight stays local and network-free. Status remains unchanged and does not
 become discovery, receiver verification, or runtime observation. RFC-0058 and
 RFC-0059's operator-owned declaration boundary remains authoritative.
 
+### Shared message representation and internal envelope
+
+RFC-0067 broadens `ClusterRequest` from a Chat-only normalized representation
+to the closed normalized ordered-message representation for exactly `chat` and
+`code`. The embedded `capability` is the semantic requirement; ordered messages
+and the free-form result mechanics are shared representation mechanics. This
+does not make `ClusterRequest` an arbitrary capability payload.
+
+The existing `ChatInternalRequest` wire shape and `kind: "chat"` discriminator
+are retained. For this RFC, `kind: "chat"` identifies the legacy
+ordered-message envelope variant, not permission to overwrite or downgrade the
+embedded request capability to `chat`. It may therefore carry only a valid
+embedded `ClusterRequest` requiring `chat` or `code`; no other capability is
+admitted by this rule. Implementation must update misleading Chat-only
+docstrings and internal documentation without changing the wire shape.
+
 ### Local and remote execution
 
 Local execution routes the bounded `ClusterRequest` through the selected
 adapter's existing Chat-like method and returns `ClusterResult` attribution.
-Remote execution reuses `ChatInternalRequest`, which already carries explicit
-capability and messages in `ClusterRequest`. The receiver revalidates the
-aggregate bound at its trust boundary, routes and executes locally, and returns
-the existing textual result. No transport variant, protocol family, capability
+Remote execution reuses `ChatInternalRequest`, which carries the explicit
+capability and messages in `ClusterRequest`. The receiver preserves the embedded
+capability, revalidates the `code` aggregate bound at its trust boundary, routes
+by that capability, and executes locally. It must never reinterpret
+`kind: "chat"` as permission to downgrade `code` to Chat. It returns the
+existing textual result. No transport variant, protocol family, capability
 negotiation, or receiver discovery is needed.
 
 Existing fallback boundaries are unchanged. A chat-only candidate is excluded
@@ -142,12 +160,13 @@ before selection; eligible runtime or transport failure retains its meaning.
 
 ### Native, browser, and compatibility surfaces
 
-After separate implementation, `home-ai-cluster-code --message TEXT` is the
-initial native surface. It constructs one explicit bounded `ClusterRequest` with
-`capability=code` and reuses ordinary native timeout, presentation, failure,
-and process-ownership conventions.
+After separate implementation, `home-ai-cluster code --message TEXT` and
+`hac code --message TEXT` are the initial native surfaces. They construct one
+explicit bounded `ClusterRequest` with `capability=code` and reuse ordinary
+native timeout, presentation, failure, and process-ownership conventions. They
+do not add a `home-ai-cluster-code` console-script entry point.
 
-A dedicated command is one clear semantic operation. Extending
+A dedicated root subcommand is one clear semantic operation. Extending
 `home-ai-cluster-chat` with arbitrary `--capability` would create a new generic
 capability surface, so this RFC does not do that.
 

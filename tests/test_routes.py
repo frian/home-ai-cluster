@@ -968,6 +968,20 @@ def test_chat_endpoint_rejects_unsupported_capability(
     }
 
 
+def test_chat_endpoint_rejects_oversized_code_before_execution(
+    use_test_registry: None,
+) -> None:
+    response = post_chat(
+        {
+            "messages": [{"role": "user", "content": "x" * 65_537}],
+            "capability": "code",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid chat request"}
+
+
 def test_chat_endpoint_returns_503_when_runtime_adapter_is_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1059,10 +1073,8 @@ def test_internal_cluster_request_endpoint_rejects_unsupported_capability(
         },
     )
 
-    assert response.status_code == 404
-    assert response.json() == {
-        "detail": "No adapter provides capability: embeddings",
-    }
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
 
 
 @pytest.mark.parametrize(

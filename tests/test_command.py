@@ -25,6 +25,7 @@ Foreground process commands:
 
 Finite commands:
   chat            Send one ordinary chat request.
+  code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -46,6 +47,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "static-cluster",
         "compatibility",
         "chat",
+        "code",
         "classify",
         "summarize",
         "preflight",
@@ -207,6 +209,7 @@ def test_subcommand_system_exit_propagates_unchanged(
         ("static-cluster", command.static_cluster.main),
         ("compatibility", command.openai_compatibility.main),
         ("chat", command.chat_command.main),
+        ("code", command.code_command.main),
         ("summarize", command.summarize_command.main),
         ("preflight", command.static_preflight.main),
         ("health", command.local_health_snapshot.main),

@@ -60,11 +60,24 @@ class RequestConstraints(BaseModel):
 
 
 class ClusterRequest(BaseModel):
-    """A normalized chat request for Home AI Cluster."""
+    """A normalized ordered-message request for Home AI Cluster."""
 
     messages: list[ChatMessage] = Field(min_length=1)
     capability: Capability
     constraints: RequestConstraints = Field(default_factory=RequestConstraints)
+
+    @model_validator(mode="after")
+    def validate_code_message_bound(self) -> "ClusterRequest":
+        """Keep explicit code requests within RFC-0067's aggregate byte bound."""
+        if self.capability.name == "code":
+            content_size = sum(
+                len(message.content.encode("utf-8")) for message in self.messages
+            )
+            if content_size > 65_536:
+                raise ValueError(
+                    "code message content must not exceed 65,536 UTF-8 bytes"
+                )
+        return self
 
 
 class SummarizeRequest(BaseModel):
@@ -162,12 +175,19 @@ class InternalClassifyRequestBody(BaseModel):
 
 
 class ChatInternalRequest(BaseModel):
-    """The closed internal envelope for one normalized chat request."""
+    """Legacy internal envelope for one ordinary ordered-message request."""
 
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["chat"]
     request: ClusterRequest
+
+    @model_validator(mode="after")
+    def validate_ordinary_message_capability(self) -> "ChatInternalRequest":
+        """Limit ordinary remote message execution to accepted semantics."""
+        if self.request.capability.name not in {"chat", "code"}:
+            raise ValueError("unsupported ordinary message capability")
+        return self
 
 
 class SummarizeInternalRequest(BaseModel):

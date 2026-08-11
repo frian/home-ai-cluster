@@ -50,6 +50,7 @@ def test_llama_server_adapter_name_and_capabilities() -> None:
         Capability(name="chat"),
         Capability(name="summarize"),
         Capability(name="classify"),
+        Capability(name="code"),
     ]
     assert Capability(name="summarization") not in adapter.capabilities()
     assert Capability(name="classification") not in adapter.capabilities()

@@ -11,7 +11,7 @@ from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
 
 LOCAL_RUNTIMES = ("ollama", "llama-server")
-LOCAL_RUNTIME_CAPABILITY_NAMES = ("chat", "summarize", "classify")
+LOCAL_RUNTIME_CAPABILITY_NAMES = ("chat", "summarize", "classify", "code")
 
 
 class LocalRuntimeCompositionError(ValueError):

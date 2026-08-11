@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0067: Bounded Textual Code Assistance](RFC-0067-bounded-textual-code-assistance.md)
+  — accepts one explicit bounded textual `code` capability using the shared
+  ordered-message representation and existing Chat-like execution mechanics,
+  without tools or execution authority.
 - [RFC-0066: Capability Admission Semantics](RFC-0066-capability-admission-semantics.md)
   — accepts a closed, explicit, model-independent admission rule for future
   capability proposals without authorizing a new capability or implementation.

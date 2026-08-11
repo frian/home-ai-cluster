@@ -104,11 +104,13 @@ explicit composition claim, not model inspection, probing, benchmark evidence,
 or a quality signal. Local routing retains its existing requirement for both
 node declaration and matching adapter capability reporting.
 
-`code` joins the closed project vocabulary after implementation. Membership is
-hard eligibility only. Existing constraints, local-first selection among
-eligible candidates, declared-remote order, availability, and pre-request
-fallback remain unchanged. No ranking, weights, code-specialist bonus,
-scheduler, or model preference is added.
+`code` joins the closed ordinary executable capability vocabulary after
+implementation. Ordinary executable surfaces and ordinary static declarations
+accept only the names authorized by their accepted contracts. Membership is hard
+eligibility only. Existing constraints, local-first selection among eligible
+candidates, declared-remote order, availability, and pre-request fallback remain
+unchanged. No ranking, weights, code-specialist bonus, scheduler, or model
+preference is added.
 
 Routing remains explainable only as:
 
@@ -129,19 +131,27 @@ RFC-0059's operator-owned declaration boundary remains authoritative.
 
 ### Shared message representation and internal envelope
 
-RFC-0067 broadens `ClusterRequest` from a Chat-only normalized representation
-to the closed normalized ordered-message representation for exactly `chat` and
-`code`. The embedded `capability` is the semantic requirement; ordered messages
-and the free-form result mechanics are shared representation mechanics. This
-does not make `ClusterRequest` an arbitrary capability payload.
+`ClusterRequest` remains the existing ordered-message request representation.
+After implementation, the closed ordinary executable semantics using that
+representation are `chat` and `code`; the embedded `capability` is their
+semantic requirement, while ordered messages and free-form results are shared
+representation mechanics.
+
+This does not globally constrain `ClusterRequest.capability` to `chat | code`.
+RFC-0034's accepted actual-request explanation surface may continue to construct
+a `ClusterRequest` containing another non-empty capability name in order to
+truthfully observe and report a no-selectable-candidate outcome. RFC-0067 does
+not reinterpret or modify that diagnostic contract, and it does not create
+arbitrary executable capabilities.
 
 The existing `ChatInternalRequest` wire shape and `kind: "chat"` discriminator
 are retained. For this RFC, `kind: "chat"` identifies the legacy
 ordered-message envelope variant, not permission to overwrite or downgrade the
-embedded request capability to `chat`. It may therefore carry only a valid
-embedded `ClusterRequest` requiring `chat` or `code`; no other capability is
-admitted by this rule. Implementation must update misleading Chat-only
-docstrings and internal documentation without changing the wire shape.
+embedded request capability to `chat`. For ordinary remote execution it may
+therefore carry only a valid embedded `ClusterRequest` requiring `chat` or
+`code`; no other capability is admitted by this trust-boundary rule.
+Implementation must update misleading Chat-only docstrings and internal
+documentation without changing the wire shape.
 
 ### Local and remote execution
 

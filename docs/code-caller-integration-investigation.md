@@ -17,10 +17,11 @@ editor task, or deliberately small operator-owned subprocess caller is also in
 scope. This is not an authorization to add a Home AI Cluster integration,
 change an RFC, or make Aider the required solution.
 
-The bounded practical goal is help with creating or changing small
-administration or maintenance scripts without manually copying every response.
-It is not autonomous repository development, repository indexing, an IDE, or
-an agent loop.
+The bounded practical goal is to create or modify a small local administration
+or maintenance script without manually copying generated text. The caller must
+explicitly require `code`; HAC returns text only; and a local caller tool such
+as Aider owns any resulting file creation or edit. It is not autonomous
+repository development, repository indexing, an IDE, or an agent loop.
 
 ## Current accepted boundaries
 
@@ -115,10 +116,14 @@ about the inspected public mechanisms, not a claim that an operator cannot
 write separate software.
 
 The locally installed executable safely reported `aider 0.86.2` with its
-version-only command. The official GitHub [release page](https://github.com/Aider-AI/aider/releases/tag/v0.86.0)
-identifies v0.86.0 as the currently published release visible from that source;
-the local 0.86.2 observation is environment evidence only and does not change
-the conclusion.
+version-only command. The official [aider-chat 0.86.2 PyPI release](https://pypi.org/project/aider-chat/0.86.2/)
+also records 0.86.2 as the latest release and gives its publication date as
+2026-02-12. GitHub Releases still marks
+[v0.86.0](https://github.com/Aider-AI/aider/releases/tag/v0.86.0) as Latest.
+This source discrepancy does not affect the integration conclusion: both the
+locally observed executable and the official PyPI release establish 0.86.2 as
+the relevant version evidence, while the inspected current source and public
+configuration boundary remain the same.
 
 ## Caller authority versus Home AI Cluster authority
 
@@ -162,11 +167,10 @@ The boundaries are distinct:
 ### A — Existing `hac code` as the caller interface
 
 `hac code --message ...` already gives a human, shell script, editor task, or
-tiny subprocess caller an explicit native `code` request. It is useful for a
-small-script request because the caller can consume normal stdout directly,
-without manual clipboard transfer. Its default stdout is the free-form content;
-`--verbose` adds attribution for people, and `--json` provides the existing
-structured result for a caller that needs attribution as well as content.
+tiny subprocess caller an explicit native `code` request. Its default stdout
+is the free-form content; `--verbose` adds attribution for people, and `--json`
+provides the existing structured result for a caller that needs attribution as
+well as content.
 
 The command uses ordinary native process ownership and exit behavior: input
 validation exits with status 2; connection, timeout, request, response, and
@@ -182,6 +186,10 @@ controls shell history, process arguments, redirection, and any subsequent
 file action. Capturing output can remove manual copy/paste, but must not be
 presented as a safe automatic editing contract: the output can be prose,
 multiple blocks, or otherwise unsuitable for a target file.
+
+For the clarified need, Candidate A is necessary but not sufficient on its
+own: it proves explicit text assistance, not caller-owned file creation or
+editing without a caller that understands and applies the response.
 
 **Classification: already supported composition.** No Home AI Cluster change
 is needed.
@@ -245,23 +253,30 @@ Aider
   -> Home AI Cluster
 ```
 
-Such a bridge would own the OpenAI-shaped ingress, translation, response
-projection, operation of its local listener, and all resulting logging and
-privacy choices. HAC would still own only native request handling and free-form
-text results. Any file/Git/test authority would remain with Aider or another
-caller, never with HAC.
+For a deliberately bounded proof, a temporary local bridge can own one
+loopback OpenAI-shaped ingress compatible with the conservative Aider setup,
+translate its accepted request into the existing HAC-native ordered-message
+request with the bridge's explicit `capability=code`, and project the textual
+`ClusterResult` into the minimal response Aider expects. The bridge owns that
+translation, listener, response projection, and all resulting logging and
+privacy choices. It must not select a HAC node, runtime, or model; infer
+`code` from prompt content; execute returned text; inspect a repository itself;
+or become a generic compatibility service.
 
-This is an external experimental composition, not a Home AI Cluster-supported
-integration. It duplicates translation already intentionally restricted at the
-HAC compatibility edge, and it cannot make RFC-0067 output into a guaranteed
-edit representation. It may justify a narrowly scoped, opt-in external proof
-if an operator independently values Aider specifically, but it is unnecessary
-for the practical goal because Candidates A and B already provide explicit
-access.
+HAC would still own only native request handling and free-form text results.
+Any file/Git/test authority would remain with Aider or another caller, never
+with HAC. This is therefore an external experimental composition, not a Home
+AI Cluster-supported integration and not a new HAC access contract.
 
-**Classification: caller-side configuration/integration only, with a possible
-documentation/proof opportunity.** It requires no HAC implementation, but it
-is not a basis for claiming supported Aider `code` integration.
+The bridge cannot make RFC-0067 output a guaranteed edit representation. That
+does not prevent one bounded proof: the proof can establish that Aider, acting
+under its own authority, applied a result in one disposable script file. It
+must never generalize that observation into arbitrary safe automated editing
+or HAC filesystem authority.
+
+**Classification: caller-side configuration/integration only, with a justified
+separate proof opportunity.** It requires no HAC implementation, but a
+successful proof would not make it supported Aider `code` integration.
 
 ### F — Expand Home AI Cluster OpenAI compatibility
 
@@ -279,16 +294,17 @@ proposed nor authorized here.
 
 | Candidate | Explicit `code` requirement | HAC change | Small-script value | Aider native path | Classification |
 | --- | --- | --- | --- | --- | --- |
-| A. `hac code` | Yes | None | Yes | No | Already supported composition |
-| B. Tiny native caller | Yes | None | Yes | No | Already supported composition |
+| A. `hac code` | Yes | None | Text only | No | Already supported composition |
+| B. Tiny native caller | Yes | None | Text only | No | Already supported composition |
 | C. Existing Aider compatibility | No; always `chat` | None | Chat only | Yes | Deliberately out of scope for `code` |
 | D. Aider extension/provider | No suitable supported seam found | None | Not established | Not established | No suitable current mechanism |
-| E. Operator bridge | Yes, through bridge translation | None in HAC | Possible, but duplicative | Indirect only | Caller-side integration/proof opportunity |
+| E. Operator bridge | Yes, through bridge translation | None in HAC | Yes, for one caller-owned edit proof | Indirect only | Caller-side integration/proof opportunity |
 | F. HAC compatibility expansion | Could be, only after a decision | Yes | Not needed for the bounded goal | Could be | New architectural decision requiring RFC |
 
 ## Practical small-script use case
 
-For the bounded goal, Candidate A is the smallest useful interface:
+For an explicit text-only request, Candidate A is the smallest useful
+interface:
 
 ```text
 operator or small caller
@@ -297,28 +313,61 @@ operator or small caller
   -> caller chooses display, review, capture, or an independently controlled edit
 ```
 
-It removes the need to copy a result through an intermediate clipboard while
-keeping the important decision visible: a caller has requested the `code`
+It keeps the important decision visible: a caller has requested the `code`
 capability. A small native HTTP caller is equally valid when it needs ordered
-messages or JSON. Neither route is an autonomous editor, and neither should
-write response text to a file without caller-owned suitability checks and an
-explicit operator decision.
+messages or JSON. Neither route is an autonomous editor, and neither alone
+proves file creation or editing without manual copy/paste.
+
+For the clarified user value, Candidate E adds the smallest missing caller-side
+composition:
+
+```text
+Aider owns file/edit authority
+        |
+        v
+temporary caller-side bridge
+        |
+        | explicit capability=code
+        v
+Home AI Cluster
+        |
+        | text only
+        v
+caller-side Aider handling
+        |
+        v
+small disposable script file changed
+```
 
 ## Architectural classification and outcome
 
-**Outcome A — existing caller-side surfaces are sufficient.**
+**Outcome B — a bounded caller-side Aider `code` proof is justified without HAC
+changes.**
 
-For the stated small-script value, the accepted `hac code` and native
-`POST /v1/chat` surfaces already provide explicit `code` access without any
-OpenAI compatibility expansion. The more specialised Aider path is neither a
-requirement nor evidence that the generic native caller surface is insufficient.
+Existing Aider configuration alone cannot explicitly require RFC-0067 `code`:
+its existing compatibility request reaches `chat`. Existing `hac code` and
+native `POST /v1/chat` nevertheless already provide the correct explicit
+`code` semantics. A small temporary caller-owned bridge can compose that
+accepted native surface with Aider's caller-owned file edit behavior, which
+addresses the clarified no-copy/paste small-script use case.
 
-No RFC and no Home AI Cluster implementation are recommended. A later usage
-note or privacy-safe proof for one generic subprocess/native caller could be
-useful, but neither is required to establish the current contract.
+No RFC and no Home AI Cluster implementation are recommended now. The
+recommended next step is a separate, opt-in proof, not a supported integration
+claim. It should establish only one explicit request in a temporary working
+directory or dedicated disposable Git repository/worktree, where Aider changes
+one privacy-safe generic small script through the temporary bridge. It should
+use no production repository, no automatic command execution, tests, or
+commits, no unrelated network feature, and no retained real prompt or generated
+script in project proof documentation. The observation must say separately that
+HAC produced text and Aider changed the file under caller authority.
 
-If the project later wants *first-class Aider explicit `code` semantics*, the
-smallest exact architectural question for a future RFC is:
+Aider configuration guardrails are not OS-level security sandboxing. This
+investigation authorizes neither a sandbox implementation nor a claim that
+Aider provides one.
+
+If the project later wants to ship, maintain, or document this bridge as a
+first-class HAC integration, the smallest exact architectural question for a
+future RFC is:
 
 > What explicit public access contract, if any, may translate a non-native
 > developer-tool request into `capability=code` while preserving a fixed
@@ -328,7 +377,8 @@ smallest exact architectural question for a future RFC is:
 
 That question does not presume OpenAI compatibility is the right answer. It
 must not be answered by silently mapping a model-like value, prompt, or alias
-to `code`.
+to `code`. A future supported bridge decision requires architectural review and
+may require an RFC; this external proof does not prejudge it.
 
 ## Explicitly deferred work
 
@@ -344,9 +394,10 @@ investigation does not replace it: the retained
 [bounded textual code assistance proof](bounded-textual-code-assistance-proof.md)
 records only local positive and no-eligible-capability evidence.
 
-The later planned bounded web access for one capability is a separate
-investigation. It is not authorized, analyzed, or coupled to caller integration
-here.
+The bounded web-access investigation for one capability remains the next
+separate architectural investigation after this caller-side proof work unless
+evidence changes priorities. It is not authorized, analyzed, or coupled to
+caller integration here.
 
 ## Evidence sources
 
@@ -377,4 +428,5 @@ Current primary Aider sources inspected on 2026-08-12:
 - [current argument source](https://raw.githubusercontent.com/Aider-AI/aider/main/aider/args.py);
 - [current main configuration source](https://raw.githubusercontent.com/Aider-AI/aider/main/aider/main.py);
 - [current completion source](https://raw.githubusercontent.com/Aider-AI/aider/main/aider/models.py); and
-- [Aider v0.86.0 release page](https://github.com/Aider-AI/aider/releases/tag/v0.86.0).
+- [aider-chat 0.86.2 PyPI release](https://pypi.org/project/aider-chat/0.86.2/); and
+- [Aider v0.86.0 GitHub release page](https://github.com/Aider-AI/aider/releases/tag/v0.86.0).

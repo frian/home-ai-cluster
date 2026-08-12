@@ -253,6 +253,10 @@ established at a specific stage and do not replace the current workflow.
   — retains privacy-safe local positive and no-eligible-capability evidence for
   accepted RFC-0067. A physical two-machine code proof remains pending; this is
   not a full RFC-0067 proof closeout.
+- [Code caller integration investigation](code-caller-integration-investigation.md)
+  — finds a bounded external Aider caller-side proof justified for one
+  caller-owned script edit through explicit native `code`; no Home AI Cluster
+  implementation or RFC is recommended.
 
 ## Document roles
 

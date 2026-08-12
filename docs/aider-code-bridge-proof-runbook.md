@@ -99,6 +99,7 @@ Use neutral placeholders:
 ```text
 <TEMPORARY_DIRECTORY>
 <TEMPORARY_BRIDGE_PATH>
+<TEMPORARY_AIDER_CONFIG_PATH>
 <TEMPORARY_AIDER_SETTINGS_PATH>
 <DISPOSABLE_TARGET_FILE>
 <ONE_HARMLESS_SCRIPT_EDIT_REQUEST>
@@ -263,7 +264,19 @@ usage, tool, routing, node, or runtime data.
 
 ## 9. Temporary Aider configuration
 
-Create this settings file outside the repository:
+Create this temporary Aider config outside the repository:
+
+```yaml
+{}
+```
+
+This is an intentionally empty valid YAML mapping. It is Aider-only caller
+configuration, not HAC configuration. In Aider 0.86.2 an empty config document
+is parsed as `None`, while the configuration loader requires a YAML mapping. The
+proof therefore uses a temporary empty mapping (`{}`) instead of
+`--config /dev/null`.
+
+Separately, create this model-settings file outside the repository:
 
 ```yaml
 - name: openai/home-ai-cluster
@@ -273,7 +286,8 @@ Create this settings file outside the repository:
 
 `whole` keeps the proof out of the tool/function path documented by the Phase 6
 investigation. `use_temperature: false` prevents the otherwise default
-temperature field. This is Aider-only configuration, not HAC configuration.
+temperature field. This model-settings file is distinct from the temporary
+empty Aider config and is also Aider-only configuration, not HAC configuration.
 
 Local Aider 0.86.2 help verifies these selected guardrails:
 
@@ -281,8 +295,8 @@ Local Aider 0.86.2 help verifies these selected guardrails:
   `--no-show-release-notes` avoid streaming, analytics, updates, and release
   activity;
 - `--no-cache-prompts`, null input/chat/LLM histories, and
-  `--env-file /dev/null --config /dev/null` avoid selected content retention
-  and ambient repository/home configuration;
+  `--env-file /dev/null --config <TEMPORARY_AIDER_CONFIG_PATH>` avoid selected
+  content retention and ambient repository/home configuration;
 - `--no-git --no-gitignore --no-auto-commits --no-auto-lint --no-auto-test`
   and `--no-watch-files` avoid Git and automatic commit/lint/test/watch paths;
 - `--no-suggest-shell-commands --no-detect-urls --no-gui --no-copy-paste
@@ -296,8 +310,10 @@ refuse unexpected action.
 ## 10. Disposable workspace preparation
 
 Create a temporary non-production directory outside this repository. Use no
-other source files, repository, worktree, or Aider configuration. Make one
-harmless target file with:
+other source files, repository, worktree, or Aider configuration. Create the
+temporary Aider config at `<TEMPORARY_AIDER_CONFIG_PATH>` with exactly `{}` and
+keep the existing model-settings file separate. Make one harmless target file
+with:
 
 ```python
 # placeholder
@@ -314,7 +330,8 @@ Before the one attempt, confirm:
 1. Repository status is clean and HAC implementation is unchanged.
 2. The supported local runtime is already available under operator control.
 3. HAC is using `127.0.0.1:8000` and supports `code`.
-4. Bridge and Aider files are outside the repository.
+4. Bridge, temporary Aider config, and Aider model-settings files are outside
+   the repository.
 5. The bridge binds exactly to `127.0.0.1:8001`.
 6. The temporary directory has exactly one intended placeholder target file.
 7. No production file, secret, or private prompt is in scope.
@@ -356,7 +373,7 @@ aider --model openai/home-ai-cluster \
   --no-stream --no-analytics --no-check-update --no-show-release-notes \
   --no-cache-prompts --input-history-file /dev/null --chat-history-file /dev/null \
   --llm-history-file /dev/null \
-  --env-file /dev/null --config /dev/null \
+  --env-file /dev/null --config <TEMPORARY_AIDER_CONFIG_PATH> \
   --no-git --no-gitignore --no-auto-commits --no-auto-lint --no-auto-test \
   --no-watch-files --no-suggest-shell-commands --no-detect-urls --no-gui \
   --no-copy-paste --disable-playwright --no-notifications \
@@ -432,10 +449,11 @@ useful evidence for separate reassessment.
 ## 18. Cleanup
 
 After either outcome, stop the HAC process started for the proof and ensure the
-bridge has stopped. Remove the bridge source, Aider settings/configuration,
-temporary input/chat/LLM histories and log captures, placeholder bearer
-material, and disposable workspace. Also run `unset AIDER_PROOF_MESSAGE` if it
-has not already been done. Do not add any of them to Git.
+bridge has stopped. Remove the bridge source, temporary Aider config, Aider
+model-settings file, temporary input/chat/LLM histories and log captures,
+placeholder bearer material, and disposable workspace. Also run
+`unset AIDER_PROOF_MESSAGE` if it has not already been done. Do not add any of
+them to Git.
 
 Confirm the repository working tree remains unchanged except for this
 documentation branch.
@@ -466,3 +484,7 @@ This one-machine proof does not satisfy the physical remote requirement.
 Bounded web access for one capability remains the next separate architectural
 investigation after this caller-side proof work unless evidence changes
 priorities. It is not analyzed or authorized here.
+
+A second bounded proof attempt is justified because the first attempt's exact
+pre-request failure cause is known and the correction affects only temporary
+caller-side Aider configuration. This runbook does not execute that attempt.

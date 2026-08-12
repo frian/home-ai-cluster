@@ -1,10 +1,10 @@
 # Aider Code Bridge Proof Runbook
 
-Status: Prepared
+Status: Validated
 
 ## 1. Purpose
 
-This runbook prepares, but does not execute, one bounded one-machine proof:
+This runbook prepares one bounded one-machine proof:
 
 ```text
 operator -> Aider -> temporary caller-owned loopback bridge
@@ -17,6 +17,9 @@ The later proof may establish one narrow practical fact: a local developer tool
 used RFC-0067's explicit `code` capability to help create or modify one small
 disposable script without manual copy/paste. It is not implementation, a
 supported integration, or an architectural decision.
+
+One bounded execution is recorded in the privacy-safe
+[Aider code bridge proof](aider-code-bridge-proof.md).
 
 ## 2. Architectural boundary
 

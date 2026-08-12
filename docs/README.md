@@ -257,6 +257,11 @@ established at a specific stage and do not replace the current workflow.
   — finds a bounded external Aider caller-side proof justified for one
   caller-owned script edit through explicit native `code`; no Home AI Cluster
   implementation or RFC is recommended.
+- [Aider code bridge proof runbook](aider-code-bridge-proof-runbook.md)
+  — prepares one disposable, one-machine Aider caller-side bridge proof of an
+  explicit native `code` request and caller-owned script edit; it is not an
+  execution result, supported integration, or replacement for the physical
+  two-machine RFC-0067 proof.
 
 ## Document roles
 

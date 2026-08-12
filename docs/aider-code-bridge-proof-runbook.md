@@ -120,7 +120,7 @@ import sys
 import threading
 import time
 import uuid
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 class BridgeHandler(BaseHTTPRequestHandler):
@@ -194,7 +194,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             connection.close()
             if response.status != 200 or not isinstance(hac_body.get("content"), str):
                 raise ValueError
-        except (OSError, ValueError, json.JSONDecodeError):
+        except (OSError, ValueError, json.JSONDecodeError, http.client.HTTPException):
             self.fail(502, "Home AI Cluster request failed")
             return
         self.send_json(
@@ -217,7 +217,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         threading.Thread(target=self.server.shutdown, daemon=True).start()
 
 
-ThreadingHTTPServer(("127.0.0.1", 8001), BridgeHandler).serve_forever()
+HTTPServer(("127.0.0.1", 8001), BridgeHandler).serve_forever()
 ```
 
 ### Accepted Aider request subset
@@ -280,7 +280,7 @@ Local Aider 0.86.2 help verifies these selected guardrails:
 - `--no-stream`, `--no-analytics`, `--no-check-update`, and
   `--no-show-release-notes` avoid streaming, analytics, updates, and release
   activity;
-- `--no-cache-prompts`, null input/chat histories, no LLM-history option, and
+- `--no-cache-prompts`, null input/chat/LLM histories, and
   `--env-file /dev/null --config /dev/null` avoid selected content retention
   and ambient repository/home configuration;
 - `--no-git --no-gitignore --no-auto-commits --no-auto-lint --no-auto-test`
@@ -336,7 +336,17 @@ another AI client.
 
 ## 13. Single-request execution
 
-Expand placeholders only during the later attempt:
+Before the later attempt, enter the one harmless proof message interactively:
+
+```sh
+read -r AIDER_PROOF_MESSAGE
+```
+
+This avoids putting the real prompt in the command line or shell history. It
+is proof privacy hygiene only: it is not a Home AI Cluster contract, Aider
+architectural requirement, normal user workflow, or future UX decision.
+
+Then invoke Aider with the variable expanded only in the process environment:
 
 ```sh
 aider --model openai/home-ai-cluster \
@@ -345,12 +355,13 @@ aider --model openai/home-ai-cluster \
   --model-settings-file <TEMPORARY_AIDER_SETTINGS_PATH> \
   --no-stream --no-analytics --no-check-update --no-show-release-notes \
   --no-cache-prompts --input-history-file /dev/null --chat-history-file /dev/null \
+  --llm-history-file /dev/null \
   --env-file /dev/null --config /dev/null \
   --no-git --no-gitignore --no-auto-commits --no-auto-lint --no-auto-test \
   --no-watch-files --no-suggest-shell-commands --no-detect-urls --no-gui \
   --no-copy-paste --disable-playwright --no-notifications \
   --file <DISPOSABLE_TARGET_FILE> \
-  --message "<ONE_HARMLESS_SCRIPT_EDIT_REQUEST>"
+  --message "$AIDER_PROOF_MESSAGE"
 ```
 
 Do not use `--dry-run`, `--yes-always`, retries, a second submission, attached
@@ -358,6 +369,12 @@ or read-only files, tools/functions, or a non-loopback model endpoint. If Aider
 requests an unexpected command, test, lint action, or edit outside the target,
 refuse it and stop. Approving the one intended target-file edit remains caller
 authority and does not send another model request.
+
+After either a successful or failed attempt, remove the variable:
+
+```sh
+unset AIDER_PROOF_MESSAGE
+```
 
 ## 14. Bridge observation
 
@@ -416,8 +433,9 @@ useful evidence for separate reassessment.
 
 After either outcome, stop the HAC process started for the proof and ensure the
 bridge has stopped. Remove the bridge source, Aider settings/configuration,
-temporary histories/log captures, placeholder bearer material, and disposable
-workspace. Do not add them to Git.
+temporary input/chat/LLM histories and log captures, placeholder bearer
+material, and disposable workspace. Also run `unset AIDER_PROOF_MESSAGE` if it
+has not already been done. Do not add any of them to Git.
 
 Confirm the repository working tree remains unchanged except for this
 documentation branch.

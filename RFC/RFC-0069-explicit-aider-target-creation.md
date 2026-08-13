@@ -1,6 +1,6 @@
 # RFC-0069: Explicit Aider Target Creation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-13
 
@@ -152,4 +152,22 @@ None within this narrow amendment.
 
 ## Decision
 
-Pending.
+Accepted. RFC-0069 narrowly amends RFC-0068 only for target existence and
+creation; all other RFC-0068 architecture remains unchanged.
+
+`hac aider --file PATH --message TEXT` may use an existing accepted single-file
+target. If PATH is missing, its parent must already exist and be a directory.
+Only after command/input, parent, and required Aider 0.86.2 prerequisite checks
+pass, the caller edge may create exactly PATH as one empty file. Creation uses
+non-overwriting semantics and must never truncate, replace, or overwrite an
+existing path. If PATH appears during creation, the edge must fail safely or
+continue only under the accepted existing-file rule.
+
+The caller edge creates no parent directories, sibling files, inferred paths,
+or additional targets, and never writes generated or model content into the
+target. Aider owns target-content reading and editing. After the explicit target
+is created, a later failure does not roll it back or delete it; a failed
+invocation may leave the requested target empty or Aider-modified.
+
+HAC core remains text-only and gains no filesystem, repository, editing, shell,
+Git, test, lint, tool, or execution authority.

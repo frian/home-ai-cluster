@@ -53,13 +53,6 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
-
-- [RFC-0069: Explicit Aider Target Creation](RFC-0069-explicit-aider-target-creation.md)
-  — proposes that the RFC-0068 caller edge may create one explicitly named
-  missing target as an empty file when its existing parent is a directory,
-  while preserving Aider-owned content edits and HAC core text-only authority.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -69,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0069: Explicit Aider Target Creation](RFC-0069-explicit-aider-target-creation.md)
+  — accepts one narrowly bounded caller-edge authority to create the explicitly
+  named missing Aider target as an empty non-overwriting file after prerequisites
+  pass, while preserving Aider-owned content edits and HAC core text-only authority.
 - [RFC-0068: One-Shot Aider Code Caller Edge](RFC-0068-one-shot-aider-code-caller-edge.md)
   — accepts one optional Aider-specific one-shot caller edge that coordinates
   external Aider with a private loopback translation to explicit native `code`,

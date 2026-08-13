@@ -53,6 +53,13 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
+## Draft RFCs
+
+- [RFC-0069: Explicit Aider Target Creation](RFC-0069-explicit-aider-target-creation.md)
+  — proposes that the RFC-0068 caller edge may create one explicitly named
+  missing target as an empty file when its existing parent is a directory,
+  while preserving Aider-owned content edits and HAC core text-only authority.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

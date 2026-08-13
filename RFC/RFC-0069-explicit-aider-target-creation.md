@@ -60,9 +60,13 @@ accepted.
    behavior is unchanged: the caller edge does not edit its contents and Aider
    owns target reading and editing.
 2. If PATH does not exist, its parent must already exist and be a directory.
-   The caller edge may create exactly PATH as one empty file. After that,
-   Aider owns target reading and editing; the caller edge must not write
-   generated or model content into the target.
+   The caller edge may create exactly PATH as one empty file using
+   non-overwriting creation semantics. It must never truncate, replace, or
+   overwrite an existing target. If PATH becomes present between absence
+   validation and creation, the edge must fail safely or continue only under
+   the accepted existing-single-file rule; it must never truncate that path.
+   After creation, Aider owns target reading and editing; the caller edge must
+   not write generated or model content into the target.
 3. An existing non-file target fails. The edge creates no parent directories,
    sibling files, multiple targets, or paths discovered or inferred from a
    prompt. It does not inspect repository semantics, apply patches, or populate
@@ -71,6 +75,15 @@ accepted.
 The path remains explicitly operator supplied. This is not a generic new-file
 workflow, workspace model, repository-root lookup, filename-generation rule, or
 extension policy.
+
+### Prerequisites before target creation
+
+Before creating a missing target, the caller edge completes non-mutating
+prerequisite validation: command/input validation, target-parent validation,
+and the external Aider presence and version validation required by RFC-0068.
+Invalid input, missing Aider, or an unsupported Aider version therefore creates
+no target. Only after those prerequisites pass may the edge create the
+explicitly requested missing empty target.
 
 ### Authority and failure boundary
 
@@ -83,11 +96,11 @@ HAC core remains text-only and gains no filesystem or repository access, file
 creation/editing, shell, Git, test/lint, tool/function, or generated-code
 execution authority. Aider still owns target content reading and editing.
 
-If the edge successfully creates the explicit empty target and a later stage
-fails, it does not delete the target. A failed invocation may therefore leave
-the explicitly requested file present, empty, or modified by Aider. Existing
-targets are never deleted. This avoids destructive rollback after Aider may
-have created caller-owned work and avoids target-inspection semantics.
+After the edge successfully creates the explicit empty target, a later failure
+does not delete it. A failed invocation may therefore leave the explicitly
+requested file present, empty, or modified by Aider. Existing targets are never
+deleted. This avoids destructive rollback after Aider may have created
+caller-owned work and avoids target-inspection semantics.
 
 ## Rationale
 

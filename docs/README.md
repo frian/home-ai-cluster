@@ -266,6 +266,10 @@ established at a specific stage and do not replace the current workflow.
   evidence from one bounded one-machine caller-side execution through explicit
   native `code`; it is not a supported integration or replacement for the
   pending physical two-machine RFC-0067 proof.
+- [Supported Aider code integration investigation](aider-code-supported-integration-investigation.md)
+  — evaluates the smallest possible project-owned one-shot caller edge after
+  the bounded proof; it recommends an RFC before any implementation and defers
+  persistent Aider support and compatibility expansion.
 
 ## Document roles
 

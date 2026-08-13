@@ -53,13 +53,6 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
-
-- [RFC-0068: One-Shot Aider Code Caller Edge](RFC-0068-one-shot-aider-code-caller-edge.md)
-  — proposes an optional project-owned one-shot Aider caller edge with fixed
-  translation to native explicit `code`, caller-owned target edits, no
-  compatibility expansion, and no HAC core file authority.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -69,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0068: One-Shot Aider Code Caller Edge](RFC-0068-one-shot-aider-code-caller-edge.md)
+  — accepts one optional Aider-specific one-shot caller edge that coordinates
+  external Aider with a private loopback translation to explicit native `code`,
+  while keeping target edits caller-owned and RFC-0031 Chat-only.
 - [RFC-0067: Bounded Textual Code Assistance](RFC-0067-bounded-textual-code-assistance.md)
   — accepts one explicit bounded textual `code` capability using the shared
   ordered-message representation and existing Chat-like execution mechanics,

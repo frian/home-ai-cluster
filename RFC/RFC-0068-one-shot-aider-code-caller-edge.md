@@ -1,6 +1,6 @@
 # RFC-0068: One-Shot Aider Code Caller Edge
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-13
 
@@ -295,4 +295,33 @@ change this contract belong to a later implementation PR.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster accepts one optional, Aider-specific, project-owned
+caller/access edge with the ordinary surfaces:
+
+```text
+hac aider --file PATH --message TEXT
+home-ai-cluster aider --file PATH --message TEXT
+```
+
+It accepts exactly one existing caller-selected target file and exactly one
+explicit non-blank operator message. The initial supported external Aider
+version is exactly 0.86.2. One invocation uses one ephemeral numeric IPv4
+loopback translator, accepts at most one qualifying Aider-shaped request, and
+sends at most one native HAC request. A successful invocation requires exactly
+one of each; a failure before an accepted Aider request sends zero HAC requests.
+There is no retry, second native request, or fallback to Chat.
+
+The translator makes the fixed native `POST /v1/chat` translation with explicit
+`capability=code`. Aider owns target reading and editing. The project-owned
+caller edge has only the bounded temporary-material and process authority
+defined here: it uses private caller-edge temporary material outside the target
+workspace, removes it on success and failure, and persists no prompt or response
+by default. HAC core gains no filesystem or editing authority.
+
+Existing capability routing, local-first behavior, static remote routing,
+engine independence, and native HAC semantics remain unchanged. RFC-0031
+remains Chat-only. This decision creates no persistent or multi-request Aider
+service. Interactive or multi-request Aider and generic developer-tool
+integration remain outside this RFC. HAC core receives no filesystem,
+repository, shell, Git, test, lint, tool, or execution authority. The physical
+two-machine RFC-0067 `code` proof remains pending and independent.

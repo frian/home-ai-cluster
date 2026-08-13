@@ -270,6 +270,10 @@ established at a specific stage and do not replace the current workflow.
   — evaluates the smallest possible project-owned one-shot caller edge after
   the bounded proof; it recommends an RFC before any implementation and defers
   persistent Aider support and compatibility expansion.
+- [Aider caller edge proof](aider-caller-edge-proof.md) — retains privacy-safe
+  evidence that the accepted RFC-0068 and RFC-0069 one-machine caller edge
+  completed one bounded Aider-owned edit through explicit native `code`; the
+  independent physical two-machine RFC-0067 proof remains pending.
 
 ## Document roles
 

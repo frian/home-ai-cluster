@@ -18,7 +18,7 @@ home-ai-cluster aider --file PATH --message TEXT
 
 The edge would coordinate one already-installed Aider 0.86.2 invocation with
 one ephemeral private loopback translator. The translator would accept at most
-one strict Aider-shaped request, send exactly one existing native `POST
+one strict Aider-shaped request, send at most one existing native `POST
 /v1/chat` request with explicit `capability=code`, project one minimal response,
 and stop. Aider would retain target-file reading and editing authority.
 
@@ -95,14 +95,17 @@ validate local prerequisites
   -> start one ephemeral 127.0.0.1 translator
   -> directly invoke external Aider once
   -> accept at most one qualifying request
-  -> make exactly one native HAC request
+  -> for an accepted request, make at most one native HAC request
   -> project one response and stop translator
   -> remove temporary integration material and exit
 ```
 
 There is no daemon, background service, persistent bridge, session, project
 retry, or fallback to Chat. Aider's second qualifying request is rejected and
-fails the invocation.
+fails the invocation. A successful invocation requires exactly one accepted
+Aider-shaped request and exactly one native HAC `capability=code` request. A
+failure before an accepted request makes zero native HAC requests; no invocation
+retries or sends a second native request.
 
 The edge neither starts, stops, supervises, restarts, discovers, nor configures
 HAC. It expects the same already-running ordinary native caller endpoint as
@@ -118,7 +121,7 @@ only to its Aider subprocess. The translator is not `hac compatibility`, is not
 separately startable, and is not LAN-accessible, public, persistent,
 discoverable, or a general OpenAI API.
 
-It accepts exactly one `POST /v1/chat/completions` request with top-level fields
+It accepts at most one `POST /v1/chat/completions` request with top-level fields
 exactly `model, messages`, optionally plus `stream`. The model is exactly
 `home-ai-cluster`; stream is absent or `false`; messages are non-empty; and each
 message has exactly non-empty plain-string `content` plus `system`, `user`, or
@@ -178,10 +181,11 @@ Three authority domains remain distinct:
 | Project-owned caller edge | Check bounded prerequisites; create/remove its own temporary integration material; bind one private translator; launch fixed Aider; wait, report bounded outcome, and clean up | Read/write target as editor; inspect repository semantics; execute generated code; invoke arbitrary shell; run Git/tests/lint; select HAC execution; persist prompt/response |
 | Aider | Read explicit target, interpret returned text, apply edit | Become HAC or cluster authority |
 
-Temporary integration configuration is private, outside the target workspace
-when practical, not project or operator configuration, not persistence, and is
-removed on success and failure. No database or permanent configuration is
-added.
+Project-owned temporary integration material is created in a private temporary
+location separate from the caller-selected target file. It is never created
+alongside that target as ordinary workspace or project material. It is not
+project or operator configuration, not persistence, and is removed on success
+and failure. No database or permanent configuration is added.
 
 By default the edge persists and logs no prompt, target content, generated
 content, Authorization placeholder, raw HAC response, or private path beyond

@@ -41,14 +41,15 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has ten commands: three foreground processes and seven
-finite commands.
+The ordinary root surface has eleven commands: three foreground processes and
+eight finite commands.
 
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
 | `local` | Run one local ordinary application. | Foreground service |
 | `static-cluster` | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
 | `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
+| `aider` | Run one bounded external Aider code edit. | One-shot caller edge |
 | `chat` | Send one native chat request. | One-shot request |
 | `code` | Send one native bounded textual code request. | One-shot request |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
@@ -210,6 +211,35 @@ repository, shell, Git, testing, tool, function, agent, or execution authority.
 It does not add `/v1/code` or a standalone `home-ai-cluster-code` command.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
+
+## `hac aider`
+
+**Purpose:** Coordinate one bounded external Aider edit of one explicitly
+selected file through the existing native `code` capability.
+
+**Common forms:**
+
+```sh
+hac aider --file <PATH> --message "<REQUEST>"
+hac aider --file <PATH> --message "<REQUEST>" --timeout-seconds 300
+```
+
+**Important behavior:** This optional caller edge requires external Aider
+exactly 0.86.2 and an already-running `hac local` or `hac static-cluster`
+process. It accepts exactly one target and one non-blank message. An existing
+target is read and edited by Aider; a missing target may be created only as the
+one named empty file after input, parent, and Aider prerequisite checks pass.
+Its parent must already exist as a directory, creation never overwrites an
+existing target, and a later failure does not delete a newly created target.
+Missing or wrong-version Aider creates no target.
+
+Each invocation starts one private, ephemeral IPv4-loopback translator and
+allows at most one Aider-shaped request and one native `capability=code`
+request. There is no retry, interactive session, Git, test, lint, or shell
+automation. The translator is not RFC-0031 compatibility, which remains
+Chat-only. HAC core remains text-only; Aider retains target-content authority.
+`--timeout-seconds` accepts one base-10 integer from `1` through `3600`, with a
+120-second omission default, and applies only to the native HAC request.
 
 ## `hac summarize`
 

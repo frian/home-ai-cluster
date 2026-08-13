@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from home_ai_cluster import (
+    aider_command,
     chat_command,
     command,
     local_health_snapshot,
@@ -24,6 +25,7 @@ Foreground process commands:
   compatibility   Run one loopback compatibility process.
 
 Finite commands:
+  aider           Run one bounded Aider code edit.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
@@ -46,6 +48,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "local",
         "static-cluster",
         "compatibility",
+        "aider",
         "chat",
         "code",
         "classify",
@@ -157,6 +160,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("local", ["--runtime", "ollama"]),
         ("static-cluster", ["--declaration", "cluster.toml"]),
         ("compatibility", ["--declaration", "cluster.toml"]),
+        ("aider", ["--file", "target.py", "--message", "Add a function"]),
         ("chat", ["--message", "Hello"]),
         ("summarize", []),
         ("summarize", ["--text", "Source text"]),
@@ -208,6 +212,7 @@ def test_subcommand_system_exit_propagates_unchanged(
         ("local", command.local_runtime.main),
         ("static-cluster", command.static_cluster.main),
         ("compatibility", command.openai_compatibility.main),
+        ("aider", aider_command.main),
         ("chat", command.chat_command.main),
         ("code", command.code_command.main),
         ("summarize", command.summarize_command.main),
@@ -310,6 +315,10 @@ def test_summarize_root_delegation_preserves_command_owned_request_and_output(
 @pytest.mark.parametrize(
     ("name", "arguments"),
     [
+        (
+            "aider",
+            ["--timeout-seconds", "300", "--file", "target.py", "--message", "request"],
+        ),
         ("chat", ["--timeout-seconds", "300", "Hello"]),
         ("summarize", ["--timeout-seconds", "300", "--text", "Source text"]),
     ],

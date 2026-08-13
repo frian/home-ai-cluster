@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 from importlib.metadata import version
 
 from home_ai_cluster import (
+    aider_command,
     chat_command,
     classify_command,
     code_command,
@@ -25,6 +26,7 @@ Foreground process commands:
   compatibility   Run one loopback compatibility process.
 
 Finite commands:
+  aider           Run one bounded Aider code edit.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
@@ -40,6 +42,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "local": local_runtime.main,
     "static-cluster": static_cluster.main,
     "compatibility": openai_compatibility.main,
+    "aider": aider_command.main,
     "chat": chat_command.main,
     "code": code_command.main,
     "classify": classify_command.main,

@@ -317,7 +317,9 @@ def test_second_request_cannot_cause_a_second_native_request() -> None:
     requests: list[dict[str, Any]] = []
     translator = aider_command._AiderTranslator(
         timeout_seconds=120.0,
-        client_factory=lambda **kwargs: _NativeClient(_response(), requests),
+        client_factory=lambda **kwargs: _NativeClient(
+            httpx.Response(500, text="native failure"), requests
+        ),
     )
     translator.start()
     request = {
@@ -325,10 +327,65 @@ def test_second_request_cannot_cause_a_second_native_request() -> None:
         "messages": [{"role": "user", "content": "request"}],
     }
     try:
-        assert _post_bridge(translator.base_url, request)[0] == 200
-        # The first success stops the one-shot listener, so there is no second service.
+        assert _post_bridge(translator.base_url, request) == (
+            502,
+            {"error": "Home AI Cluster request failed"},
+        )
+        assert _post_bridge(translator.base_url, request) == (
+            400,
+            {"error": "Home AI Cluster request failed"},
+        )
     finally:
         translator.close()
+    assert translator.accepted_request_count == translator.native_request_count == 1
+    assert translator.completed is False
+    assert len(requests) == 1
+
+
+def test_second_request_failure_makes_zero_exit_aider_invocation_unsuccessful(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    target.touch()
+    requests: list[dict[str, Any]] = []
+    translators: list[aider_command._AiderTranslator] = []
+    request = {
+        "model": "home-ai-cluster",
+        "messages": [{"role": "user", "content": "request"}],
+    }
+
+    def translator_factory(**kwargs: object) -> aider_command._AiderTranslator:
+        translator = aider_command._AiderTranslator(**kwargs)
+        translators.append(translator)
+        return translator
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        base_url = argv[argv.index("--openai-api-base") + 1]
+        assert _post_bridge(base_url, request)[0] == 502
+        assert _post_bridge(base_url, request)[0] == 400
+        return subprocess.CompletedProcess(argv, 0)
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "--message", "request"],
+            _which=lambda name: "/test/aider",
+            _run=run,
+            _client_factory=lambda **kwargs: _NativeClient(
+                httpx.Response(500, text="native failure"), requests
+            ),
+            _translator_factory=translator_factory,
+        )
+
+    assert raised.value.code == 1
+    assert len(translators) == 1
+    assert (
+        translators[0].accepted_request_count
+        == translators[0].native_request_count
+        == 1
+    )
+    assert translators[0].completed is False
     assert len(requests) == 1
 
 

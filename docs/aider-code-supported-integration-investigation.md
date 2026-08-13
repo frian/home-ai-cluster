@@ -19,7 +19,7 @@ integration, implementation, public contract, or architectural decision.
 
 RFC-0067 makes `code` a closed semantic requirement that callers must request
 explicitly. Native `POST /v1/chat` carries that requirement and returns a
-free-form textual result. Existing routing, including a future eligible
+free-form textual result. Existing routing, including an eligible explicitly
 declared remote `code` node, remains cluster-owned; a caller does not select a
 node, runtime, or model.
 

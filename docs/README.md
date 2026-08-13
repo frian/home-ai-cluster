@@ -262,6 +262,10 @@ established at a specific stage and do not replace the current workflow.
   explicit native `code` request and caller-owned script edit; it is not an
   execution result, supported integration, or replacement for the physical
   two-machine RFC-0067 proof.
+- [Aider code bridge proof](aider-code-bridge-proof.md) — retained privacy-safe
+  evidence from one bounded one-machine caller-side execution through explicit
+  native `code`; it is not a supported integration or replacement for the
+  pending physical two-machine RFC-0067 proof.
 
 ## Document roles
 

@@ -53,6 +53,13 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
+## Draft RFCs
+
+- [RFC-0068: One-Shot Aider Code Caller Edge](RFC-0068-one-shot-aider-code-caller-edge.md)
+  — proposes an optional project-owned one-shot Aider caller edge with fixed
+  translation to native explicit `code`, caller-owned target edits, no
+  compatibility expansion, and no HAC core file authority.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

@@ -37,14 +37,16 @@ The caller selected one missing target. `hac aider` returned exit status zero;
 afterward the target existed and was non-empty, and Aider reported applying the
 edit. The disposable workspace contained exactly that one file.
 
-HAC observed exactly one successful native `POST /v1/chat` request with
-explicit `capability=code`; no second native request was observed. Generated
-code was not executed, and Aider performed no Git, test, lint, or shell
-automation.
+The ordinary HAC server observed exactly one successful native `POST /v1/chat`
+request and no second native request. The caller-edge implementation under
+proof translates its one accepted Aider request to that native endpoint with
+explicit `capability=code`. Generated code was not executed, and Aider
+performed no Git, test, lint, or shell automation.
 
-The private caller-edge temporary integration material was not retained. A
-local untracked `uv.lock` created by `uv run` during cleanup was removed; final
-repository status was clean.
+The private caller-edge temporary integration material was not retained. An
+untracked `uv.lock` appeared in the repository during the proof workflow and
+was removed before final repository status was checked; that final status was
+clean.
 
 ## Authority boundary
 

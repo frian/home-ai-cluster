@@ -249,6 +249,10 @@ established at a specific stage and do not replace the current workflow.
 
 ### RFC-0067 — Bounded textual code assistance
 
+- [Loopback browser Code view investigation](browser-code-view-investigation.md)
+  — concludes that a text-only Code view can reuse the accepted native request
+  path and browser mechanics, but RFC-0062 and RFC-0067 require a narrow
+  follow-up RFC before the fixed browser surface can expand.
 - [Bounded textual code assistance proof](bounded-textual-code-assistance-proof.md)
   — retains privacy-safe local positive and no-eligible-capability evidence for
   accepted RFC-0067. A physical two-machine code proof remains pending; this is

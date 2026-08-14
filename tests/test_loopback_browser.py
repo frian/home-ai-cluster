@@ -78,6 +78,7 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
     assert get(app, "/assets/").status_code == 404
     assert get(app, "/assets/unknown.css").status_code == 404
     assert get(app, "/assets/%2e%2e/main.py").status_code == 404
+    assert get(app, "/v1/code").status_code == 404
     assert post_native_chat(app).status_code == 422
 
 
@@ -257,3 +258,63 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         'Array.from(document.querySelectorAll(".classify-label"), '
         "(input) => input.value)" in script
     )
+
+
+def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert html.count('role="tab"') == 4
+    assert html.count('role="tabpanel"') == 4
+    assert (
+        '<button aria-controls="code-view" aria-selected="false" id="code-tab" '
+        'role="tab" type="button">Code</button>'
+    ) in html
+    assert (
+        '<section aria-labelledby="code-tab" hidden id="code-view" '
+        'role="tabpanel">'
+    ) in html
+    code_section = html.split('id="code-view"', 1)[1].split("</section>", 1)[0]
+    assert 'id="code-form"' in code_section
+    assert 'for="code-text"' in code_section
+    assert 'id="code-text"' in code_section
+    assert code_section.count("<textarea") == 1
+    assert 'data-submit type="submit"' in code_section
+    assert '<output class="result" hidden id="code-result"></output>' in code_section
+    assert 'type="file"' not in code_section
+
+    code_handler = script.split(
+        'document.querySelector("#code-form").addEventListener('
+        '"submit", async (event) => {',
+        1,
+    )[1].split('document.querySelector("#summarize-file")', 1)[0]
+    assert 'const text = document.querySelector("#code-text").value;' in code_handler
+    assert (
+        '!text.trim() || new TextEncoder().encode(text).length > byteLimit'
+        in code_handler
+    )
+    assert (
+        'showError("Code instruction must be non-blank and within the accepted limit")'
+        in code_handler
+    )
+    assert '"/v1/chat"' in code_handler
+    assert (
+        '{ capability: "code", messages: [{ role: "user", content: text }] }'
+        in code_handler
+    )
+    assert "messages.push" not in code_handler
+    assert "const messages" not in code_handler
+    assert (
+        'renderResult(document.querySelector("#code-result"), '
+        "result.content, result.node_id)"
+        in code_handler
+    )
+    assert 'typeof result.content === "string"' in code_handler
+    assert 'typeof result.node_id === "string"' in code_handler
+    assert 'else if (result) showError("Request failed")' in code_handler
+    assert '"/v1/code"' not in script
+    assert "localStorage" not in script
+    assert "sessionStorage" not in script
+    assert "indexedDB" not in script
+    assert "innerHTML" not in script

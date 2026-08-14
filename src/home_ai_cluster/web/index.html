@@ -13,6 +13,7 @@
         <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" type="button">Chat</button>
         <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" type="button">Summarize</button>
         <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" type="button">Classify</button>
+        <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" type="button">Code</button>
       </nav>
 
       <section aria-labelledby="chat-tab" id="chat-view" role="tabpanel">
@@ -51,6 +52,15 @@
           <button data-submit type="submit">Classify</button>
         </form>
         <output class="result" hidden id="classify-result"></output>
+      </section>
+
+      <section aria-labelledby="code-tab" hidden id="code-view" role="tabpanel">
+        <form id="code-form">
+          <label for="code-text">Code instruction</label>
+          <textarea id="code-text" rows="6"></textarea>
+          <button data-submit type="submit">Request code</button>
+        </form>
+        <output class="result" hidden id="code-result"></output>
       </section>
 
       <p aria-live="polite" class="error" id="request-error" role="status"></p>

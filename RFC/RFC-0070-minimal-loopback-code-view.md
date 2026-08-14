@@ -1,6 +1,6 @@
 # RFC-0070: Minimal Loopback Code View
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-14
 
@@ -317,4 +317,15 @@ convenience requires a separate bounded investigation and decision.
 
 ## Decision
 
-Pending.
+Accepted. RFC-0070 authorizes exactly one fourth fixed loopback browser view,
+Code. It reuses native `POST /v1/chat` with explicit `capability=code`, one
+textual user instruction, and RFC-0067's existing aggregate 65,536 UTF-8 byte
+content bound. It displays the existing free-form textual result content and
+existing `node_id` attribution.
+
+RFC-0062's loopback-only, same-origin, fixed-browser composition and
+RFC-0067's text-only authority boundaries remain unchanged. This decision adds
+no endpoint, capability, transport, compatibility surface, persistence,
+filesystem or execution authority, tools, agents, shell, Git, or repository
+access. Download, Save As, and any browser-owned file convenience remain
+separate future decisions.

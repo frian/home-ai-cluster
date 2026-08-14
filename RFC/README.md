@@ -53,13 +53,6 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
-## Draft RFCs
-
-- [RFC-0070: Minimal Loopback Code View](RFC-0070-minimal-loopback-code-view.md)
-  — proposes one fourth fixed loopback browser view for the existing bounded
-  textual `code` capability, without a new endpoint, authority, or
-  compatibility surface.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -69,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0070: Minimal Loopback Code View](RFC-0070-minimal-loopback-code-view.md)
+  — accepts one fourth fixed loopback browser view for the existing bounded
+  textual `code` capability, reusing native `/v1/chat` without adding a new
+  endpoint, authority, or compatibility surface.
 - [RFC-0069: Explicit Aider Target Creation](RFC-0069-explicit-aider-target-creation.md)
   — accepts one narrowly bounded caller-edge authority to create the explicitly
   named missing Aider target as an empty non-overwriting file after prerequisites

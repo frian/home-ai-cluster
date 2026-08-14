@@ -1,3 +1,6 @@
+import asyncio
+
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -7,11 +10,13 @@ from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
     ClusterRequest,
+    ClusterResult,
     NodeDescription,
     NodeHealth,
 )
 from home_ai_cluster.core.registry import NodeRegistry
 from home_ai_cluster.core.remote_transport import internal_cluster_request_body
+from home_ai_cluster.main import create_app
 from home_ai_cluster.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
@@ -115,3 +120,38 @@ def test_code_command_uses_chat_path_and_code_specific_404(
     assert error.value.code == 1
     assert recorded["capability"] == "code"
     assert capsys.readouterr().err == "error: no available code capability\n"
+
+
+def test_native_chat_route_accepts_one_explicit_code_message() -> None:
+    captured_requests: list[ClusterRequest] = []
+    app = create_app()
+
+    async def orchestrate(request: ClusterRequest) -> ClusterResult:
+        captured_requests.append(request)
+        return ClusterResult(content="text", adapter="test", node_id="local")
+
+    app.state.automatic_proof_orchestrator = orchestrate
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            return await client.post(
+                "/v1/chat",
+                json={
+                    "capability": "code",
+                    "messages": [{"role": "user", "content": "instruction"}],
+                },
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 200
+    assert response.json()["content"] == "text"
+    assert response.json()["node_id"] == "local"
+    assert len(captured_requests) == 1
+    assert captured_requests[0].capability == Capability(name="code")
+    assert captured_requests[0].messages == [
+        ChatMessage(role="user", content="instruction")
+    ]

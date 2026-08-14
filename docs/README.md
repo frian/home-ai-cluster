@@ -249,6 +249,10 @@ established at a specific stage and do not replace the current workflow.
 
 ### RFC-0067 — Bounded textual code assistance
 
+- [Minimal loopback Code view proof](minimal-loopback-code-view-proof.md)
+  — retains focused automated and implementation-inspection evidence for the
+  accepted RFC-0070 fourth fixed text-only Code view; it records no live model
+  or filesystem-authority exercise.
 - [Loopback browser Code view investigation](browser-code-view-investigation.md)
   — concludes that a text-only Code view can reuse the accepted native request
   path and browser mechanics, but RFC-0062 and RFC-0067 require a narrow

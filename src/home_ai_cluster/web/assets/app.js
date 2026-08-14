@@ -124,6 +124,22 @@
     }
   });
 
+  document.querySelector("#code-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = document.querySelector("#code-text").value;
+    if (!text.trim() || new TextEncoder().encode(text).length > byteLimit) {
+      return showError("Code instruction must be non-blank and within the accepted limit");
+    }
+    const result = await post(
+      "/v1/chat",
+      { capability: "code", messages: [{ role: "user", content: text }] },
+      "Requesting code…",
+    );
+    if (result && typeof result.content === "string" && typeof result.node_id === "string") {
+      renderResult(document.querySelector("#code-result"), result.content, result.node_id);
+    } else if (result) showError("Request failed");
+  });
+
   document.querySelector("#summarize-file").addEventListener("change", async (event) => {
     const [file] = event.target.files;
     if (!file) return;

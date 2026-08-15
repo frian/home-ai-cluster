@@ -56,12 +56,14 @@ OllamaAdapter(
 )
 ```
 
-Every chat, summarize, and classify call posts that adapter instance's
-`self.model` to Ollama's existing `/api/chat` endpoint.  A non-2xx response,
-including one caused by an unavailable configured model, is translated to the
-existing `RuntimeAdapterUnavailableError`; connection failure before request
-transmission has its existing distinct error.  The adapter neither starts
-Ollama nor pulls, loads, keeps loaded, or unloads models.
+`chat` and `code` `ClusterRequest` execution use `OllamaAdapter.chat()`, while
+summarize and classify use their existing adapter methods; all post that
+adapter instance's configured `self.model` to Ollama's existing `/api/chat`
+endpoint.  A non-2xx response, including one caused by an unavailable
+configured model, is translated to the existing `RuntimeAdapterUnavailableError`;
+connection failure before request transmission has its existing distinct error.
+The adapter neither starts Ollama nor pulls, loads, keeps loaded, or unloads
+models.
 
 Ordinary `create_ollama_local_app_composition()` constructs `OllamaAdapter()`.
 Consequently `llama3.2` is presently an adapter hard-coded default inherited

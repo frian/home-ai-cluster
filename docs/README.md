@@ -30,6 +30,9 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
+  — documents the adapter-owned, capability-centered seam for a possible
+  per-node Ollama model argument; it authorizes no implementation or RFC.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0071: Explicit Ollama Model Selection](RFC-0071-explicit-ollama-model-selection.md)
+  — accepts one optional ordinary Ollama model value that remains process-local
+  and adapter-owned, while requests, routing, and declarations stay
+  capability-centered and model-independent.
 - [RFC-0070: Minimal Loopback Code View](RFC-0070-minimal-loopback-code-view.md)
   — accepts one fourth fixed loopback browser view for the existing bounded
   textual `code` capability, reusing native `/v1/chat` without adding a new

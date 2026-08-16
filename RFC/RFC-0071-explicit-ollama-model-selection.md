@@ -119,8 +119,9 @@ adapter method or model rule.
 ### Ordinary composition surfaces
 
 RFC-0071 extends only the shared ordinary local-runtime configuration boundary
-accepted by RFC-0042, RFC-0043, and RFC-0044.  After later implementation it
-may be carried through ordinary surfaces that construct that local composition:
+accepted by RFC-0042, RFC-0043, and RFC-0044.  After implementation, the value
+must be carried through each ordinary surface that constructs the shared local
+runtime composition:
 
 - `home-ai-cluster-local`;
 - the local-node composition of `home-ai-cluster-static-cluster`; and

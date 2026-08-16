@@ -67,6 +67,7 @@ eight finite commands.
 ```sh
 hac local
 hac local --host 127.0.0.1 --port 8000
+hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -74,7 +75,8 @@ hac local \
 ```
 
 **Important behavior:** The default runtime is Ollama. The closed runtime choices
-are `ollama` and `llama-server`; llama-server requires both of its explicit
+are `ollama` and `llama-server`; `--ollama-model` is optional only with Ollama
+and omission keeps `llama3.2`; llama-server requires both of its explicit
 arguments. The application runs in the foreground. Home AI Cluster does not
 install, start, stop, download models for, or supervise the external runtime.
 Ordinary local compositions advertise and execute `chat`, `summarize`,
@@ -103,6 +105,7 @@ and one or more declared remote nodes.
 
 ```sh
 hac static-cluster --declaration <PATH>
+hac static-cluster --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac static-cluster \
   --remote-node-id <NODE_ID> \
   --remote-base-url <BASE_URL> \
@@ -117,6 +120,8 @@ retained inline mode supports exactly one remote node. The same verified local
 runtime-composition options as `hac local` are accepted. Topology is static and
 explicit, and routing remains local-first and capability-centered. The process
 does not discover, start, stop, supervise, or repair remote machines or runtimes.
+Its optional Ollama-specific `--ollama-model` configures only the local runtime
+composition; omission keeps `llama3.2` and remote declarations carry no model.
 The accepted explicit capability names are `chat`, `summarize`, `classify`, and
 `code`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
@@ -365,6 +370,7 @@ rather than a whole-command failure.
 ```sh
 hac status --declaration <PATH>
 hac status --declaration <PATH> --json
+hac status --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac status \
   --declaration <PATH> \
   --runtime llama-server \

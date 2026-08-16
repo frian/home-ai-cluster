@@ -32,6 +32,7 @@ def add_local_runtime_arguments(parser: argparse.ArgumentParser) -> None:
         choices=LOCAL_RUNTIMES,
         default="ollama",
     )
+    parser.add_argument("--ollama-model", type=non_empty_value)
     parser.add_argument("--llama-server-base-url", type=local_http_url)
     parser.add_argument("--llama-server-model", type=non_empty_value)
 
@@ -41,17 +42,23 @@ def validate_local_runtime_values(
     runtime: str,
     llama_server_base_url: str | None,
     llama_server_model: str | None,
+    ollama_model: str | None = None,
 ) -> str | None:
     """Validate local runtime values and normalize a llama-server base URL."""
     if runtime not in LOCAL_RUNTIMES:
         raise LocalRuntimeCompositionError("runtime must be ollama or llama-server")
 
     if runtime == "ollama":
+        if ollama_model is not None and not ollama_model:
+            raise LocalRuntimeCompositionError("value must not be empty")
         if llama_server_base_url is not None or llama_server_model is not None:
             raise LocalRuntimeCompositionError(
                 "llama-server arguments require --runtime llama-server"
             )
         return None
+
+    if ollama_model is not None:
+        raise LocalRuntimeCompositionError("ollama arguments require --runtime ollama")
 
     if llama_server_base_url is None:
         raise LocalRuntimeCompositionError(
@@ -78,6 +85,7 @@ def validate_local_runtime_arguments(
     try:
         validate_local_runtime_values(
             runtime=args.runtime,
+            ollama_model=args.ollama_model,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
         )
@@ -101,10 +109,11 @@ def _create_local_node(
 
 def create_ollama_local_app_composition(
     *,
+    model: str | None = None,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
 ) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
-    adapter = OllamaAdapter()
+    adapter = OllamaAdapter() if model is None else OllamaAdapter(model=model)
     return LocalAppComposition(
         node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
@@ -128,6 +137,7 @@ def create_llama_server_local_app_composition(
 def create_local_runtime_composition(
     *,
     runtime: str,
+    ollama_model: str | None = None,
     llama_server_base_url: str | None = None,
     llama_server_model: str | None = None,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
@@ -135,12 +145,16 @@ def create_local_runtime_composition(
     """Validate and construct one supported ordinary local composition."""
     base_url = validate_local_runtime_values(
         runtime=runtime,
+        ollama_model=ollama_model,
         llama_server_base_url=llama_server_base_url,
         llama_server_model=llama_server_model,
     )
 
     if runtime == "ollama":
-        return create_ollama_local_app_composition(capabilities=capabilities)
+        return create_ollama_local_app_composition(
+            model=ollama_model,
+            capabilities=capabilities,
+        )
 
     assert base_url is not None
     assert llama_server_model is not None

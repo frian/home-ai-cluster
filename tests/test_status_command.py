@@ -414,6 +414,47 @@ def test_invalid_declaration_prevents_composition_construction(
     assert "must not construct" not in captured.err
 
 
+def test_explicit_ollama_model_reaches_status_local_composition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import status_command
+    from home_ai_cluster.local_runtime_composition import (
+        create_local_runtime_composition,
+    )
+
+    declaration = write_declaration(
+        tmp_path,
+        'remote_node_id = "remote"\nremote_base_url = "http://remote.test:8000"\n',
+    )
+    recorded: dict[str, object] = {}
+
+    def create_composition(**kwargs: object):
+        recorded.update(kwargs)
+        return create_local_runtime_composition(runtime="ollama")
+
+    async def evaluate(*_: object) -> ClusterStatusResult:
+        return status_result("remote")
+
+    monkeypatch.setattr(
+        status_command, "create_local_runtime_composition", create_composition
+    )
+    monkeypatch.setattr(status_command, "evaluate_static_cluster_status", evaluate)
+
+    main(
+        [
+            "--declaration",
+            str(declaration),
+            "--runtime",
+            "ollama",
+            "--ollama-model",
+            "configured-model",
+        ]
+    )
+
+    assert recorded["ollama_model"] == "configured-model"
+
+
 def test_invalid_runtime_combination_prevents_construction_and_observation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

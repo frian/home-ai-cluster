@@ -38,6 +38,7 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     """Construct the ordinary app for the explicitly selected local runtime."""
     composition = create_local_runtime_composition(
         runtime=args.runtime,
+        ollama_model=args.ollama_model,
         llama_server_base_url=args.llama_server_base_url,
         llama_server_model=args.llama_server_model,
     )

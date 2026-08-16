@@ -33,6 +33,9 @@ architecture.
 - [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
   — documents the adapter-owned, capability-centered seam for a possible
   per-node Ollama model argument; it authorizes no implementation or RFC.
+- [Explicit Ollama model selection proof](explicit-ollama-model-selection-proof.md)
+  — retains one real-local RFC-0071 observation that an already-installed
+  explicitly selected Ollama model handled one native model-free `code` request.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

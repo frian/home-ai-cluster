@@ -51,6 +51,18 @@ def test_shared_runtime_arguments_work_with_an_ordinary_parser() -> None:
     assert args.llama_server_model == "local-model"
 
 
+def test_shared_runtime_arguments_accept_an_explicit_ollama_model() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    args = parser.parse_args(
+        ["--runtime", "ollama", "--ollama-model", "configured-model"]
+    )
+    local_runtime_composition.validate_local_runtime_arguments(parser, args)
+
+    assert args.ollama_model == "configured-model"
+
+
 def test_shared_runtime_argument_validation_uses_supplied_parser_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -85,6 +97,18 @@ def test_shared_composition_constructs_one_ordinary_ollama_node_and_adapter() ->
     assert len(adapters) == 1
     assert isinstance(adapters[0], OllamaAdapter)
     assert adapters[0].name == "ollama"
+    assert adapters[0].model == "llama3.2"
+
+
+def test_shared_composition_constructs_ollama_adapter_with_explicit_model() -> None:
+    composition = local_runtime_composition.create_local_runtime_composition(
+        runtime="ollama",
+        ollama_model="configured-model",
+    )
+
+    adapter = composition.adapter_registry.list_adapters()[0]
+    assert isinstance(adapter, OllamaAdapter)
+    assert adapter.model == "configured-model"
 
 
 @pytest.mark.parametrize(
@@ -134,25 +158,29 @@ def test_shared_composition_constructs_one_ordinary_llama_server_node_and_adapte
 
 
 @pytest.mark.parametrize(
-    ("runtime", "base_url", "model"),
+    ("runtime", "ollama_model", "base_url", "model"),
     [
-        ("unsupported", None, None),
-        ("ollama", "http://127.0.0.1:8080", None),
-        ("llama-server", None, "local-model"),
-        ("llama-server", "http://127.0.0.1:8080", None),
-        ("llama-server", "https://127.0.0.1:8080", "local-model"),
-        ("llama-server", "http://runtime.example:8080", "local-model"),
-        ("llama-server", "http://127.0.0.1:8080", ""),
+        ("unsupported", None, None, None),
+        ("ollama", None, "http://127.0.0.1:8080", None),
+        ("llama-server", None, None, "local-model"),
+        ("llama-server", None, "http://127.0.0.1:8080", None),
+        ("llama-server", None, "https://127.0.0.1:8080", "local-model"),
+        ("llama-server", None, "http://runtime.example:8080", "local-model"),
+        ("llama-server", None, "http://127.0.0.1:8080", ""),
+        ("ollama", "", None, None),
+        ("llama-server", "configured-model", "http://127.0.0.1:8080", "local-model"),
     ],
 )
 def test_shared_composition_rejects_invalid_runtime_specific_values(
     runtime: str,
+    ollama_model: str | None,
     base_url: str | None,
     model: str | None,
 ) -> None:
     with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
         local_runtime_composition.create_local_runtime_composition(
             runtime=runtime,
+            ollama_model=ollama_model,
             llama_server_base_url=base_url,
             llama_server_model=model,
         )
@@ -206,3 +234,29 @@ def test_shared_composition_construction_does_not_probe_or_execute_runtime(
     assert len(created) == 1
     assert created[0].health_calls == 0
     assert created[0].chat_calls == 0
+
+
+def test_explicit_ollama_model_construction_does_not_probe_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+
+    class RecordingOllamaAdapter:
+        name = "ollama"
+
+        def __init__(self, *, model: str) -> None:
+            self.model = model
+            created.append(self)
+
+    monkeypatch.setattr(
+        local_runtime_composition,
+        "OllamaAdapter",
+        RecordingOllamaAdapter,
+    )
+
+    local_runtime_composition.create_local_runtime_composition(
+        runtime="ollama",
+        ollama_model="configured-model",
+    )
+
+    assert len(created) == 1

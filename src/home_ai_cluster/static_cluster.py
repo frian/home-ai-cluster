@@ -224,6 +224,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             _create_argument_parser().error(str(exc))
         local_app_composition = create_local_runtime_composition(
             runtime=args.runtime,
+            ollama_model=args.ollama_model,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
             capabilities=declarations.local_capabilities,
@@ -235,6 +236,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     else:
         local_app_composition = create_local_runtime_composition(
             runtime=args.runtime,
+            ollama_model=args.ollama_model,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
             capabilities=args.local_capability,

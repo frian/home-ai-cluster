@@ -33,6 +33,7 @@ def test_parse_args_accepts_inline_mode() -> None:
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
+    assert args.ollama_model is None
 
 
 def test_parse_args_accepts_declaration_mode_without_loading_file(
@@ -63,6 +64,7 @@ def test_parse_args_accepts_explicit_ollama_runtime() -> None:
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
+    assert args.ollama_model is None
 
 
 @pytest.mark.parametrize(
@@ -435,12 +437,14 @@ def test_main_loads_single_declaration_collection_before_starting_server(
     def create_local_composition(
         *,
         runtime: str,
+        ollama_model: str | None,
         llama_server_base_url: str | None,
         llama_server_model: str | None,
         capabilities: tuple[str, ...],
     ) -> object:
         recorded["composition_arguments"] = {
             "runtime": runtime,
+            "ollama_model": ollama_model,
             "llama_server_base_url": llama_server_base_url,
             "llama_server_model": llama_server_model,
             "capabilities": capabilities,
@@ -460,7 +464,16 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         ),
     )
 
-    main(["--declaration", str(declaration_path)])
+    main(
+        [
+            "--declaration",
+            str(declaration_path),
+            "--runtime",
+            "ollama",
+            "--ollama-model",
+            "configured-model",
+        ]
+    )
 
     remote_nodes = recorded["remote_nodes"]
     assert [(remote.node_id, remote.base_url) for remote in remote_nodes] == [
@@ -468,6 +481,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
     ]
     assert recorded["composition_arguments"] == {
         "runtime": "ollama",
+        "ollama_model": "configured-model",
         "llama_server_base_url": None,
         "llama_server_model": None,
         "capabilities": ("chat", "summarize"),
@@ -542,6 +556,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
 
     assert recorded["composition_arguments"] == {
         "runtime": "llama-server",
+        "ollama_model": None,
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
         "capabilities": ("chat", "summarize"),

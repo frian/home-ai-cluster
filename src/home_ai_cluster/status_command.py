@@ -103,6 +103,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     validate_local_runtime_arguments(parser, args)
     local_app_composition = create_local_runtime_composition(
         runtime=args.runtime,
+        ollama_model=args.ollama_model,
         llama_server_base_url=args.llama_server_base_url,
         llama_server_model=args.llama_server_model,
     )

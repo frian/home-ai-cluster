@@ -737,8 +737,18 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
     [
         (
             ["--runtime", "ollama"],
+                {
+                    "runtime": "ollama",
+                    "ollama_model": None,
+                "llama_server_base_url": None,
+                "llama_server_model": None,
+            },
+        ),
+        (
+            ["--runtime", "ollama", "--ollama-model", "configured-model"],
             {
                 "runtime": "ollama",
+                "ollama_model": "configured-model",
                 "llama_server_base_url": None,
                 "llama_server_model": None,
             },
@@ -752,8 +762,9 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
                 "--llama-server-model",
                 "local-model",
             ],
-            {
-                "runtime": "llama-server",
+                {
+                    "runtime": "llama-server",
+                    "ollama_model": None,
                 "llama_server_base_url": "http://127.0.0.1:8080",
                 "llama_server_model": "local-model",
             },

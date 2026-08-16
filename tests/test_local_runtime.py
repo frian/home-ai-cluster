@@ -13,6 +13,7 @@ def test_parse_args_defaults_to_ollama() -> None:
     assert args.runtime == "ollama"
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
+    assert args.ollama_model is None
     assert args.host == "127.0.0.1"
     assert args.port == 8000
 
@@ -31,6 +32,10 @@ def test_parse_args_rejects_unsupported_runtime() -> None:
 @pytest.mark.parametrize(
     ("argv", "error"),
     [
+        (
+            ["--runtime", "llama-server", "--ollama-model", "configured-model"],
+            "ollama arguments require --runtime ollama",
+        ),
         (
             [
                 "--runtime",
@@ -233,6 +238,31 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     assert node.adapters == ["ollama"]
     adapter = captured["composition"].adapter_registry.list_adapters()[0]
     assert isinstance(adapter, OllamaAdapter)
+    assert adapter.model == "llama3.2"
+
+
+def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return app
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+
+    result = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(
+            ["--runtime", "ollama", "--ollama-model", "configured-model"]
+        )
+    )
+
+    assert result is app
+    adapter = captured["composition"].adapter_registry.list_adapters()[0]
+    assert isinstance(adapter, OllamaAdapter)
+    assert adapter.model == "configured-model"
 
 
 @pytest.mark.parametrize(

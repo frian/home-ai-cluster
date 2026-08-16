@@ -1,6 +1,6 @@
 # RFC-0071: Explicit Ollama Model Selection
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-16
 
@@ -288,4 +288,15 @@ question.  It is not a prerequisite for, or part of, this RFC.
 
 ## Decision
 
-Pending.
+RFC-0071 accepts one optional, non-empty `--ollama-model MODEL` only with
+ordinary `--runtime ollama`; omission preserves the effective `llama3.2`
+model. The effective value is passed only to the process-local
+`OllamaAdapter(model=...)` and must be carried through every ordinary surface
+that constructs the shared local runtime composition.
+
+Model identity remains outside requests, routing, capability semantics, remote
+declarations, normalized status, preflight, browser, compatibility, and Aider
+surfaces. Capabilities remain independently operator-declared and routing
+capability-centered. This decision authorizes no model discovery or inference,
+automatic pull/download, lifecycle management, model fallback or pools, or
+ordinary Ollama base-URL configuration.

@@ -37,6 +37,10 @@ def test_parse_args_rejects_unsupported_runtime() -> None:
             "ollama arguments require --runtime ollama",
         ),
         (
+            ["--runtime", "ollama", "--ollama-model", ""],
+            "argument --ollama-model: value must not be empty",
+        ),
+        (
             [
                 "--runtime",
                 "ollama",

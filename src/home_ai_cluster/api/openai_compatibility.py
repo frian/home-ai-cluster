@@ -283,23 +283,12 @@ async def chat_completions(request: Request) -> JSONResponse:
             request.app.state.static_remote_collection_wiring
         )
         local_app_composition = request.app.state.local_app_composition
-        if (
-            static_remote_wiring is None
-            and static_remote_collection_wiring is None
-            and local_app_composition is None
-        ):
-            result = await handle_chat_cluster_request(
-                cluster_request,
-                request.app.state.static_remote_proof_wiring,
-            )
-        else:
-            result = await handle_chat_cluster_request(
-                cluster_request,
-                request.app.state.static_remote_proof_wiring,
-                static_remote_wiring=static_remote_wiring,
-                static_remote_collection_wiring=static_remote_collection_wiring,
-                local_app_composition=local_app_composition,
-            )
+        result = await handle_chat_cluster_request(
+            cluster_request,
+            static_remote_wiring=static_remote_wiring,
+            static_remote_collection_wiring=static_remote_collection_wiring,
+            local_app_composition=local_app_composition,
+        )
     except HTTPException as error:
         if error.status_code == 404:
             error_response = compatibility_error(

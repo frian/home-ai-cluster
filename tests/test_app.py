@@ -7,7 +7,6 @@ from fastapi import FastAPI
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
-    build_static_remote_proof_wiring,
     build_static_remote_wiring,
 )
 from home_ai_cluster.core.models import (
@@ -79,19 +78,6 @@ def make_remote_declaration() -> RemoteNodeDeclaration:
     return RemoteNodeDeclaration(
         node=make_node("remote", "remote-adapter"),
         transport_address="http://remote.local:8000",
-    )
-
-
-def make_static_remote_proof_wiring(
-    transport: RecordingRemoteTransport,
-    adapter: RecordingAdapter | None = None,
-):
-    return build_static_remote_proof_wiring(
-        node_registry=NodeRegistry([make_node("local")]),
-        adapter_registry=AdapterRegistry([adapter or RecordingAdapter()]),
-        remote_declaration=make_remote_declaration(),
-        remote_transport=transport,
-        selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
     )
 
 
@@ -177,10 +163,11 @@ def test_module_level_application_keeps_default_local_app_composition() -> None:
     assert default_app.state.proof_receiving_app_wiring is None
 
 
-def test_create_app_without_static_remote_proof_wiring_stores_none() -> None:
+def test_create_app_without_remote_wiring_stores_none() -> None:
     app = create_app()
 
-    assert app.state.static_remote_proof_wiring is None
+    assert app.state.static_remote_wiring is None
+    assert app.state.static_remote_collection_wiring is None
     assert app.state.local_app_composition is None
 
 
@@ -234,7 +221,6 @@ def test_proof_receiving_app_uses_supplied_adapter_for_internal_request() -> Non
             capability=Capability(name="chat"),
         )
     ]
-    assert app.state.static_remote_proof_wiring is None
     assert app.state.static_remote_wiring is None
     assert app.state.static_remote_collection_wiring is None
     assert app.state.local_app_composition is None
@@ -266,18 +252,7 @@ def test_proof_receiving_app_accepts_explicit_llama_server_adapter() -> None:
     assert app.state.proof_receiving_app_wiring.adapter_registry is registry
 
 
-def test_create_app_accepts_static_remote_proof_wiring() -> None:
-    transport = RecordingRemoteTransport()
-    wiring = make_static_remote_proof_wiring(transport)
-
-    app = create_app(static_remote_proof_wiring=wiring)
-
-    assert app.state.static_remote_proof_wiring is wiring
-    assert transport.requests == []
-    assert transport.declarations == []
-
-
-def test_chat_without_static_remote_proof_wiring_remains_local_only(
+def test_chat_without_remote_wiring_remains_local_only(
     monkeypatch,
 ) -> None:
     from home_ai_cluster.api import routes
@@ -333,29 +308,6 @@ def test_internal_status_uses_supplied_local_app_composition() -> None:
     assert adapter.chat_requests == []
 
 
-def test_chat_with_static_remote_proof_wiring_uses_explicit_remote_candidate() -> None:
-    adapter = RecordingAdapter()
-    transport = RecordingRemoteTransport()
-    wiring = make_static_remote_proof_wiring(transport, adapter)
-
-    response = post(
-        create_app(static_remote_proof_wiring=wiring),
-        "/v1/chat",
-        chat_payload(),
-    )
-
-    expected_request = ClusterRequest(
-        messages=[{"role": "user", "content": "Hello"}],
-        capability=Capability(name="chat"),
-    )
-
-    assert response.status_code == 200
-    assert response.json()["adapter"] == "remote"
-    assert adapter.chat_requests == []
-    assert transport.requests == [expected_request]
-    assert transport.declarations == [make_remote_declaration()]
-
-
 def test_static_remote_wiring_precedes_local_app_composition() -> None:
     wiring_adapter = RecordingAdapter()
     composition_adapter = RecordingAdapter()
@@ -375,69 +327,3 @@ def test_static_remote_wiring_precedes_local_app_composition() -> None:
     assert len(wiring_adapter.chat_requests) == 1
     assert composition_adapter.chat_requests == []
     assert transport.requests == []
-
-
-def test_internal_cluster_request_remains_local_with_remote_proof_wiring(
-    monkeypatch,
-) -> None:
-    from home_ai_cluster.api import routes
-
-    local_adapter = RecordingAdapter()
-    remote_transport = RecordingRemoteTransport()
-    wiring = make_static_remote_proof_wiring(remote_transport)
-
-    monkeypatch.setattr(
-        routes,
-        "create_static_local_node_registry",
-        lambda: NodeRegistry([make_node("local")]),
-    )
-    monkeypatch.setattr(
-        routes,
-        "create_static_runtime_adapter_registry",
-        lambda: AdapterRegistry([local_adapter]),
-    )
-
-    response = post(
-        create_app(static_remote_proof_wiring=wiring),
-        "/internal/cluster/request",
-        internal_cluster_request_payload(),
-    )
-
-    assert response.status_code == 200
-    assert response.json()["adapter"] == "recording"
-    assert len(local_adapter.chat_requests) == 1
-    assert remote_transport.requests == []
-    assert remote_transport.declarations == []
-
-
-def test_internal_cluster_status_remains_local_with_remote_proof_wiring(
-    monkeypatch,
-) -> None:
-    from home_ai_cluster.api import routes
-
-    local_adapter = RecordingAdapter()
-    remote_transport = RecordingRemoteTransport()
-    wiring = make_static_remote_proof_wiring(remote_transport)
-
-    monkeypatch.setattr(
-        routes,
-        "create_static_local_node_registry",
-        lambda: NodeRegistry([make_node("local")]),
-    )
-    monkeypatch.setattr(
-        routes,
-        "create_static_runtime_adapter_registry",
-        lambda: AdapterRegistry([local_adapter]),
-    )
-
-    response = get(
-        create_app(static_remote_proof_wiring=wiring),
-        "/internal/cluster/status",
-    )
-
-    assert response.status_code == 200
-    assert response.json() == {"runtime_status": "available"}
-    assert local_adapter.health_calls == 1
-    assert local_adapter.chat_requests == []
-    assert remote_transport.requests == []
-    assert remote_transport.declarations == []

@@ -5,16 +5,18 @@ import pytest
 from pydantic import ValidationError
 
 from home_ai_cluster import code_command
+from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.models import (
     INTERNAL_CLUSTER_REQUEST_ADAPTER,
+    AdapterHealth,
     Capability,
     ChatMessage,
     ClusterRequest,
-    ClusterResult,
     NodeDescription,
     NodeHealth,
+    RuntimeResult,
 )
-from home_ai_cluster.core.registry import NodeRegistry
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_transport import internal_cluster_request_body
 from home_ai_cluster.main import create_app
 from home_ai_cluster.static_capabilities import (
@@ -123,14 +125,40 @@ def test_code_command_uses_chat_path_and_code_specific_404(
 
 
 def test_native_chat_route_accepts_one_explicit_code_message() -> None:
+    class RecordingCodeAdapter:
+        @property
+        def name(self) -> str:
+            return "test"
+
+        def health(self) -> AdapterHealth:
+            return AdapterHealth(available=True)
+
+        def capabilities(self) -> list[Capability]:
+            return [Capability(name="code")]
+
+        async def chat(self, request: ClusterRequest) -> RuntimeResult:
+            captured_requests.append(request)
+            return RuntimeResult(content="text", adapter=self.name)
+
     captured_requests: list[ClusterRequest] = []
-    app = create_app()
-
-    async def orchestrate(request: ClusterRequest) -> ClusterResult:
-        captured_requests.append(request)
-        return ClusterResult(content="text", adapter="test", node_id="local")
-
-    app.state.automatic_proof_orchestrator = orchestrate
+    adapter = RecordingCodeAdapter()
+    app = create_app(
+        local_app_composition=LocalAppComposition(
+            node_registry=NodeRegistry(
+                [
+                    NodeDescription(
+                        id="local",
+                        name="local",
+                        availability="available",
+                        health=NodeHealth(healthy=True),
+                        capabilities=[Capability(name="code")],
+                        adapters=[adapter.name],
+                    )
+                ]
+            ),
+            adapter_registry=AdapterRegistry([adapter]),
+        )
+    )
 
     async def send() -> httpx.Response:
         async with httpx.AsyncClient(

@@ -507,14 +507,18 @@ readiness or eliminating possible future lifecycle needs.
 This preserves the historical distributed architecture proof. It is not the
 ordinary static multi-node operating mode.
 
+The `home-ai-cluster-static-proof` launcher was retired by accepted RFC-0075.
+The command below is retained as historical evidence, not a current installation
+instruction. Exact reproduction requires the historical repository revision
+that still installed it. Use the ordinary `home-ai-cluster-static-cluster`
+workflow for current operation.
+
 ```sh
 uv run home-ai-cluster-static-proof http://<receiving-lan-address>:8000
 ```
 
-It uses explicit declared-remote-only selection for historical proof
-reproduction. It remains documented until ordinary static multi-node operation
-has been reproduced and its retained ordinary-mode proof record is complete.
-For the detailed historical runbook, see `docs/static-two-machine-proof.md`.
+It used explicit declared-remote-only selection for the historical proof. For
+the detailed historical runbook, see `docs/static-two-machine-proof.md`.
 
 ## Mode comparison
 
@@ -522,7 +526,7 @@ For the detailed historical runbook, see `docs/static-two-machine-proof.md`.
 | --- | --- | --- | --- | --- |
 | Local-only | ordinary app | local only | local declarations | normal simplest use |
 | Static multi-node | `home-ai-cluster-static-cluster` | local-first, narrow fallback | local + declared remote static declarations | ordinary explicit two-node operation |
-| Historical proof | `home-ai-cluster-static-proof` | declared remote only | ordinary local preflight only unless separately invoked | historical architecture reproduction |
+| Historical proof | retired launcher; historical revision only | declared remote only | ordinary local preflight only unless separately invoked | retained architecture evidence |
 
 ## Failure-layer lookup
 
@@ -548,7 +552,7 @@ Do not reinterpret one layer's failure as another layer's result.
 | External AI runtime | Model execution | Runtime-specific | Operator-owned |
 | Ordinary Home AI Cluster application | Native local or receiving endpoint | `8000`; loopback by default, trusted-LAN bind only when explicitly started that way | Home AI Cluster process, manually started |
 | Static multi-node process | Calling-machine ordinary multi-node endpoint | `8000` on the calling machine loopback | Home AI Cluster process, manually started |
-| Static proof process | Calling-machine historical proof endpoint | `8000` on the calling machine loopback | Home AI Cluster proof process, manually started |
+| Historical static proof process | Historical calling-machine proof endpoint | `8000` on the calling machine loopback | Historical repository revision only |
 | OpenAI-compatible process | Optional compatibility access | `8001`; loopback only | Separate optional Home AI Cluster process |
 
 This table does not imply supervision or automatic lifecycle management.

@@ -1,13 +1,9 @@
 import asyncio
 
 import httpx
-import pytest
 
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.api.wiring import (
-    StaticRemoteProofWiring,
-    StaticRemoteProofWiringError,
-    build_static_remote_proof_wiring,
     create_static_local_node_announcement,
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
@@ -15,19 +11,13 @@ from home_ai_cluster.api.wiring import (
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
-    ChatMessage,
     ClusterRequest,
     ClusterResult,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
 )
-from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
-from home_ai_cluster.core.remote_node import (
-    RemoteNodeDeclaration,
-    RemoteNodeDeclarationRegistry,
-)
-from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.main import create_app
 
 
@@ -141,145 +131,3 @@ def test_create_static_local_node_registry_contains_static_local_node() -> None:
         "adapters": ["ollama"],
     }
     assert "models" not in NodeDescription.model_fields
-
-
-def test_static_remote_proof_wiring_can_be_constructed_in_memory() -> None:
-    adapter = RecordingAdapter()
-    transport = RecordingRemoteTransport()
-    node_registry = NodeRegistry([make_node("local")])
-    adapter_registry = AdapterRegistry([adapter])
-    declaration = make_remote_declaration()
-
-    wiring = build_static_remote_proof_wiring(
-        node_registry=node_registry,
-        adapter_registry=adapter_registry,
-        remote_declaration=declaration,
-        remote_transport=transport,
-        selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
-    )
-
-    assert wiring.node_registry is node_registry
-    assert wiring.adapter_registry is adapter_registry
-    assert wiring.remote_registry.list_declarations() == [declaration]
-    assert wiring.remote_transport is transport
-    assert wiring.selection_mode == RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY
-
-
-def test_static_remote_proof_wiring_construction_is_inert() -> None:
-    adapter = RecordingAdapter()
-    transport = RecordingRemoteTransport()
-
-    build_static_remote_proof_wiring(
-        node_registry=NodeRegistry([make_node("local")]),
-        adapter_registry=AdapterRegistry([adapter]),
-        remote_declaration=make_remote_declaration(),
-        remote_transport=transport,
-        selection_mode=RoutingCandidateSelectionMode.PREFER_DECLARED_REMOTE,
-    )
-
-    assert adapter.chat_requests == []
-    assert transport.requests == []
-    assert transport.declarations == []
-
-
-@pytest.mark.parametrize(
-    "remote_registry",
-    [
-        RemoteNodeDeclarationRegistry(),
-        RemoteNodeDeclarationRegistry(
-            [
-                make_remote_declaration(),
-                RemoteNodeDeclaration(
-                    node=make_node("other-remote", "remote-adapter"),
-                    transport_address="http://other-remote.local:8000",
-                ),
-            ]
-        ),
-    ],
-)
-def test_static_remote_proof_wiring_requires_one_declared_remote_node(
-    remote_registry: RemoteNodeDeclarationRegistry,
-) -> None:
-    with pytest.raises(
-        StaticRemoteProofWiringError,
-        match="exactly one declared remote node",
-    ):
-        StaticRemoteProofWiring(
-            node_registry=NodeRegistry([make_node("local")]),
-            adapter_registry=AdapterRegistry([RecordingAdapter()]),
-            remote_registry=remote_registry,
-            remote_transport=RecordingRemoteTransport(),
-            selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
-        )
-
-
-@pytest.mark.parametrize(
-    "field",
-    [
-        "node_registry",
-        "adapter_registry",
-        "remote_registry",
-        "remote_transport",
-        "selection_mode",
-    ],
-)
-def test_static_remote_proof_wiring_requires_complete_dependencies(
-    field: str,
-) -> None:
-    values = {
-        "node_registry": NodeRegistry([make_node("local")]),
-        "adapter_registry": AdapterRegistry([RecordingAdapter()]),
-        "remote_registry": RemoteNodeDeclarationRegistry([make_remote_declaration()]),
-        "remote_transport": RecordingRemoteTransport(),
-        "selection_mode": RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
-    }
-    values[field] = None
-
-    with pytest.raises(StaticRemoteProofWiringError, match="requires"):
-        StaticRemoteProofWiring(**values)  # type: ignore[arg-type]
-
-
-def test_chat_endpoint_remains_local_only_without_static_remote_proof_wiring(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from home_ai_cluster.api import routes
-
-    adapter = RecordingAdapter()
-    transport = RecordingRemoteTransport()
-
-    build_static_remote_proof_wiring(
-        node_registry=NodeRegistry([make_node("local")]),
-        adapter_registry=AdapterRegistry([adapter]),
-        remote_declaration=make_remote_declaration(),
-        remote_transport=transport,
-        selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
-    )
-
-    monkeypatch.setattr(
-        routes,
-        "create_static_local_node_registry",
-        lambda: NodeRegistry([make_node("local")]),
-    )
-    monkeypatch.setattr(
-        routes,
-        "create_static_runtime_adapter_registry",
-        lambda: AdapterRegistry([adapter]),
-    )
-
-    response = post_chat(
-        {
-            "messages": [{"role": "user", "content": "Hello"}],
-            "capability": "chat",
-        }
-    )
-
-    assert response.status_code == 200
-    assert response.json()["adapter"] == "recording"
-    assert adapter.chat_requests == [
-        ClusterRequest(
-            messages=[ChatMessage(role="user", content="Hello")],
-            capability=Capability(name="chat"),
-        )
-    ]
-    assert transport.requests == []
-    assert transport.declarations == []

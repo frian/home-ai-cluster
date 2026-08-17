@@ -2,12 +2,9 @@ import pytest
 
 from home_ai_cluster.api.wiring import (
     StaticRemoteCollectionWiring,
-    StaticRemoteProofWiring,
-    StaticRemoteProofWiringError,
     StaticRemoteWiring,
     StaticRemoteWiringError,
     build_static_remote_collection_wiring,
-    build_static_remote_proof_wiring,
     build_static_remote_wiring,
 )
 from home_ai_cluster.core.models import (
@@ -112,25 +109,6 @@ def test_build_static_remote_collection_wiring_preserves_order() -> None:
 
     assert type(wiring) is StaticRemoteCollectionWiring
     assert wiring.remote_registry.list_declarations() == [first, second]
-
-
-def test_proof_builder_delegates_to_proof_neutral_wiring() -> None:
-    wiring = build_static_remote_proof_wiring(
-        node_registry=NodeRegistry([make_node("local", "recording")]),
-        adapter_registry=AdapterRegistry([RecordingAdapter()]),
-        remote_declaration=make_remote_declaration(),
-        remote_transport=RecordingRemoteTransport(),
-        selection_mode=RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY,
-    )
-
-    assert type(wiring) is StaticRemoteWiring
-    assert isinstance(wiring, StaticRemoteProofWiring)
-    assert wiring.selection_mode == RoutingCandidateSelectionMode.DECLARED_REMOTE_ONLY
-
-
-def test_proof_names_remain_compatibility_aliases() -> None:
-    assert StaticRemoteProofWiring is StaticRemoteWiring
-    assert StaticRemoteProofWiringError is StaticRemoteWiringError
 
 
 def test_static_remote_collection_wiring_requires_at_least_one_remote_node() -> None:

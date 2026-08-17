@@ -8,14 +8,12 @@ from home_ai_cluster.api.wiring import (
     LocalAppComposition,
     ProofReceivingAppWiring,
     StaticRemoteCollectionWiring,
-    StaticRemoteProofWiring,
     StaticRemoteWiring,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 
 
 def create_app(
-    static_remote_proof_wiring: StaticRemoteProofWiring | None = None,
     *,
     local_app_composition: LocalAppComposition | None = None,
     static_remote_wiring: StaticRemoteWiring | None = None,
@@ -23,12 +21,10 @@ def create_app(
     lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Home AI Cluster", lifespan=lifespan)
-    app.state.static_remote_proof_wiring = static_remote_proof_wiring
     app.state.static_remote_wiring = static_remote_wiring
     app.state.static_remote_collection_wiring = static_remote_collection_wiring
     app.state.local_app_composition = local_app_composition
     app.state.proof_receiving_app_wiring = None
-    app.state.automatic_proof_orchestrator = None
     app.include_router(router)
     return app
 

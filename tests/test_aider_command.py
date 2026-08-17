@@ -669,6 +669,7 @@ def test_fixed_aider_arguments_include_all_privacy_guardrails(tmp_path: Path) ->
         "--no-auto-test",
         "--no-auto-lint",
         "--no-suggest-shell-commands",
+        "--no-show-model-warnings",
     } <= set(argv)
     assert argv[-4:] == [
         "--file",

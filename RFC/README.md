@@ -62,6 +62,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0075: Retire Historical Proof Launchers](RFC-0075-retire-historical-proof-launchers.md)
+  — retires four installed historical proof-only launchers while preserving
+  ordinary architecture and retained historical evidence.
 - [RFC-0074: Explicit Local Runtime Composition File](RFC-0074-explicit-local-runtime-composition-file.md)
   — accepts one optional explicitly selected, closed TOML file for local
   runtime-adapter construction while preserving CLI-only startup and all

@@ -120,14 +120,14 @@ model identifier.
 
 ## Phase 12 proof-launcher disposition
 
-Retain `home-ai-cluster-phase-12-heterogeneous-receiver` as historical
-reproducibility evidence.
+At Phase 13 closeout, `home-ai-cluster-phase-12-heterogeneous-receiver` was
+intentionally retained as historical reproducibility evidence. It remained
+proof-only and was not part of the ordinary operator path.
 
-It remains proof-only, is not part of the ordinary operator path, and should not
-be extended for new ordinary operation. New ordinary runtime-composition work
-must use `home-ai-cluster-local` or a later accepted ordinary contract. Removing
-the Phase 12 launcher is unnecessary for Phase 13 completion and would reduce the
-ability to reproduce the earlier proof.
+Accepted RFC-0075 later changed only that compatibility disposition: the
+launcher is now retired from current installations. The Phase 12 proof record
+and Git history remain retained. Ordinary runtime composition continues through
+`home-ai-cluster-local`, including the accepted llama-server path.
 
 ## Deferred work
 

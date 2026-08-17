@@ -484,10 +484,9 @@ including static proof, routing explanation, actual-request explanation, and
 history inspection and clearing. They are not part of the ordinary ten-command
 root surface and are intentionally not fully documented here.
 
-The historical static, automatic, and fallback proof launchers were retired by
-RFC-0075; their commands remain in historical records and require the matching
-historical repository revision for exact reproduction. The Phase 12
-heterogeneous receiver remains installed during the staged implementation.
+All four historical installed proof launchers were retired by RFC-0075; their
+commands remain in historical records and require the matching historical
+repository revision for exact reproduction.
 
 **See also:** [Documentation index](README.md), retained proof documents, and
 the [RFC index](../RFC/README.md).

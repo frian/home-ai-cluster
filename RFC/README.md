@@ -60,6 +60,13 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0074: Explicit Local Runtime Composition File](RFC-0074-explicit-local-runtime-composition-file.md)
+  — proposes one optional explicitly selected, closed TOML file for local
+  runtime-adapter construction while preserving CLI-only startup and all
+  cluster-facing behavior.
+
 ## Accepted RFCs
 
 - [RFC-0073: Explicit Ollama Thinking Disable](RFC-0073-explicit-ollama-thinking-disable.md)

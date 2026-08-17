@@ -1,6 +1,6 @@
 # RFC-0074: Explicit Local Runtime Composition File
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-17
 
@@ -330,4 +330,16 @@ helper placement remain implementation details.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster accepts one optional explicitly selected TOML local
+runtime-composition file through `--runtime-config PATH`, with a closed
+`ollama` / `llama-server` schema. There is no implicit configuration discovery.
+File mode is mutually exclusive only with equivalent runtime-composition CLI
+arguments explicitly supplied by the operator; implicit CLI parser defaults do
+not constitute a conflicting source. Existing CLI-only and zero-argument Ollama
+behavior remain supported.
+
+The same contract constructs the process-local adapter for ordinary local,
+caller-local static-cluster, and status composition. Static topology declarations
+remain separate, and listener settings remain outside this file. This authorizes
+no request, routing, declaration, result/status schema, browser, compatibility,
+Aider, discovery, lifecycle, credential, or general-configuration change.

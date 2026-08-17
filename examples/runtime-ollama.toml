@@ -1,0 +1,6 @@
+runtime = "ollama"
+
+[ollama]
+# Replace with an already-installed operator-owned Ollama model.
+model = "replace-with-installed-model"
+disable_thinking = true

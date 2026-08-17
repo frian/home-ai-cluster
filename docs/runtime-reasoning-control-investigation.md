@@ -67,23 +67,26 @@ authority. The continued-runner observation is separate from reasoning control.
 
 ### Ollama
 
-Official [Ollama chat API documentation](https://docs.ollama.com/api/chat)
-defines `think` for thinking models as a request field accepting either a
-boolean or levels including `low`, `medium`, `high`, and `max`. Its assistant
-message has separate `thinking` and `content` fields. The documentation does
-not state one uniform default for all thinking-capable models; this is explicitly
-model-dependent. An Ollama policy therefore cannot safely be assumed to be a
-universal boolean semantic.
+Official [Ollama Thinking documentation](https://docs.ollama.com/capabilities/thinking)
+states that thinking is enabled by default in the CLI and API for supported
+models. The same documentation distinguishes the model-dependent value domain
+and disable semantics: most supported models accept boolean `true`/`false`
+and/or levels such as `low`, `medium`, `high`, and `max`, while some models impose
+different restrictions. Its separate `message.thinking` field contains the
+trace while `message.content` contains the final answer. This documented default
+does not imply that HAC should disable thinking by default.
 
 ### llama.cpp / llama-server
 
 Official [llama-server documentation](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)
-exposes distinct startup controls: `--reasoning on|off|auto`,
-`--reasoning-effort`, `--reasoning-format`, and `--reasoning-budget`. The budget
+distinguishes startup controls—`--reasoning on|off|auto`,
+`--reasoning-format`, and `--reasoning-budget`—from request fields. The budget
 is `-1` unrestricted, `0` immediate end, or a positive token limit. Template
-kwargs are separate. Its server schema also accepts request-level format and
-budget fields, and its format can leave thought tags in content or extract them
-to `message.reasoning_content`.
+kwargs are separate. At request level, `reasoning_effort: none` disables
+reasoning for that request; other effort values may not themselves change
+reasoning behavior. The server also accepts request-level format and budget
+fields, and its format can leave thought tags in content or extract them to
+`message.reasoning_content`.
 
 Both runtimes may influence or represent reasoning, but that is not evidence of
 one shared semantic: their controls differ in meaning, granularity, defaults,

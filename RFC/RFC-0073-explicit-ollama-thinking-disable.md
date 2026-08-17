@@ -1,6 +1,6 @@
 # RFC-0073: Explicit Ollama Thinking Disable
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-17
 
@@ -79,4 +79,15 @@ None within this contract. A composition configuration file is separate.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster accepts one optional Ollama-specific process-local
+startup flag, `--ollama-disable-thinking`. When omitted, HAC preserves the
+existing Ollama request shape and sends no `think` field. When explicitly
+supplied with `--runtime ollama`, the composed Ollama adapter sends native
+`think: false` for every inference handled by that adapter.
+
+The choice remains process-local and adapter-owned. It does not become a
+`ClusterRequest` field, capability property, routing criterion, remote
+declaration, Aider/browser/compatibility option, generic runtime abstraction,
+reasoning-level/budget control, timeout/cancellation mechanism, lifecycle
+authority, or configuration-file contract. llama-server behavior remains
+unchanged.

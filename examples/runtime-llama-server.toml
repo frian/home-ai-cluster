@@ -1,0 +1,7 @@
+runtime = "llama-server"
+
+[llama_server]
+# Adapt this loopback port to the already-running local llama-server.
+base_url = "http://127.0.0.1:8080"
+# Replace with that server's model identifier.
+model = "replace-with-server-model"

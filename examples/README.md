@@ -1,4 +1,9 @@
-# Static Cluster Declaration Examples
+# Topology and Local Runtime Composition Examples
+
+These examples retain two separate kinds of operator-owned TOML documents:
+static-cluster topology declarations and local runtime-composition files.
+
+## Static-cluster topology declarations
 
 These small examples show accepted static-cluster declaration shapes. Replace
 the `192.0.2.0/24` documentation addresses with operator-owned trusted-LAN
@@ -37,3 +42,32 @@ hac static-cluster --declaration examples/static-cluster-two-remotes.toml
 See the [canonical operator workflow](../docs/operator-workflow.md) and
 [command reference](../docs/command-reference.md) for the supported procedure
 and command boundaries.
+
+## Local runtime-composition files
+
+`runtime-ollama.toml` and `runtime-llama-server.toml` configure only this
+process's local adapter composition. Select one explicitly with
+`--runtime-config`; it does not configure topology, and there is no implicit
+config discovery. A runtime-composition file cannot be combined with an
+equivalent runtime CLI argument explicitly supplied by the operator.
+
+The `[ollama]` table and its `model` and `disable_thinking` values are optional
+under the accepted schema. Their omission preserves existing defaults.
+`llama-server` requires both `base_url` and `model` in `[llama_server]`.
+
+Topology declarations and runtime-composition files have different ownership
+and meaning. A static-cluster declaration describes declared nodes and
+caller-local eligibility; a runtime-composition file constructs only the local
+adapter for the current process.
+
+```sh
+hac local --runtime-config examples/runtime-ollama.toml
+
+hac static-cluster \
+  --declaration examples/static-cluster-two-remotes.toml \
+  --runtime-config examples/runtime-ollama.toml
+
+hac status \
+  --declaration examples/static-cluster-two-remotes.toml \
+  --runtime-config examples/runtime-ollama.toml
+```

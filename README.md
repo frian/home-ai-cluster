@@ -35,6 +35,9 @@ The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
 explicit static multi-node operation, and historical proof-only operation.
 
+Operators can find retained topology and local runtime-composition TOML examples
+in [examples/README.md](examples/README.md).
+
 For current ordinary command syntax, options, and boundaries, use the
 [command reference](docs/command-reference.md).
 

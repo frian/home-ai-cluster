@@ -21,6 +21,7 @@ from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMod
 from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
+    resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
 from home_ai_cluster.loopback_browser import add_loopback_browser_routes
@@ -216,6 +217,7 @@ def create_static_cluster_collection_app(
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
+    values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
 
     if args.declaration is not None:
         try:
@@ -223,11 +225,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
         local_app_composition = create_local_runtime_composition(
-            runtime=args.runtime,
-            ollama_model=args.ollama_model,
-            ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=args.llama_server_base_url,
-            llama_server_model=args.llama_server_model,
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
             capabilities=declarations.local_capabilities,
         )
         app = create_static_cluster_collection_app(
@@ -236,11 +238,11 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     else:
         local_app_composition = create_local_runtime_composition(
-            runtime=args.runtime,
-            ollama_model=args.ollama_model,
-            ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=args.llama_server_base_url,
-            llama_server_model=args.llama_server_model,
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
             capabilities=args.local_capability,
         )
         app = create_static_cluster_app(

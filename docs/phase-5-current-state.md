@@ -82,7 +82,7 @@ match; other adapter failures use `RuntimeAdapterUnavailableError`.
 
 ## Real-local proof
 
-The opt-in proof recorded in
+The proof recorded in
 [Phase 5 Evidence — Runtime Adapter Proof](evidence/phase-5-runtime-adapter-proof.md)
 explicitly constructed both adapters and sent the same small cluster-owned chat
 request through the shared `RuntimeAdapter` shape.
@@ -97,9 +97,10 @@ After the operator stopped the explicit llama-server process, the same adapter
 returned `RuntimeConnectionUnavailableBeforeRequestError`. The proof output did
 not expose an `httpx`, llama.cpp, GGUF, or compatibility-protocol exception.
 
-The ordinary unit suite remains live-runtime-free. The real proof is explicitly
-opt-in; runtimes and models are started, stopped, and managed by the operator,
-not application code.
+The ordinary unit suite remains live-runtime-free. When it was executed, the
+real proof was explicitly opt-in; runtimes and models were started, stopped, and
+managed by the operator, not application code. Its historical runner has since
+been removed after proof completion.
 
 No `/v1/chat` API or public protocol, routing behavior, node-attribution rule,
 or `RuntimeAdapter` member changed for the proof.

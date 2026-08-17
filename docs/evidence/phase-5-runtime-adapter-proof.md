@@ -4,6 +4,12 @@ Status: Proof
 
 Date: 2026-07-15
 
+> Retained historical evidence. The narrow
+> `phase_5_runtime_adapter_proof` module was removed after this proof completed.
+> The commands below record what was actually executed; exact reproduction
+> requires the matching historical repository revision. Current multi-runtime
+> operation uses ordinary local runtime composition.
+
 This document records the explicit local proof required by accepted RFC-0030.
 It is evidence for the shared runtime-adapter boundary. It does not change the
 public API, routing, adapter protocol, or node-attribution rules.

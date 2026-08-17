@@ -282,9 +282,9 @@ established at a specific stage and do not replace the current workflow.
   path and browser mechanics, but RFC-0062 and RFC-0067 require a narrow
   follow-up RFC before the fixed browser surface can expand.
 - [Bounded textual code assistance proof](bounded-textual-code-assistance-proof.md)
-  — retains privacy-safe local positive and no-eligible-capability evidence for
-  accepted RFC-0067. A physical two-machine code proof remains pending; this is
-  not a full RFC-0067 proof closeout.
+  — retains privacy-safe local positive, no-eligible-capability, and physical
+  two-machine real-LAN evidence for accepted RFC-0067 bounded textual code
+  assistance.
 - [Code caller integration investigation](code-caller-integration-investigation.md)
   — finds a bounded external Aider caller-side proof justified for one
   caller-owned script edit through explicit native `code`; no Home AI Cluster
@@ -297,7 +297,7 @@ established at a specific stage and do not replace the current workflow.
 - [Aider code bridge proof](aider-code-bridge-proof.md) — retained privacy-safe
   evidence from one bounded one-machine caller-side execution through explicit
   native `code`; it is not a supported integration or replacement for the
-  pending physical two-machine RFC-0067 proof.
+  independent physical two-machine RFC-0067 proof.
 - [Supported Aider code integration investigation](aider-code-supported-integration-investigation.md)
   — evaluates the smallest possible project-owned one-shot caller edge after
   the bounded proof; it recommends an RFC before any implementation and defers
@@ -305,7 +305,7 @@ established at a specific stage and do not replace the current workflow.
 - [Aider caller edge proof](aider-caller-edge-proof.md) — retains privacy-safe
   evidence that the accepted RFC-0068 and RFC-0069 one-machine caller edge
   completed one bounded Aider-owned edit through explicit native `code`; the
-  independent physical two-machine RFC-0067 proof remains pending.
+  independent physical two-machine RFC-0067 proof remains separate.
 
 ## Document roles
 

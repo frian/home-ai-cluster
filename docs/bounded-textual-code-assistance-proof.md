@@ -1,14 +1,13 @@
 # Bounded Textual Code Assistance Proof
 
-Status: Partial
+Status: Retained
 
 Date: 2026-08-11
 
 ## Scope
 
-This record retains privacy-safe local evidence for accepted RFC-0067 bounded
-textual code assistance. It is not a complete proof and does not make a claim
-about physical two-machine code execution.
+This record retains privacy-safe local and physical two-machine evidence for
+accepted RFC-0067 bounded textual code assistance.
 
 ## Automated baseline
 
@@ -70,29 +69,53 @@ code request
     -> no ineligible remote request
 ```
 
-## Physical two-machine RFC-0067 code proof: PENDING
+## Retained physical two-machine RFC-0067 code proof
 
-A real physical two-machine proof remains required. It must show, with
-privacy-safe retained evidence:
+The repository owner manually completed this proof on two separate physical
+machines at repository revision `9ec386a9e65e7c96c21382440ebc63e6091c5992`.
+Both machines used that revision. One machine ran the ordinary caller-side
+static-cluster process; the separate receiver machine ran an ordinary receiver
+process with its own operator-owned local runtime. The processes communicated
+over a real local network, not loopback.
+
+The caller-local routing declaration contained only `chat`. The declared remote
+logical node `code-remote` contained `chat` and `code`. Static preflight was
+coherent, and static status observed the remote application as reachable and
+its runtime as available. The caller-local runtime was also healthy and
+available; it was excluded from this request because it did not declare `code`,
+not because of runtime failure.
+
+One explicit native `code` request sent to the already-running caller process
+therefore selected the eligible declared remote directly. The request crossed
+the real LAN to the separate receiver and returned a non-empty textual
+code-assistance result. Verbose attribution identified `code-remote`.
+
+This was direct capability-centered selection, not fallback:
 
 ```text
 request requires code
 caller-local node chat only -> ineligible
-real declared remote node chat + code -> eligible -> selected -> real network
-    -> textual result attributed to remote
+declared remote code-remote chat + code -> eligible -> selected -> real LAN
+    -> non-empty textual result attributed to code-remote
 ```
 
-The proof must use a real second machine and real network path. A same-machine
-loopback substitution is not sufficient.
+No fallback trigger, direct node selector, retry, discovery, scheduling, or
+runtime/model choice appeared in the request. Home AI Cluster returned text
+only. It did not execute the generated code or gain filesystem, repository,
+shell, Git, testing, tool, agent, or execution authority.
 
 ## Privacy exclusions
 
-This record retains no real prompts, pasted code, generated code, private
-addresses, model or runtime identifiers, machine names, credentials, or private
-filesystem paths.
+This record retains no real prompts, pasted code, generated code, private LAN
+addresses, physical hostnames, usernames, filesystem paths, process IDs, model
+or runtime identifiers, credentials, or other machine-specific private details.
 
 ## Conclusion
 
 The local positive and negative observations support the accepted explicit,
-bounded, text-only `code` capability and its safe no-candidate boundary. They
-do not close the required physical two-machine RFC-0067 proof.
+bounded, text-only `code` capability and its safe no-candidate boundary. The
+retained physical observation closes the required RFC-0067 two-machine proof:
+an ineligible healthy caller-local node was excluded, and an eligible declared
+physical remote returned textual assistance through ordinary real-LAN static
+routing. This evidence does not claim production readiness or introduce an
+architectural conclusion beyond accepted RFC-0067.

@@ -7,6 +7,8 @@ Date: 2026-08-17
 > Follow-up disposition: this is a pre-RFC-0075 factual snapshot. RFC-0075 was
 > subsequently accepted and implemented, retiring all four installed historical
 > proof launchers while retaining the historical records and Git history.
+> A later bounded cleanup also removed the separately out-of-scope Phase 5 proof
+> runner after confirming that ordinary runtime composition no longer required it.
 
 ## Question
 

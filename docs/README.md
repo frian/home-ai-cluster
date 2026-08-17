@@ -40,6 +40,10 @@ architecture.
   — retains one privacy-safe real-local RFC-0073 observation that explicit
   Ollama thinking disable let a bounded Aider workflow complete in roughly one
   to two minutes after comparable default-thinking runs exceeded finite waits.
+- [Explicit local runtime composition file proof](explicit-local-runtime-composition-file-proof.md)
+  — retains one privacy-safe real-local RFC-0074 observation that an explicitly
+  selected runtime-composition file reached an already-installed local Ollama
+  path and rejected an explicit second composition source before startup.
 - [Runtime reasoning control investigation](runtime-reasoning-control-investigation.md)
   — evaluates whether one narrowly scoped Ollama process-local reasoning control
   needs an RFC while preserving model-independent requests, routing, and privacy.

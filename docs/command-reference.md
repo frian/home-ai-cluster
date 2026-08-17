@@ -96,6 +96,32 @@ discovery. File mode is mutually exclusive with equivalent runtime-composition
 options explicitly supplied by the operator; parser defaults do not conflict.
 The file and CLI options are not merged.
 
+An Ollama runtime-composition file can be:
+
+```toml
+runtime = "ollama"
+
+[ollama]
+model = "qwen3:8b"
+disable_thinking = true
+```
+
+For Ollama, `[ollama]`, `model`, and `disable_thinking` are all optional;
+omission preserves the existing defaults.
+
+A llama-server runtime-composition file is:
+
+```toml
+runtime = "llama-server"
+
+[llama_server]
+base_url = "http://127.0.0.1:8080"
+model = "model-name"
+```
+
+Both llama-server values are required. Runtime-composition files configure only
+the caller-local runtime and remain separate from static topology declarations.
+
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
 only Chat, Summarize, and Classify. The page keeps Chat only in memory, shows

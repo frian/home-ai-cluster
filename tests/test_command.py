@@ -69,7 +69,6 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
             "home-ai-cluster-status",
             "home-ai-cluster-history",
             "home-ai-cluster-clear-history",
-            "home-ai-cluster-phase-12-heterogeneous-receiver",
             "home-ai-cluster-local",
             "home-ai-cluster-chat",
         )
@@ -89,9 +88,6 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "home-ai-cluster-clear-history": (
             "home_ai_cluster.request_history:clear_history_main"
         ),
-        "home-ai-cluster-phase-12-heterogeneous-receiver": (
-            "home_ai_cluster.phase_12_heterogeneous_runtime_cluster_proof:main"
-        ),
         "home-ai-cluster-local": "home_ai_cluster.local_runtime:main",
         "home-ai-cluster-chat": "home_ai_cluster.chat_command:main",
     }
@@ -99,6 +95,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "home-ai-cluster-static-proof",
         "home-ai-cluster-automatic-proof",
         "home-ai-cluster-fallback-proof",
+        "home-ai-cluster-phase-12-heterogeneous-receiver",
     }.isdisjoint(scripts)
 
 

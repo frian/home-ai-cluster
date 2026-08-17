@@ -165,7 +165,8 @@ established at a specific stage and do not replace the current workflow.
 ### Phase 12 — Heterogeneous runtime cluster proof
 
 - [Heterogeneous runtime cluster proof](phase-12-heterogeneous-runtime-cluster-proof.md)
-  — retained engine-independent cluster evidence.
+  — retained engine-independent cluster evidence; its historical launcher was
+  retired by RFC-0075.
 - [Phase 12 closeout](phase-12-closeout.md) — completion summary.
 
 ### Phase 13 — Explicit local runtime composition

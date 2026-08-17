@@ -239,10 +239,8 @@ See the [canonical operator workflow](docs/operator-workflow.md) and the
 [Phase 17 closeout](docs/phase-17-closeout.md) for the bounded inspection
 contract.
 
-The historical static, automatic, and fallback proof launchers were retired by
-accepted RFC-0075; their records and Git history remain the archive. The Phase
-12 heterogeneous receiver remains installed temporarily for its later staged
-retirement and is proof-only historical evidence; ordinary llama-server
+All four historical installed proof launchers were retired by accepted RFC-0075;
+their records and Git history remain the archive. Ordinary llama-server
 operation uses `home-ai-cluster-local`.
 
 ## One-shot ordinary request access

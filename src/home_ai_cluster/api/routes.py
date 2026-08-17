@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field, ValidationError
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
-    ProofReceivingAppWiring,
     StaticRemoteCollectionWiring,
     StaticRemoteWiring,
     create_static_local_node_registry,
@@ -78,16 +77,9 @@ def _resolve_local_registries(
 
 async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest | SummarizeRequest | ClassifyRequest,
-    proof_receiving_app_wiring: ProofReceivingAppWiring | None = None,
     local_app_composition: LocalAppComposition | None = None,
 ) -> ClusterResult | ClassifyResult:
-    if proof_receiving_app_wiring is not None:
-        node_registry = proof_receiving_app_wiring.node_registry
-        adapter_registry = proof_receiving_app_wiring.adapter_registry
-    else:
-        node_registry, adapter_registry = _resolve_local_registries(
-            local_app_composition
-        )
+    node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
 
     try:
         return await orchestrate_request(
@@ -378,13 +370,6 @@ async def internal_cluster_request(
         request = envelope.request.normalized_request()
     else:
         request = envelope.request.normalized_request()
-    proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
-    if proof_receiving_app_wiring is not None:
-        return await handle_static_local_cluster_request(
-            request,
-            proof_receiving_app_wiring,
-        )
-
     local_app_composition = http_request.app.state.local_app_composition
     if local_app_composition is None:
         return await handle_static_local_cluster_request(request)
@@ -404,14 +389,9 @@ async def internal_cluster_status(
 ) -> InternalClusterStatusResponse:
     """Return one completed local runtime observation without cluster collection."""
     try:
-        proof_receiving_app_wiring = http_request.app.state.proof_receiving_app_wiring
-        if proof_receiving_app_wiring is not None:
-            node_registry = proof_receiving_app_wiring.node_registry
-            adapter_registry = proof_receiving_app_wiring.adapter_registry
-        else:
-            node_registry, adapter_registry = _resolve_local_registries(
-                http_request.app.state.local_app_composition
-            )
+        node_registry, adapter_registry = _resolve_local_registries(
+            http_request.app.state.local_app_composition
+        )
         snapshot = project_health_snapshot(node_registry, adapter_registry)
         local_status = project_local_cluster_status(snapshot)
     except Exception as error:

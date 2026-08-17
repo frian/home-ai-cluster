@@ -2,6 +2,12 @@
 
 Status: Retained
 
+> Historical proof. `home-ai-cluster-phase-12-heterogeneous-receiver` was later
+> retired by RFC-0075. The command below records what was actually used; exact
+> reproduction requires the matching historical repository revision. Current
+> heterogeneous ordinary operation uses `home-ai-cluster-local --runtime
+> llama-server`.
+
 ## Purpose
 
 Retain privacy-safe evidence that one ordinary capability-centered request

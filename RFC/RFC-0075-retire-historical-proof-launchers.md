@@ -1,6 +1,6 @@
 # RFC-0075: Retire Historical Proof Launchers
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-17
 
@@ -373,16 +373,33 @@ a behavioral uncertainty.
 
 ## Open questions
 
-- Should all four retired launchers be removed in one implementation change or
-  in separately reviewed, dependency-justified increments after this RFC is
-  accepted?
-- Which current-facing historical static-proof references need an archival note
-  versus a direct link to the ordinary workflow?
-
-These do not reopen the proposed retired name set, the absence of transitional
-launchers, the preservation of historical evidence, or the requirement to
-preserve shared architecture.
+None within this accepted decision.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster retires exactly these installed historical proof launchers:
+
+```text
+home-ai-cluster-static-proof
+home-ai-cluster-automatic-proof
+home-ai-cluster-fallback-proof
+home-ai-cluster-phase-12-heterogeneous-receiver
+```
+
+No alias, redirect, warning shim, replacement launcher, deprecation framework,
+or migration machinery is introduced. Historical RFCs, proof records, and Git
+history remain the archive.
+
+Later implementation may delete only proof-only code and tests confirmed dead
+by dependency review. All ordinary/shared routing, fallback, wiring,
+runtime-composition, internal receiver, inspection, native capability, and
+privacy contracts remain unchanged. The accepted diagnostic/history standalone
+surfaces and the Phase 5 `python -m` proof runner remain outside this RFC.
+
+RFC-0075 retires all four names as one accepted architectural compatibility
+decision. Later implementation may use multiple small, independently reviewed
+PRs when that makes dependency review and preservation of shared architecture
+clearer; implementation sequencing does not reopen or divide the accepted
+four-launcher retirement decision.

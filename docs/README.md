@@ -36,6 +36,10 @@ architecture.
 - [Explicit Ollama model selection proof](explicit-ollama-model-selection-proof.md)
   — retains one real-local RFC-0071 observation that an already-installed
   explicitly selected Ollama model handled one native model-free `code` request.
+- [Explicit Ollama thinking disable proof](explicit-ollama-thinking-disable-proof.md)
+  — retains one privacy-safe real-local RFC-0073 observation that explicit
+  Ollama thinking disable let a bounded Aider workflow complete in roughly one
+  to two minutes after comparable default-thinking runs exceeded finite waits.
 - [Runtime reasoning control investigation](runtime-reasoning-control-investigation.md)
   — evaluates whether one narrowly scoped Ollama process-local reasoning control
   needs an RFC while preserving model-independent requests, routing, and privacy.

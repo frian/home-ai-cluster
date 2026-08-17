@@ -63,6 +63,16 @@ def test_shared_runtime_arguments_accept_an_explicit_ollama_model() -> None:
     assert args.ollama_model == "configured-model"
 
 
+def test_shared_runtime_arguments_accept_ollama_disable_thinking() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    args = parser.parse_args(["--runtime", "ollama", "--ollama-disable-thinking"])
+    local_runtime_composition.validate_local_runtime_arguments(parser, args)
+
+    assert args.ollama_disable_thinking is True
+
+
 def test_shared_runtime_argument_validation_uses_supplied_parser_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -98,6 +108,7 @@ def test_shared_composition_constructs_one_ordinary_ollama_node_and_adapter() ->
     assert isinstance(adapters[0], OllamaAdapter)
     assert adapters[0].name == "ollama"
     assert adapters[0].model == "llama3.2"
+    assert adapters[0].disable_thinking is False
 
 
 def test_shared_composition_constructs_ollama_adapter_with_explicit_model() -> None:
@@ -109,6 +120,17 @@ def test_shared_composition_constructs_ollama_adapter_with_explicit_model() -> N
     adapter = composition.adapter_registry.list_adapters()[0]
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "configured-model"
+
+
+def test_shared_composition_passes_thinking_disable_to_ollama_adapter() -> None:
+    composition = local_runtime_composition.create_local_runtime_composition(
+        runtime="ollama",
+        ollama_disable_thinking=True,
+    )
+
+    adapter = composition.adapter_registry.list_adapters()[0]
+    assert isinstance(adapter, OllamaAdapter)
+    assert adapter.disable_thinking is True
 
 
 @pytest.mark.parametrize(
@@ -186,6 +208,19 @@ def test_shared_composition_rejects_invalid_runtime_specific_values(
         )
 
 
+def test_shared_composition_rejects_thinking_disable_for_llama_server() -> None:
+    with pytest.raises(
+        local_runtime_composition.LocalRuntimeCompositionError,
+        match="ollama arguments require --runtime ollama",
+    ):
+        local_runtime_composition.create_local_runtime_composition(
+            runtime="llama-server",
+            ollama_disable_thinking=True,
+            llama_server_base_url="http://127.0.0.1:8080",
+            llama_server_model="local-model",
+        )
+
+
 class RecordingLlamaServerAdapter:
     def __init__(self, *, base_url: str, model: str) -> None:
         self.base_url = base_url
@@ -244,8 +279,9 @@ def test_explicit_ollama_model_construction_does_not_probe_runtime(
     class RecordingOllamaAdapter:
         name = "ollama"
 
-        def __init__(self, *, model: str) -> None:
+        def __init__(self, *, model: str, disable_thinking: bool) -> None:
             self.model = model
+            self.disable_thinking = disable_thinking
             created.append(self)
 
     monkeypatch.setattr(

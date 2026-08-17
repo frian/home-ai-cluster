@@ -14,6 +14,7 @@ def test_parse_args_defaults_to_ollama() -> None:
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
     assert args.ollama_model is None
+    assert args.ollama_disable_thinking is False
     assert args.host == "127.0.0.1"
     assert args.port == 8000
 
@@ -22,6 +23,14 @@ def test_parse_args_accepts_explicit_ollama() -> None:
     args = local_runtime.parse_args(["--runtime", "ollama"])
 
     assert args.runtime == "ollama"
+
+
+def test_parse_args_accepts_ollama_disable_thinking() -> None:
+    args = local_runtime.parse_args(
+        ["--runtime", "ollama", "--ollama-disable-thinking"]
+    )
+
+    assert args.ollama_disable_thinking is True
 
 
 def test_parse_args_rejects_unsupported_runtime() -> None:
@@ -34,6 +43,10 @@ def test_parse_args_rejects_unsupported_runtime() -> None:
     [
         (
             ["--runtime", "llama-server", "--ollama-model", "configured-model"],
+            "ollama arguments require --runtime ollama",
+        ),
+        (
+            ["--runtime", "llama-server", "--ollama-disable-thinking"],
             "ollama arguments require --runtime ollama",
         ),
         (
@@ -243,6 +256,7 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     adapter = captured["composition"].adapter_registry.list_adapters()[0]
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "llama3.2"
+    assert adapter.disable_thinking is False
 
 
 def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(
@@ -267,6 +281,27 @@ def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(
     adapter = captured["composition"].adapter_registry.list_adapters()[0]
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "configured-model"
+
+
+def test_create_local_runtime_app_passes_thinking_disable_to_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return app
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    result = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(["--runtime", "ollama", "--ollama-disable-thinking"])
+    )
+
+    assert result is app
+    adapter = captured["composition"].adapter_registry.list_adapters()[0]
+    assert isinstance(adapter, OllamaAdapter)
+    assert adapter.disable_thinking is True
 
 
 @pytest.mark.parametrize(

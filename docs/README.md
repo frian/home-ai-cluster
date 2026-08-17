@@ -43,6 +43,10 @@ architecture.
 - [Runtime reasoning control investigation](runtime-reasoning-control-investigation.md)
   — evaluates whether one narrowly scoped Ollama process-local reasoning control
   needs an RFC while preserving model-independent requests, routing, and privacy.
+- [Local runtime composition configuration investigation](local-runtime-composition-config-investigation.md)
+  — evaluates whether one explicit retained process-local runtime-composition
+  file now warrants an RFC; it authorizes no implementation or configuration
+  contract.
 - [Aider whole-file edit reliability investigation](aider-whole-file-edit-reliability-investigation.md)
   — records the Aider 0.86.2 source-level explanation for an unchanged-target
   observation; it authorizes no caller-edge, model, or filesystem change.

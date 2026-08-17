@@ -121,6 +121,9 @@ established at a specific stage and do not replace the current workflow.
   proof procedure.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained
   successful real execution.
+- [Retained proof scaffolding investigation](retained-proof-scaffolding-investigation.md)
+  — documentation-only inventory of historical proof surfaces, their ordinary
+  replacements, and the RFC boundary for any later retirement decision.
 
 ### Phase 6 — OpenAI-compatible access
 

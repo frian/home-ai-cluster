@@ -1,4 +1,4 @@
-"""One bounded Aider-specific caller edge accepted by RFC-0068 and RFC-0069."""
+"""Bounded Aider caller edge accepted by RFC-0068, RFC-0069, and RFC-0072."""
 
 import argparse
 import http.client
@@ -158,7 +158,7 @@ def _valid_aider_request(body: object) -> list[dict[str, str]] | None:
 
 
 class _AiderTranslator:
-    """Private sequential one-request loopback translator for one Aider child."""
+    """Private sequential two-request loopback translator for one Aider child."""
 
     def __init__(
         self,
@@ -169,7 +169,8 @@ class _AiderTranslator:
     ) -> None:
         self.accepted_request_count = 0
         self.native_request_count = 0
-        self.completed = False
+        self.projected_response_count = 0
+        self.failed = False
         self._timeout_seconds = timeout_seconds
         self._client_factory = client_factory
         self._server = server_factory(("127.0.0.1", 0), self._handler_type())
@@ -180,6 +181,15 @@ class _AiderTranslator:
     def base_url(self) -> str:
         host, port = self._server.server_address[:2]
         return f"http://{host}:{port}/v1"
+
+    @property
+    def completed(self) -> bool:
+        """Report only a successful, complete bounded child interaction."""
+        return (
+            not self.failed
+            and self.accepted_request_count > 0
+            and self.projected_response_count == self.accepted_request_count
+        )
 
     def start(self) -> None:
         self._thread.start()
@@ -206,31 +216,41 @@ class _AiderTranslator:
                 self.end_headers()
                 self.wfile.write(payload)
 
+            def _fail(self, status: int) -> None:
+                translator.failed = True
+                self._write_json(status, {"error": _BRIDGE_FAILURE})
+
             def do_POST(self) -> None:  # noqa: N802
                 if self.path != "/v1/chat/completions":
-                    self._write_json(404, {"error": _BRIDGE_FAILURE})
+                    self._fail(404)
                     return
                 authorization = self.headers.get("Authorization")
                 if authorization is not None and (
                     not authorization.startswith("Bearer ")
                     or len(authorization) == len("Bearer ")
                 ):
-                    self._write_json(400, {"error": _BRIDGE_FAILURE})
+                    self._fail(400)
                     return
                 try:
                     length = int(self.headers.get("Content-Length", ""))
                     body = json.loads(self.rfile.read(length))
                 except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
-                    self._write_json(400, {"error": _BRIDGE_FAILURE})
+                    self._fail(400)
                     return
                 messages = _valid_aider_request(body)
-                if messages is None or translator.accepted_request_count:
-                    self._write_json(400, {"error": _BRIDGE_FAILURE})
+                if (
+                    messages is None
+                    or translator.failed
+                    or translator.accepted_request_count >= 2
+                    or translator.accepted_request_count
+                    != translator.projected_response_count
+                ):
+                    self._fail(400)
                     return
-                translator.accepted_request_count = 1
+                translator.accepted_request_count += 1
                 try:
                     request = _native_request(messages)
-                    translator.native_request_count = 1
+                    translator.native_request_count += 1
                     with translator._client_factory(
                         timeout=translator._timeout_seconds, follow_redirects=False
                     ) as client:
@@ -245,7 +265,7 @@ class _AiderTranslator:
                     ValueError,
                     OSError,
                 ):
-                    self._write_json(502, {"error": _BRIDGE_FAILURE})
+                    self._fail(502)
                     return
                 self._write_json(
                     200,
@@ -266,8 +286,7 @@ class _AiderTranslator:
                         ],
                     },
                 )
-                translator.completed = True
-                threading.Thread(target=translator._server.shutdown).start()
+                translator.projected_response_count += 1
 
         return _Handler
 
@@ -335,7 +354,7 @@ def main(
         tempfile.TemporaryDirectory
     ),
 ) -> None:
-    """Run exactly one fixed external Aider invocation, then clean its edge."""
+    """Run one fixed Aider invocation with at most two translated requests."""
     try:
         command_input = _parse_input(argv)
     except chat_command._InvalidRequestInput:

@@ -60,15 +60,12 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
-## Draft RFCs
-
-- [RFC-0072: Bounded Aider Follow-Up Request](RFC-0072-bounded-aider-follow-up-request.md)
-  — proposes permitting one optional Aider-owned qualifying follow-up after a
-  successful first translated result, while keeping the caller edge to at most
-  two native `capability=code` requests per invocation.
-
 ## Accepted RFCs
 
+- [RFC-0072: Bounded Aider Follow-Up Request](RFC-0072-bounded-aider-follow-up-request.md)
+  — accepts one optional Aider-owned qualifying follow-up after a successful
+  first translated result, while keeping the caller edge to at most two native
+  `capability=code` requests per invocation.
 - [RFC-0071: Explicit Ollama Model Selection](RFC-0071-explicit-ollama-model-selection.md)
   — accepts one optional ordinary Ollama model value that remains process-local
   and adapter-owned, while requests, routing, and declarations stay

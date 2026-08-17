@@ -1,6 +1,6 @@
 # RFC-0072: Bounded Aider Follow-Up Request
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-17
 
@@ -339,4 +339,19 @@ and target-byte/success observation require separate decisions.
 
 ## Decision
 
-Pending.
+Accepted. One fixed `hac aider --file PATH --message TEXT` invocation launches
+exactly one Aider 0.86.2 subprocess and one private translator. It requires one
+and permits at most two qualifying Aider-shaped requests; each accepted request
+maps to exactly one native `POST /v1/chat` with `capability=code`. The optional
+second request is entirely Aider-owned: HAC neither synthesizes nor classifies
+it, and performs no semantic reflection detection. Native request #1 must
+succeed and be successfully projected before a second qualifying request is
+allowed; its failure cannot be retried. A third qualifying request cannot
+produce a third native request. There is no loop or configurable
+retry/reflection count.
+
+Strict ingress, ordered-message preservation, independent ordinary routing,
+model independence, Aider 0.86.2 with `whole` edit format, RFC-0069 filesystem
+authority, privacy, RFC-0031 Chat-only compatibility, and existing execution
+guardrails remain unchanged. RFC-0068 is narrowly amended only for request
+count and translator/follow-up lifecycle; it is not superseded wholesale.

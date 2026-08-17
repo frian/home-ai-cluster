@@ -1,4 +1,4 @@
-"""Tests for the concrete RFC-0068 and RFC-0069 Aider caller edge."""
+"""Tests for the concrete RFC-0068, RFC-0069, and RFC-0072 Aider caller edge."""
 
 import http.client
 import json
@@ -283,6 +283,8 @@ def test_translator_is_loopback_strict_and_projects_one_minimal_response() -> No
         }
     ]
     assert translator.accepted_request_count == translator.native_request_count == 1
+    assert translator.projected_response_count == 1
+    assert translator.completed is True
 
 
 @pytest.mark.parametrize(
@@ -313,7 +315,7 @@ def test_translator_rejects_unknown_streaming_and_non_plain_messages(
     assert translator.accepted_request_count == translator.native_request_count == 0
 
 
-def test_second_request_cannot_cause_a_second_native_request() -> None:
+def test_first_native_failure_blocks_a_second_native_request() -> None:
     requests: list[dict[str, Any]] = []
     translator = aider_command._AiderTranslator(
         timeout_seconds=120.0,
@@ -338,11 +340,13 @@ def test_second_request_cannot_cause_a_second_native_request() -> None:
     finally:
         translator.close()
     assert translator.accepted_request_count == translator.native_request_count == 1
+    assert translator.projected_response_count == 0
     assert translator.completed is False
+    assert translator.failed is True
     assert len(requests) == 1
 
 
-def test_second_request_failure_makes_zero_exit_aider_invocation_unsuccessful(
+def test_first_native_failure_makes_zero_exit_aider_invocation_unsuccessful(
     tmp_path: Path,
 ) -> None:
     target = tmp_path / "target.py"
@@ -385,6 +389,215 @@ def test_second_request_failure_makes_zero_exit_aider_invocation_unsuccessful(
         == translators[0].native_request_count
         == 1
     )
+    assert translators[0].completed is False
+    assert len(requests) == 1
+
+
+def test_two_requests_are_independently_translated_by_one_aider_subprocess(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    requests: list[dict[str, Any]] = []
+    translators: list[aider_command._AiderTranslator] = []
+    responses = [_response("first result"), _response("second result")]
+    calls: list[list[str]] = []
+    first_request = {
+        "model": "home-ai-cluster",
+        "messages": [{"role": "system", "content": "first system"}],
+    }
+    second_request = {
+        "model": "home-ai-cluster",
+        "messages": [
+            {"role": "assistant", "content": "first result"},
+            {"role": "user", "content": "second request"},
+        ],
+    }
+
+    def translator_factory(**kwargs: object) -> aider_command._AiderTranslator:
+        translator = aider_command._AiderTranslator(**kwargs)
+        translators.append(translator)
+        return translator
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        calls.append(argv)
+        base_url = argv[argv.index("--openai-api-base") + 1]
+        first_response = _post_bridge(base_url, first_request)
+        assert first_response[0] == 200
+        assert first_response[1]["choices"] == [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "first result"},
+                "finish_reason": None,
+            }
+        ]
+        second_response = _post_bridge(base_url, second_request)
+        assert second_response[0] == 200
+        assert second_response[1]["choices"] == [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "second result"},
+                "finish_reason": None,
+            }
+        ]
+        return subprocess.CompletedProcess(argv, 0)
+
+    aider_command.main(
+        ["--file", str(target), "--message", "request"],
+        _which=lambda name: "/test/aider",
+        _run=run,
+        _client_factory=lambda **kwargs: _NativeClient(responses.pop(0), requests),
+        _translator_factory=translator_factory,
+    )
+
+    assert len(calls) == 1
+    assert len(translators) == 1
+    assert translators[0].accepted_request_count == 2
+    assert translators[0].native_request_count == 2
+    assert translators[0].projected_response_count == 2
+    assert translators[0].completed is True
+    assert requests == [
+        {"messages": first_request["messages"], "capability": "code"},
+        {"messages": second_request["messages"], "capability": "code"},
+    ]
+
+
+def test_second_native_failure_makes_zero_exit_aider_invocation_unsuccessful(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    requests: list[dict[str, Any]] = []
+    translators: list[aider_command._AiderTranslator] = []
+    responses = [_response("first result"), httpx.Response(500, text="failure")]
+    request = {
+        "model": "home-ai-cluster",
+        "messages": [{"role": "user", "content": "request"}],
+    }
+
+    def translator_factory(**kwargs: object) -> aider_command._AiderTranslator:
+        translator = aider_command._AiderTranslator(**kwargs)
+        translators.append(translator)
+        return translator
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        base_url = argv[argv.index("--openai-api-base") + 1]
+        assert _post_bridge(base_url, request)[0] == 200
+        assert _post_bridge(base_url, request) == (
+            502,
+            {"error": "Home AI Cluster request failed"},
+        )
+        assert _post_bridge(base_url, request) == (
+            400,
+            {"error": "Home AI Cluster request failed"},
+        )
+        return subprocess.CompletedProcess(argv, 0)
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "--message", "request"],
+            _which=lambda name: "/test/aider",
+            _run=run,
+            _client_factory=lambda **kwargs: _NativeClient(responses.pop(0), requests),
+            _translator_factory=translator_factory,
+        )
+
+    assert raised.value.code == 1
+    assert translators[0].accepted_request_count == 2
+    assert translators[0].native_request_count == 2
+    assert translators[0].projected_response_count == 1
+    assert translators[0].completed is False
+    assert len(requests) == 2
+
+
+def test_third_request_is_rejected_and_makes_zero_exit_unsuccessful(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    requests: list[dict[str, Any]] = []
+    translators: list[aider_command._AiderTranslator] = []
+    responses = [_response("first result"), _response("second result")]
+    request = {
+        "model": "home-ai-cluster",
+        "messages": [{"role": "user", "content": "request"}],
+    }
+
+    def translator_factory(**kwargs: object) -> aider_command._AiderTranslator:
+        translator = aider_command._AiderTranslator(**kwargs)
+        translators.append(translator)
+        return translator
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        base_url = argv[argv.index("--openai-api-base") + 1]
+        assert _post_bridge(base_url, request)[0] == 200
+        assert _post_bridge(base_url, request)[0] == 200
+        assert _post_bridge(base_url, request) == (
+            400,
+            {"error": "Home AI Cluster request failed"},
+        )
+        return subprocess.CompletedProcess(argv, 0)
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "--message", "request"],
+            _which=lambda name: "/test/aider",
+            _run=run,
+            _client_factory=lambda **kwargs: _NativeClient(responses.pop(0), requests),
+            _translator_factory=translator_factory,
+        )
+
+    assert raised.value.code == 1
+    assert translators[0].accepted_request_count == 2
+    assert translators[0].native_request_count == 2
+    assert translators[0].projected_response_count == 2
+    assert translators[0].completed is False
+    assert len(requests) == 2
+
+
+def test_invalid_second_request_makes_zero_exit_aider_invocation_unsuccessful(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    requests: list[dict[str, Any]] = []
+    translators: list[aider_command._AiderTranslator] = []
+    request = {
+        "model": "home-ai-cluster",
+        "messages": [{"role": "user", "content": "request"}],
+    }
+
+    def translator_factory(**kwargs: object) -> aider_command._AiderTranslator:
+        translator = aider_command._AiderTranslator(**kwargs)
+        translators.append(translator)
+        return translator
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        base_url = argv[argv.index("--openai-api-base") + 1]
+        assert _post_bridge(base_url, request)[0] == 200
+        assert _post_bridge(
+            base_url,
+            {"model": "home-ai-cluster", "messages": [], "temperature": 0},
+        ) == (400, {"error": "Home AI Cluster request failed"})
+        return subprocess.CompletedProcess(argv, 0)
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "--message", "request"],
+            _which=lambda name: "/test/aider",
+            _run=run,
+            _client_factory=lambda **kwargs: _NativeClient(_response(), requests),
+            _translator_factory=translator_factory,
+        )
+
+    assert raised.value.code == 1
+    assert translators[0].accepted_request_count == 1
+    assert translators[0].native_request_count == 1
+    assert translators[0].projected_response_count == 1
     assert translators[0].completed is False
     assert len(requests) == 1
 

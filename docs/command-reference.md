@@ -238,13 +238,18 @@ Its parent must already exist as a directory, creation never overwrites an
 existing target, and a later failure does not delete a newly created target.
 Missing or wrong-version Aider creates no target.
 
-Each invocation starts one private, ephemeral IPv4-loopback translator and
-allows at most one Aider-shaped request and one native `capability=code`
-request. There is no retry, interactive session, Git, test, lint, or shell
-automation. The translator is not RFC-0031 compatibility, which remains
-Chat-only. HAC core remains text-only; Aider retains target-content authority.
+Each invocation launches one Aider subprocess and one private, ephemeral
+IPv4-loopback translator. One Aider-shaped request is required; at most one
+additional Aider-owned follow-up is permitted, for a maximum of two native
+`capability=code` requests. The first native interaction must succeed before a
+follow-up is allowed; this is not HAC retry behavior, and a third request fails
+closed. There is no interactive session, Git, test, lint, or shell automation.
+The translator is not RFC-0031 compatibility, which remains Chat-only. HAC core
+remains text-only; Aider retains target-content authority.
+All existing privacy and execution guardrails remain unchanged.
 `--timeout-seconds` accepts one base-10 integer from `1` through `3600`, with a
-120-second omission default, and applies only to the native HAC request.
+120-second omission default, and applies independently to each native HAC
+request.
 
 ## `hac summarize`
 

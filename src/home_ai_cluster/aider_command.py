@@ -313,6 +313,7 @@ def _aider_argv(
         "--no-analytics",
         "--no-check-update",
         "--no-show-release-notes",
+        "--no-show-model-warnings",
         "--no-cache-prompts",
         "--input-history-file",
         os.devnull,

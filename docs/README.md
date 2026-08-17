@@ -36,6 +36,9 @@ architecture.
 - [Explicit Ollama model selection proof](explicit-ollama-model-selection-proof.md)
   — retains one real-local RFC-0071 observation that an already-installed
   explicitly selected Ollama model handled one native model-free `code` request.
+- [Runtime reasoning control investigation](runtime-reasoning-control-investigation.md)
+  — evaluates whether one narrowly scoped Ollama process-local reasoning control
+  needs an RFC while preserving model-independent requests, routing, and privacy.
 - [Aider whole-file edit reliability investigation](aider-whole-file-edit-reliability-investigation.md)
   — records the Aider 0.86.2 source-level explanation for an unchanged-target
   observation; it authorizes no caller-edge, model, or filesystem change.

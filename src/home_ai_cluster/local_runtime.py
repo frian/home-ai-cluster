@@ -39,6 +39,7 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     composition = create_local_runtime_composition(
         runtime=args.runtime,
         ollama_model=args.ollama_model,
+        ollama_disable_thinking=args.ollama_disable_thinking,
         llama_server_base_url=args.llama_server_base_url,
         llama_server_model=args.llama_server_model,
     )

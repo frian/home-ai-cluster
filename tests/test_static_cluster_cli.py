@@ -34,6 +34,7 @@ def test_parse_args_accepts_inline_mode() -> None:
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
     assert args.ollama_model is None
+    assert args.ollama_disable_thinking is False
 
 
 def test_parse_args_accepts_declaration_mode_without_loading_file(
@@ -65,6 +66,22 @@ def test_parse_args_accepts_explicit_ollama_runtime() -> None:
     assert args.llama_server_base_url is None
     assert args.llama_server_model is None
     assert args.ollama_model is None
+
+
+def test_parse_args_accepts_ollama_disable_thinking() -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example:8000",
+            "--runtime",
+            "ollama",
+            "--ollama-disable-thinking",
+        ]
+    )
+
+    assert args.ollama_disable_thinking is True
 
 
 @pytest.mark.parametrize(
@@ -438,6 +455,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         *,
         runtime: str,
         ollama_model: str | None,
+        ollama_disable_thinking: bool,
         llama_server_base_url: str | None,
         llama_server_model: str | None,
         capabilities: tuple[str, ...],
@@ -445,6 +463,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         recorded["composition_arguments"] = {
             "runtime": runtime,
             "ollama_model": ollama_model,
+            "ollama_disable_thinking": ollama_disable_thinking,
             "llama_server_base_url": llama_server_base_url,
             "llama_server_model": llama_server_model,
             "capabilities": capabilities,
@@ -472,6 +491,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
             "ollama",
             "--ollama-model",
             "configured-model",
+            "--ollama-disable-thinking",
         ]
     )
 
@@ -482,6 +502,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
     assert recorded["composition_arguments"] == {
         "runtime": "ollama",
         "ollama_model": "configured-model",
+        "ollama_disable_thinking": True,
         "llama_server_base_url": None,
         "llama_server_model": None,
         "capabilities": ("chat", "summarize"),
@@ -557,6 +578,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
     assert recorded["composition_arguments"] == {
         "runtime": "llama-server",
         "ollama_model": None,
+        "ollama_disable_thinking": False,
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
         "capabilities": ("chat", "summarize"),

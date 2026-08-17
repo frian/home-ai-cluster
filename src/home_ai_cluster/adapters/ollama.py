@@ -26,10 +26,12 @@ class OllamaAdapter:
         base_url: str = "http://localhost:11434",
         model: str = "llama3.2",
         *,
+        disable_thinking: bool = False,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url
         self.model = model
+        self.disable_thinking = disable_thinking
         self._transport = transport
 
     @property
@@ -57,6 +59,17 @@ class OllamaAdapter:
 
         return AdapterHealth(available=True)
 
+    def _chat_payload(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Build one native Ollama chat payload with optional local thinking control."""
+        payload: dict[str, object] = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+        }
+        if self.disable_thinking:
+            payload["think"] = False
+        return payload
+
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         messages = [
             {"role": message.role, "content": message.content}
@@ -71,11 +84,7 @@ class OllamaAdapter:
             ) as client:
                 response = await client.post(
                     "/api/chat",
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "stream": False,
-                    },
+                    json=self._chat_payload(messages),
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:
@@ -106,9 +115,8 @@ class OllamaAdapter:
             ) as client:
                 response = await client.post(
                     "/api/chat",
-                    json={
-                        "model": self.model,
-                        "messages": [
+                    json=self._chat_payload(
+                        [
                             {
                                 "role": "user",
                                 "content": (
@@ -116,9 +124,8 @@ class OllamaAdapter:
                                     f"<source>\n{request.text}\n</source>"
                                 ),
                             }
-                        ],
-                        "stream": False,
-                    },
+                        ]
+                    ),
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:
@@ -151,19 +158,13 @@ class OllamaAdapter:
                 transport=self._transport,
                 timeout=None,
             ) as client:
-                response = await client.post(
-                    "/api/chat",
-                    json={
-                        "model": self.model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "stream": False,
-                        "format": {
-                            "type": "string",
-                            "enum": list(request.labels),
-                        },
-                        "options": {"temperature": 0},
-                    },
-                )
+                payload = self._chat_payload([{"role": "user", "content": prompt}])
+                payload["format"] = {
+                    "type": "string",
+                    "enum": list(request.labels),
+                }
+                payload["options"] = {"temperature": 0}
+                response = await client.post("/api/chat", json=payload)
                 response.raise_for_status()
         except httpx.ConnectError as exc:
             raise RuntimeConnectionUnavailableBeforeRequestError(

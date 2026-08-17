@@ -740,6 +740,7 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
             {
                 "runtime": "ollama",
                 "ollama_model": None,
+                "ollama_disable_thinking": False,
                 "llama_server_base_url": None,
                 "llama_server_model": None,
             },
@@ -749,6 +750,7 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
             {
                 "runtime": "ollama",
                 "ollama_model": "configured-model",
+                "ollama_disable_thinking": False,
                 "llama_server_base_url": None,
                 "llama_server_model": None,
             },
@@ -765,6 +767,7 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
             {
                 "runtime": "llama-server",
                 "ollama_model": None,
+                "ollama_disable_thinking": False,
                 "llama_server_base_url": "http://127.0.0.1:8080",
                 "llama_server_model": "local-model",
             },
@@ -843,6 +846,7 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
 
     def create_local_composition(**kwargs: object) -> object:
         recorded["local_capabilities"] = kwargs["capabilities"]
+        recorded["ollama_disable_thinking"] = kwargs["ollama_disable_thinking"]
         return local_composition
 
     monkeypatch.setattr(
@@ -873,11 +877,13 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
             "chat",
             "--remote-capability",
             "summarize",
+            "--ollama-disable-thinking",
         ]
     )
 
     assert recorded == {
         "local_capabilities": ("chat",),
+        "ollama_disable_thinking": True,
         "capabilities": ("summarize",),
         "local_app_composition": local_composition,
     }

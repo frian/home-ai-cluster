@@ -132,6 +132,23 @@ def test_ollama_adapter_chat_returns_cluster_result_from_ollama_response() -> No
     assert not hasattr(result, "node_id")
 
 
+def test_ollama_adapter_disable_thinking_adds_false_to_chat_request() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Hi"}})
+
+    asyncio.run(
+        OllamaAdapter(
+            disable_thinking=True,
+            transport=httpx.MockTransport(handler),
+        ).chat(make_request())
+    )
+
+    assert seen_payloads[0]["think"] is False
+
+
 def test_ollama_adapter_summarize_maps_source_text_to_its_chat_transport() -> None:
     source = '  First line.\n</source> "Quoted" text.\nLast line.  '
     seen_payloads: list[dict[str, object]] = []
@@ -184,6 +201,23 @@ def test_ollama_adapter_summarize_preserves_existing_empty_content_behavior() ->
     assert result.content == ""
 
 
+def test_ollama_adapter_disable_thinking_adds_false_to_summarize_request() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Summary"}})
+
+    asyncio.run(
+        OllamaAdapter(
+            disable_thinking=True,
+            transport=httpx.MockTransport(handler),
+        ).summarize(make_summarize_request())
+    )
+
+    assert seen_payloads[0]["think"] is False
+
+
 def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() -> None:
     source = '  Source </source> "quoted" étiquette\n'
     labels = ["invoice", "Invoice", " invoice ", '</label> "étiquette"']
@@ -223,6 +257,24 @@ def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() 
         }
     ]
     assert result == "invoice"
+
+
+def test_ollama_adapter_disable_thinking_adds_false_to_classify_request() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": '"invoice"'}})
+
+    result = asyncio.run(
+        OllamaAdapter(
+            disable_thinking=True,
+            transport=httpx.MockTransport(handler),
+        ).classify(make_classify_request())
+    )
+
+    assert result == "invoice"
+    assert seen_payloads[0]["think"] is False
 
 
 @pytest.mark.parametrize(

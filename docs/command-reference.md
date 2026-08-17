@@ -68,6 +68,7 @@ eight finite commands.
 hac local
 hac local --host 127.0.0.1 --port 8000
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
+hac local --runtime ollama --ollama-disable-thinking
 hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -81,6 +82,10 @@ arguments. The application runs in the foreground. Home AI Cluster does not
 install, start, stop, download models for, or supervise the external runtime.
 Ordinary local compositions advertise and execute `chat`, `summarize`,
 `classify`, and `code`.
+`--ollama-disable-thinking` is Ollama-only and configures the process-local
+Ollama adapter: it requests native `think: false` for every adapter inference.
+Omission preserves the existing request shape (no `think` field). It is not a
+per-request or per-capability setting.
 
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
@@ -106,6 +111,7 @@ and one or more declared remote nodes.
 ```sh
 hac static-cluster --declaration <PATH>
 hac static-cluster --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
+hac static-cluster --declaration <PATH> --runtime ollama --ollama-disable-thinking
 hac static-cluster \
   --remote-node-id <NODE_ID> \
   --remote-base-url <BASE_URL> \
@@ -122,6 +128,11 @@ explicit, and routing remains local-first and capability-centered. The process
 does not discover, start, stop, supervise, or repair remote machines or runtimes.
 Its optional Ollama-specific `--ollama-model` configures only the local runtime
 composition; omission keeps `llama3.2` and remote declarations carry no model.
+Its optional Ollama-specific `--ollama-disable-thinking` likewise configures
+only that process-local adapter, requests native `think: false` for every local
+adapter inference, and is neither per-request nor per-capability. Omission
+preserves the existing native request shape; remote declarations carry no such
+setting.
 The accepted explicit capability names are `chat`, `summarize`, `classify`, and
 `code`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =

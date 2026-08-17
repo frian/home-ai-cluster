@@ -85,8 +85,9 @@ architecture.
 - [Human-readable operator output investigation](human-readable-operator-output-investigation.md)
   — investigated the bounded presentation need for existing finite operator
   commands that led to RFC-0048; it is not itself the architectural decision.
-- [Static two-machine proof runbook](static-two-machine-proof.md) — explicit
-  historical LAN proof procedure.
+- [Static two-machine proof runbook](static-two-machine-proof.md) — retained
+  historical LAN procedure; its launcher was retired by RFC-0075 and exact
+  reproduction requires the historical repository revision.
 - [First two-machine proof result](first-two-machine-proof-result.md) — retained
   result of the founding real two-machine proof.
 

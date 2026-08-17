@@ -33,7 +33,8 @@ and chronological investigation, runbook, proof, and closeout records.
 
 The [canonical operator workflow](docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
-explicit static multi-node operation, and historical proof-only operation.
+explicit static multi-node operation, with historical proof records kept
+separate from current installation guidance.
 
 Operators can find retained topology and local runtime-composition TOML examples
 in [examples/README.md](examples/README.md).
@@ -238,11 +239,11 @@ See the [canonical operator workflow](docs/operator-workflow.md) and the
 [Phase 17 closeout](docs/phase-17-closeout.md) for the bounded inspection
 contract.
 
-Separate proof commands remain available for historical architecture
-reproduction and focused verification. They do not turn the ordinary application
-into a general distributed deployment. The Phase 12 heterogeneous receiver
-remains proof-only historical evidence; ordinary llama-server operation uses
-`home-ai-cluster-local`.
+The historical static, automatic, and fallback proof launchers were retired by
+accepted RFC-0075; their records and Git history remain the archive. The Phase
+12 heterogeneous receiver remains installed temporarily for its later staged
+retirement and is proof-only historical evidence; ordinary llama-server
+operation uses `home-ai-cluster-local`.
 
 ## One-shot ordinary request access
 
@@ -541,9 +542,10 @@ scope and privacy constraints.
 
 ## Two-machine proofs
 
-The historical founding two-machine proof remains available through [the
-RFC-0022 LAN-only runbook](docs/static-two-machine-proof.md) and [its retained
-result](docs/first-two-machine-proof-result.md).
+The historical founding two-machine proof is retained through [the RFC-0022
+LAN-only runbook](docs/static-two-machine-proof.md) and [its retained
+result](docs/first-two-machine-proof-result.md). Its retired launcher requires
+the historical repository revision for exact reproduction.
 
 The newer [end-to-end ordinary remote request proof](docs/end-to-end-ordinary-remote-request-proof.md)
 records one unchanged ordinary client invocation reaching a real remote ordinary

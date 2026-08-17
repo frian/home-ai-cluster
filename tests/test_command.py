@@ -60,10 +60,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
     assert {
         name: scripts[name]
         for name in (
-            "home-ai-cluster-static-proof",
             "home-ai-cluster-static-cluster",
-            "home-ai-cluster-automatic-proof",
-            "home-ai-cluster-fallback-proof",
             "home-ai-cluster-explain-routing",
             "home-ai-cluster-explain-request",
             "home-ai-cluster-openai-compatibility",
@@ -77,10 +74,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
             "home-ai-cluster-chat",
         )
     } == {
-        "home-ai-cluster-static-proof": "home_ai_cluster.static_proof:main",
         "home-ai-cluster-static-cluster": "home_ai_cluster.static_cluster:main",
-        "home-ai-cluster-automatic-proof": "home_ai_cluster.automatic_proof:main",
-        "home-ai-cluster-fallback-proof": "home_ai_cluster.fallback_proof:main",
         "home-ai-cluster-explain-routing": "home_ai_cluster.routing_explanation:main",
         "home-ai-cluster-explain-request": (
             "home_ai_cluster.actual_request_explanation:main"
@@ -101,6 +95,11 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "home-ai-cluster-local": "home_ai_cluster.local_runtime:main",
         "home-ai-cluster-chat": "home_ai_cluster.chat_command:main",
     }
+    assert {
+        "home-ai-cluster-static-proof",
+        "home-ai-cluster-automatic-proof",
+        "home-ai-cluster-fallback-proof",
+    }.isdisjoint(scripts)
 
 
 @pytest.mark.parametrize("argv", ([], ["--help"]))

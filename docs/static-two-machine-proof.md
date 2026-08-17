@@ -10,6 +10,12 @@ It is intentionally narrow. Both machines must be on the same trusted local
 network. Do not use Tailscale, another VPN, an overlay network, or an untrusted
 network for this proof.
 
+> Historical procedure. `home-ai-cluster-static-proof` was retired by accepted
+> RFC-0075. The command below records the procedure actually used; it is not
+> available in a current installation. Exact reproduction requires the
+> historical repository revision. For current operation, use the ordinary
+> static-cluster workflow.
+
 ## Roles
 
 Use two machines:

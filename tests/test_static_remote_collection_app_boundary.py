@@ -160,7 +160,6 @@ def test_create_app_stores_ordered_static_remote_collection_wiring() -> None:
     assert app.state.static_remote_collection_wiring is wiring
     assert wiring.remote_registry.list_declarations() == [first, second]
     assert app.state.static_remote_wiring is None
-    assert app.state.static_remote_proof_wiring is None
     assert transport.requests == []
 
 

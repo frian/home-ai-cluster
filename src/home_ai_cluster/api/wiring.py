@@ -180,29 +180,6 @@ def build_static_remote_wiring(
     )
 
 
-# Compatibility names preserve the accepted proof-only public seam.
-StaticRemoteProofWiringError = StaticRemoteWiringError
-StaticRemoteProofWiring = StaticRemoteWiring
-
-
-def build_static_remote_proof_wiring(
-    *,
-    node_registry: NodeRegistry,
-    adapter_registry: AdapterRegistry,
-    remote_declaration: RemoteNodeDeclaration,
-    remote_transport: RemoteTransport,
-    selection_mode: RoutingCandidateSelectionMode,
-) -> StaticRemoteProofWiring:
-    """Build the accepted proof wiring through the proof-neutral composition."""
-    return build_static_remote_wiring(
-        node_registry=node_registry,
-        adapter_registry=adapter_registry,
-        remote_declaration=remote_declaration,
-        remote_transport=remote_transport,
-        selection_mode=selection_mode,
-    )
-
-
 def create_static_local_node_announcement(
     capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
 ) -> NodeDescription:

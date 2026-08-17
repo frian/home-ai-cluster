@@ -85,7 +85,7 @@ def use_cluster_result(monkeypatch: pytest.MonkeyPatch) -> list[ClusterRequest]:
 
     requests: list[ClusterRequest] = []
 
-    async def handle(request: ClusterRequest, _) -> ClusterResult:
+    async def handle(request: ClusterRequest, **_: object) -> ClusterResult:
         requests.append(request)
         return ClusterResult(
             content="Cluster response",
@@ -382,7 +382,6 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
 
     async def handle(
         request: ClusterRequest,
-        _,
         *,
         static_remote_wiring: object,
         static_remote_collection_wiring: object,
@@ -772,7 +771,7 @@ def test_missing_or_empty_result_model_uses_endpoint_identifier(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
-    async def handle(_, __) -> ClusterResult:
+    async def handle(_, **__) -> ClusterResult:
         return ClusterResult(
             content="Cluster response",
             adapter="test-adapter",
@@ -949,7 +948,7 @@ def test_no_matching_chat_capability_is_translated(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
-    async def handle(_, __) -> ClusterResult:
+    async def handle(_, **__) -> ClusterResult:
         raise NoMatchingAdapterError("private capability detail")
 
     monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
@@ -969,7 +968,7 @@ def test_runtime_unavailability_does_not_leak_runtime_details(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
-    async def handle(_, __) -> ClusterResult:
+    async def handle(_, **__) -> ClusterResult:
         raise RuntimeAdapterUnavailableError("ollama at localhost:11434")
 
     monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
@@ -1000,7 +999,7 @@ def test_cluster_seam_http_errors_are_translated_without_details(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
-    async def handle(_, __) -> ClusterResult:
+    async def handle(_, **__) -> ClusterResult:
         raise HTTPException(status_code, detail="private runtime detail")
 
     monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
@@ -1021,7 +1020,7 @@ def test_unexpected_failure_does_not_leak_details(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
-    async def handle(_, __) -> ClusterResult:
+    async def handle(_, **__) -> ClusterResult:
         raise RuntimeError("private prompt content")
 
     monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)

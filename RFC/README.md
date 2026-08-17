@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0074: Explicit Local Runtime Composition File](RFC-0074-explicit-local-runtime-composition-file.md)
+  — accepts one optional explicitly selected, closed TOML file for local
+  runtime-adapter construction while preserving CLI-only startup and all
+  cluster-facing behavior.
 - [RFC-0073: Explicit Ollama Thinking Disable](RFC-0073-explicit-ollama-thinking-disable.md)
   — accepts one optional Ollama-only process-local startup flag that requests
   `think: false` while leaving requests, routing, and result privacy unchanged.

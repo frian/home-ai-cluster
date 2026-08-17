@@ -12,7 +12,8 @@ Home AI Cluster should accept one optional, explicitly selected TOML file for
 constructing the one ordinary local runtime adapter owned by a process. The
 file has a closed schema for the existing `ollama` and `llama-server` runtime
 composition facts. It is selected only by `--runtime-config PATH` and is
-mutually exclusive with equivalent runtime-composition CLI arguments.
+mutually exclusive only with equivalent runtime-composition CLI arguments
+explicitly supplied by the operator.
 
 Omitting the option preserves existing CLI-only and zero-argument Ollama
 behavior. The file does not configure requests, topology, routing, listener
@@ -45,7 +46,7 @@ concerns how one process constructs its own local adapter.
 - Keep configuration process-local and adapter-owned.
 - Preserve all CLI-only behavior, including zero-argument Ollama.
 - Avoid precedence by making file mode and equivalent runtime CLI arguments
-  mutually exclusive.
+  explicitly supplied by the operator mutually exclusive.
 - Reuse deterministic local validation without runtime, model, or network
   discovery.
 - Make the contract available to ordinary local, caller-local static-cluster,
@@ -154,8 +155,14 @@ construction boundaries remain authoritative.
 
 ### One source of local composition facts
 
-When `--runtime-config PATH` is supplied, it is mutually exclusive with these
-equivalent existing CLI arguments:
+When `--runtime-config PATH` is supplied, it is mutually exclusive with any
+equivalent runtime-composition CLI argument explicitly supplied by the operator.
+Implicit parser defaults used by the existing CLI-only path do not constitute a
+second configuration source. Thus, file mode alone is valid even though the
+existing parser internally defaults `--runtime` to `ollama`; supplying both
+`--runtime-config PATH` and `--runtime ollama` is invalid.
+
+The equivalent CLI arguments are:
 
 ```text
 --runtime

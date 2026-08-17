@@ -62,6 +62,9 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0073: Explicit Ollama Thinking Disable](RFC-0073-explicit-ollama-thinking-disable.md)
+  — accepts one optional Ollama-only process-local startup flag that requests
+  `think: false` while leaving requests, routing, and result privacy unchanged.
 - [RFC-0072: Bounded Aider Follow-Up Request](RFC-0072-bounded-aider-follow-up-request.md)
   — accepts one optional Aider-owned qualifying follow-up after a successful
   first translated result, while keeping the caller edge to at most two native

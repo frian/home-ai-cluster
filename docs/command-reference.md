@@ -69,6 +69,7 @@ hac local
 hac local --host 127.0.0.1 --port 8000
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
+hac local --runtime-config <PATH>
 hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -86,6 +87,40 @@ Ordinary local compositions advertise and execute `chat`, `summarize`,
 Ollama adapter: it requests native `think: false` for every adapter inference.
 Omission preserves the existing request shape (no `think` field). It is not a
 per-request or per-capability setting.
+
+`--runtime-config <PATH>` selects one explicit TOML runtime-composition file.
+It has a closed `ollama` or `llama-server` schema: Ollama accepts optional
+`model` and `disable_thinking` values in `[ollama]`; llama-server requires
+`base_url` and `model` in `[llama_server]`. There is no implicit config-file
+discovery. File mode is mutually exclusive with equivalent runtime-composition
+options explicitly supplied by the operator; parser defaults do not conflict.
+The file and CLI options are not merged.
+
+An Ollama runtime-composition file can be:
+
+```toml
+runtime = "ollama"
+
+[ollama]
+model = "qwen3:8b"
+disable_thinking = true
+```
+
+For Ollama, `[ollama]`, `model`, and `disable_thinking` are all optional;
+omission preserves the existing defaults.
+
+A llama-server runtime-composition file is:
+
+```toml
+runtime = "llama-server"
+
+[llama_server]
+base_url = "http://127.0.0.1:8080"
+model = "model-name"
+```
+
+Both llama-server values are required. Runtime-composition files configure only
+the caller-local runtime and remain separate from static topology declarations.
 
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
@@ -112,6 +147,7 @@ and one or more declared remote nodes.
 hac static-cluster --declaration <PATH>
 hac static-cluster --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac static-cluster --declaration <PATH> --runtime ollama --ollama-disable-thinking
+hac static-cluster --declaration <PATH> --runtime-config <PATH>
 hac static-cluster \
   --remote-node-id <NODE_ID> \
   --remote-base-url <BASE_URL> \
@@ -133,6 +169,8 @@ only that process-local adapter, requests native `think: false` for every local
 adapter inference, and is neither per-request nor per-capability. Omission
 preserves the existing native request shape; remote declarations carry no such
 setting.
+`--runtime-config <PATH>` uses the same explicit closed runtime-composition
+contract as `hac local`; topology declarations remain separate.
 The accepted explicit capability names are `chat`, `summarize`, `classify`, and
 `code`:
 use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
@@ -387,6 +425,7 @@ rather than a whole-command failure.
 hac status --declaration <PATH>
 hac status --declaration <PATH> --json
 hac status --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
+hac status --declaration <PATH> --runtime-config <PATH>
 hac status \
   --declaration <PATH> \
   --runtime llama-server \
@@ -400,6 +439,8 @@ is finite and read-only: it does not change routing, topology, lifecycle, or
 the declaration. Default output is human-readable; `--json` is compact
 structured output. Unreachable or unavailable nodes can appear as result data
 without making the command invocation invalid.
+`--runtime-config <PATH>` uses the same explicit closed runtime-composition
+contract as `hac local` and does not change status output.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

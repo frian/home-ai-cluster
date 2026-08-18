@@ -60,6 +60,13 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0076: Bounded Tavily-Assisted Chat](RFC-0076-bounded-tavily-assisted-chat.md)
+  — proposes one explicit caller-local Tavily Search acquisition followed by
+  bounded source-grounded ordinary Chat, without URL fetching, model-directed
+  retrieval, a new capability, or a provider abstraction.
+
 ## Accepted RFCs
 
 - [RFC-0075: Retire Historical Proof Launchers](RFC-0075-retire-historical-proof-launchers.md)

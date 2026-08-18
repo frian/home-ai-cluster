@@ -66,6 +66,11 @@ architecture.
   — finds that one explicit fixed-provider acquisition plus a bounded
   source-grounded ordinary Chat contract warrants a narrow RFC before any
   implementation; it selects no provider and adds no network authority.
+- [Operator-controlled Web discovery investigation](operator-controlled-web-discovery-investigation.md)
+  — finds Outcome B: an independently operated private SearXNG service is a
+  credible future RFC candidate for bounded discovery, but HAC must not own its
+  lifecycle; operator-owned retrieval remains supported and no implementation
+  or search-service abstraction is authorized.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or

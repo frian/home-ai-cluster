@@ -58,9 +58,10 @@ architecture.
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.
 - [Post-RFC-0064 external information access investigation](post-rfc-0064-external-information-access-investigation.md)
-  — concludes that no new project-owned external-information boundary is
-  currently justified; operator-owned retrieval remains the supported baseline,
-  and automatic/model-directed retrieval remains deferred.
+  — records Outcome C: a fixed-provider boundary is a focused future
+  investigation candidate, but current evidence authorizes neither an RFC nor
+  implementation; operator-owned retrieval remains the supported baseline and
+  automatic/model-directed retrieval remains deferred.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or

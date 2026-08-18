@@ -16,8 +16,10 @@ operation, a protocol, or an implementation.
 
 ## Outcome
 
-**Outcome A — no new project-owned external-information boundary is currently
-justified. Keep retrieval operator-owned.**
+**Outcome C — a fixed-provider external-information boundary is technically
+credible enough to remain a focused future investigation candidate, but current
+evidence is insufficient to justify an RFC or implementation. Operator-owned
+retrieval remains the supported current baseline.**
 
 The existing workflow is already small, explicit, and useful:
 
@@ -29,13 +31,15 @@ operator/browser/curl/other local tool
 ```
 
 RFC-0064 rules out the seemingly nearby alternative of HAC fetching an
-arbitrary public URL. A fixed external provider avoids that particular
-user-controlled-destination shape, but replaces it with explicit cloud
-dependency, query disclosure, credential, result-trust, and provenance
-decisions. An operator helper or service is either the current workflow under a
-different name, or a new durable boundary that has not earned its complexity.
-No candidate now supplies enough additional ordinary operator value to justify
-those project-owned authorities.
+arbitrary public URL. A fixed external provider is materially different: it
+accepts a query at a project/operator-selected destination rather than an
+arbitrary caller-selected network destination. That reduces the specific
+SSRF/destination problem that blocked RFC-0064, while leaving distinct cloud
+dependency, query disclosure, credential, cost, lifecycle, result-trust, and
+provenance questions. It is credible enough for a later focused investigation,
+not for an RFC or implementation now. An operator helper or service is either
+the current workflow under a different name, or a new durable boundary that has
+not earned its complexity.
 
 ## Scope and distinction
 
@@ -282,16 +286,18 @@ The outcome preserves these project principles:
   generic tool framework, generic provider abstraction, or OpenAI-compatible
   tool/function-calling extension follows from this investigation.
 
-## What would change this conclusion
+## Focus for a future investigation
 
-This conclusion is deliberately not a permanent prohibition. A later
-investigation could establish a focused case for a future RFC only by showing a
-concrete operator problem that current input paths do not serve, a narrowly
-bounded non-arbitrary acquisition authority, explicit opt-in privacy and
-credential ownership, provider or service lifecycle consequences, normalized
-untrusted-result and provenance requirements, and unchanged runtime/routing
-boundaries. It must not use automatic or model-directed retrieval as a reason
-to skip those questions.
+Outcome C is deliberately not a proposal for an RFC. A focused later
+investigation of the fixed-provider candidate would need to show a concrete
+operator problem that current input paths do not serve; a narrowly bounded,
+project/operator-selected provider destination; explicit opt-in privacy and
+credential ownership; provider lifecycle and cost consequences; normalized
+untrusted-result and provenance requirements; and unchanged runtime/routing
+boundaries. It must not select a provider, invent a generic provider
+abstraction, or use automatic or model-directed retrieval as a reason to skip
+those questions.
 
-Until then, external/operator retrieval followed by bounded local text, file,
-or stdin remains the smallest defensible boundary.
+This does not reopen RFC-0064: arbitrary public-URL retrieval remains blocked.
+Until a future decision establishes otherwise, external/operator retrieval
+followed by bounded local text, file, or stdin remains the supported workflow.

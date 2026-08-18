@@ -57,6 +57,11 @@ architecture.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.
+- [Post-RFC-0064 external information access investigation](post-rfc-0064-external-information-access-investigation.md)
+  — records Outcome C: a fixed-provider boundary is a focused future
+  investigation candidate, but current evidence authorizes neither an RFC nor
+  implementation; operator-owned retrieval remains the supported baseline and
+  automatic/model-directed retrieval remains deferred.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or
@@ -100,9 +105,10 @@ established at a specific stage and do not replace the current workflow.
 ### RFC-0064 — Bounded public URL summarization
 
 - [RFC-0064 HTTP client boundaries investigation](rfc-0064-http-client-boundaries-investigation.md)
-  — records HTTPX, Python, and controlled-transport evidence needed before the
-  Draft RFC can be accepted; it authorizes no retrieval implementation and
-  selects Outcome C: narrow the proposed contract.
+  — preserves the HTTPX, Python, and controlled-transport evidence that led to
+  RFC-0064's rejection: the hostname-safe contract was not established, and
+  the literal-IP-only narrowing was not useful enough. It authorizes no
+  retrieval implementation.
 
 ### Phase 1 — Single-machine orchestrator
 

@@ -71,6 +71,10 @@ architecture.
   credible future RFC candidate for bounded discovery, but HAC must not own its
   lifecycle; operator-owned retrieval remains supported and no implementation
   or search-service abstraction is authorized.
+- [Operator-controlled Web discovery proof](operator-controlled-web-discovery-proof.md)
+  — retains one privacy-safe operator observation that private SearXNG can
+  return useful but untrusted current-information snippets without URL fetching;
+  it records imperfect model source attribution and authorizes no integration.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or

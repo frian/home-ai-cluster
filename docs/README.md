@@ -62,6 +62,10 @@ architecture.
   investigation candidate, but current evidence authorizes neither an RFC nor
   implementation; operator-owned retrieval remains the supported baseline and
   automatic/model-directed retrieval remains deferred.
+- [Fixed-provider Chat information investigation](fixed-provider-chat-information-investigation.md)
+  — finds that one explicit fixed-provider acquisition plus a bounded
+  source-grounded ordinary Chat contract warrants a narrow RFC before any
+  implementation; it selects no provider and adds no network authority.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or

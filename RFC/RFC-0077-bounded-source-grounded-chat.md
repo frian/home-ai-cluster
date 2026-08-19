@@ -1,6 +1,6 @@
 # RFC-0077: Bounded Source-Grounded Chat
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-19
 

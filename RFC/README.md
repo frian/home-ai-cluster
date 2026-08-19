@@ -62,6 +62,11 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0078: Optional External-Information Acquisition Plugin Boundary](RFC-0078-optional-external-information-acquisition-plugin-boundary.md)
+  — accepts one optional explicitly selected, separately installed Python
+  acquisition-plugin boundary at the one-shot caller edge before RFC-0077
+  evidence validation and ordinary `chat` routing; it selects no provider and
+  this acceptance change adds no implementation.
 - [RFC-0077: Bounded Source-Grounded Chat](RFC-0077-bounded-source-grounded-chat.md)
   — proposes a bounded, provider-neutral evidence/request/result seam for
   ordinary `chat`, with source provenance distinct from generated citation

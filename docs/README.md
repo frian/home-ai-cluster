@@ -89,6 +89,11 @@ architecture.
   — retains real metadata, lazy-load, exact-query, and cleanup observations;
   no live HAC server was available, so it records no successful end-to-end
   source-grounded result.
+- [SearXNG acquisition plugin investigation](searxng-acquisition-plugin-investigation.md)
+  — finds Outcome C: an operator-owned private SearXNG service has a small
+  enough provider-specific shape to justify a dedicated RFC, while authorizing
+  no provider implementation, service lifecycle, network authority, or
+  architectural decision.
 - [Operator-controlled Web discovery investigation](operator-controlled-web-discovery-investigation.md)
   — finds Outcome B: an independently operated private SearXNG service is a
   credible future RFC candidate for bounded discovery, but HAC must not own its

@@ -24,7 +24,7 @@ or `hac chat` nor authorizes their use as hidden source-grounding surfaces.
 Source provenance means only that normalized sources were supplied to one model
 execution. It is not a claim that any source is true, current, complete, safe,
 used by the model, or supports a particular generated sentence. This RFC is
-Draft and authorizes no implementation.
+accepted and authorizes no implementation.
 
 ## Problem
 
@@ -505,4 +505,13 @@ is justified. Those questions must not broaden this RFC during review.
 
 ## Decision
 
-Pending.
+Accepted.
+
+- Bounded source-grounded execution remains `capability=chat`.
+- The operator question and normalized untrusted source evidence remain
+  structurally distinct; core projection order is system framing, source
+  evidence, then the final operator question.
+- Supplied-source provenance is returned separately from generated content; it
+  does not imply source truth or claim-level citation correctness.
+- Ordinary Chat, routing, and adapters remain unchanged.
+- Acquisition remains outside RFC-0077 and requires a separate RFC.

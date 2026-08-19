@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0077: Bounded Source-Grounded Chat](RFC-0077-bounded-source-grounded-chat.md)
+  — proposes a bounded, provider-neutral evidence/request/result seam for
+  ordinary `chat`, with source provenance distinct from generated citation
+  correctness; it authorizes no acquisition or implementation.
 - [RFC-0075: Retire Historical Proof Launchers](RFC-0075-retire-historical-proof-launchers.md)
   — retires four installed historical proof-only launchers while preserving
   ordinary architecture and retained historical evidence.

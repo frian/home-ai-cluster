@@ -114,8 +114,9 @@ The following ordinary lifecycle is sufficient and matches the current
 2. One dedicated, reviewed release-preparation PR changes deliberate release
    material, including the version to `0.3.0`.
 3. After it merges, create annotated tag `v0.3.0` at that exact merge commit.
-4. Run the future release workflow from `main`, selecting `v0.3.0`; it builds
-   and validates the tag, then waits for protected publication approval.
+4. Dispatch the future release workflow on `main`, selecting `v0.3.0` as its
+   separate release-tag input; it builds and validates the tag, then waits for
+   protected publication approval.
 5. After successful publication, a separate small PR moves `main` to the next
    deliberate development identity, such as `0.4.0.dev0`.
 
@@ -128,11 +129,20 @@ machinery.
 
 ### Option A — manual dispatch from `main`
 
-A `workflow_dispatch` `release.yml` on `main` accepts a tag name, validates it,
-checks out the tag, and builds the tag source. The workflow run's ref is
-`main`, so the existing selected deployment policy permits its publish job to
-use environment `pypi`. The workflow file must reside on the default branch for
-manual dispatch, which also makes it reviewable before use.
+`workflow_dispatch` can be dispatched on a selected branch or tag ref; it does
+not inherently guarantee that `GITHUB_REF` is `main`. The recommended process
+requires the operator to dispatch `release.yml` on `main`. A future
+implementation should fail early unless its dispatch ref is exactly
+`refs/heads/main`. When dispatched from `main`, `GITHUB_REF` is
+`refs/heads/main`, which matches the existing selected deployment rule and
+permits the publish job to use environment `pypi`.
+
+The release tag is a separate explicit workflow input. The build job validates
+that input, checks out the selected tag, and builds its source; checking out the
+tag does not change the workflow run's dispatch ref. The workflow file must
+reside on the default branch for manual dispatch, which also makes it reviewable
+before use. The existing `main`-only environment policy remains an independent
+final protection on the publish job.
 
 This has a clear operator action and no accidental tag-push publication. The
 environment approval occurs after a successful build, so the approver can see
@@ -155,11 +165,12 @@ creation and the intentional publication attempt.
 
 ### Recommendation
 
-Prefer **Option A**, a manually dispatched workflow from `main` with an
-explicit release-tag input. It is compatible with the current environment and
-publisher configuration, keeps tag/source identity explicit, preserves a
-post-build approval boundary, and avoids extra automation. It does not require
-the current `main`-only environment rule to change.
+Prefer **Option A**, a workflow explicitly dispatched on `main` with an
+explicit release-tag input and an early `refs/heads/main` check. It is
+compatible with the current environment and publisher configuration, keeps
+tag/source identity explicit, preserves a post-build approval boundary, and
+avoids extra automation. It does not require the current `main`-only
+environment rule to change.
 
 ## 4. Build/publish separation
 
@@ -219,8 +230,9 @@ and should not be coupled to the smallest publication workflow.
 The future workflow can reuse `.github/workflows/release.yml` and environment
 `pypi` unchanged, provided the operator-confirmed publisher still trusts owner
 `frian`, repository `home-ai-cluster`, that exact filename, and that exact
-environment. The recommended manual trigger runs from permitted `main`, so the
-existing environment branch policy also needs no change.
+environment. The recommended manual trigger is explicitly dispatched on
+permitted `main` and verifies `refs/heads/main`, so the existing environment
+branch policy also needs no change.
 
 Changing the publisher configuration is required only if one of those trusted
 identity components changes: owner, repository, workflow filename, or
@@ -233,13 +245,16 @@ change.
 
 - If release-preparation validation fails before merge, fix it in that PR; no
   tag or publication exists.
-- If tag/version validation fails, stop before build or publication. Correct
-  the reviewed release preparation and create an intentionally correct tag;
-  do not make a published tag point at different contents.
-- If a build fails after tag creation for an environmental/transient reason,
-  diagnose and rerun against the same tag. If the tagged source itself needs a
-  change, start a new reviewed release preparation rather than treating a
-  published release tag as mutable.
+- If the operator selected the wrong tag input or tag/version validation fails,
+  stop before build or publication. Rerun with the intended existing tag rather
+  than modifying tags.
+- Once an annotated release tag has been created and pushed as part of this
+  process, Home AI Cluster treats it as fixed: the process does not move or
+  recreate it to point at different source. If a build failure is
+  environmental or transient, diagnose and rerun against that same unchanged
+  tag. If the tagged source needs a code or metadata correction, make a new
+  reviewed release preparation with a new release version and a new annotated
+  tag.
 - If the publish job is waiting, approval is the deliberate final authority
   gate. If it is rejected or left unapproved, nothing reaches PyPI; correct or
   cancel and make a later explicit attempt.
@@ -270,17 +285,19 @@ stored PyPI token or token-based fallback is justified.
 
 **Outcome B — one small future release workflow is warranted.**
 
-Its bounded responsibilities are to accept an explicit stable tag from a
-manual run on `main`; resolve and check out that tag; verify tag, source commit,
-and package version consistency; build and perform the packaging-specific
-validation above; upload exactly one wheel and one sdist; and let a dependent
-protected `pypi` publish job download and publish those artifacts without
-checkout or rebuild.
+Its bounded responsibilities are to require a manual dispatch on `main` and
+fail early unless the dispatch ref is `refs/heads/main`; accept a separate
+explicit stable-tag input; resolve and check out that tag; verify tag, source
+commit, and package version consistency; build and perform the
+packaging-specific validation above; upload exactly one wheel and one sdist;
+and let a dependent protected `pypi` publish job download and publish those
+artifacts without checkout or rebuild.
 
 Preconditions are a reviewed stable release-preparation commit, an annotated
-matching tag, the unchanged `main` deployment rule, and the existing trusted
-publisher identity. The future workflow remains a separately reviewed
-implementation task. This investigation does not implement it.
+matching tag, operator dispatch on `main` with `refs/heads/main` as the run
+ref, the unchanged `main` deployment rule, and the existing trusted publisher
+identity. The future workflow remains a separately reviewed implementation
+task. This investigation does not implement it.
 
 ## Architecture boundary
 

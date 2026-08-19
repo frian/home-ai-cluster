@@ -81,6 +81,14 @@ architecture.
   useful bounded evidence use and one favorable but non-generalizable
   instruction-like hostile-source result, with supplied-source provenance kept
   distinct from claim-level correctness.
+- [RFC-0078 installed-plugin boundary proof runbook](external-information-plugin-boundary-proof-runbook.md)
+  — repeatable privacy-safe procedure for observing one temporary separately
+  installed acquisition-plugin entry point without bundling or publishing a
+  provider.
+- [RFC-0078 installed-plugin boundary proof](external-information-plugin-boundary-proof.md)
+  — retains real metadata, lazy-load, exact-query, and cleanup observations;
+  no live HAC server was available, so it records no successful end-to-end
+  source-grounded result.
 - [Operator-controlled Web discovery investigation](operator-controlled-web-discovery-investigation.md)
   — finds Outcome B: an independently operated private SearXNG service is a
   credible future RFC candidate for bounded discovery, but HAC must not own its

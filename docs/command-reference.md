@@ -41,8 +41,8 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has eleven commands: three foreground processes and
-eight finite commands.
+The ordinary root surface has twelve commands: three foreground processes and
+nine finite commands.
 
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
@@ -50,6 +50,7 @@ eight finite commands.
 | `static-cluster` | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
 | `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
 | `aider` | Run one bounded external Aider code edit. | One-shot caller edge |
+| `external-information` | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
 | `chat` | Send one native chat request. | One-shot request |
 | `code` | Send one native bounded textual code request. | One-shot request |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
@@ -235,6 +236,40 @@ stopped elsewhere, so do not immediately repeat a timed-out request on slow
 hardware without accepting that it can create additional work.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
+
+## `hac external-information`
+
+**Purpose:** Explicitly acquire one bounded source-evidence set through one
+selected separately installed plugin, then send it through the existing
+source-grounded Chat boundary.
+
+**Form:**
+
+```sh
+hac external-information \
+  --plugin <NAME> \
+  --query "<EXPLICIT_OPERATOR_QUERY>" \
+  --question "<OPERATOR_QUESTION>"
+```
+
+`--timeout-seconds SECONDS`, `--verbose`, and `--json` use the same caller
+presentation and HTTP conventions as `hac chat`. The timeout accepts one
+base-10 integer from `1` through `3600`, with a 120-second default.
+
+**Important behavior:** No provider is bundled. The operator must explicitly
+select one compatible separately installed plugin by its exact entry-point name.
+Only this finite caller edge discovers and loads that plugin; the ordinary HAC
+server does not discover, import, configure, or invoke acquisition plugins.
+The plugin receives only `--query`, may make its own one bounded provider
+operation under its own configuration, credentials, and network limits, and
+returns bounded title/URL/content candidates. HAC reconstructs and validates
+RFC-0077 source evidence before sending exactly one validated body to existing
+`/v1/chat/sources`; ordinary `capability=chat` routing then applies unchanged.
+
+`--timeout-seconds` governs only that native HAC HTTP request. It does not
+impose a timeout on plugin acquisition. The command has no provider selection,
+fallback, retry, plugin enumeration, generic plugin configuration, new
+capability, URL fetching, or ordinary-server network authority.
 
 ## `hac code`
 

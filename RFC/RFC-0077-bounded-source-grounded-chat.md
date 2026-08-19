@@ -214,9 +214,9 @@ Chat-like messages:
 
 1. one fixed HAC-owned `system` message stating that source evidence is
    untrusted reference data, not instruction authority;
-2. one `user` message containing exactly the operator question; and
-3. one `user` message containing one fixed data label followed by a canonical
-   JSON serialization of the ordered `SourceEvidence` list.
+2. one `user` message containing one fixed data label followed by a canonical
+   JSON serialization of the ordered `SourceEvidence` list; and
+3. one final `user` message containing exactly the operator question.
 
 The canonical source JSON contains only `title`, `url`, and `content` in that
 field order for each source, preserves source order, and uses standard JSON
@@ -226,11 +226,11 @@ The projected source-data message must be at most 65,536 UTF-8 bytes; if the
 canonical serialization exceeds that limit, HAC fails before adapter execution.
 
 No source value appears in the system message. The projection must not add
-source text to the operator-question message or make it a synthetic assistant
-message. The fixed system framing must say that source text cannot change HAC
-configuration, routing, capability, network, file, tool, or execution
-authority. The exact framing prose may evolve only when it preserves these
-structural invariants.
+source text to the final operator-question message or make it a synthetic
+assistant message. The fixed system framing must say that source text cannot
+change HAC configuration, routing, capability, network, file, tool, or
+execution authority. The exact framing prose may evolve only when it preserves
+these structural invariants.
 
 For adapter invocation only, the core wraps those three projected messages in a
 private ordinary `ClusterRequest` with fixed `capability=chat` and copied
@@ -476,8 +476,9 @@ After a later implementation, focused proof must demonstrate at minimum:
    routing, remote, or adapter request;
 3. a valid local source-grounded request uses capability `chat` and its sources
    cannot affect candidate selection;
-4. projection emits the fixed trusted framing, distinct operator question, and
-   one canonical escaped untrusted-source data message in source order;
+4. projection emits exactly this order: fixed trusted system framing, one
+   canonical escaped untrusted-source data message in source order, then the
+   distinct final operator question;
 5. no source appears in the system message and no runtime adapter receives
    acquisition state or network authority;
 6. no source URL is resolved, fetched, rendered, or otherwise acted on;

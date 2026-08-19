@@ -85,7 +85,12 @@ class HttpRemoteTransport:
             if isinstance(request, ClassifyRequest):
                 return ClassifyResult.model_validate(response.json())
             if isinstance(request, SourceGroundedChatRequest):
-                return SourceGroundedChatResult.model_validate(response.json())
+                result = SourceGroundedChatResult.model_validate(response.json())
+                if result.sources != request.sources:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                return result
             return ClusterResult.model_validate(response.json())
         except (ValueError, ValidationError) as exc:
             message = "HTTP remote transport returned invalid result"

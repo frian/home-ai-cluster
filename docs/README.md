@@ -66,6 +66,11 @@ architecture.
   — finds that one explicit fixed-provider acquisition plus a bounded
   source-grounded ordinary Chat contract warrants a narrow RFC before any
   implementation; it selects no provider and adds no network authority.
+- [Source-grounded Chat proof](source-grounded-chat-proof.md)
+  — retains two privacy-safe real-local observations of implemented RFC-0077:
+  useful bounded evidence use and one favorable but non-generalizable
+  instruction-like hostile-source result, with supplied-source provenance kept
+  distinct from claim-level correctness.
 - [Operator-controlled Web discovery investigation](operator-controlled-web-discovery-investigation.md)
   — finds Outcome B: an independently operated private SearXNG service is a
   credible future RFC candidate for bounded discovery, but HAC must not own its

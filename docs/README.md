@@ -22,6 +22,9 @@ architecture.
 
 ## Release and distribution
 
+- [Future PyPI release process investigation](future-pypi-release-process-investigation.md)
+  — documents the smallest recommended future stable-release process; it
+  authorizes no workflow, version, tag, publication, or external change.
 - [PyPI release-readiness investigation](pypi-release-readiness-investigation.md)
   — documentation-only evidence that the historical `v0.2.0` artifacts build
   and install cleanly, while a small protected Trusted Publishing preparation

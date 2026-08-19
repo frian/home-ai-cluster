@@ -21,26 +21,26 @@ transmission.
 
 Start with:
 
-* `VISION.md`
-* `FOUNDATIONS.md`
-* `PRINCIPLES.md`
-* `NON_GOALS.md`
-* `ROADMAP.md`
-* `RFC/`
+* [`VISION.md`](https://github.com/frian/home-ai-cluster/blob/main/VISION.md)
+* [`FOUNDATIONS.md`](https://github.com/frian/home-ai-cluster/blob/main/FOUNDATIONS.md)
+* [`PRINCIPLES.md`](https://github.com/frian/home-ai-cluster/blob/main/PRINCIPLES.md)
+* [`NON_GOALS.md`](https://github.com/frian/home-ai-cluster/blob/main/NON_GOALS.md)
+* [`ROADMAP.md`](https://github.com/frian/home-ai-cluster/blob/main/ROADMAP.md)
+* [`RFC/`](https://github.com/frian/home-ai-cluster/tree/main/RFC)
 
-Use the [documentation index](docs/README.md) to find current operator guidance
+Use the [documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md) to find current operator guidance
 and chronological investigation, runbook, proof, and closeout records.
 
-The [canonical operator workflow](docs/operator-workflow.md) is the shortest
+The [canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md) is the shortest
 supported operator sequence. It covers ordinary local-only operation, ordinary
 explicit static multi-node operation, with historical proof records kept
 separate from current installation guidance.
 
 Operators can find retained topology and local runtime-composition TOML examples
-in [examples/README.md](examples/README.md).
+in [examples/README.md](https://github.com/frian/home-ai-cluster/blob/main/examples/README.md).
 
 For current ordinary command syntax, options, and boundaries, use the
-[command reference](docs/command-reference.md).
+[command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md).
 
 ## Unified ordinary command
 
@@ -77,7 +77,7 @@ supported command.
 For ordinary operator use, install the package with:
 
 ```sh
-uv tool install .
+uv tool install home-ai-cluster
 ```
 
 After installation, use the short `hac` command for ordinary operations:
@@ -217,7 +217,7 @@ in both representations. Runtime identity remains outside that result. The
 command is read-only and informational: it does not change routing, fallback,
 topology, or runtime lifecycle. `--json` can be combined with the same valid
 runtime-composition arguments shown above. See the
-[canonical operator workflow](docs/operator-workflow.md) for the supported path.
+[canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md) for the supported path.
 
 ## Current inspection commands
 
@@ -235,8 +235,8 @@ hac preflight --json
 hac health --json
 ```
 
-See the [canonical operator workflow](docs/operator-workflow.md) and the
-[Phase 17 closeout](docs/phase-17-closeout.md) for the bounded inspection
+See the [canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md) and the
+[Phase 17 closeout](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-17-closeout.md) for the bounded inspection
 contract.
 
 All four historical installed proof launchers were retired by accepted RFC-0075;
@@ -322,38 +322,38 @@ hac classify --text "The invoice is due tomorrow." --label invoice --label perso
 It accepts one bounded source through `--text`, `--file`, or stdin, and repeated
 ordered `--label` options. A successful minimal result contains `selected_label`
 and `node_id`; the selected label must exactly equal one supplied label. See the
-[command reference](docs/command-reference.md) for complete syntax and bounds.
+[command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md) for complete syntax and bounds.
 
 The command is a topology-blind client of the already running ordinary process;
 it does not start, configure, inspect, or manage that process. The same command
 works for local-only and explicit static-cluster operation and returns one
 normalized result with cluster-owned `node_id` attribution. See the
-[Phase 16 closeout](docs/phase-16-closeout.md) and the
-[canonical operator workflow](docs/operator-workflow.md) for the bounded
+[Phase 16 closeout](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-16-closeout.md) and the
+[canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md) for the bounded
 operator contract and process preparation.
 
 ## Phase 16 records
 
-- [Ordinary operator request access investigation](docs/phase-16-ordinary-operator-request-access-investigation.md)
-- [RFC-0045 one-shot ordinary request command](RFC/RFC-0045-one-shot-ordinary-request-command.md)
-- [Ordinary request access proof runbook](docs/phase-16-ordinary-request-access-proof-runbook.md)
-- [Ordinary request access retained proof](docs/phase-16-ordinary-request-access-proof.md)
-- [Phase 16 closeout](docs/phase-16-closeout.md)
+- [Ordinary operator request access investigation](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-16-ordinary-operator-request-access-investigation.md)
+- [RFC-0045 one-shot ordinary request command](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0045-one-shot-ordinary-request-command.md)
+- [Ordinary request access proof runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-16-ordinary-request-access-proof-runbook.md)
+- [Ordinary request access retained proof](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-16-ordinary-request-access-proof.md)
+- [Phase 16 closeout](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-16-closeout.md)
 
 ## Phase 17 records
 
-- [Human-readable operator output investigation](docs/human-readable-operator-output-investigation.md)
-- [RFC-0048 human-readable inspection output](RFC/RFC-0048-human-readable-inspection-output.md)
-- [Human-readable inspection output proof runbook](docs/phase-17-human-readable-inspection-output-proof.md)
-- [Human-readable inspection output retained proof result](docs/phase-17-human-readable-inspection-output-proof-result.md)
-- [Phase 17 closeout](docs/phase-17-closeout.md)
+- [Human-readable operator output investigation](https://github.com/frian/home-ai-cluster/blob/main/docs/human-readable-operator-output-investigation.md)
+- [RFC-0048 human-readable inspection output](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0048-human-readable-inspection-output.md)
+- [Human-readable inspection output proof runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-17-human-readable-inspection-output-proof.md)
+- [Human-readable inspection output retained proof result](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-17-human-readable-inspection-output-proof-result.md)
+- [Phase 17 closeout](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-17-closeout.md)
 
 ## Phase 18 records
 
-- [Second-capability investigation](docs/second-capability-investigation.md)
-- [RFC-0051 bounded text summarization](RFC/RFC-0051-bounded-text-summarization.md)
-- [Phase 18 retained two-machine summarize proof](docs/phase-18-two-machine-summarize-proof.md)
-- [Phase 18 closeout](docs/phase-18-closeout.md)
+- [Second-capability investigation](https://github.com/frian/home-ai-cluster/blob/main/docs/second-capability-investigation.md)
+- [RFC-0051 bounded text summarization](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0051-bounded-text-summarization.md)
+- [Phase 18 retained two-machine summarize proof](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-18-two-machine-summarize-proof.md)
+- [Phase 18 closeout](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-18-closeout.md)
 
 ## Post-roadmap ordinary remote request proof
 
@@ -367,9 +367,9 @@ static-cluster path. Exactly one client invocation returned a complete normalize
 result attributed to the declared remote node ID. The client remained
 topology-blind throughout.
 
-See [the investigation](docs/phase-17-end-to-end-ordinary-remote-request-investigation.md),
-[the runbook](docs/end-to-end-ordinary-remote-request-proof-runbook.md), and
-[the retained proof](docs/end-to-end-ordinary-remote-request-proof.md).
+See [the investigation](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-17-end-to-end-ordinary-remote-request-investigation.md),
+[the runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/end-to-end-ordinary-remote-request-proof-runbook.md), and
+[the retained proof](https://github.com/frian/home-ai-cluster/blob/main/docs/end-to-end-ordinary-remote-request-proof.md).
 
 ## Requirements
 
@@ -533,21 +533,21 @@ non-streaming request to the caller loopback compatibility endpoint. It
 completed through one declared remote receiver without exposing routing topology
 to Aider. It does not imply support for all Aider versions or modes.
 
-See [the Phase 6 local Aider proof](docs/phase-6-aider-access-proof.md),
-[the retained Aider static-cluster proof](docs/aider-static-cluster-proof.md),
-and [its runbook](docs/aider-static-cluster-proof-runbook.md) for the bounded
+See [the Phase 6 local Aider proof](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-6-aider-access-proof.md),
+[the retained Aider static-cluster proof](https://github.com/frian/home-ai-cluster/blob/main/docs/aider-static-cluster-proof.md),
+and [its runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/aider-static-cluster-proof-runbook.md) for the bounded
 scope and privacy constraints.
 
 ## Two-machine proofs
 
 The historical founding two-machine proof is retained through [the RFC-0022
-LAN-only runbook](docs/static-two-machine-proof.md) and [its retained
-result](docs/first-two-machine-proof-result.md). Its retired launcher requires
+LAN-only runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/static-two-machine-proof.md) and [its retained
+result](https://github.com/frian/home-ai-cluster/blob/main/docs/first-two-machine-proof-result.md). Its retired launcher requires
 the historical repository revision for exact reproduction.
 
-The newer [end-to-end ordinary remote request proof](docs/end-to-end-ordinary-remote-request-proof.md)
+The newer [end-to-end ordinary remote request proof](https://github.com/frian/home-ai-cluster/blob/main/docs/end-to-end-ordinary-remote-request-proof.md)
 records one unchanged ordinary client invocation reaching a real remote ordinary
-receiver through existing static-cluster fallback; [its runbook](docs/end-to-end-ordinary-remote-request-proof-runbook.md)
+receiver through existing static-cluster fallback; [its runbook](https://github.com/frian/home-ai-cluster/blob/main/docs/end-to-end-ordinary-remote-request-proof-runbook.md)
 records the bounded operator procedure.
 
 These proof paths are explicit and opt-in. They are not the default application

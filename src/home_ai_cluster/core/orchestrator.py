@@ -14,10 +14,10 @@ from home_ai_cluster.core.executor import (
     execute_routing_decision,
 )
 from home_ai_cluster.core.models import (
-    ClassifyRequest,
-    ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    RoutableRequest,
+    RoutableResult,
     SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -55,14 +55,14 @@ class AutomaticCapabilityRoutingOutcome:
     """Request-scoped selection explanation and successful normalized result."""
 
     explanation: AutomaticCapabilitySelectionExplanation
-    result: ClusterResult | ClassifyResult
+    result: RoutableResult
 
 
 async def orchestrate_request(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Route a request to an adapter and return its normalized result."""
     decision = route_request(request, node_registry, adapter_registry)
 
@@ -70,11 +70,11 @@ async def orchestrate_request(
 
 
 async def orchestrate_request_with_selected_candidate(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     selected: SelectedRoutingCandidate,
     *,
     remote_transport: RemoteTransport | None = None,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute an already selected routing candidate without routing again."""
     if selected is None:
         raise InvalidSelectedRoutingCandidateError(
@@ -108,7 +108,7 @@ async def orchestrate_request_with_selected_candidate(
 
 
 async def orchestrate_request_with_automatic_capability_explanation(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -138,12 +138,12 @@ async def orchestrate_request_with_automatic_capability_explanation(
 
 
 async def orchestrate_request_with_automatic_capability_selection(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Compose explicit candidate discovery, automatic selection, and execution."""
     outcome = await orchestrate_request_with_automatic_capability_explanation(
         request,
@@ -156,12 +156,12 @@ async def orchestrate_request_with_automatic_capability_selection(
 
 
 async def orchestrate_request_with_static_remote_fallback(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute the accepted local-to-declared-remote fallback once."""
     candidates = routing_candidates_for_request(
         request,
@@ -199,12 +199,12 @@ async def orchestrate_request_with_static_remote_fallback(
 
 
 async def orchestrate_request_with_automatic_capability_fallback(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Preserve the RFC-0028 proof-facing fallback entry point."""
     return await orchestrate_request_with_static_remote_fallback(
         request,

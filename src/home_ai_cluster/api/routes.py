@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.wiring import (
@@ -22,6 +22,10 @@ from home_ai_cluster.core.models import (
     ClusterResult,
     InternalClusterStatusResponse,
     RequestConstraints,
+    SourceEvidence,
+    SourceGroundedChatInternalRequest,
+    SourceGroundedChatRequest,
+    SourceGroundedChatResult,
     SummarizeRequest,
 )
 from home_ai_cluster.core.orchestrator import (
@@ -60,6 +64,15 @@ class ClassifyPublicRequest(BaseModel):
     labels: list[str]
 
 
+class SourceGroundedChatPublicRequest(BaseModel):
+    """The deliberately closed public body for source-grounded Chat."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    question: str
+    sources: list[SourceEvidence]
+
+
 def _resolve_local_registries(
     local_app_composition: LocalAppComposition | None,
 ) -> tuple[NodeRegistry, AdapterRegistry]:
@@ -76,9 +89,12 @@ def _resolve_local_registries(
 
 
 async def handle_static_local_cluster_request(
-    cluster_request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    cluster_request: ClusterRequest
+    | SummarizeRequest
+    | ClassifyRequest
+    | SourceGroundedChatRequest,
     local_app_composition: LocalAppComposition | None = None,
-) -> ClusterResult | ClassifyResult:
+) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
 
     try:
@@ -102,11 +118,11 @@ async def handle_static_local_cluster_request(
 
 
 async def handle_chat_cluster_request(
-    cluster_request: ClusterRequest,
+    cluster_request: ClusterRequest | SourceGroundedChatRequest,
     static_remote_wiring: StaticRemoteWiring | None = None,
     static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
     local_app_composition: LocalAppComposition | None = None,
-) -> ClusterResult:
+) -> ClusterResult | SourceGroundedChatResult:
     """Use ordinary static remote, collection, or local-only wiring."""
     if static_remote_wiring is not None:
         try:
@@ -281,6 +297,45 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     )
 
 
+@router.post("/v1/chat/sources", response_model=SourceGroundedChatResult)
+async def source_grounded_chat(
+    http_request: Request,
+) -> SourceGroundedChatResult:
+    """Execute validated source evidence through ordinary Chat routing."""
+    static_remote_wiring = http_request.app.state.static_remote_wiring
+    static_remote_collection_wiring = (
+        http_request.app.state.static_remote_collection_wiring
+    )
+    try:
+        public_request = SourceGroundedChatPublicRequest.model_validate(
+            await http_request.json()
+        )
+        cluster_request = SourceGroundedChatRequest(
+            question=public_request.question,
+            sources=public_request.sources,
+            constraints=(
+                RequestConstraints(local_only=False)
+                if (
+                    static_remote_wiring is not None
+                    or static_remote_collection_wiring is not None
+                )
+                else RequestConstraints()
+            ),
+        )
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid source-grounded chat request",
+        ) from None
+
+    return await handle_chat_cluster_request(
+        cluster_request,
+        static_remote_wiring,
+        static_remote_collection_wiring,
+        http_request.app.state.local_app_composition,
+    )
+
+
 @router.post("/v1/summarize", response_model=ClusterResult)
 async def summarize(http_request: Request) -> ClusterResult:
     """Execute one locally normalized text summarization request."""
@@ -350,10 +405,13 @@ async def classify(http_request: Request) -> ClassifyResult:
     )
 
 
-@router.post("/internal/cluster/request", response_model=ClusterResult | ClassifyResult)
+@router.post(
+    "/internal/cluster/request",
+    response_model=ClusterResult | ClassifyResult | SourceGroundedChatResult,
+)
 async def internal_cluster_request(
     http_request: Request,
-) -> ClusterResult | ClassifyResult:
+) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
     try:
         envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
             await http_request.json()
@@ -367,6 +425,8 @@ async def internal_cluster_request(
     if isinstance(envelope, ChatInternalRequest):
         request = envelope.request
     elif isinstance(envelope, ClassifyInternalRequest):
+        request = envelope.request.normalized_request()
+    elif isinstance(envelope, SourceGroundedChatInternalRequest):
         request = envelope.request.normalized_request()
     else:
         request = envelope.request.normalized_request()

@@ -7,10 +7,8 @@ from pydantic import BaseModel, Field
 
 from home_ai_cluster.core.models import (
     Capability,
-    ClassifyRequest,
-    ClusterRequest,
     NodeDescription,
-    SummarizeRequest,
+    RoutableRequest,
 )
 from home_ai_cluster.core.node import node_supports_capability
 
@@ -74,7 +72,7 @@ def build_remote_node_declaration_registry(
 
 
 def declared_remote_declarations_for_request(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[RemoteNodeDeclaration]:
     """Return declared remote declarations eligible for the requested capability."""
@@ -86,7 +84,7 @@ def declared_remote_declarations_for_request(
 
 
 def declared_remote_routing_candidates_for_request(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[DeclaredRemoteRoutingCandidate]:
     """Return all eligible declared remote candidates in declaration order."""
@@ -105,7 +103,7 @@ def declared_remote_routing_candidates_for_request(
 
 
 def declared_remote_routing_candidate_for_request(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> DeclaredRemoteRoutingCandidate | None:
     """Preserve the first eligible declared remote candidate compatibility seam."""

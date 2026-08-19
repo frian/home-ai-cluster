@@ -4,11 +4,15 @@ from home_ai_cluster.core.execution_target import (
     remote_declaration_for_routing_decision,
 )
 from home_ai_cluster.core.models import (
-    ClassifyRequest,
     ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    RoutableRequest,
+    RoutableResult,
+    SourceGroundedChatRequest,
+    SourceGroundedChatResult,
     SummarizeRequest,
+    project_source_grounded_chat_request,
 )
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
@@ -24,14 +28,25 @@ class InvalidClassificationLabelError(Exception):
 
 
 async def execute_local_routing_decision(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     decision: RoutingDecision,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute the selected local adapter for a routing decision."""
     if isinstance(request, ClusterRequest):
         result = await decision.adapter.chat(request)
         return ClusterResult(
             content=result.content,
+            adapter=result.adapter,
+            model=result.model,
+            node_id=decision.node.id,
+        )
+
+    if isinstance(request, SourceGroundedChatRequest):
+        projected_request = project_source_grounded_chat_request(request)
+        result = await decision.adapter.chat(projected_request)
+        return SourceGroundedChatResult(
+            content=result.content,
+            sources=request.sources,
             adapter=result.adapter,
             model=result.model,
             node_id=decision.node.id,
@@ -57,29 +72,29 @@ async def execute_local_routing_decision(
 
 
 async def execute_routing_decision(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     decision: RoutingDecision,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute a routing decision using the current local execution path."""
     return await execute_local_routing_decision(request, decision)
 
 
 async def execute_remote_routing_decision(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     decision: RoutingDecision,
     declaration: RemoteNodeDeclaration,
     transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute a routing decision through an explicit remote transport."""
     result = await transport.send(request, declaration)
     return result.model_copy(update={"node_id": declaration.node.id})
 
 
 async def execute_declared_remote_routing_candidate(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     candidate: DeclaredRemoteRoutingCandidate,
     transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Execute a declared remote candidate through explicit remote transport."""
     result = await transport.send(request, candidate.declaration)
     return result.model_copy(update={"node_id": candidate.node.id})

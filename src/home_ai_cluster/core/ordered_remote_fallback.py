@@ -7,11 +7,8 @@ from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
 )
 from home_ai_cluster.core.models import (
-    ClassifyRequest,
-    ClassifyResult,
-    ClusterRequest,
-    ClusterResult,
-    SummarizeRequest,
+    RoutableRequest,
+    RoutableResult,
 )
 from home_ai_cluster.core.orchestrator import (
     NoSelectableRoutingCandidateError,
@@ -27,12 +24,12 @@ from home_ai_cluster.core.routing_candidates import (
 
 
 async def orchestrate_request_with_ordered_static_remote_fallback(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> ClusterResult | ClassifyResult:
+) -> RoutableResult:
     """Try local once, then eligible declared remotes once in declaration order."""
     candidates = routing_candidates_for_request(
         request,

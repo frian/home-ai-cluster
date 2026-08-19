@@ -75,6 +75,10 @@ architecture.
   — retains one privacy-safe operator observation that private SearXNG can
   return useful but untrusted current-information snippets without URL fetching;
   it records imperfect model source attribution and authorizes no integration.
+- [Optional external integration plugin investigation](optional-external-integration-plugin-investigation.md)
+  — finds Outcome B: one explicit, entry-point-discovered acquisition plug-in
+  category is credible for a future RFC feeding RFC-0077, while no plug-in
+  system, provider selection, acquisition, or implementation is authorized.
 - [Bounded local PDF text extraction investigation](bounded-local-pdf-text-extraction-investigation.md)
   — finds current operator-owned extraction sufficient for the existing bounded
   Summarize and Classify text-input paths; it authorizes no PDF feature or

@@ -20,6 +20,13 @@ architecture.
   operator path.
 - [RFC index](../RFC/README.md) — proposed and accepted architectural decisions.
 
+## Release and distribution
+
+- [PyPI release-readiness investigation](pypi-release-readiness-investigation.md)
+  — documentation-only evidence that the historical `v0.2.0` artifacts build
+  and install cleanly, while a small protected Trusted Publishing preparation
+  change is needed before first publication; it authorizes no publication.
+
 ## Operator entry points
 
 - [Command reference](command-reference.md) — current lookup reference for

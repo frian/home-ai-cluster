@@ -10,6 +10,7 @@ from home_ai_cluster import (
     aider_command,
     chat_command,
     command,
+    external_information_command,
     local_health_snapshot,
     static_preflight,
     status_command,
@@ -26,6 +27,7 @@ Foreground process commands:
 
 Finite commands:
   aider           Run one bounded Aider code edit.
+  external-information  Acquire one bounded source-grounded chat request.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
@@ -49,6 +51,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "static-cluster",
         "compatibility",
         "aider",
+        "external-information",
         "chat",
         "code",
         "classify",
@@ -124,6 +127,35 @@ def test_version_emits_only_installed_package_version(
     assert captured.err == ""
 
 
+def test_root_help_and_ordinary_chat_do_not_discover_plugins(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    discoveries = 0
+
+    def entry_points() -> object:
+        nonlocal discoveries
+        discoveries += 1
+        raise AssertionError("ordinary root behavior must not discover plugins")
+
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata, "entry_points", entry_points
+    )
+    command.main([])
+
+    received: list[list[str]] = []
+
+    def chat(argv: list[str] | None = None) -> None:
+        assert argv is not None
+        received.append(argv)
+
+    monkeypatch.setitem(command._COMMANDS, "chat", chat)
+    command.main(["chat", "ordinary message"])
+
+    assert discoveries == 0
+    assert received == [["ordinary message"]]
+    assert capsys.readouterr().err == ""
+
+
 @pytest.mark.parametrize(
     "argv",
     (
@@ -157,6 +189,10 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("static-cluster", ["--declaration", "cluster.toml"]),
         ("compatibility", ["--declaration", "cluster.toml"]),
         ("aider", ["--file", "target.py", "--message", "Add a function"]),
+        (
+            "external-information",
+            ["--plugin", "selected", "--query", "query", "--question", "question"],
+        ),
         ("chat", ["--message", "Hello"]),
         ("summarize", []),
         ("summarize", ["--text", "Source text"]),

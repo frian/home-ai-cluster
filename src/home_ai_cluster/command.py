@@ -9,6 +9,7 @@ from home_ai_cluster import (
     chat_command,
     classify_command,
     code_command,
+    external_information_command,
     local_health_snapshot,
     local_runtime,
     openai_compatibility,
@@ -27,6 +28,7 @@ Foreground process commands:
 
 Finite commands:
   aider           Run one bounded Aider code edit.
+  external-information  Acquire one bounded source-grounded chat request.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   classify        Send one ordinary classify request.
@@ -43,6 +45,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "static-cluster": static_cluster.main,
     "compatibility": openai_compatibility.main,
     "aider": aider_command.main,
+    "external-information": external_information_command.main,
     "chat": chat_command.main,
     "code": code_command.main,
     "classify": classify_command.main,

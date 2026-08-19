@@ -52,6 +52,8 @@ supported with its current behavior.
 home-ai-cluster local
 home-ai-cluster static-cluster
 home-ai-cluster compatibility
+home-ai-cluster aider
+home-ai-cluster external-information
 home-ai-cluster chat
 home-ai-cluster code
 home-ai-cluster summarize
@@ -89,6 +91,7 @@ hac status --declaration <path>
 hac local
 hac static-cluster --declaration <path>
 hac compatibility
+hac external-information --plugin <NAME> --query "<QUERY>" --question "<QUESTION>"
 hac chat "Hello"
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac summarize --text "Long text to summarize"
@@ -99,6 +102,7 @@ The long namespace remains canonical and fully supported:
 
 ```sh
 home-ai-cluster status --declaration <path>
+home-ai-cluster external-information --plugin <NAME> --query "<QUERY>" --question "<QUESTION>"
 home-ai-cluster code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 home-ai-cluster summarize --text "Long text to summarize"
 home-ai-cluster classify --text "The invoice is due tomorrow." --label invoice --label personal
@@ -166,8 +170,9 @@ uses `POST /v1/chat` with `capability=code`, and introduces no `/v1/code`.
 Both ordinary local Ollama and llama-server compositions advertise and execute
 it through their existing Chat-like execution path. OpenAI-compatible access
 remains Chat-only, and the fixed browser page remains Chat, Summarize, and
-Classify only. The root command has the ten subcommands shown above, including
-the ordinary native `summarize`, `classify`, and `code` clients.
+Classify only. The root command has the twelve subcommands shown above,
+including the bounded Aider and external-information caller edges and the
+ordinary native `summarize`, `classify`, and `code` clients.
 
 The accepted explicit static capability names are `chat`, `summarize`,
 `classify`, and `code`. Omitted local or remote capability declarations retain
@@ -252,6 +257,24 @@ details:
 ```sh
 hac chat "Hello"
 ```
+
+For one explicit external-information acquisition followed by existing
+source-grounded Chat, use a separately installed compatible plugin by its exact
+entry-point name:
+
+```sh
+hac external-information \
+  --plugin <NAME> \
+  --query "<EXPLICIT_OPERATOR_QUERY>" \
+  --question "<OPERATOR_QUESTION>"
+```
+
+No provider is bundled. This one-shot caller edge alone discovers and loads the
+selected plugin; the ordinary HAC server remains unchanged. The plugin owns its
+provider configuration, credentials, and finite network behavior. HAC validates
+its title/URL/content evidence locally and posts only the accepted public body
+to `/v1/chat/sources`; `--timeout-seconds` applies only to that HAC HTTP call,
+not plugin acquisition.
 
 The explicit message option remains fully supported:
 

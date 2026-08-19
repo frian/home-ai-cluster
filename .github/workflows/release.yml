@@ -38,8 +38,11 @@ jobs:
 
       - name: Verify expected distributions
         run: |
-          test -f dist/home_ai_cluster-0.2.0-py3-none-any.whl
-          test -f dist/home_ai_cluster-0.2.0.tar.gz
+          expected_files="$(printf '%s\n' \
+            home_ai_cluster-0.2.0-py3-none-any.whl \
+            home_ai_cluster-0.2.0.tar.gz | LC_ALL=C sort)"
+          actual_files="$(find dist -type f -printf '%P\n' | LC_ALL=C sort)"
+          test "$actual_files" = "$expected_files"
 
       - name: Upload distributions
         uses: actions/upload-artifact@v5

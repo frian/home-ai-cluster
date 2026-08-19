@@ -3,6 +3,8 @@ name = "home-ai-cluster"
 version = "0.2.0"
 description = "Local-first orchestration for personal AI runtimes."
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.13,<3.15"
 dependencies = [
     "fastapi>=0.116.0",
@@ -10,6 +12,11 @@ dependencies = [
     "pydantic>=2.11.0",
     "uvicorn[standard]>=0.35.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/frian/home-ai-cluster"
+Issues = "https://github.com/frian/home-ai-cluster/issues"
+Documentation = "https://github.com/frian/home-ai-cluster/blob/main/docs/README.md"
 
 [project.scripts]
 home-ai-cluster = "home_ai_cluster.command:main"

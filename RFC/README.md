@@ -60,6 +60,13 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0077: Bounded Source-Grounded Chat](RFC-0077-bounded-source-grounded-chat.md)
+  — proposes a bounded, provider-neutral evidence/request/result seam for
+  ordinary `chat`, with source provenance distinct from generated citation
+  correctness; it authorizes no acquisition or implementation.
+
 ## Accepted RFCs
 
 - [RFC-0075: Retire Historical Proof Launchers](RFC-0075-retire-historical-proof-launchers.md)

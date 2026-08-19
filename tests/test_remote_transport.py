@@ -23,6 +23,8 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RuntimeResult,
     RuntimeStatus,
+    SourceGroundedChatRequest,
+    SourceGroundedChatResult,
     SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -230,9 +232,11 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
     hints = get_type_hints(RemoteTransport.send)
 
     assert list(signature.parameters) == ["self", "request", "declaration"]
-    assert hints["request"] == ClusterRequest | SummarizeRequest | ClassifyRequest
+    assert hints["request"] == (
+        ClusterRequest | SummarizeRequest | ClassifyRequest | SourceGroundedChatRequest
+    )
     assert hints["declaration"] is RemoteNodeDeclaration
-    assert hints["return"] == ClusterResult | ClassifyResult
+    assert hints["return"] == ClusterResult | ClassifyResult | SourceGroundedChatResult
 
 
 def test_internal_cluster_request_url_uses_declaration_transport_address() -> None:

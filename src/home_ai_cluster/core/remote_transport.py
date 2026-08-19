@@ -19,7 +19,12 @@ from home_ai_cluster.core.models import (
     ClusterStatusNode,
     InternalClusterRequest,
     InternalClusterStatusResponse,
+    RoutableRequest,
+    RoutableResult,
     RuntimeStatus,
+    SourceGroundedChatInternalRequest,
+    SourceGroundedChatRequest,
+    SourceGroundedChatResult,
     SummarizeInternalRequest,
     SummarizeRequest,
 )
@@ -38,9 +43,14 @@ class RemoteTransport(Protocol):
 
     async def send(
         self,
-        request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+        request: (
+            ClusterRequest
+            | SummarizeRequest
+            | ClassifyRequest
+            | SourceGroundedChatRequest
+        ),
         declaration: RemoteNodeDeclaration,
-    ) -> ClusterResult | ClassifyResult:
+    ) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
         """Send a normalized request to a manually declared remote node."""
         ...
 
@@ -53,9 +63,9 @@ class HttpRemoteTransport:
 
     async def send(
         self,
-        request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+        request: RoutableRequest,
         declaration: RemoteNodeDeclaration,
-    ) -> ClusterResult | ClassifyResult:
+    ) -> RoutableResult:
         endpoint = internal_cluster_request_url(declaration)
 
         try:
@@ -74,6 +84,13 @@ class HttpRemoteTransport:
         try:
             if isinstance(request, ClassifyRequest):
                 return ClassifyResult.model_validate(response.json())
+            if isinstance(request, SourceGroundedChatRequest):
+                result = SourceGroundedChatResult.model_validate(response.json())
+                if result.sources != request.sources:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                return result
             return ClusterResult.model_validate(response.json())
         except (ValueError, ValidationError) as exc:
             message = "HTTP remote transport returned invalid result"
@@ -141,9 +158,9 @@ def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
 
 
 def internal_cluster_request_body(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
 ) -> dict[str, object]:
-    """Serialize one of the three accepted internal request variants."""
+    """Serialize one of the accepted closed internal request variants."""
     if isinstance(request, ClusterRequest):
         envelope: InternalClusterRequest = ChatInternalRequest(
             kind="chat",
@@ -154,6 +171,17 @@ def internal_cluster_request_body(
             {
                 "kind": "summarize",
                 "request": request.model_dump(mode="json"),
+            }
+        )
+    elif isinstance(request, SourceGroundedChatRequest):
+        envelope = SourceGroundedChatInternalRequest.model_validate(
+            {
+                "kind": "source-grounded-chat",
+                "request": {
+                    "question": request.question,
+                    "sources": [source.model_dump() for source in request.sources],
+                    "constraints": request.constraints.model_dump(mode="json"),
+                },
             }
         )
     else:

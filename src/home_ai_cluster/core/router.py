@@ -5,10 +5,8 @@ from dataclasses import dataclass
 from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.core.models import (
     Capability,
-    ClassifyRequest,
-    ClusterRequest,
     NodeDescription,
-    SummarizeRequest,
+    RoutableRequest,
 )
 from home_ai_cluster.core.node import node_declared_adapter_names
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -29,7 +27,7 @@ class RoutingDecision:
 
 
 def route_request(
-    request: ClusterRequest | SummarizeRequest | ClassifyRequest,
+    request: RoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
 ) -> RoutingDecision:

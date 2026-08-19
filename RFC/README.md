@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0079: Fixed-Loopback SearXNG Acquisition Plugin](RFC-0079-fixed-loopback-searxng-acquisition-plugin.md)
+  — accepts the first separately installed `searxng` provider plugin contract:
+  one fixed loopback SearXNG JSON request with finite plugin-owned bounds before
+  RFC-0078/RFC-0077 validation and unchanged ordinary `chat` routing.
 - [RFC-0078: Optional External-Information Acquisition Plugin Boundary](RFC-0078-optional-external-information-acquisition-plugin-boundary.md)
   — accepts one optional explicitly selected, separately installed Python
   acquisition-plugin boundary at the one-shot caller edge before RFC-0077

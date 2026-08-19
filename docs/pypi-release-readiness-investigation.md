@@ -26,7 +26,7 @@ and small in scope.
 ## Evidence basis
 
 - **Repository evidence** was read from the checked-out repository and the
-  immutable `v0.2.0` ref.
+  existing historical `v0.2.0` tag.
 - **Local reproduction** used isolated temporary worktrees and clean temporary
   Python environments, not the repository development environment.
 - **External documentation** is linked to the current authoritative PyPI,
@@ -247,22 +247,28 @@ considerations](https://docs.pypi.org/trusted-publishers/security-model/).
 
 No GitHub Actions workflow exists on current `main` or at `v0.2.0`. Adding a
 future tag-push workflow would not retroactively run for the already-created
-tag. The smallest clean path for this historical release is instead:
+tag. The smallest clean path for this historical release is instead a
+two-job, manually dispatched workflow on the default branch:
 
-1. add one manual-dispatch publishing workflow on the default branch, with a
-   dedicated protected PyPI environment and job-level `id-token: write`;
-2. make its first-release path check out the literal `v0.2.0` ref and verify
-   that it resolves to `1c3b9c188b5f512e607c480a5a0f4e0e2f52a5e1` before
-   building and validating artifacts; and
-3. after review, configure a pending publisher that names that exact workflow
+1. The build/validation job has no OIDC permission. It checks out the literal
+   `v0.2.0` ref, verifies that it resolves to exactly
+   `1c3b9c188b5f512e607c480a5a0f4e0e2f52a5e1`, builds and validates the wheel
+   and sdist, and uploads those resulting distributions as a GitHub Actions
+   artifact.
+2. The minimal publish job depends on that successful build job, uses the
+   dedicated protected PyPI environment, and grants job-level `id-token: write`.
+   It downloads the already-built distributions and publishes them with the
+   standard PyPA PyPI publishing action. It must not rebuild the package.
+3. After review, configure a pending publisher that names that exact workflow
    filename and run it with the environment approval.
 
-The workflow file may be introduced later on `main`; its build checkout is
-still the immutable tag, so the artifacts derive from exactly the tagged source
-tree. GitHub documents that `workflow_dispatch` files must be present on the
-default branch and can receive explicit inputs, which supports a later manual
-release driver without moving or recreating the historical tag. See [Triggering
-a workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+The workflow file may be introduced later on `main`; its build job checks out
+the existing historical tag and verifies the exact tagged commit before any
+build, so the distributions derive from that verified source tree. The existing
+tag must not be moved or recreated. GitHub documents that `workflow_dispatch`
+files must be present on the default branch and can receive explicit inputs,
+which supports a later manual release driver. See [Triggering a
+workflow](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 
 Two alternatives are less suitable for this first release:
 
@@ -273,8 +279,9 @@ Two alternatives are less suitable for this first release:
   but is less bounded than the official OIDC path and is unnecessary here.
 
 The fixed-tag manual workflow is the smallest boring option. It neither moves
-the tag nor permits a current-main `0.2.0` publication. This is a
-recommendation, not an implemented workflow design.
+nor recreates the existing tag, permits no current-main `0.2.0` publication,
+and keeps OIDC authority out of the build job. This is a recommendation, not
+an implemented workflow design.
 
 ## TestPyPI
 
@@ -328,7 +335,7 @@ questions if the project later decides the boundary is warranted.
 The tag artifact itself has no observed build, installation, or required-core-
 metadata blocker. The blocking release-preparation gap is that no protected,
 tokenless Trusted Publishing path has been established to build and publish the
-immutable historical tag: the required workflow is absent and this
+exact tagged commit: the required workflow is absent and this
 investigation did not configure a publisher. Publishing current `main` as
 `0.2.0` is blocked by version consistency.
 
@@ -340,10 +347,12 @@ by this investigation.
 
 **B. Make a small packaging/release preparation change first.**
 
-Add the minimal manually dispatched, protected Trusted Publishing workflow
-that checks out and verifies exactly `v0.2.0`; configure the matching pending
-publisher only when that reviewed workflow is ready. Do not change the tag or
-publish current `main` as `0.2.0`.
+Add the minimal manually dispatched, protected two-job Trusted Publishing
+workflow: a no-OIDC build/validation job checks out and verifies exactly
+`v0.2.0`, then a dependent OIDC publish job downloads those artifacts without
+rebuilding. Configure the matching pending publisher only when that reviewed
+workflow is ready. Do not move or recreate the tag, or publish current `main`
+as `0.2.0`.
 
 ### Version consistency
 
@@ -354,10 +363,11 @@ a later version before it can be published.
 ### Suggested next step
 
 Open one small release-preparation PR that adds only the reviewed, manually
-dispatched GitHub Actions workflow for the fixed historical tag, including
-artifact build/validation, exact-ref verification, dedicated environment, and
-job-level OIDC permission. Then configure the matching pending PyPI publisher
-out of band and run the approved workflow once.
+dispatched GitHub Actions workflow for the existing historical tag. Its no-OIDC
+build/validation job should verify the exact tagged commit and upload artifacts;
+its dependent dedicated-environment publish job should receive job-level OIDC,
+download those artifacts, and publish without rebuilding. Then configure the
+matching pending PyPI publisher out of band and run the approved workflow once.
 
 This is release process and packaging work, not a core architectural decision;
 no RFC is indicated by the evidence here. A separate follow-up may choose to

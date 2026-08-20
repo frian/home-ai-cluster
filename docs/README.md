@@ -89,6 +89,10 @@ architecture.
   — retains real metadata, lazy-load, exact-query, and cleanup observations;
   no live HAC server was available, so it records no successful end-to-end
   source-grounded result.
+- [RFC-0079 SearXNG acquisition plugin live-proof runbook](searxng-acquisition-plugin-proof-runbook.md)
+  — repeatable privacy-safe procedure for the separately installed fixed
+  loopback SearXNG plugin through the real RFC-0078/RFC-0077/ordinary Chat path;
+  it does not claim that the live proof has occurred.
 - [SearXNG acquisition plugin investigation](searxng-acquisition-plugin-investigation.md)
   — finds Outcome C: an operator-owned private SearXNG service has a small
   enough provider-specific shape to justify a dedicated RFC, while authorizing

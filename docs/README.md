@@ -93,6 +93,10 @@ architecture.
   — repeatable privacy-safe procedure for the separately installed fixed
   loopback SearXNG plugin through the real RFC-0078/RFC-0077/ordinary Chat path;
   it does not claim that the live proof has occurred.
+- [RFC-0079 SearXNG acquisition plugin proof](searxng-acquisition-plugin-proof.md)
+  — retains privacy-safe structural evidence that the real separately installed
+  plugin completed the fixed-loopback acquisition path through ordinary Chat;
+  it does not establish provider, source, or answer correctness.
 - [SearXNG acquisition plugin investigation](searxng-acquisition-plugin-investigation.md)
   — finds Outcome C: an operator-owned private SearXNG service has a small
   enough provider-specific shape to justify a dedicated RFC, while authorizing

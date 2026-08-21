@@ -80,6 +80,10 @@ architecture.
   — retains model-free real-Aider 0.86.2 evidence that the implemented private
   continuous-No child input preserves the selected edit while rejecting
   unselected existing and missing paths.
+- [Aider post-edit summarization investigation](aider-post-edit-summarization-investigation.md)
+  — documents model-free Aider 0.86.2 lifecycle evidence after PR #501:
+  automatic post-edit summary can race one-shot shutdown and exceed the
+  two-request edge; no deterministic compliant suppression guardrail is known.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

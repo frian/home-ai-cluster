@@ -3,6 +3,7 @@
 import http.client
 import json
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -188,12 +189,13 @@ def test_existing_target_is_never_changed_by_caller_edge(tmp_path: Path) -> None
     assert target.read_text(encoding="utf-8") == "existing caller content\n"
 
 
-def test_complete_cycle_uses_fail_closed_temporary_configuration(
+def test_complete_cycle_uses_private_fail_closed_aider_input(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     target = tmp_path / "target.py"
     requests: list[dict[str, Any]] = []
     temporary_paths: list[Path] = []
+    child_inputs: list[object] = []
     monkeypatch.setenv("AIDER_YES_ALWAYS", "true")
     monkeypatch.setenv("HAC_AIDER_UNRELATED", "preserved")
 
@@ -204,12 +206,15 @@ def test_complete_cycle_uses_fail_closed_temporary_configuration(
         config_path = Path(argv[argv.index("--config") + 1])
         settings_path = Path(argv[argv.index("--model-settings-file") + 1])
         temporary_paths.extend((config_path, settings_path))
-        assert config_path.read_text(encoding="utf-8") == "yes-always: false\n"
+        assert config_path.read_text(encoding="utf-8") == "{}\n"
         assert "edit_format: whole" in settings_path.read_text(encoding="utf-8")
         child_environment = kwargs["env"]
         assert isinstance(child_environment, dict)
         assert "AIDER_YES_ALWAYS" not in child_environment
         assert child_environment["HAC_AIDER_UNRELATED"] == "preserved"
+        child_input = kwargs["stdin"]
+        assert child_input.read(2) == b"n\n"
+        child_inputs.append(child_input)
         assert target.read_text(encoding="utf-8") == ""
         assert (
             _post_bridge(
@@ -237,6 +242,60 @@ def test_complete_cycle_uses_fail_closed_temporary_configuration(
         }
     ]
     assert all(not path.exists() for path in temporary_paths)
+    assert all(child_input.closed for child_input in child_inputs)
+    assert not any(
+        thread.name == aider_command._AIDER_INPUT_THREAD_NAME
+        for thread in threading.enumerate()
+    )
+
+
+def test_private_fail_closed_aider_input_cleans_up_after_subprocess_failure(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+    child_inputs: list[object] = []
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        if argv[-1] == "--version":
+            return _supported_run(argv, **kwargs)
+        child_input = kwargs["stdin"]
+        assert child_input.read(2) == b"n\n"
+        child_inputs.append(child_input)
+        raise subprocess.SubprocessError("simulated child failure")
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "--message", "request"],
+            _which=lambda name: "/test/aider",
+            _run=run,
+        )
+
+    assert raised.value.code == 1
+    assert all(child_input.closed for child_input in child_inputs)
+    assert not any(
+        thread.name == aider_command._AIDER_INPUT_THREAD_NAME
+        for thread in threading.enumerate()
+    )
+
+
+def test_private_fail_closed_aider_input_cleans_up_without_child_reading_stdin(
+) -> None:
+    child_inputs: list[object] = []
+
+    def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        child_inputs.append(kwargs["stdin"])
+        return subprocess.CompletedProcess(argv, 0)
+
+    completed = aider_command._run_aider_with_automatic_no(
+        ["/test/aider"], environment={}, run=run
+    )
+
+    assert completed.returncode == 0
+    assert all(child_input.closed for child_input in child_inputs)
+    assert not any(
+        thread.name == aider_command._AIDER_INPUT_THREAD_NAME
+        for thread in threading.enumerate()
+    )
 
 
 def test_exclusive_creation_never_truncates_an_appearing_file(tmp_path: Path) -> None:

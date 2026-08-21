@@ -36,11 +36,13 @@ _AIDER_FAILURE = "error: Aider caller edge failed"
 _AIDER_PREREQUISITE_FAILURE = "error: Aider 0.86.2 is required"
 _TARGET_FAILURE = "error: invalid Aider target"
 
-_AIDER_CONFIG = "yes-always: false\n"
+# Suppress Aider config discovery without setting confirmation behavior.
+_AIDER_CONFIG = "{}\n"
 _AIDER_MODEL_SETTINGS = """- name: openai/home-ai-cluster
   edit_format: whole
   use_temperature: false
 """
+_AIDER_INPUT_THREAD_NAME = "home-ai-cluster-aider-no-input"
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -344,6 +346,42 @@ def _aider_argv(
     ]
 
 
+def _run_aider_with_automatic_no(
+    argv: list[str],
+    *,
+    environment: dict[str, str],
+    run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> subprocess.CompletedProcess[str]:
+    """Run the fixed Aider child with a private, continuously available No input."""
+    read_fd, write_fd = os.pipe()
+    child_input = os.fdopen(read_fd, "rb", buffering=0)
+    stopped = threading.Event()
+
+    def write_no() -> None:
+        try:
+            while not stopped.is_set():
+                os.write(write_fd, b"n\n")
+        except (BrokenPipeError, OSError):
+            return
+        finally:
+            os.close(write_fd)
+
+    writer = threading.Thread(
+        target=write_no,
+        name=_AIDER_INPUT_THREAD_NAME,
+        daemon=False,
+    )
+    writer.start()
+    try:
+        return run(argv, check=False, env=environment, stdin=child_input)
+    finally:
+        stopped.set()
+        try:
+            child_input.close()
+        finally:
+            writer.join()
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -387,7 +425,7 @@ def main(
             )
             try:
                 translator.start()
-                completed = _run(
+                completed = _run_aider_with_automatic_no(
                     _aider_argv(
                         executable,
                         command_input,
@@ -395,8 +433,8 @@ def main(
                         config_path=config_path,
                         model_settings_path=model_settings_path,
                     ),
-                    check=False,
-                    env=child_environment,
+                    environment=child_environment,
+                    run=_run,
                 )
             finally:
                 translator.close()

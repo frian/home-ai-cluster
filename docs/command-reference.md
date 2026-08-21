@@ -260,6 +260,16 @@ base-10 integer from `1` through `3600`, with a 120-second default.
 select one compatible separately installed plugin by its exact entry-point name.
 Only this finite caller edge discovers and loads that plugin; the ordinary HAC
 server does not discover, import, configure, or invoke acquisition plugins.
+Here, "separately installed" means a compatible Python distribution in the same
+Python environment that provides `hac`. HAC discovers it only through
+`importlib.metadata.entry_points()` in
+`home_ai_cluster.external_information_acquisition.v1`, not from a HAC
+`plugins/` directory or filesystem scan. For an isolated `uv` tool, additional
+plugin requirements belong in that same tool environment; for a project
+checkout, install them into that project's `.venv`. Provider-specific
+installation instructions belong to the provider plugin documentation.
+Installation alone neither loads a plugin nor grants network access: ordinary
+HAC startup, ordinary Chat, and the ordinary server remain unchanged.
 The plugin receives only `--query`, may make its own one bounded provider
 operation under its own configuration, credentials, and network limits, and
 returns bounded title/URL/content candidates. HAC reconstructs and validates

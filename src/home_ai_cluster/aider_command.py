@@ -36,7 +36,7 @@ _AIDER_FAILURE = "error: Aider caller edge failed"
 _AIDER_PREREQUISITE_FAILURE = "error: Aider 0.86.2 is required"
 _TARGET_FAILURE = "error: invalid Aider target"
 
-_EMPTY_AIDER_CONFIG = "{}\n"
+_AIDER_CONFIG = "yes-always: false\n"
 _AIDER_MODEL_SETTINGS = """- name: openai/home-ai-cluster
   edit_format: whole
   use_temperature: false
@@ -377,8 +377,10 @@ def main(
             temporary_path = Path(temporary)
             config_path = temporary_path / "aider.conf.yml"
             model_settings_path = temporary_path / "model-settings.yml"
-            config_path.write_text(_EMPTY_AIDER_CONFIG, encoding="utf-8")
+            config_path.write_text(_AIDER_CONFIG, encoding="utf-8")
             model_settings_path.write_text(_AIDER_MODEL_SETTINGS, encoding="utf-8")
+            child_environment = os.environ.copy()
+            child_environment.pop("AIDER_YES_ALWAYS", None)
             translator = _translator_factory(
                 timeout_seconds=command_input.timeout_seconds,
                 client_factory=_client_factory,
@@ -394,6 +396,7 @@ def main(
                         model_settings_path=model_settings_path,
                     ),
                     check=False,
+                    env=child_environment,
                 )
             finally:
                 translator.close()

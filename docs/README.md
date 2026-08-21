@@ -22,6 +22,9 @@ architecture.
 
 ## Release and distribution
 
+- [v0.3.0 release-readiness investigation](v0.3.0-release-readiness-investigation.md)
+  — documents the current-main comparison with `v0.2.0`; one small Ruff
+  formatting follow-up is required before a `0.3.0` preparation PR.
 - [Future PyPI release process investigation](future-pypi-release-process-investigation.md)
   — documents the smallest recommended future stable-release process; it
   authorizes no workflow, version, tag, publication, or external change.

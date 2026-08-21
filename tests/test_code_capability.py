@@ -72,12 +72,17 @@ def test_code_eligibility_excludes_chat_only_node() -> None:
     nodes = NodeRegistry(
         [
             NodeDescription(
-                id="chat", name="chat", availability="available",
-                health=NodeHealth(healthy=True), capabilities=[Capability(name="chat")],
+                id="chat",
+                name="chat",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="chat")],
                 adapters=["test"],
             ),
             NodeDescription(
-                id="code", name="code", availability="available",
+                id="code",
+                name="code",
+                availability="available",
                 health=NodeHealth(healthy=True),
                 capabilities=[Capability(name="chat"), Capability(name="code")],
                 adapters=["test"],

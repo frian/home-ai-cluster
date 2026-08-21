@@ -113,7 +113,7 @@ def test_load_runtime_config_rejects_missing_file(tmp_path: Path) -> None:
 def test_load_runtime_config_rejects_missing_top_level_runtime(tmp_path: Path) -> None:
     with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
         local_runtime_composition.load_local_runtime_config(
-            write_runtime_config(tmp_path, "[ollama]\nmodel = \"local-model\"\n")
+            write_runtime_config(tmp_path, '[ollama]\nmodel = "local-model"\n')
         )
 
 
@@ -143,9 +143,12 @@ def test_runtime_config_does_not_conflict_with_implicit_cli_defaults(
     config = write_runtime_config(tmp_path, 'runtime = "ollama"\n')
     parser, args = parser_and_args(["--runtime-config", str(config)])
 
-    assert local_runtime_composition.resolve_local_runtime_composition_values(
-        parser, args
-    ).runtime == "ollama"
+    assert (
+        local_runtime_composition.resolve_local_runtime_composition_values(
+            parser, args
+        ).runtime
+        == "ollama"
+    )
 
 
 @pytest.mark.parametrize(
@@ -267,8 +270,7 @@ def test_static_cluster_declaration_mode_consumes_separate_runtime_config(
 
     declaration = tmp_path / "cluster.toml"
     declaration.write_text(
-        'remote_node_id = "remote-a"\n'
-        'remote_base_url = "http://remote-a.test:8000"\n',
+        'remote_node_id = "remote-a"\nremote_base_url = "http://remote-a.test:8000"\n',
         encoding="utf-8",
     )
     config = tmp_path / "runtime-static.toml"
@@ -365,8 +367,7 @@ def test_status_runtime_config_passes_thinking_disable_to_composition(
 
     declaration = tmp_path / "cluster.toml"
     declaration.write_text(
-        'remote_node_id = "remote-a"\n'
-        'remote_base_url = "http://remote-a.test:8000"\n',
+        'remote_node_id = "remote-a"\nremote_base_url = "http://remote-a.test:8000"\n',
         encoding="utf-8",
     )
     config = tmp_path / "runtime-status.toml"

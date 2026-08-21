@@ -404,21 +404,15 @@ def test_internal_envelope_is_strict_and_receiver_projects_locally() -> None:
 
     bad_constraints_body = body | {
         "request": body["request"]
-        | {
-            "constraints": body["request"]["constraints"]
-            | {"unexpected": True}
-        }
+        | {"constraints": body["request"]["constraints"] | {"unexpected": True}}
     }
     rejected_constraints = post(app, "/internal/cluster/request", bad_constraints_body)
     assert rejected_constraints.status_code == 422
-    assert rejected_constraints.json() == {
-        "detail": "Invalid internal cluster request"
-    }
+    assert rejected_constraints.json() == {"detail": "Invalid internal cluster request"}
     assert len(adapter.requests) == 1
 
 
-def test_remote_transport_accepts_identical_sources_and_preserves_caller_attribution(
-) -> None:
+def test_remote_transport_accepts_sources_and_preserves_caller_attribution() -> None:
     request = SourceGroundedChatRequest(question="Question", sources=[source()])
     remote_node = NodeDescription(
         id="declared-remote",

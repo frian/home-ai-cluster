@@ -208,11 +208,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": "home-ai-cluster",
-                "choices": [{
-                    "index": 0,
-                    "message": {"role": "assistant", "content": hac_body["content"]},
-                    "finish_reason": None,
-                }],
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": hac_body["content"],
+                        },
+                        "finish_reason": None,
+                    }
+                ],
             },
         )
         sys.stderr.write(

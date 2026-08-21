@@ -102,8 +102,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "const pdfByteLimit = 8388608;" in script
     assert 'const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";' in script
     assert (
-        'const pdfjsWorkerUrl = "/assets/pdfjs-6.2.108/pdf.worker.min.mjs";'
-        in script
+        'const pdfjsWorkerUrl = "/assets/pdfjs-6.2.108/pdf.worker.min.mjs";' in script
     )
     assert "PDF.js 6.2.108: matched vendored main/worker assets." in script
     assert "if (file.size > pdfByteLimit)" in script
@@ -118,12 +117,13 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "documentProxy.destroy" not in read_pdf_text
     assert "worker.destroy" not in read_pdf_text
     assert "await loadingTask.destroy();" in read_pdf_text
-    assert read_pdf_text.index("loadingTask = pdfjs.getDocument") < read_pdf_text.index(
-        "await loadingTask.promise"
-    ) < read_pdf_text.index("finally {") < read_pdf_text.index(
-        "await loadingTask.destroy();"
+    assert (
+        read_pdf_text.index("loadingTask = pdfjs.getDocument")
+        < read_pdf_text.index("await loadingTask.promise")
+        < read_pdf_text.index("finally {")
+        < read_pdf_text.index("await loadingTask.destroy();")
     )
-    assert "post(\"/v1/summarize\", { text }, \"Summarizing…\")" in script
+    assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
     assert 'document.querySelector("#summarize-pdf")' in script
     assert 'document.querySelector("#classify-pdf")' not in script
     assert 'document.querySelector("#chat-pdf")' not in script
@@ -183,15 +183,17 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert pending_message in chat_handler
     assert "messages.push(pendingMessage);" in chat_handler
     assert (
-        "renderChat();\n    input.value = \"\";\n    const result = await post("
+        'renderChat();\n    input.value = "";\n    const result = await post('
         in chat_handler
     )
     assert chat_handler.index(pending_message) < chat_handler.index(
         "messages.push(pendingMessage);"
     )
-    assert chat_handler.index("messages.push(pendingMessage);") < chat_handler.index(
-        'input.value = "";'
-    ) < chat_handler.index('await post("/v1/chat"')
+    assert (
+        chat_handler.index("messages.push(pendingMessage);")
+        < chat_handler.index('input.value = "";')
+        < chat_handler.index('await post("/v1/chat"')
+    )
     success_handler = chat_handler.split(
         'if (result && typeof result.content === "string"', 1
     )[1].split("    } else {", 1)[0]
@@ -272,8 +274,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
         'role="tab" type="button">Code</button>'
     ) in html
     assert (
-        '<section aria-labelledby="code-tab" hidden id="code-view" '
-        'role="tabpanel">'
+        '<section aria-labelledby="code-tab" hidden id="code-view" role="tabpanel">'
     ) in html
     code_section = html.split('id="code-view"', 1)[1].split("</section>", 1)[0]
     assert 'id="code-form"' in code_section
@@ -291,7 +292,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     )[1].split('document.querySelector("#summarize-file")', 1)[0]
     assert 'const text = document.querySelector("#code-text").value;' in code_handler
     assert (
-        '!text.trim() || new TextEncoder().encode(text).length > byteLimit'
+        "!text.trim() || new TextEncoder().encode(text).length > byteLimit"
         in code_handler
     )
     assert (
@@ -307,8 +308,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert "const messages" not in code_handler
     assert (
         'renderResult(document.querySelector("#code-result"), '
-        "result.content, result.node_id)"
-        in code_handler
+        "result.content, result.node_id)" in code_handler
     )
     assert 'typeof result.content === "string"' in code_handler
     assert 'typeof result.node_id === "string"' in code_handler

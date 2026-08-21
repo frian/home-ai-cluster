@@ -188,10 +188,14 @@ def test_existing_target_is_never_changed_by_caller_edge(tmp_path: Path) -> None
     assert target.read_text(encoding="utf-8") == "existing caller content\n"
 
 
-def test_complete_cycle_uses_temporary_material_then_removes_it(tmp_path: Path) -> None:
+def test_complete_cycle_uses_fail_closed_temporary_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     target = tmp_path / "target.py"
     requests: list[dict[str, Any]] = []
     temporary_paths: list[Path] = []
+    monkeypatch.setenv("AIDER_YES_ALWAYS", "true")
+    monkeypatch.setenv("HAC_AIDER_UNRELATED", "preserved")
 
     def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         if argv[-1] == "--version":
@@ -200,8 +204,12 @@ def test_complete_cycle_uses_temporary_material_then_removes_it(tmp_path: Path) 
         config_path = Path(argv[argv.index("--config") + 1])
         settings_path = Path(argv[argv.index("--model-settings-file") + 1])
         temporary_paths.extend((config_path, settings_path))
-        assert config_path.read_text(encoding="utf-8") == "{}\n"
+        assert config_path.read_text(encoding="utf-8") == "yes-always: false\n"
         assert "edit_format: whole" in settings_path.read_text(encoding="utf-8")
+        child_environment = kwargs["env"]
+        assert isinstance(child_environment, dict)
+        assert "AIDER_YES_ALWAYS" not in child_environment
+        assert child_environment["HAC_AIDER_UNRELATED"] == "preserved"
         assert target.read_text(encoding="utf-8") == ""
         assert (
             _post_bridge(

@@ -337,12 +337,13 @@ IPv4-loopback translator. One Aider-shaped request is required; at most one
 additional Aider-owned follow-up is permitted, for a maximum of two native
 `capability=code` requests. The first native interaction must succeed before a
 follow-up is allowed; this is not HAC retry behavior, and a third request fails
-closed. Exactly the selected target is editable: model-proposed additional
-existing or missing paths are automatically rejected and do not open an
-interactive path-approval workflow. There is no interactive session, Git,
-test, lint, or shell automation. The translator is not RFC-0031 compatibility,
-which remains Chat-only. HAC core remains text-only; Aider retains
-target-content authority.
+closed. The accepted contract authorizes exactly the selected target. The
+current implementation has a known enforcement defect: a model-proposed
+additional existing or missing path can still open Aider's interactive,
+default-Yes path-approval prompt rather than being automatically rejected.
+There is no Aider chat session, Git, test, lint, or shell automation. The
+translator is not RFC-0031 compatibility, which remains Chat-only. HAC core
+remains text-only; Aider retains target-content authority.
 All existing privacy and execution guardrails remain unchanged.
 `--timeout-seconds` accepts one base-10 integer from `1` through `3600`, with a
 120-second omission default, and applies independently to each native HAC

@@ -4,6 +4,17 @@ Status: Investigation
 
 Date: 2026-08-21
 
+> **Corrective follow-up (2026-08-21):** This historical investigation correctly
+> identified the unselected-path confirmation as a violation of the accepted
+> one-target contract.  Its later claim that YAML `yes-always: false` produces
+> `args.yes_always == False` was invalidated by post-merge real-local evidence
+> and exact ConfigArgParse 1.7.1 analysis.  In Aider 0.86.2 that YAML false
+> value leaves the `store_true` option at its `None` default, so confirmations
+> remain interactive and default Yes.  See the [corrective
+> investigation](aider-single-target-fail-closed-corrective-investigation.md).
+> This follow-up supersedes only the failed `yes-always: false` enforcement
+> analysis, not the original contract finding or real-local failure evidence.
+
 ## Context / observed real-local behavior
 
 This investigation considers the reported ordinary local invocation of `hac

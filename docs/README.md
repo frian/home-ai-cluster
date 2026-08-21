@@ -76,6 +76,10 @@ architecture.
   model-free Aider 0.86.2 stdin-based fail-closed repair direction; it
   supersedes the earlier document only on that failed enforcement analysis and
   authorizes no implementation.
+- [Aider single-target fail-closed proof](aider-single-target-fail-closed-proof.md)
+  — retains model-free real-Aider 0.86.2 evidence that the implemented private
+  continuous-No child input preserves the selected edit while rejecting
+  unselected existing and missing paths.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

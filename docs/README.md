@@ -67,6 +67,10 @@ architecture.
 - [Aider whole-file edit reliability investigation](aider-whole-file-edit-reliability-investigation.md)
   — records the Aider 0.86.2 source-level explanation for an unchanged-target
   observation; it authorizes no caller-edge, model, or filesystem change.
+- [Aider single-target boundary investigation](aider-single-target-boundary-investigation.md)
+  — finds that Aider 0.86.2 treats the supplied file as its initial editable
+  set and can default-confirm a model-named extra path; it identifies a small
+  fail-closed caller-edge repair direction but authorizes no implementation.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

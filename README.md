@@ -56,6 +56,7 @@ home-ai-cluster aider
 home-ai-cluster external-information
 home-ai-cluster chat
 home-ai-cluster code
+home-ai-cluster code-file
 home-ai-cluster summarize
 home-ai-cluster classify
 home-ai-cluster preflight
@@ -94,6 +95,7 @@ hac compatibility
 hac external-information --plugin <NAME> --query "<QUERY>" --question "<QUESTION>"
 hac chat "Hello"
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac summarize --text "Long text to summarize"
 hac classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
@@ -104,6 +106,7 @@ The long namespace remains canonical and fully supported:
 home-ai-cluster status --declaration <path>
 home-ai-cluster external-information --plugin <NAME> --query "<QUERY>" --question "<QUESTION>"
 home-ai-cluster code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+home-ai-cluster code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 home-ai-cluster summarize --text "Long text to summarize"
 home-ai-cluster classify --text "The invoice is due tomorrow." --label invoice --label personal
 ```
@@ -170,7 +173,7 @@ uses `POST /v1/chat` with `capability=code`, and introduces no `/v1/code`.
 Both ordinary local Ollama and llama-server compositions advertise and execute
 it through their existing Chat-like execution path. OpenAI-compatible access
 remains Chat-only, and the fixed browser page remains Chat, Summarize, and
-Classify only. The root command has the twelve subcommands shown above,
+Classify only. The root command has the thirteen subcommands shown above,
 including the bounded Aider and external-information caller edges and the
 ordinary native `summarize`, `classify`, and `code` clients.
 
@@ -302,6 +305,19 @@ message and limits that message to 65,536 UTF-8 bytes; it never reads a file or
 stdin and never truncates input. Generated code is response text only: it
 grants no filesystem, repository, shell, Git, testing, tool, agent, or
 execution authority.
+
+For one whole-file replacement from one bounded native code result, use:
+
+```sh
+hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+```
+
+The target must already be a regular, non-symbolic-link UTF-8 text file. The
+caller sends exactly one native `capability=code` request containing the
+operator instruction and current target text, then accepts only its closed
+whole-file JSON envelope. It preserves ordinary permission bits on atomic
+replacement, creates no missing target, does not execute generated content,
+and does not retry. Aider remains a separate, unchanged caller edge.
 
 The same one bounded UTF-8 source can come from standard input:
 

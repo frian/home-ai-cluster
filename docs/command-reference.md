@@ -41,8 +41,8 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has twelve commands: three foreground processes and
-nine finite commands.
+The ordinary root surface has thirteen commands: three foreground processes and
+ten finite commands.
 
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
@@ -53,6 +53,7 @@ nine finite commands.
 | `external-information` | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
 | `chat` | Send one native chat request. | One-shot request |
 | `code` | Send one native bounded textual code request. | One-shot request |
+| `code-file` | Replace one selected file from one bounded code result. | One-shot caller edge |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
 | `classify` | Send one native bounded classification request. | One-shot request |
 | `preflight` | Inspect static declaration coherence. | Finite inspection |
@@ -311,6 +312,33 @@ It does not add `/v1/code` or a standalone `home-ai-cluster-code` command.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
+## `hac code-file`
+
+**Purpose:** Replace one explicitly selected existing text file from one native
+bounded code result.
+
+**Common forms:**
+
+```sh
+hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --timeout-seconds 300
+```
+
+**Important behavior:** The command accepts exactly one existing regular,
+non-symbolic-link UTF-8 target and one non-blank `--message`. It sends exactly
+one existing native `POST /v1/chat` request with `capability=code`; the two
+request messages contain a fixed response instruction plus the operator
+instruction and exact current file text, never the target path or filename.
+The existing 65,536-byte aggregate code-input bound and a separate 65,536-byte
+UTF-8 generated-content bound apply without truncation.
+
+Only a closed JSON envelope containing version `1` and complete replacement
+content is accepted. After all validation, the caller writes one private
+same-directory temporary file, preserves only the target's ordinary `0o777`
+permission bits, and atomically replaces the selected target once. It creates
+no missing target, does not execute generated content, does not retry, and adds
+no endpoint, capability, standalone executable, or Aider behavior.
+
 ## `hac aider`
 
 **Purpose:** Coordinate one bounded external Aider edit of one explicitly
@@ -496,7 +524,7 @@ contract as `hac local` and does not change status output.
 Service commands stay in the foreground. Chat, code, and summarize return
 content by default; classify returns its selected label. Their `--verbose` forms
 include execution attribution and their `--json` forms return compact structured
-results. Inspection commands are human-readable by default and offer `--json`
+results. Successful `code-file` replacement is silent. Inspection commands are human-readable by default and offer `--json`
 for automation. Individual command support is shown above.
 
 ## Common failure boundaries
@@ -521,7 +549,7 @@ scripts:
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
 
-`hac code`, `hac summarize`, and `hac classify` are available through the
+`hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
 ordinary root command; none has a separate installed checkout script.
 
 ## Historical and specialized commands

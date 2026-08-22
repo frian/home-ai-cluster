@@ -30,6 +30,7 @@ Finite commands:
   external-information  Acquire one bounded source-grounded chat request.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
+  code-file       Replace one selected file from one bounded code request.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -54,6 +55,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "external-information",
         "chat",
         "code",
+        "code-file",
         "classify",
         "summarize",
         "preflight",

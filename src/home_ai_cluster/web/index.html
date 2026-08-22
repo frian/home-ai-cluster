@@ -8,59 +8,74 @@
   </head>
   <body>
     <main class="page">
-      <h1>Home AI Cluster</h1>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Local AI, simply connected</p>
+          <h1>Home AI Cluster</h1>
+        </div>
+        <p class="privacy-note">Local-first · Private by default</p>
+      </header>
+
       <nav aria-label="Capabilities" class="tabs" role="tablist">
-        <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" type="button">Chat</button>
-        <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" type="button">Summarize</button>
-        <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" type="button">Classify</button>
-        <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" type="button">Code</button>
+        <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" tabindex="0" type="button">Chat</button>
+        <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" tabindex="-1" type="button">Summarize</button>
+        <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" tabindex="-1" type="button">Classify</button>
+        <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
       </nav>
 
-      <section aria-labelledby="chat-tab" id="chat-view" role="tabpanel">
-        <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+      <section aria-labelledby="chat-tab" class="capability-panel" id="chat-view" role="tabpanel">
+        <header class="panel-heading"><h2 id="chat-heading">Chat</h2><p>Send a message to the cluster.</p></header>
         <form id="chat-form">
           <label for="chat-message">Message</label>
-          <textarea id="chat-message" required rows="4"></textarea>
-          <button data-submit type="submit">Send</button>
+          <textarea id="chat-message" placeholder="Write your message…" required rows="6"></textarea>
+          <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
+        <section aria-labelledby="chat-result-heading" class="result-section" hidden id="chat-result-region">
+          <h3 id="chat-result-heading">Response</h3>
+          <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+        </section>
       </section>
 
-      <section aria-labelledby="summarize-tab" hidden id="summarize-view" role="tabpanel">
+      <section aria-labelledby="summarize-tab" class="capability-panel" hidden id="summarize-view" role="tabpanel">
+        <header class="panel-heading"><h2 id="summarize-heading">Summarize</h2><p>Summarize pasted text or a local document.</p></header>
         <form id="summarize-form">
           <label for="summarize-text">Text to summarize</label>
-          <textarea id="summarize-text" rows="8"></textarea>
-          <label for="summarize-file">Or choose a UTF-8 text file</label>
-          <input accept="text/plain,.txt" id="summarize-file" type="file">
-          <label for="summarize-pdf">Or choose a text-based PDF (up to 8 MiB)</label>
-          <input accept="application/pdf,.pdf" id="summarize-pdf" type="file">
-          <button data-submit type="submit">Summarize</button>
+          <textarea id="summarize-text" placeholder="Paste text here…" rows="8"></textarea>
+          <div class="file-options">
+            <div class="file-choice"><label for="summarize-file">Or choose a UTF-8 text file</label><input accept="text/plain,.txt" id="summarize-file" type="file"></div>
+            <div class="file-choice"><label for="summarize-pdf">Or choose a text-based PDF (up to 8 MiB)</label><input accept="application/pdf,.pdf" id="summarize-pdf" type="file"></div>
+          </div>
+          <div class="form-actions"><button data-submit type="submit">Summarize</button></div>
         </form>
-        <output class="result" hidden id="summarize-result"></output>
+        <section aria-labelledby="summarize-result-heading" class="result-section" hidden id="summarize-result-region">
+          <h3 id="summarize-result-heading">Summary</h3><output class="result" hidden id="summarize-result"></output>
+        </section>
       </section>
 
-      <section aria-labelledby="classify-tab" hidden id="classify-view" role="tabpanel">
+      <section aria-labelledby="classify-tab" class="capability-panel" hidden id="classify-view" role="tabpanel">
+        <header class="panel-heading"><h2 id="classify-heading">Classify</h2><p>Classify text against an ordered set of labels.</p></header>
         <form id="classify-form">
           <label for="classify-text">Text to classify</label>
-          <textarea id="classify-text" rows="6"></textarea>
-          <label for="classify-file">Or choose a UTF-8 text file</label>
-          <input accept="text/plain,.txt" id="classify-file" type="file">
-          <fieldset>
-            <legend>Labels in order</legend>
-            <div id="label-inputs"></div>
-            <button id="add-label" type="button">Add label</button>
-          </fieldset>
-          <button data-submit type="submit">Classify</button>
+          <textarea id="classify-text" placeholder="Paste text here…" rows="6"></textarea>
+          <div class="file-choice"><label for="classify-file">Or choose a UTF-8 text file</label><input accept="text/plain,.txt" id="classify-file" type="file"></div>
+          <fieldset><legend>Labels in order</legend><div id="label-inputs"></div><button id="add-label" type="button">Add label</button></fieldset>
+          <div class="form-actions"><button data-submit type="submit">Classify</button></div>
         </form>
-        <output class="result" hidden id="classify-result"></output>
+        <section aria-labelledby="classify-result-heading" class="result-section" hidden id="classify-result-region">
+          <h3 id="classify-result-heading">Classification</h3><output class="result" hidden id="classify-result"></output>
+        </section>
       </section>
 
-      <section aria-labelledby="code-tab" hidden id="code-view" role="tabpanel">
+      <section aria-labelledby="code-tab" class="capability-panel" hidden id="code-view" role="tabpanel">
+        <header class="panel-heading"><h2 id="code-heading">Code</h2><p>Describe the code you need.</p></header>
         <form id="code-form">
           <label for="code-text">Code instruction</label>
-          <textarea id="code-text" rows="6"></textarea>
-          <button data-submit type="submit">Request code</button>
+          <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
+          <div class="form-actions"><button data-submit type="submit">Request code</button></div>
         </form>
-        <output class="result" hidden id="code-result"></output>
+        <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
+          <h3 id="code-result-heading">Generated code</h3><output class="result" hidden id="code-result"></output>
+        </section>
       </section>
 
       <p aria-live="polite" class="error" id="request-error" role="status"></p>

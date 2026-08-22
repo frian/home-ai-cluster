@@ -64,6 +64,7 @@
 
   function renderChat() {
     const container = document.querySelector("#chat-conversation");
+    document.querySelector("#chat-result-region").hidden = messages.length === 0;
     container.replaceChildren();
     messages.forEach((message) => {
       const entry = document.createElement("article");
@@ -93,6 +94,7 @@
   }
 
   function renderResult(container, content, nodeId) {
+    container.closest(".result-section").hidden = false;
     container.hidden = false;
     container.replaceChildren();
     const value = document.createElement("div");
@@ -221,6 +223,20 @@
     } else if (result) showError("Request failed");
   });
 
+  function updateLabelAccessibleNames() {
+    document.querySelectorAll(".label-row").forEach((row, index) => {
+      const labelNumber = index + 1;
+      row.querySelector(".classify-label").setAttribute(
+        "aria-label",
+        `Classification label ${labelNumber}`,
+      );
+      row.querySelector("button").setAttribute(
+        "aria-label",
+        `Remove classification label ${labelNumber}`,
+      );
+    });
+  }
+
   function addLabel(value = "") {
     const row = document.createElement("div");
     row.className = "label-row";
@@ -228,13 +244,16 @@
     input.className = "classify-label";
     input.type = "text";
     input.value = value;
-    input.setAttribute("aria-label", "Classification label");
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Remove label";
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => {
+      row.remove();
+      updateLabelAccessibleNames();
+    });
     row.append(input, remove);
     document.querySelector("#label-inputs").append(row);
+    updateLabelAccessibleNames();
   }
 
   addLabel();
@@ -265,13 +284,29 @@
     } else if (result) showError("Request failed");
   });
 
-  document.querySelectorAll('[role="tab"]').forEach((tab) => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll('[role="tab"]').forEach((other) => {
-        const selected = other === tab;
-        other.setAttribute("aria-selected", String(selected));
-        document.querySelector(`#${other.getAttribute("aria-controls")}`).hidden = !selected;
-      });
+  const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+
+  function activateTab(tab, focus = false) {
+    tabs.forEach((other) => {
+      const selected = other === tab;
+      other.setAttribute("aria-selected", String(selected));
+      other.tabIndex = selected ? 0 : -1;
+      document.querySelector(`#${other.getAttribute("aria-controls")}`).hidden = !selected;
+    });
+    if (focus) tab.focus();
+  }
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activateTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      let nextIndex;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
+      if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = tabs.length - 1;
+      if (nextIndex === undefined) return;
+      event.preventDefault();
+      activateTab(tabs[nextIndex], true);
     });
   });
 })();

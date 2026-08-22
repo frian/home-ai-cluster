@@ -126,7 +126,7 @@ the caller-local runtime and remain separate from static topology declarations.
 
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
-only Chat, Summarize, and Classify. The page keeps Chat only in memory, shows
+Chat, Summarize, Classify, and Code. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
 request is running. One explicitly selected Summarize or Classify file is read
 locally with strict UTF-8 decoding and populates that view's editable text area;

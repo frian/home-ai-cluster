@@ -400,6 +400,13 @@ established at a specific stage and do not replace the current workflow.
   completed one bounded Aider-owned edit through explicit native `code`; the
   independent physical two-machine RFC-0067 proof remains separate.
 
+### RFC-0080 — One-shot whole-file Code caller edge
+
+- [Code-file real-model proof](code-file-real-model-proof.md) — retains
+  privacy-safe evidence that two real-model `hac code-file` invocations passed
+  the accepted one-request, closed-envelope, atomic-replacement boundary while
+  sampled generated-code quality remained outside the caller guarantee.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

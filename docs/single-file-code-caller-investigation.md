@@ -72,14 +72,14 @@ The smallest deterministic candidate is not plain output or a fence parser. It
 is a closed structured envelope carried in HAC's existing textual result:
 
 ```json
-{"version": 1, "content": "complete UTF-8 file bytes as a string"}
+{"version": 1, "content": "complete file content as a string"}
 ```
 
-`content` is the complete target content; `version` closes the representation.
+`content` is the complete target text; `version` closes the representation.
 There is no filename, path, language, patch base, or success flag. The CLI path
 is the only write destination, and an empty file is `{"version":1,"content":""}`.
-An RFC would need to set a finite encoded-response limit, UTF-8 behavior, and
-existing/new-file permission policy.
+An RFC would need to set a finite encoded-response limit, UTF-8 encoding for
+writing validated content to disk, and existing/new-file permission policy.
 
 Free-form content is ambiguous because prose and source are both text. Fenced
 extraction is likewise ambiguous (multiple fences, prose, language labels, or

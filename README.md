@@ -172,8 +172,8 @@ ordered-message `ClusterRequest` representation and free-form textual result,
 uses `POST /v1/chat` with `capability=code`, and introduces no `/v1/code`.
 Both ordinary local Ollama and llama-server compositions advertise and execute
 it through their existing Chat-like execution path. OpenAI-compatible access
-remains Chat-only, and the fixed browser page remains Chat, Summarize, and
-Classify only. The root command has the thirteen subcommands shown above,
+remains Chat-only, and the fixed browser page provides Chat, Summarize,
+Classify, and Code. The root command has the thirteen subcommands shown above,
 including the bounded Aider and external-information caller edges and the
 ordinary native `summarize`, `classify`, and `code` clients.
 

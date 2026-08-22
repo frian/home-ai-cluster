@@ -223,6 +223,25 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "--surface-background:" in dark_mode
     assert "--text-primary:" in dark_mode
     assert "--focus-color:" in dark_mode
+    assert "--disabled-background:" in stylesheet
+    assert "--disabled-text:" in stylesheet
+    assert 'input[type="file"]::file-selector-button' in stylesheet
+    assert "@media (max-width: 40rem)" in stylesheet
+    assert 'tabindex="0"' in html
+    assert html.count('tabindex="-1"') == 3
+    assert "function activateTab(tab, focus = false)" in script
+    assert 'event.key === "ArrowRight"' in script
+    assert 'event.key === "ArrowLeft"' in script
+    assert 'event.key === "Home"' in script
+    assert 'event.key === "End"' in script
+    assert "other.tabIndex = selected ? 0 : -1;" in script
+    assert "function updateLabelAccessibleNames()" in script
+    assert "Classification label ${labelNumber}" in script
+    assert "Remove classification label ${labelNumber}" in script
+    for heading in ("Chat", "Summarize", "Classify", "Code"):
+        assert f">{heading}</h2>" in html
+    for heading in ("Response", "Summary", "Classification", "Generated code"):
+        assert f">{heading}</h3>" in html
     assert ".conversation:empty { display: none; }" in stylesheet
     assert "[hidden] { display: none !important; }" in stylesheet
     assert '<output class="result" hidden id="summarize-result"></output>' in html
@@ -269,13 +288,9 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
 
     assert html.count('role="tab"') == 4
     assert html.count('role="tabpanel"') == 4
-    assert (
-        '<button aria-controls="code-view" aria-selected="false" id="code-tab" '
-        'role="tab" type="button">Code</button>'
-    ) in html
-    assert (
-        '<section aria-labelledby="code-tab" hidden id="code-view" role="tabpanel">'
-    ) in html
+    assert 'aria-controls="code-view"' in html
+    assert 'id="code-tab"' in html
+    assert 'id="code-view" role="tabpanel"' in html
     code_section = html.split('id="code-view"', 1)[1].split("</section>", 1)[0]
     assert 'id="code-form"' in code_section
     assert 'for="code-text"' in code_section

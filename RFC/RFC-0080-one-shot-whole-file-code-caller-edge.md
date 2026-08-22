@@ -161,10 +161,10 @@ interprets `ClusterResult.content` as one JSON document with exactly:
 Leading/trailing JSON whitespace is permitted; there must otherwise be exactly
 one JSON value and no prose or fenced Markdown. The top-level value must be an
 object with exactly the keys `version` and `content`; duplicate keys are
-rejected during parsing. `version` is JSON number `1`, and `content` is a
-JSON string. Unknown keys, filename/path, language, success, patch/diff
-metadata, wrong types/version, duplicate keys, malformed JSON, or surrounding
-content fail before replacement.
+rejected during parsing. `version` must be the JSON integer `1`; JSON `true`,
+`1.0`, and `"1"` are rejected. `content` is a JSON string. Unknown keys,
+filename/path, language, success, patch/diff metadata, wrong types/version,
+duplicate keys, malformed JSON, or surrounding content fail before replacement.
 
 An empty result is valid:
 
@@ -193,7 +193,7 @@ The caller must not truncate or rewrite the target in place. It may create
 exactly one caller-selected private temporary sibling in the target's existing
 parent directory, solely for a single replacement transaction. This file is not
 an editable/model-visible target; it contains only the validated replacement,
-uses restrictive temporary permissions, and is cleaned up on ordinary
+and begins with restrictive private permissions. It is cleaned up on ordinary
 pre-replacement failure. An abnormal process or host crash can leave it behind;
 that bounded local privacy trade-off is explicit.
 
@@ -203,16 +203,26 @@ Before one same-directory atomic replacement, the future implementation must:
 2. write the complete UTF-8 replacement to the private sibling and flush it;
 3. make the temporary file durable enough for the ordinary process-crash
    boundary;
-4. set the selected target's ordinary permission mode bits on the temporary
-   replacement; and
+4. apply the selected target's preserved ordinary POSIX owner/group/other
+   permission bits (`0o777`) to the temporary replacement; and
 5. atomically replace the selected target once.
 
-Successful replacement preserves ordinary permission mode bits and does not add
-executable permission. This first version does not promise timestamps, ACLs,
-extended attributes, unusual ownership metadata, full inode preservation, or
-power-loss/filesystem durability beyond the stated ordinary process-crash
+Successful replacement preserves only the selected target's ordinary POSIX
+owner/group/other permission bits (`0o777`). It must not preserve or add setuid,
+setgid, or sticky bits, and it must not add executable permission beyond a bit
+already present in the preserved `0o777` mode. This first version deliberately
+does not promise preservation of owner/group identity, ACLs, extended
+attributes, inode identity, timestamps, or other filesystem-specific metadata,
+nor power-loss/filesystem durability beyond the stated ordinary process-crash
 boundary. It uses standard library filesystem primitives; no transaction
 library is authorized.
+
+After the preserved `0o777` mode has been applied but before atomic replacement,
+an abnormal process or host crash can leave the private temporary sibling with
+those preserved ordinary target permissions rather than its initial restrictive
+private permissions. Normal pre-replacement failures still clean it up. This
+bounded crash-residue case does not authorize locking, a cleanup daemon,
+recovery scan, or another filesystem mechanism.
 
 Before final replacement, every failure—including target validation/decoding,
 input bound, native failure/timeout, invalid result/envelope, output bound,

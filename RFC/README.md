@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0081: Explicit Code-File Target Creation](RFC-0081-explicit-code-file-target-creation.md)
+  — accepts one caller-edge amendment to RFC-0080: after non-mutating
+  validation, create one explicitly named missing leaf exclusively when its
+  parent already exists, then retain RFC-0080's one-request replacement flow.
 - [RFC-0080: One-Shot Whole-File Code Caller Edge](RFC-0080-one-shot-whole-file-code-caller-edge.md)
   — proposes one optional existing-target caller edge that sends one native
   `code` request, validates one closed content-only envelope, and atomically

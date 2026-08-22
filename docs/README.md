@@ -414,6 +414,13 @@ established at a specific stage and do not replace the current workflow.
   was created and atomically populated through the accepted RFC-0081/RFC-0080
   caller path without manual target preparation or generated-code execution.
 
+### Code-file model interoperability observations
+
+- [Code-file model interoperability observations](code-file-model-interoperability.md)
+  — retains bounded local observations of runtime-edge model output behavior
+  through the accepted `code-file` caller; it is not a support guarantee,
+  model recommendation, or change to RFC-0080/RFC-0081 boundaries.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

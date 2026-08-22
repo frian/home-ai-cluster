@@ -60,6 +60,13 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0081: Explicit Code-File Target Creation](RFC-0081-explicit-code-file-target-creation.md)
+  — proposes one caller-edge amendment to RFC-0080: after non-mutating
+  validation, create one explicitly named missing leaf exclusively when its
+  parent already exists, then retain RFC-0080's one-request replacement flow.
+
 ## Accepted RFCs
 
 - [RFC-0080: One-Shot Whole-File Code Caller Edge](RFC-0080-one-shot-whole-file-code-caller-edge.md)

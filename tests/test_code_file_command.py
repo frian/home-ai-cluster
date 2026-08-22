@@ -125,7 +125,67 @@ def test_valid_unicode_empty_and_newline_replacement_is_silent(
     )
     code_file_command.main(["--file", str(target), "--message", "request"])
     assert target.read_text(encoding="utf-8", newline="") == "é\n"
-    assert capsys.readouterr().out == ""
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+def test_empty_content_replaces_target_with_zero_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: _response('{"version":1,"content":""}'),
+    )
+
+    code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert target.read_bytes() == b""
+
+
+def test_one_request_has_the_rfc_0080_native_shape(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+    requests: list[dict[str, object]] = []
+
+    def post(request: dict[str, object], **kwargs: object) -> httpx.Response:
+        requests.append(request)
+        return _response('{"version":1,"content":"after"}')
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert len(requests) == 1
+    assert requests[0]["capability"] == "code"
+    messages = requests[0]["messages"]
+    assert isinstance(messages, list)
+    assert len(messages) == 2
+    assert [message["role"] for message in messages] == ["system", "user"]
+
+
+def test_malformed_model_output_does_not_make_a_corrective_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+    calls = 0
+
+    def post(*args: object, **kwargs: object) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _response("not an RFC-0080 envelope")
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert calls == 1
+    assert target.read_text(encoding="utf-8") == "before"
 
 
 def test_output_bound_is_utf8_bytes_and_preserves_mode(
@@ -186,6 +246,48 @@ def test_native_404_uses_code_capability_failure(
     assert target.read_text(encoding="utf-8") == "before"
 
 
+@pytest.mark.parametrize(
+    "exception",
+    (
+        httpx.TimeoutException("timeout"),
+        httpx.ConnectError("unavailable"),
+        httpx.RequestError("failed"),
+    ),
+)
+def test_native_exceptions_leave_target_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exception: httpx.RequestError
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(exception),
+    )
+
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert target.read_text(encoding="utf-8") == "before"
+
+
+def test_malformed_native_result_leaves_target_unchanged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: httpx.Response(200, json={"content": "missing fields"}),
+    )
+
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert target.read_text(encoding="utf-8") == "before"
+
+
 def test_atomic_preparation_failure_cleans_up_and_preserves_target(
     tmp_path: Path,
 ) -> None:
@@ -198,6 +300,24 @@ def test_atomic_preparation_failure_cleans_up_and_preserves_target(
         0o644,
         fsync=lambda descriptor: (_ for _ in ()).throw(OSError("failed")),
     )
+
+    assert target.read_text(encoding="utf-8") == "before"
+    assert list(tmp_path.glob(".hac-code-file-*")) == []
+
+
+@pytest.mark.parametrize("operation", ("chmod", "replace"))
+def test_atomic_permission_or_replace_failure_cleans_up_and_preserves_target(
+    tmp_path: Path, operation: str
+) -> None:
+    target = tmp_path / "target.py"
+    target.write_text("before", encoding="utf-8")
+
+    def failing(*args: object) -> None:
+        raise OSError("failed")
+
+    kwargs = {operation: failing}
+
+    assert not code_file_command._atomic_replace(target, b"after", 0o644, **kwargs)
 
     assert target.read_text(encoding="utf-8") == "before"
     assert list(tmp_path.glob(".hac-code-file-*")) == []

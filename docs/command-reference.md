@@ -41,8 +41,8 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has twelve commands: three foreground processes and
-nine finite commands.
+The ordinary root surface has thirteen commands: three foreground processes and
+ten finite commands.
 
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
@@ -53,6 +53,7 @@ nine finite commands.
 | `external-information` | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
 | `chat` | Send one native chat request. | One-shot request |
 | `code` | Send one native bounded textual code request. | One-shot request |
+| `code-file` | Replace one selected file from one bounded code result. | One-shot caller edge |
 | `summarize` | Send one native bounded summarize request. | One-shot request |
 | `classify` | Send one native bounded classification request. | One-shot request |
 | `preflight` | Inspect static declaration coherence. | Finite inspection |

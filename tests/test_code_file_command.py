@@ -1,6 +1,7 @@
 """Tests for the RFC-0080 one-shot whole-file caller edge."""
 
 import json
+import os
 import stat
 from pathlib import Path
 
@@ -58,7 +59,7 @@ def test_request_contains_only_fixed_and_json_messages(tmp_path: Path) -> None:
     }
 
 
-@pytest.mark.parametrize("kind", ("missing", "directory", "symlink", "invalid"))
+@pytest.mark.parametrize("kind", ("directory", "symlink", "broken-symlink", "invalid"))
 def test_invalid_target_fails_before_request(
     tmp_path: Path, kind: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -69,6 +70,8 @@ def test_invalid_target_fails_before_request(
         source = tmp_path / "source"
         source.write_text("text", encoding="utf-8")
         target.symlink_to(source)
+    elif kind == "broken-symlink":
+        target.symlink_to(tmp_path / "missing-source")
     elif kind == "invalid":
         target.write_bytes(b"\xff")
     calls = 0
@@ -82,6 +85,229 @@ def test_invalid_target_fails_before_request(
     with pytest.raises(SystemExit):
         code_file_command.main(["--file", str(target), "--message", "request"])
     assert calls == 0
+
+
+def test_missing_target_uses_empty_content_and_one_native_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    target = tmp_path / "secret-name.py"
+    requests: list[dict[str, object]] = []
+
+    def post(request: dict[str, object], **kwargs: object) -> httpx.Response:
+        requests.append(request)
+        return _response('{"version":1,"content":"after"}')
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+
+    code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert target.is_file()
+    assert target.read_text(encoding="utf-8") == "after"
+    assert len(requests) == 1
+    assert requests[0]["capability"] == "code"
+    messages = requests[0]["messages"]
+    assert isinstance(messages, list)
+    assert [message["role"] for message in messages] == ["system", "user"]
+    assert json.loads(messages[1]["content"]) == {
+        "instruction": "request",
+        "current_content": "",
+    }
+    assert "secret-name.py" not in str(messages)
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == ""
+
+
+@pytest.mark.parametrize("parent_kind", ("missing", "file"))
+def test_missing_target_invalid_parent_fails_before_creation_and_request(
+    tmp_path: Path, parent_kind: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent = tmp_path / "parent"
+    if parent_kind == "file":
+        parent.write_text("not a directory", encoding="utf-8")
+    target = parent / "target.py"
+    calls = 0
+
+    def post(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("must not request")
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+    assert calls == 0
+    assert not target.exists()
+    assert not parent.exists() if parent_kind == "missing" else parent.is_file()
+
+
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["--message", "   "],
+        ["--message", "request", "--timeout-seconds", "0"],
+    ),
+)
+def test_missing_target_invalid_input_creates_nothing_before_request(
+    tmp_path: Path, argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    calls = 0
+
+    def post(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("must not request")
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), *argv])
+    assert calls == 0
+    assert not target.exists()
+
+
+def test_missing_target_oversized_prospective_request_creates_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: pytest.fail("must not request"),
+    )
+
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "x" * 65_536])
+
+    assert not target.exists()
+
+
+def test_missing_target_creation_race_fails_without_request_or_adoption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    calls = 0
+
+    def create_race(path: Path) -> int:
+        path.write_text("appeared", encoding="utf-8")
+        raise ValueError
+
+    def post(*args: object, **kwargs: object) -> object:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("must not request")
+
+    monkeypatch.setattr(code_file_command, "_create_missing_target", create_race)
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+    assert calls == 0
+    assert target.read_text(encoding="utf-8") == "appeared"
+
+
+def test_missing_target_creation_requests_non_executable_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    original_open = os.open
+    creation: list[tuple[int, int]] = []
+
+    def open_target(path: Path, flags: int, mode: int) -> int:
+        creation.append((flags, mode))
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(code_file_command.os, "open", open_target)
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: _response('{"version":1,"content":"after"}'),
+    )
+    code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert creation[0] == (os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+
+
+def test_missing_target_mode_uses_umask_and_is_preserved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: _response('{"version":1,"content":"after"}'),
+    )
+    previous_umask = os.umask(0o022)
+    try:
+        code_file_command.main(["--file", str(target), "--message", "request"])
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(target.stat().st_mode) == 0o644
+
+
+@pytest.mark.parametrize(
+    "failure",
+    (
+        httpx.TimeoutException("timeout"),
+        httpx.ConnectError("unavailable"),
+        httpx.RequestError("failed"),
+        httpx.Response(404),
+        httpx.Response(200, json={"content": "missing fields"}),
+        _response("not an RFC-0080 envelope"),
+        _response(json.dumps({"version": 1, "content": "é" * 32_769})),
+    ),
+)
+def test_missing_target_later_failures_leave_empty_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: object
+) -> None:
+    target = tmp_path / "target.py"
+    calls = 0
+
+    def post(*args: object, **kwargs: object) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if isinstance(failure, Exception):
+            raise failure
+        assert isinstance(failure, httpx.Response)
+        return failure
+
+    monkeypatch.setattr(code_file_command.chat_command, "_post_native_request", post)
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+    assert calls == 1
+    assert target.read_bytes() == b""
+
+
+def test_missing_target_atomic_failure_leaves_empty_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: _response('{"version":1,"content":"after"}'),
+    )
+    monkeypatch.setattr(code_file_command, "_atomic_replace", lambda *args: False)
+
+    with pytest.raises(SystemExit):
+        code_file_command.main(["--file", str(target), "--message", "request"])
+    assert target.read_bytes() == b""
+
+
+def test_missing_target_empty_generated_content_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "target.py"
+    monkeypatch.setattr(
+        code_file_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: _response('{"version":1,"content":""}'),
+    )
+
+    code_file_command.main(["--file", str(target), "--message", "request"])
+
+    assert target.is_file()
+    assert target.read_bytes() == b""
 
 
 @pytest.mark.parametrize(

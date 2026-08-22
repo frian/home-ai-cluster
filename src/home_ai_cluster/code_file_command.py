@@ -84,6 +84,19 @@ def _read_target(target: Path) -> tuple[str, int]:
         raise ValueError from None
 
 
+def _create_missing_target(target: Path) -> int:
+    """Create one selected empty leaf exclusively and return its ordinary mode."""
+    try:
+        descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+    except OSError:
+        raise ValueError from None
+    try:
+        os.close(descriptor)
+        return target.stat().st_mode & 0o777
+    except OSError:
+        raise ValueError from None
+
+
 def _native_request(instruction: str, current_content: str) -> dict[str, Any]:
     request = ClusterRequest(
         messages=[
@@ -184,14 +197,28 @@ def main(
     except chat_command._InvalidRequestInput:
         chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2)
 
-    try:
-        current_content, mode = _read_target(command_input.target)
-    except ValueError:
+    if command_input.target.is_symlink():
         chat_command._exit_with_failure(_INVALID_TARGET, 1)
-    try:
-        request = _native_request(command_input.message, current_content)
-    except ValueError:
-        chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2)
+    if command_input.target.exists():
+        try:
+            current_content, mode = _read_target(command_input.target)
+        except ValueError:
+            chat_command._exit_with_failure(_INVALID_TARGET, 1)
+        try:
+            request = _native_request(command_input.message, current_content)
+        except ValueError:
+            chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2)
+    else:
+        if not command_input.target.parent.is_dir():
+            chat_command._exit_with_failure(_INVALID_TARGET, 1)
+        try:
+            request = _native_request(command_input.message, "")
+        except ValueError:
+            chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2)
+        try:
+            mode = _create_missing_target(command_input.target)
+        except ValueError:
+            chat_command._exit_with_failure(_INVALID_TARGET, 1)
 
     try:
         response = chat_command._post_native_request(

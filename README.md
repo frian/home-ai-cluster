@@ -312,12 +312,14 @@ For one whole-file replacement from one bounded native code result, use:
 hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 ```
 
-The target must already be a regular, non-symbolic-link UTF-8 text file. The
-caller sends exactly one native `capability=code` request containing the
-operator instruction and current target text, then accepts only its closed
-whole-file JSON envelope. It preserves ordinary permission bits on atomic
-replacement, creates no missing target, does not execute generated content,
-and does not retry. Aider remains a separate, unchanged caller edge.
+An existing target must be a regular, non-symbolic-link UTF-8 text file. One
+explicitly named missing leaf may also be created exclusively when its parent
+already exists as a directory; no parent is created. A new target uses empty
+current content and may remain empty after a later failure. The caller sends
+exactly one native `capability=code` request, accepts only its closed whole-file
+JSON envelope, preserves ordinary permission bits on atomic replacement, does
+not execute generated content, and does not retry. The path never reaches the
+model. Aider remains a separate, unchanged caller edge.
 
 The same one bounded UTF-8 source can come from standard input:
 

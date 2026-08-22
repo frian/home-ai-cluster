@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0080: One-Shot Whole-File Code Caller Edge](RFC-0080-one-shot-whole-file-code-caller-edge.md)
+  — proposes one optional existing-target caller edge that sends one native
+  `code` request, validates one closed content-only envelope, and atomically
+  replaces only the selected file; it does not change or replace Aider.
 - [RFC-0079: Fixed-Loopback SearXNG Acquisition Plugin](RFC-0079-fixed-loopback-searxng-acquisition-plugin.md)
   — accepts the first separately installed `searxng` provider plugin contract:
   one fixed loopback SearXNG JSON request with finite plugin-owned bounds before

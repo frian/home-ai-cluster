@@ -42,7 +42,7 @@ Facts were checked on 2026-08-22.
   history has no later published version.
 * Upstream's `v0.86.2` tag resolves to commit
   [`253f0368b873ba30d8ee26e463718f0c03614ddf`](https://github.com/Aider-AI/aider/commit/253f0368b873ba30d8ee26e463718f0c03614ddf),
-  whose message is `version bump to 0.86.2` (2026-02-11).
+  whose message is `version bump to 0.86.2` (2026-02-12).
 * The newest upstream tag is `v0.86.3.dev`, not a published release or an
   operator version contract. GitHub's Releases page still presents only
   `v0.86.0` as its latest GitHub Release; this presentation does not contradict

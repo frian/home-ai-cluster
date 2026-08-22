@@ -84,6 +84,11 @@ architecture.
   — documents model-free Aider 0.86.2 lifecycle evidence after PR #501:
   automatic post-edit summary can race one-shot shutdown and exceed the
   two-request edge; no deterministic compliant suppression guardrail is known.
+- [Aider upstream post-0.86.2 lifecycle investigation](aider-upstream-post-0862-lifecycle-investigation.md)
+  — finds Outcome D: the latest published release remains 0.86.2 and pinned
+  upstream main preserves the same summary lifecycle, duplicate fallback, and
+  lack of a supported disable switch; it authorizes no version or implementation
+  change.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

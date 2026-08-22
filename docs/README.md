@@ -89,6 +89,10 @@ architecture.
   upstream main preserves the same summary lifecycle, duplicate fallback, and
   lack of a supported disable switch; it authorizes no version or implementation
   change.
+- [Single-file code caller investigation](single-file-code-caller-investigation.md)
+  — finds Outcome B: a content-only, one-request whole-file caller is smaller
+  than Aider for one selected small script; it authorizes no replacement and
+  recommends an RFC before any change.
 - [Bounded web retrieval investigation](bounded-web-retrieval-investigation.md)
   — evaluates the smallest explicit caller-local public-URL retrieval boundary;
   it authorizes no network access, capability, endpoint, or browser change.

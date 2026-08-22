@@ -1,6 +1,6 @@
 # RFC-0080: One-Shot Whole-File Code Caller Edge
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-22
 
@@ -328,4 +328,4 @@ promises than this RFC states.
 
 ## Decision
 
-Pending.
+Accepted.

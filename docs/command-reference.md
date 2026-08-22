@@ -314,8 +314,9 @@ It does not add `/v1/code` or a standalone `home-ai-cluster-code` command.
 
 ## `hac code-file`
 
-**Purpose:** Replace one explicitly selected existing text file from one native
-bounded code result.
+**Purpose:** Replace one explicitly selected text file from one native bounded
+code result, creating one explicitly named missing leaf only when its parent
+already exists.
 
 **Common forms:**
 
@@ -324,20 +325,26 @@ hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --timeout-seconds 300
 ```
 
-**Important behavior:** The command accepts exactly one existing regular,
-non-symbolic-link UTF-8 target and one non-blank `--message`. It sends exactly
-one existing native `POST /v1/chat` request with `capability=code`; the two
-request messages contain a fixed response instruction plus the operator
-instruction and exact current file text, never the target path or filename.
-The existing 65,536-byte aggregate code-input bound and a separate 65,536-byte
-UTF-8 generated-content bound apply without truncation.
+**Important behavior:** The command accepts exactly one explicit target and one
+non-blank `--message`. An existing target must be a regular, non-symbolic-link
+UTF-8 file. One explicitly named missing leaf may be created with exclusive
+non-overwriting creation only after input, parent, timeout, and
+empty-current-content request validation; its parent must already exist as a
+directory. It creates no parent, and a later failure may leave the requested
+new target empty without rollback deletion. It sends exactly one existing native
+`POST /v1/chat` request with
+`capability=code`; the two request messages contain a fixed response instruction
+plus the operator instruction and exact current file text (empty for a new
+target), never the target path or filename. The existing 65,536-byte aggregate
+code-input bound and a separate 65,536-byte UTF-8 generated-content bound apply
+without truncation.
 
 Only a closed JSON envelope containing version `1` and complete replacement
 content is accepted. After all validation, the caller writes one private
 same-directory temporary file, preserves only the target's ordinary `0o777`
-permission bits, and atomically replaces the selected target once. It creates
-no missing target, does not execute generated content, does not retry, and adds
-no endpoint, capability, standalone executable, or Aider behavior.
+permission bits, and atomically replaces the selected target once. It does not
+execute generated content, does not retry, and adds no endpoint, capability,
+standalone executable, or Aider behavior.
 
 ## `hac aider`
 

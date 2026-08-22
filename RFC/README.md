@@ -53,6 +53,13 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
+## Draft RFCs
+
+- [RFC-0080: One-Shot Whole-File Code Caller Edge](RFC-0080-one-shot-whole-file-code-caller-edge.md)
+  — proposes one optional existing-target caller edge that sends one native
+  `code` request, validates one closed content-only envelope, and atomically
+  replaces only the selected file; it does not change or replace Aider.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

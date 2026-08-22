@@ -420,6 +420,9 @@ established at a specific stage and do not replace the current workflow.
   — retains bounded local observations of runtime-edge model output behavior
   through the accepted `code-file` caller; it is not a support guarantee,
   model recommendation, or change to RFC-0080/RFC-0081 boundaries.
+- [Code-file model interoperability procedure](code-file-model-interoperability-procedure.md)
+  — canonical non-normative stable seven-scenario inputs and inspection-only
+  manual procedure for future observations; distinct from dated results.
 
 ## Document roles
 

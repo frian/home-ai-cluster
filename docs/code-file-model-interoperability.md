@@ -17,6 +17,9 @@ Generated files were inspected but not executed. Wall-clock times are
 observational only, not controlled performance measurements; one run after a
 model restart was notably slow.
 
+The exact reusable seven-scenario procedure is retained in [Code-File Model
+Interoperability Procedure](code-file-model-interoperability-procedure.md).
+
 ## Bounded corpus
 
 The seven manual scenarios covered: trivial complete-file creation using only

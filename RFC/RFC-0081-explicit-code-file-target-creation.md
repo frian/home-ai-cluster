@@ -1,6 +1,6 @@
 # RFC-0081: Explicit Code-File Target Creation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-22
 
@@ -239,4 +239,6 @@ None within this proposed bounded amendment.
 
 ## Decision
 
-Pending.
+Accepted. RFC-0081 narrowly amends RFC-0080 only to permit exclusive creation
+of one explicitly operator-supplied missing leaf after the defined
+non-mutating validation. All other RFC-0080 behavior remains unchanged.

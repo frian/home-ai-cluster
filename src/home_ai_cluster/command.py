@@ -9,6 +9,7 @@ from home_ai_cluster import (
     chat_command,
     classify_command,
     code_command,
+    code_file_command,
     external_information_command,
     local_health_snapshot,
     local_runtime,
@@ -31,6 +32,7 @@ Finite commands:
   external-information  Acquire one bounded source-grounded chat request.
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
+  code-file       Replace one selected file from one bounded code request.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -48,6 +50,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "external-information": external_information_command.main,
     "chat": chat_command.main,
     "code": code_command.main,
+    "code-file": code_file_command.main,
     "classify": classify_command.main,
     "summarize": summarize_command.main,
     "preflight": static_preflight.main,

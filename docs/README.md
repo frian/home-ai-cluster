@@ -407,6 +407,13 @@ established at a specific stage and do not replace the current workflow.
   the accepted one-request, closed-envelope, atomic-replacement boundary while
   sampled generated-code quality remained outside the caller guarantee.
 
+### RFC-0081 — Explicit Code-File target creation
+
+- [Code-file target-creation real-model proof](code-file-target-creation-real-model-proof.md)
+  — retains privacy-safe evidence that one explicitly selected absent target
+  was created and atomically populated through the accepted RFC-0081/RFC-0080
+  caller path without manual target preparation or generated-code execution.
+
 ## Document roles
 
 - **Current operator guidance** describes the supported way to use the repository

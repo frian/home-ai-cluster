@@ -1,6 +1,6 @@
 # RFC-0082: Client-Disconnect Cancellation for Ordinary Requests
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-23
 

@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0084: Persistent Loopback Theme Preference](RFC-0084-persistent-loopback-theme-preference.md)
+  — accepts exactly one browser-local presentation preference: a System default
+  plus a persisted Light or Dark override in `home-ai-cluster.theme`, without
+  content, cookie, server, API, routing, capability, or exposure changes.
 - [RFC-0083: Bounded Ephemeral Browser Code Conversation](RFC-0083-bounded-ephemeral-browser-code-conversation.md)
   — accepts one current-page-only ordered Code conversation in the fixed
   loopback browser, preserving one existing native `code` request per turn and

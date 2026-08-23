@@ -67,10 +67,11 @@ timeout, or cancellation contract.
 
 The local Ollama adapter explicitly constructs its async client with
 `timeout=None`; no HAC server-side or Ollama request deadline is configured.
-The same caller helper and timeout semantics are shared by ordinary native
-one-shot chat, code, summarize, classify, and source-grounded callers where
-they use that helper. `code-file` additionally has its bounded target-write
-stage after a successful response.
+`chat`, `code`, and `code-file` reuse `chat_command._post_native_request`.
+`summarize` and the source-grounded `external-information` command define
+equivalent helpers of their own, while `classify` configures its client inline;
+each applies caller-owned timeout behavior separately. `code-file` additionally
+has its bounded target-write stage after a successful response.
 
 ## Current cancellation propagation
 

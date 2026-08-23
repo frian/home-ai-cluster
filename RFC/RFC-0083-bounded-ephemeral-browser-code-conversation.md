@@ -130,6 +130,13 @@ message in the ephemeral Code conversation. The existing `node_id` remains
 visible as attribution for that individual assistant result. Successful turns
 append in chronological user/assistant order.
 
+The browser displays and appends every valid ordinary textual result unchanged,
+even when that result makes the retained successful conversation too large for
+any later RFC-0067-compliant request. This proposal adds no Code output-size
+contract, response truncation, response summarization, partial display,
+rejection of an otherwise valid `ClusterResult`, silent omission from later
+context, or automatic removal of earlier successful turns.
+
 Every turn remains an independent ordinary `capability=code` request. Existing
 routing independently selects an eligible node for each turn; no node affinity,
 sticky session, model selection, or same-node guarantee is introduced. A later
@@ -162,6 +169,16 @@ If the candidate conversation exceeds that existing limit, the browser rejects
 the new submission before network transmission. It retains the successful
 conversation unchanged and keeps the new instruction for operator correction.
 It must not truncate, summarize, prune, or discard earlier turns automatically.
+
+This calculation occurs normally on the next attempted turn, including every
+retained successful user message, every retained successful assistant result,
+and the new user instruction. A valid assistant result can therefore leave the
+current ephemeral Code conversation terminal for further turns under the
+existing aggregate request bound. That is an accepted bounded trade-off, not an
+execution failure and not permission to alter the successful result. The
+operator may reload or close the page to discard the ephemeral conversation and
+begin again. This RFC adds no conversation-reset control, output bound, or
+conversation-management system.
 
 ### Presentation
 
@@ -289,6 +306,12 @@ all currently retained Code content. The browser implementation would need a
 small separate ephemeral message sequence and focused rollback/validation
 coverage.
 
+In particular, one valid assistant response can make the current ephemeral Code
+conversation terminal for later turns because RFC-0067 bounds request-message
+input, not Code output. The response remains displayed and retained unchanged;
+the next instruction is locally non-sendable until the operator discards the
+ephemeral conversation by reloading or closing the page.
+
 Those costs are bounded by one page, one ordered conversation, existing message
 roles and byte validation, one request per turn, no persistence, no automatic
 history modification, and unchanged capability-centered routing. They are
@@ -310,15 +333,22 @@ Focused proof would need to demonstrate:
 4. each turn sends exactly one native `capability=code` request;
 5. aggregate-size validation includes retained assistant results;
 6. an over-limit follow-up is rejected without truncation or network transmission;
-7. failure rolls back only the pending turn and restores its instruction;
-8. previous successful turns remain intact after failure;
-9. per-response node attribution remains visible;
-10. reload clears Code state;
-11. no persistence or server session exists;
-12. routing and node selection remain unchanged and non-sticky;
-13. Chat, Summarize, and Classify remain unchanged;
-14. Code remains plain text with no filesystem or execution authority; and
-15. narrow viewport and keyboard behavior remain usable.
+7. a valid assistant result that makes later candidate input over-limit remains
+   appended and displayed unchanged with its attribution;
+8. a later submitted instruction is rejected before network transmission while
+   that successful conversation remains unchanged and the instruction remains
+   available to the operator;
+9. that terminal condition adds no truncation, pruning, output limit, or
+   automatic reset;
+10. failure rolls back only the pending turn and restores its instruction;
+11. previous successful turns remain intact after failure;
+12. per-response node attribution remains visible;
+13. reload clears Code state;
+14. no persistence or server session exists;
+15. routing and node selection remain unchanged and non-sticky;
+16. Chat, Summarize, and Classify remain unchanged;
+17. Code remains plain text with no filesystem or execution authority; and
+18. narrow viewport and keyboard behavior remain usable.
 
 Retained proof material must not contain real prompts, generated private code,
 private paths, node addresses, model/runtime identities, credentials, or other

@@ -95,7 +95,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "https://" not in html
     assert "http://" not in script
     assert "https://" not in script
-    assert 'post("/v1/chat"' in script
+    assert '"/v1/chat"' in script
     assert 'post("/v1/summarize"' in script
     assert 'post("/v1/classify"' in script
     assert 'accept="application/pdf,.pdf" id="summarize-pdf" type="file"' in html
@@ -181,7 +181,6 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "focus(" not in render_chat
     assert "scrollIntoView" not in render_chat
     assert "window.scroll" not in render_chat
-    assert 'post("/v1/chat", { capability: "chat", messages }, "Sending…")' in script
     assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
     assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
     assert 'status.textContent = active ? message : ""' in script
@@ -198,7 +197,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert pending_message in chat_handler
     assert "messages.push(pendingMessage);" in chat_handler
     assert (
-        'renderChat();\n    input.value = "";\n    const result = await post('
+        'renderChat();\n    input.value = "";\n    const request = post('
         in chat_handler
     )
     assert chat_handler.index(pending_message) < chat_handler.index(
@@ -207,8 +206,22 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert (
         chat_handler.index("messages.push(pendingMessage);")
         < chat_handler.index('input.value = "";')
-        < chat_handler.index('await post("/v1/chat"')
+        < chat_handler.index("const request = post(")
+        < chat_handler.index('status.scrollIntoView({ block: "nearest" });')
+        < chat_handler.index("const result = await request;")
     )
+    assert '"Generating response…"' in chat_handler
+    assert 'behavior: "smooth"' not in chat_handler
+    set_request_active = script.split("function setRequestActive", 1)[1].split(
+        "function clearError", 1
+    )[0]
+    assert 'status.textContent = active ? message : "";' in set_request_active
+    post_handler = script.split("async function post(", 1)[1].split(
+        "function renderChat()", 1
+    )[0]
+    assert post_handler.index(
+        "setRequestActive(true, activeMessage);"
+    ) < post_handler.index("await fetch(")
     success_handler = chat_handler.split(
         'if (result && typeof result.content === "string"', 1
     )[1].split("    } else {", 1)[0]

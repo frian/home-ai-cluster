@@ -85,6 +85,7 @@
       }
       container.append(entry);
     });
+    container.scrollTop = container.scrollHeight;
   }
 
   function rollbackPendingMessage(pendingMessage) {

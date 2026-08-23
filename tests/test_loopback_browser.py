@@ -166,6 +166,21 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
     assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="summarize-view"', 1)[0]
+    assert chat_view.index('id="chat-result-region"') < chat_view.index(
+        'id="chat-form"'
+    )
+    assert (
+        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
+        in stylesheet
+    )
+    render_chat = script.split("function renderChat()", 1)[1].split(
+        "function rollbackPendingMessage", 1
+    )[0]
+    assert "container.scrollTop = container.scrollHeight;" in render_chat
+    assert "focus(" not in render_chat
+    assert "scrollIntoView" not in render_chat
+    assert "window.scroll" not in render_chat
     assert 'post("/v1/chat", { capability: "chat", messages }, "Sending…")' in script
     assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
     assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
@@ -244,6 +259,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         assert f">{heading}</h3>" in html
     assert ".conversation:empty { display: none; }" in stylesheet
     assert "[hidden] { display: none !important; }" in stylesheet
+    assert 'class="result-section" hidden id="chat-result-region"' in html
     assert '<output class="result" hidden id="summarize-result"></output>' in html
     assert '<output class="result" hidden id="classify-result"></output>' in html
     render_result = script.split("function renderResult", 1)[1].split(

@@ -78,6 +78,8 @@ class HttpRemoteTransport:
             message = "Remote connection unavailable before request transmission"
             raise RuntimeConnectionUnavailableBeforeRequestError(message) from exc
         except httpx.HTTPError as exc:
+            # Post-connect or ambiguous failures must not be retryable: transmission
+            # or execution may already have begun.
             message = "HTTP remote transport could not send request"
             raise RemoteTransportError(message) from exc
 

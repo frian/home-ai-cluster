@@ -30,7 +30,12 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
 ) -> RoutableResult:
-    """Try local once, then eligible declared remotes once in declaration order."""
+    """Try local once, then eligible declared remotes once in declaration order.
+
+    Per RFC-0028, only an affirmative pre-transmission failure may advance
+    fallback; ambiguous or later failures stay visible to avoid retransmitting
+    a request that may already have executed.
+    """
     candidates = routing_candidates_for_request(
         request,
         node_registry,

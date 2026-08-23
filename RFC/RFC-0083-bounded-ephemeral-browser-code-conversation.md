@@ -1,6 +1,6 @@
 # RFC-0083: Bounded Ephemeral Browser Code Conversation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-23
 
@@ -363,4 +363,9 @@ rule, or authority expansion requires a separate decision.
 
 ## Decision
 
-Pending.
+Accepted. RFC-0083 narrowly amends RFC-0070 so the fixed loopback Code view
+may retain one bounded, ephemeral ordered Code conversation and send its
+complete successful context in one existing native `capability=code` request
+per submitted turn. RFC-0067's existing aggregate request bound remains
+authoritative; no persistence, filesystem, execution, routing, API, or browser
+exposure boundary changes.

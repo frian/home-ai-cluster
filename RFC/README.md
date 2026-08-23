@@ -62,6 +62,10 @@ A superseded RFC has been replaced by a newer RFC.
 
 ## Accepted RFCs
 
+- [RFC-0083: Bounded Ephemeral Browser Code Conversation](RFC-0083-bounded-ephemeral-browser-code-conversation.md)
+  — accepts one current-page-only ordered Code conversation in the fixed
+  loopback browser, preserving one existing native `code` request per turn and
+  RFC-0067's aggregate bound without persistence or new authority.
 - [RFC-0081: Explicit Code-File Target Creation](RFC-0081-explicit-code-file-target-creation.md)
   — accepts one caller-edge amendment to RFC-0080: after non-mutating
   validation, create one explicitly named missing leaf exclusively when its

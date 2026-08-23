@@ -84,10 +84,30 @@ if disconnect cancellation proves insufficient.
 
 ### Scope and confirmed disconnect
 
-This rule applies to an ordinary HAC HTTP request after accepted input begins
-existing routable execution, including native and compatibility request forms
-that reach that execution. It does not change the request's capability,
-routing, response schema, caller timeout, or compatibility contract.
+This rule applies only after accepted input begins existing routable inference
+execution at one of these current HAC HTTP route families:
+
+* native chat: `POST /v1/chat`;
+* source-grounded chat: `POST /v1/chat/sources`;
+* summarize: `POST /v1/summarize`;
+* classify: `POST /v1/classify`;
+* the internal static-cluster request receiver:
+  `POST /internal/cluster/request`; and
+* OpenAI-compatible chat: `POST /v1/chat/completions`.
+
+The internal receiver is included so an upstream coordinator disconnect can
+cancel pending execution at the receiving HAC node. This does not guarantee
+that the receiving node's downstream runtime stops.
+
+These routes share this proposed architectural policy; they do not currently
+share one HTTP helper or route implementation. A later implementation must
+apply the policy at each covered HTTP boundary or through an implementation
+seam proven to cover all six families. Health and status endpoints, model-list
+or metadata endpoints, browser assets, non-inference control surfaces, and any
+future route not explicitly added by a later decision are excluded.
+
+The rule does not change a covered request's capability, routing, response
+schema, caller timeout, or compatibility contract.
 
 A disconnect is **confirmed** only when the HAC ASGI edge observes the
 framework-supported disconnect indication for that specific request while its
@@ -98,27 +118,44 @@ ASGI boundary and test the resulting behavior deterministically.
 
 ### Completion-versus-disconnect rule
 
-Normal completion wins if routable execution completes and HAC begins its one
-normal response before a confirmed disconnect. HAC then completes that response
-normally.
+The normal-completion commitment point is reached when a covered route's
+existing routable execution has produced its terminal HAC result—either success
+or an existing structured failure—and that result has returned to the covered
+HTTP route's ownership. This occurs before response serialization or ASGI
+transmission need succeed.
 
-Confirmed disconnect wins if it is observed first. HAC must then cancel its
-HAC-owned in-flight request task, stop awaiting its result, and discard every
-later success or failure. It must not send a second response, restart the
-request, or turn the disconnect into a timeout response.
+If that terminal result is already available when a confirmed disconnect is
+observed, normal completion wins. A later disconnect does not retroactively
+cancel or reverse completed HAC execution. HAC may attempt its normal response
+path, but response delivery is not guaranteed and no retry is authorized.
 
-The implementation must resolve this race once per request. It must not infer
-which event happened first from a late result, an adapter exception, or runtime
-activity after cancellation.
+If confirmed disconnect is observed while routable execution is still pending,
+disconnect wins. HAC must then cancel its HAC-owned pending execution task,
+stop awaiting its result, and discard every later success or failure. If
+completion and disconnect become observable in the same scheduling opportunity,
+HAC must re-check whether the execution task has already reached its terminal
+result: completion wins if it has; otherwise disconnect wins.
+
+Exactly one HAC-side terminal outcome wins. The implementation must not send a
+second response, restart the request, retry, fall back, or select another
+candidate. It must not infer the winner from a late result, adapter exception,
+or runtime activity after cancellation.
 
 ### HAC-owned cancellation
 
-The narrow shared HTTP edge owns the cancellable task representing one
-accepted ordinary request's HAC work. After confirmed disconnect it must
-propagate ordinary asynchronous cancellation through the existing awaited route,
-orchestration, executor, local-adapter, and declared-remote-transport chain.
-It must perform bounded HAC-owned cleanup and then relinquish the abandoned
+Each covered HTTP boundary, or a seam proven to cover it, owns the cancellable
+task representing one accepted ordinary request's HAC work. After confirmed
+disconnect it must propagate ordinary asynchronous cancellation through the
+existing awaited route, orchestration, executor, local-adapter, and
+declared-remote-transport chain. HAC must stop deliberately awaiting the normal
+inference result after disconnect wins; it may await cancellation unwinding and
+HAC-owned cleanup required for correctness before relinquishing the abandoned
 request.
+
+Here, bounded cleanup means bounded HAC ownership and authority, not a
+guaranteed number of seconds. This RFC introduces no cleanup timeout and does
+not guarantee finite shutdown if a library, adapter, blocking operation, remote
+process, or external runtime fails to cooperate with cancellation.
 
 Cancellation is not an execution failure to be converted into an ordinary
 completed result. If cancellation itself exposes an error, HAC must contain it
@@ -149,6 +186,13 @@ For a local adapter, HAC cancellation reaches the adapter's awaited coroutine.
 For a declared remote request, it reaches HAC's awaited remote-transport
 coroutine. In both cases HAC must discard any later normalized result.
 
+Coordinator-side cancellation of an outbound remote request is not a
+pre-transmission failure and cannot authorize RFC-0028 fallback, another
+candidate, or a retry. A remote node may continue processing if it does not
+observe or honor its own upstream disconnect; its result is still discarded by
+the cancelling coordinator. The covered internal receiver likewise applies this
+policy when its upstream coordinator disconnects.
+
 This is a best-effort propagation rule, not a downstream termination promise.
 This RFC does not guarantee that cancelling HAC work promptly closes a
 particular runtime connection, stops external generation, releases CPU or GPU,
@@ -161,8 +205,10 @@ later RFC establishes a stronger engine-independent contract.
 Graceful HAC shutdown remains governed by its server and runtime environment.
 Once HAC has confirmed a client disconnect and cancelled its owned request
 task, it must not deliberately retain that abandoned request as work that
-blocks graceful shutdown. This does not promise that shutdown can terminate
-external runtime work or every connection outside HAC ownership.
+blocks graceful shutdown. This does not promise that Uvicorn never waits for
+tasks, that shutdown is finite when cancellation is not cooperatively handled,
+or that shutdown can terminate external runtime work or every connection
+outside HAC ownership.
 
 ## Rationale
 
@@ -217,7 +263,8 @@ rule, while intentionally leaving upstream behavior unresolved.
 
 ## Trade-offs
 
-The HTTP edge gains a small cancellation race and bounded cleanup obligation.
+The covered HTTP boundaries gain a small cancellation race and bounded cleanup
+obligation.
 An external runtime may continue work after HAC stops awaiting it, so this is
 not a resource-termination solution. Those costs are acceptable because the
 rule makes HAC behavior truthful, prevents deliberate late completion, and
@@ -225,27 +272,35 @@ does not add engine-specific infrastructure.
 
 ## Impact
 
-If accepted, a later implementation should remain at the narrow shared HTTP
-edge and existing cancellable call chain. It must not refactor unrelated
-routing, introduce a new concurrency framework, alter request/result schemas,
-or broaden runtime authority.
+If accepted, a later implementation should apply this shared policy at the six
+covered HTTP boundaries or a demonstrated common seam, then use the existing
+cancellable call chain. It must not refactor unrelated routing, introduce a
+new concurrency framework, alter request/result schemas, or broaden runtime
+authority.
 
 The first implementation should proceed in small stages:
 
 1. add deterministic delayed-fake tests proving completion-versus-disconnect
    races;
-2. add a disconnect watcher at the narrowest shared HTTP boundary;
+2. add a disconnect watcher at each covered HTTP boundary or a seam proven to
+   cover all six route families;
 3. propagate cancellation through existing HAC-owned awaited work;
 4. add focused local and declared-remote path tests; and
 5. document the resulting bounded guarantee.
 
-No real model is required. Required deterministic coverage includes normal
-completion before disconnect; disconnect before completion; discarded late
-success and late failure; no retry or fallback; cancellation reaching a fake
-cancellable adapter; unchanged existing `code-file` targets after caller
-timeout; an RFC-0081-created empty leaf remaining after later timeout;
-graceful shutdown not waiting on an already cancelled abandoned request; and
-no assertion of runtime resource termination.
+No real model is required. Required deterministic coverage includes proof that
+every covered route family is protected directly or through a proven shared
+seam; normal terminal execution completion before disconnect; disconnect before
+terminal execution completion; the same-scheduling-opportunity re-check with
+completion precedence for an already terminal task; response-delivery failure
+after completion without restart or cancellation; discarded late success and
+late failure; no retry or fallback; cancellation reaching a fake cancellable
+local adapter; a fake internal remote receiver honoring upstream disconnect;
+outbound remote cancellation not triggering fallback; unchanged existing
+`code-file` targets after caller timeout; an RFC-0081-created empty leaf
+remaining after later timeout; shutdown assertions limited to HAC-side behavior
+after cooperative cancellation; and no assertion of runtime resource
+termination.
 
 ## Open questions
 

@@ -10,9 +10,10 @@ Author: frian
 
 Home AI Cluster should treat a confirmed client disconnect as the narrow
 cancellation boundary for an in-flight ordinary HTTP request. When the HTTP
-edge confirms that its client has disconnected before normal response
-completion, HAC should stop awaiting that request, cancel HAC-owned
-cancellable work, and discard every later result.
+edge confirms that its client has disconnected while routable execution is
+still pending, HAC should cancel the HAC-owned pending execution task and
+discard every later result. Once the covered route owns a terminal HAC result,
+normal completion wins even if later response serialization or delivery fails.
 
 This proposal preserves RFC-0060 caller-owned `--timeout-seconds` semantics.
 It adds no server execution deadline, request field, cancellation endpoint,

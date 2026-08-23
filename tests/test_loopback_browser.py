@@ -232,7 +232,6 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         'if (input.value === "") input.value = pendingMessage.content;'
         in failure_handler
     )
-    assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
     assert "matchMedia" not in script
@@ -246,6 +245,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
     assert "color-scheme: light dark;" in stylesheet
     assert "@media (prefers-color-scheme: dark)" in stylesheet
+    assert ":root:not([data-theme])" in stylesheet
     dark_mode = stylesheet.split("@media (prefers-color-scheme: dark)", 1)[1]
     assert "--page-background:" in dark_mode
     assert "--surface-background:" in dark_mode
@@ -388,7 +388,64 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert "scrollIntoView" not in render_code
     assert "textContent = message.content;" in render_code
     assert '"/v1/code"' not in script
-    assert "localStorage" not in script
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
     assert "innerHTML" not in script
+
+
+def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert '<label for="theme-select">Theme</label>' in html
+    assert '<select id="theme-select">' in html
+    theme_select = html.split('<select id="theme-select">', 1)[1].split("</select>", 1)[
+        0
+    ]
+    assert theme_select == (
+        '<option value="system">System</option><option value="light">Light</option>'
+        '<option value="dark">Dark</option>'
+    )
+    bootstrap = html.split("<script>", 1)[1].split("</script>", 1)[0]
+    assert 'localStorage.getItem("home-ai-cluster.theme")' in bootstrap
+    assert bootstrap.count("localStorage.") == 1
+    assert html.count("localStorage.") == 1
+    assert 'document.documentElement.setAttribute("data-theme", theme);' in bootstrap
+    assert 'theme === "light" || theme === "dark"' in bootstrap
+    assert "catch (_)" in bootstrap
+
+    assert 'const themeKey = "home-ai-cluster.theme";' in script
+    assert 'themeSelect.value = "system";' in script
+    assert "localStorage.setItem(themeKey, theme);" in script
+    assert "localStorage.removeItem(themeKey);" in script
+    assert script.count("localStorage.getItem(themeKey)") == 1
+    assert script.count("localStorage.setItem(themeKey, theme)") == 1
+    assert script.count("localStorage.removeItem(themeKey)") == 2
+    assert script.count("localStorage.") == 4
+    assert 'localStorage.setItem(themeKey, "system")' not in script
+    assert 'root.setAttribute("data-theme", theme);' in script
+    assert 'root.removeAttribute("data-theme");' in script
+    assert 'theme === "light" || theme === "dark"' in script
+    assert "function initializeThemePreference()" in script
+    assert "function useSystemTheme()" in script
+    assert script.count("catch (_)") >= 3
+    assert "sessionStorage" not in script
+    assert "indexedDB" not in script
+    assert "document.cookie" not in script
+    assert "matchMedia" not in script
+    assert 'addEventListener("storage"' not in script
+
+    assert "color-scheme: light dark;" in stylesheet
+    assert "@media (prefers-color-scheme: dark)" in stylesheet
+    assert ":root:not([data-theme])" in stylesheet
+    assert ':root[data-theme="light"] { color-scheme: light; }' in stylesheet
+    assert ':root[data-theme="dark"] { color-scheme: dark;' in stylesheet
+    assert (
+        "--page-background: #0b1525;"
+        in stylesheet.split(':root[data-theme="dark"]', 1)[1]
+    )
+    assert "select:focus-visible" in stylesheet
+    assert ".header-tools" in stylesheet
+    assert "@media (max-width: 40rem)" in stylesheet

@@ -4,6 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Home AI Cluster</title>
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem("home-ai-cluster.theme");
+          if (theme === "light" || theme === "dark") {
+            document.documentElement.setAttribute("data-theme", theme);
+          }
+        } catch (_) {
+          // Storage is unavailable; leave the system preference in control.
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/assets/app.css">
   </head>
   <body>
@@ -13,7 +25,10 @@
           <p class="eyebrow">Local AI, simply connected</p>
           <h1>Home AI Cluster</h1>
         </div>
-        <p class="privacy-note">Local-first · Private by default</p>
+        <div class="header-tools">
+          <div class="theme-control"><label for="theme-select">Theme</label><select id="theme-select"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+          <p class="privacy-note">Local-first · Private by default</p>
+        </div>
       </header>
 
       <nav aria-label="Capabilities" class="tabs" role="tablist">

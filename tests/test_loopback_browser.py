@@ -410,6 +410,8 @@ def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> Non
     )
     bootstrap = html.split("<script>", 1)[1].split("</script>", 1)[0]
     assert 'localStorage.getItem("home-ai-cluster.theme")' in bootstrap
+    assert bootstrap.count("localStorage.") == 1
+    assert html.count("localStorage.") == 1
     assert 'document.documentElement.setAttribute("data-theme", theme);' in bootstrap
     assert 'theme === "light" || theme === "dark"' in bootstrap
     assert "catch (_)" in bootstrap
@@ -418,6 +420,10 @@ def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> Non
     assert 'themeSelect.value = "system";' in script
     assert "localStorage.setItem(themeKey, theme);" in script
     assert "localStorage.removeItem(themeKey);" in script
+    assert script.count("localStorage.getItem(themeKey)") == 1
+    assert script.count("localStorage.setItem(themeKey, theme)") == 1
+    assert script.count("localStorage.removeItem(themeKey)") == 2
+    assert script.count("localStorage.") == 4
     assert 'localStorage.setItem(themeKey, "system")' not in script
     assert 'root.setAttribute("data-theme", theme);' in script
     assert 'root.removeAttribute("data-theme");' in script

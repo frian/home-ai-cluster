@@ -68,14 +68,15 @@
 
       <section aria-labelledby="code-tab" class="capability-panel" hidden id="code-view" role="tabpanel">
         <header class="panel-heading"><h2 id="code-heading">Code</h2><p>Describe the code you need.</p></header>
+        <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
+          <h3 id="code-result-heading">Generated code</h3>
+          <div aria-live="polite" class="conversation" id="code-conversation"></div>
+        </section>
         <form id="code-form">
           <label for="code-text">Code instruction</label>
           <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
           <div class="form-actions"><button data-submit type="submit">Request code</button></div>
         </form>
-        <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
-          <h3 id="code-result-heading">Generated code</h3><output class="result" hidden id="code-result"></output>
-        </section>
       </section>
 
       <p aria-live="polite" class="error" id="request-error" role="status"></p>

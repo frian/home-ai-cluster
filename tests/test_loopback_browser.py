@@ -313,6 +313,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
 def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
     assert html.count('role="tab"') == 4
@@ -320,43 +321,72 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html
-    code_section = html.split('id="code-view"', 1)[1].split("</section>", 1)[0]
+    code_view = html.split('id="code-view"', 1)[1].split('id="request-error"', 1)[0]
+    code_section = code_view
+    assert code_view.index('id="code-result-region"') < code_view.index(
+        'id="code-form"'
+    )
     assert 'id="code-form"' in code_section
     assert 'for="code-text"' in code_section
     assert 'id="code-text"' in code_section
     assert code_section.count("<textarea") == 1
     assert 'data-submit type="submit"' in code_section
-    assert '<output class="result" hidden id="code-result"></output>' in code_section
+    assert 'aria-live="polite" class="conversation" id="code-conversation"' in code_view
     assert 'type="file"' not in code_section
+    assert (
+        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
+        in stylesheet
+    )
 
     code_handler = script.split(
         'document.querySelector("#code-form").addEventListener('
         '"submit", async (event) => {',
         1,
     )[1].split('document.querySelector("#summarize-file")', 1)[0]
-    assert 'const text = document.querySelector("#code-text").value;' in code_handler
+    assert "const codeMessages = [];" in script
+    assert 'const input = document.querySelector("#code-text");' in code_handler
     assert (
-        "!text.trim() || new TextEncoder().encode(text).length > byteLimit"
-        in code_handler
+        'const pendingMessage = { role: "user", content: input.value };' in code_handler
     )
     assert (
-        'showError("Code instruction must be non-blank and within the accepted limit")'
+        "const candidateMessages = [...codeMessages, pendingMessage];" in code_handler
+    )
+    assert "new TextEncoder().encode(message.content).length" in code_handler
+    assert "!input.value.trim() || candidateBytes > byteLimit" in code_handler
+    assert (
+        'showError("Code conversation must be non-blank and within the accepted limit")'
         in code_handler
     )
     assert '"/v1/chat"' in code_handler
-    assert (
-        '{ capability: "code", messages: [{ role: "user", content: text }] }'
-        in code_handler
-    )
+    assert '{ capability: "code", messages: codeMessages }' in code_handler
+    assert "codeMessages.push(pendingMessage);" in code_handler
+    assert "codeMessages.push(assistantMessage);" in code_handler
     assert "messages.push" not in code_handler
     assert "const messages" not in code_handler
-    assert (
-        'renderResult(document.querySelector("#code-result"), '
-        "result.content, result.node_id)" in code_handler
-    )
+    assert "assistantAttribution.set(assistantMessage, result.node_id);" in code_handler
+    assert '"Generating code…"' in code_handler
+    assert 'status.scrollIntoView({ block: "nearest" });' in code_handler
+    assert 'behavior: "smooth"' not in code_handler
+    assert code_handler.index(
+        "codeMessages.push(pendingMessage);"
+    ) < code_handler.index("const request = post(")
+    assert code_handler.index(
+        'status.scrollIntoView({ block: "nearest" });'
+    ) < code_handler.index("const result = await request;")
     assert 'typeof result.content === "string"' in code_handler
     assert 'typeof result.node_id === "string"' in code_handler
-    assert 'else if (result) showError("Request failed")' in code_handler
+    assert "function rollbackPendingCodeMessage(pendingMessage)" in script
+    assert "rollbackPendingCodeMessage(pendingMessage);" in code_handler
+    assert (
+        'if (input.value === "") input.value = pendingMessage.content;' in code_handler
+    )
+    render_code = script.split("function renderCode()", 1)[1].split(
+        "function rollbackPendingCodeMessage", 1
+    )[0]
+    assert "container.scrollTop = container.scrollHeight;" in render_code
+    assert "focus(" not in render_code
+    assert "scrollIntoView" not in render_code
+    assert "textContent = message.content;" in render_code
     assert '"/v1/code"' not in script
     assert "localStorage" not in script
     assert "sessionStorage" not in script

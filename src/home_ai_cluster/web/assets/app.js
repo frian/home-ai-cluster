@@ -5,6 +5,7 @@
   const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";
   const pdfjsWorkerUrl = "/assets/pdfjs-6.2.108/pdf.worker.min.mjs";
   const messages = [];
+  const codeMessages = [];
   const assistantAttribution = new WeakMap();
   let requestActive = false;
   const error = document.querySelector("#request-error");
@@ -94,6 +95,38 @@
     renderChat();
   }
 
+  function renderCode() {
+    const container = document.querySelector("#code-conversation");
+    document.querySelector("#code-result-region").hidden = codeMessages.length === 0;
+    container.replaceChildren();
+    codeMessages.forEach((message) => {
+      const entry = document.createElement("article");
+      entry.className = `message message-${message.role}`;
+      const label = document.createElement("div");
+      label.className = "message-label";
+      label.textContent = message.role === "user" ? "You" : "Home AI Cluster";
+      const content = document.createElement("div");
+      content.className = "message-content";
+      content.textContent = message.content;
+      entry.append(label, content);
+      const nodeId = assistantAttribution.get(message);
+      if (nodeId) {
+        const attribution = document.createElement("div");
+        attribution.className = "attribution";
+        attribution.textContent = `Handled by node ${nodeId}`;
+        entry.append(attribution);
+      }
+      container.append(entry);
+    });
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function rollbackPendingCodeMessage(pendingMessage) {
+    const pendingIndex = codeMessages.indexOf(pendingMessage);
+    if (pendingIndex !== -1) codeMessages.splice(pendingIndex, 1);
+    renderCode();
+  }
+
   function renderResult(container, content, nodeId) {
     container.closest(".result-section").hidden = false;
     container.hidden = false;
@@ -135,18 +168,36 @@
 
   document.querySelector("#code-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const text = document.querySelector("#code-text").value;
-    if (!text.trim() || new TextEncoder().encode(text).length > byteLimit) {
-      return showError("Code instruction must be non-blank and within the accepted limit");
-    }
-    const result = await post(
-      "/v1/chat",
-      { capability: "code", messages: [{ role: "user", content: text }] },
-      "Requesting code…",
+    const input = document.querySelector("#code-text");
+    const pendingMessage = { role: "user", content: input.value };
+    const candidateMessages = [...codeMessages, pendingMessage];
+    const candidateBytes = candidateMessages.reduce(
+      (total, message) => total + new TextEncoder().encode(message.content).length,
+      0,
     );
+    if (!input.value.trim() || candidateBytes > byteLimit) {
+      return showError("Code conversation must be non-blank and within the accepted limit");
+    }
+    codeMessages.push(pendingMessage);
+    renderCode();
+    input.value = "";
+    const request = post(
+      "/v1/chat",
+      { capability: "code", messages: codeMessages },
+      "Generating code…",
+    );
+    status.scrollIntoView({ block: "nearest" });
+    const result = await request;
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
-      renderResult(document.querySelector("#code-result"), result.content, result.node_id);
-    } else if (result) showError("Request failed");
+      const assistantMessage = { role: "assistant", content: result.content };
+      assistantAttribution.set(assistantMessage, result.node_id);
+      codeMessages.push(assistantMessage);
+      renderCode();
+    } else {
+      rollbackPendingCodeMessage(pendingMessage);
+      if (input.value === "") input.value = pendingMessage.content;
+      if (result) showError("Request failed");
+    }
   });
 
   document.querySelector("#summarize-file").addEventListener("change", async (event) => {

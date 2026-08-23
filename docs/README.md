@@ -423,6 +423,10 @@ established at a specific stage and do not replace the current workflow.
 - [Code-file model interoperability procedure](code-file-model-interoperability-procedure.md)
   — canonical non-normative stable seven-scenario inputs and inspection-only
   manual procedure for future observations; distinct from dated results.
+- [Code-file timeout cancellation investigation](code-file-timeout-cancellation-investigation.md)
+  — documents the bounded distinction between a one-shot caller timeout and
+  unproven server, transport, runtime, and model-cancellation behavior; it
+  selects no implementation or architectural decision.
 
 ## Document roles
 

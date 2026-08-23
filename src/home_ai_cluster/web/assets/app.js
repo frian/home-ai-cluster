@@ -85,6 +85,7 @@
       }
       container.append(entry);
     });
+    container.scrollTop = container.scrollHeight;
   }
 
   function rollbackPendingMessage(pendingMessage) {
@@ -113,7 +114,13 @@
     messages.push(pendingMessage);
     renderChat();
     input.value = "";
-    const result = await post("/v1/chat", { capability: "chat", messages }, "Sending…");
+    const request = post(
+      "/v1/chat",
+      { capability: "chat", messages },
+      "Generating response…",
+    );
+    status.scrollIntoView({ block: "nearest" });
+    const result = await request;
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       const assistantMessage = { role: "assistant", content: result.content };
       assistantAttribution.set(assistantMessage, result.node_id);

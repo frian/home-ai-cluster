@@ -25,15 +25,15 @@
 
       <section aria-labelledby="chat-tab" class="capability-panel" id="chat-view" role="tabpanel">
         <header class="panel-heading"><h2 id="chat-heading">Chat</h2><p>Send a message to the cluster.</p></header>
+        <section aria-labelledby="chat-result-heading" class="result-section" hidden id="chat-result-region">
+          <h3 id="chat-result-heading">Response</h3>
+          <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+        </section>
         <form id="chat-form">
           <label for="chat-message">Message</label>
           <textarea id="chat-message" placeholder="Write your message…" required rows="6"></textarea>
           <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
-        <section aria-labelledby="chat-result-heading" class="result-section" hidden id="chat-result-region">
-          <h3 id="chat-result-heading">Response</h3>
-          <div aria-live="polite" class="conversation" id="chat-conversation"></div>
-        </section>
       </section>
 
       <section aria-labelledby="summarize-tab" class="capability-panel" hidden id="summarize-view" role="tabpanel">

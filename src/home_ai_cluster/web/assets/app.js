@@ -8,8 +8,62 @@
   const codeMessages = [];
   const assistantAttribution = new WeakMap();
   let requestActive = false;
+  const themeKey = "home-ai-cluster.theme";
+  const themeSelect = document.querySelector("#theme-select");
+  const root = document.documentElement;
   const error = document.querySelector("#request-error");
   const status = document.querySelector("#request-status");
+
+  function useSystemTheme() {
+    root.removeAttribute("data-theme");
+    themeSelect.value = "system";
+  }
+
+  function initializeThemePreference() {
+    let theme;
+    try {
+      theme = localStorage.getItem(themeKey);
+    } catch (_) {
+      useSystemTheme();
+      return;
+    }
+    if (theme === "light" || theme === "dark") {
+      root.setAttribute("data-theme", theme);
+      themeSelect.value = theme;
+      return;
+    }
+    useSystemTheme();
+    if (theme !== null) {
+      try {
+        localStorage.removeItem(themeKey);
+      } catch (_) {
+        // Invalid storage remains unavailable; System is still safe.
+      }
+    }
+  }
+
+  themeSelect.addEventListener("change", () => {
+    const theme = themeSelect.value;
+    if (theme === "light" || theme === "dark") {
+      try {
+        localStorage.setItem(themeKey, theme);
+      } catch (_) {
+        useSystemTheme();
+        return;
+      }
+      root.setAttribute("data-theme", theme);
+      return;
+    }
+    try {
+      localStorage.removeItem(themeKey);
+    } catch (_) {
+      useSystemTheme();
+      return;
+    }
+    useSystemTheme();
+  });
+
+  initializeThemePreference();
 
   function setRequestActive(active, message = "") {
     requestActive = active;

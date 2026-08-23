@@ -87,7 +87,11 @@ def declared_remote_routing_candidates_for_request(
     request: RoutableRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[DeclaredRemoteRoutingCandidate]:
-    """Return all eligible declared remote candidates in declaration order."""
+    """Return eligible remotes in operator-owned declaration priority order.
+
+    RFC-0040 forbids sorting, health-ranking, inferred preference, or other
+    automatic reordering.
+    """
     return [
         DeclaredRemoteRoutingCandidate(
             node=declaration.node,

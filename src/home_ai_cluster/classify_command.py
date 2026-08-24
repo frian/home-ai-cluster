@@ -112,7 +112,7 @@ def main(
         _exit_with_failure(_INVALID_INPUT, 2)
     try:
         with _client_factory(
-            timeout=command.timeout_seconds, follow_redirects=False
+            timeout=command.timeout_seconds, follow_redirects=False, trust_env=False
         ) as client:
             response = client.post(
                 _ORDINARY_CLASSIFY_URL,

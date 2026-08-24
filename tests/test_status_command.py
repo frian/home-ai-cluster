@@ -280,7 +280,8 @@ def test_status_command_creates_and_closes_one_http_client(
 
         closed = False
 
-    def create_client() -> CapturingClient:
+    def create_client(**kwargs: object) -> CapturingClient:
+        assert kwargs == {"trust_env": False}
         client = CapturingClient()
         clients.append(client)
         return client

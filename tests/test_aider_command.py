@@ -308,11 +308,15 @@ def test_exclusive_creation_never_truncates_an_appearing_file(tmp_path: Path) ->
 
 def test_translator_is_loopback_strict_and_projects_one_minimal_response() -> None:
     requests: list[dict[str, Any]] = []
+    client_options: list[dict[str, object]] = []
+
+    def create_client(**kwargs: object) -> _NativeClient:
+        client_options.append(kwargs)
+        return _NativeClient(_response("edited text"), requests)
+
     translator = aider_command._AiderTranslator(
         timeout_seconds=300.0,
-        client_factory=lambda **kwargs: _NativeClient(
-            _response("edited text"), requests
-        ),
+        client_factory=create_client,
     )
     assert translator._server.server_address[0] == "127.0.0.1"
     translator.start()
@@ -349,6 +353,9 @@ def test_translator_is_loopback_strict_and_projects_one_minimal_response() -> No
             ],
             "capability": "code",
         }
+    ]
+    assert client_options == [
+        {"timeout": 300.0, "follow_redirects": False, "trust_env": False}
     ]
     assert translator.accepted_request_count == translator.native_request_count == 1
     assert translator.projected_response_count == 1

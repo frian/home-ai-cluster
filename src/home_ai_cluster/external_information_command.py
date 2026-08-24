@@ -177,7 +177,9 @@ def _post_source_grounded_request(
     timeout_seconds: float,
     client_factory: Callable[..., httpx.Client],
 ) -> httpx.Response:
-    with client_factory(timeout=timeout_seconds, follow_redirects=False) as client:
+    with client_factory(
+        timeout=timeout_seconds, follow_redirects=False, trust_env=False
+    ) as client:
         return client.post(_SOURCE_GROUNDED_CHAT_URL, json=request)
 
 

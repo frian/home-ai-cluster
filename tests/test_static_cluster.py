@@ -45,6 +45,7 @@ from home_ai_cluster.static_cluster import (
     create_remote_declaration,
     create_static_cluster_app,
     create_static_cluster_collection_app,
+    create_static_cluster_http_client,
     main,
     parse_args,
 )
@@ -76,6 +77,24 @@ class FakeAdapter:
         if self._error is not None:
             raise self._error
         return RuntimeResult(content="local result", adapter=self.name)
+
+
+def test_process_owned_remote_client_disables_httpx_environment_trust(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options: list[dict[str, object]] = []
+    client = object()
+
+    def create_client(**kwargs: object) -> object:
+        options.append(kwargs)
+        return client
+
+    monkeypatch.setattr(
+        "home_ai_cluster.static_cluster.httpx.AsyncClient", create_client
+    )
+
+    assert create_static_cluster_http_client() is client
+    assert options == [{"timeout": None, "trust_env": False}]
 
 
 class FakeRemoteTransport:

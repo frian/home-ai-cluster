@@ -58,8 +58,9 @@ The cluster should reason about capabilities, not machine names, model names, ru
 
 Request eligibility is based on explicitly declared cluster-facing capabilities.
 
-Those declarations are operator-owned, not live discovery, receiver
-advertisement, runtime inventory, model inventory, or dynamic truth.
+Capability ownership remains within the accepted composition and
+caller-declaration boundaries. These declarations are not live discovery,
+receiver advertisement, runtime inventory, model inventory, or dynamic truth.
 
 The cluster matches requests to capabilities.
 

@@ -11,8 +11,17 @@ class DisconnectAwareRequest(Protocol):
     async def is_disconnected(self) -> bool: ...
 
 
-async def _wait_for_confirmed_disconnect(request: DisconnectAwareRequest) -> None:
-    while not await request.is_disconnected():
+async def _wait_for_confirmed_disconnect(
+    request: DisconnectAwareRequest,
+    stop: asyncio.Event,
+) -> None:
+    while True:
+        if stop.is_set():
+            return
+        if await request.is_disconnected():
+            return
+        if stop.is_set():
+            return
         # This is an observer, not a deadline. Yield without spinning while the
         # request remains connected.
         await asyncio.sleep(0.01)
@@ -36,7 +45,10 @@ async def run_routable_execution[Result](
         raise asyncio.CancelledError
 
     execution_task = asyncio.create_task(execution())
-    disconnect_task = asyncio.create_task(_wait_for_confirmed_disconnect(request))
+    stop_observer = asyncio.Event()
+    disconnect_task = asyncio.create_task(
+        _wait_for_confirmed_disconnect(request, stop_observer)
+    )
     try:
         done, _ = await asyncio.wait(
             {execution_task, disconnect_task},
@@ -57,5 +69,6 @@ async def run_routable_execution[Result](
         await _cancel_and_wait(execution_task)
         raise asyncio.CancelledError
     finally:
+        stop_observer.set()
         await _cancel_and_wait(execution_task)
         await _cancel_and_wait(disconnect_task)

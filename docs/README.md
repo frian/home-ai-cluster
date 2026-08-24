@@ -35,6 +35,9 @@ architecture.
 
 ## Operator entry points
 
+- [HAC-owned proxy environment boundary investigation](hac-owned-proxy-environment-boundary-investigation.md)
+  — documentation-only HTTPX inventory and controlled proxy evidence for a
+  possible future explicit boundary; it authorizes no RFC or implementation.
 - [Command reference](command-reference.md) — current lookup reference for
   ordinary installed commands, common forms, options, and boundaries.
 - [Canonical operator workflow](operator-workflow.md) — current ordinary

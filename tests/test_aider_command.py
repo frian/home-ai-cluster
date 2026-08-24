@@ -278,8 +278,9 @@ def test_private_fail_closed_aider_input_cleans_up_after_subprocess_failure(
     )
 
 
-def test_private_fail_closed_aider_input_cleans_up_without_child_reading_stdin(
-) -> None:
+def test_private_fail_closed_aider_input_cleans_up_without_child_reading_stdin() -> (
+    None
+):
     child_inputs: list[object] = []
 
     def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:

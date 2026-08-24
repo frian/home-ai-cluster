@@ -205,6 +205,16 @@ It is a workspace.
 
 When the change is ready, mark it as ready for review, then merge it when accepted.
 
+## Development lockfile
+
+`uv.lock` is intentionally tracked so repository checkouts and CI use a
+reproducible development environment. PyPI consumers remain governed by the
+dependency metadata in `pyproject.toml`, not this repository lockfile.
+
+When dependencies change, update both `pyproject.toml` and `uv.lock`. Use
+`uv lock --check` to verify they remain synchronized. CI and release validation
+use the tracked lock without updating it; do not edit `uv.lock` manually.
+
 ---
 
 ## Commits

@@ -7,12 +7,26 @@
   const messages = [];
   const codeMessages = [];
   const assistantAttribution = new WeakMap();
-  let requestActive = false;
   const themeKey = "home-ai-cluster.theme";
   const themeSelect = document.querySelector("#theme-select");
   const root = document.documentElement;
-  const error = document.querySelector("#request-error");
-  const status = document.querySelector("#request-status");
+  const requestContexts = {
+    chat: createRequestContext("#chat-form", "#chat-error", "#chat-status"),
+    summarize: createRequestContext("#summarize-form", "#summarize-error", "#summarize-status"),
+    classify: createRequestContext("#classify-form", "#classify-error", "#classify-status"),
+    code: createRequestContext("#code-form", "#code-error", "#code-status"),
+  };
+
+  function createRequestContext(formSelector, errorSelector, statusSelector) {
+    const form = document.querySelector(formSelector);
+    return {
+      active: false,
+      form,
+      submit: form.querySelector("[data-submit]"),
+      error: document.querySelector(errorSelector),
+      status: document.querySelector(statusSelector),
+    };
+  }
 
   function useSystemTheme() {
     root.removeAttribute("data-theme");
@@ -65,18 +79,16 @@
 
   initializeThemePreference();
 
-  function setRequestActive(active, message = "") {
-    requestActive = active;
-    status.dataset.active = String(active);
-    status.textContent = active ? message : "";
-    document.querySelectorAll("[data-submit]").forEach((button) => {
-      button.disabled = active;
-    });
+  function setRequestActive(context, active, message = "") {
+    context.active = active;
+    context.status.dataset.active = String(active);
+    context.status.textContent = active ? message : "";
+    context.submit.disabled = active;
   }
 
-  function clearError() { error.textContent = ""; }
+  function clearError(context) { context.error.textContent = ""; }
 
-  function showError(message) { error.textContent = message; }
+  function showError(context, message) { context.error.textContent = message; }
 
   async function safeFailure(response) {
     let detail = "Request failed";
@@ -89,10 +101,10 @@
     return `${response.status}: ${detail}`;
   }
 
-  async function post(path, body, activeMessage) {
-    if (requestActive) return null;
-    setRequestActive(true, activeMessage);
-    clearError();
+  async function post(context, path, body, activeMessage) {
+    if (context.active) return null;
+    setRequestActive(context, true, activeMessage);
+    clearError(context);
     try {
       const response = await fetch(path, {
         method: "POST",
@@ -100,20 +112,20 @@
         body: JSON.stringify(body),
       });
       if (!response.ok) {
-        showError(await safeFailure(response));
+        showError(context, await safeFailure(response));
         return null;
       }
       try {
         return await response.json();
       } catch (_) {
-        showError("Request failed");
+        showError(context, "Request failed");
         return null;
       }
     } catch (_) {
-      showError("Request failed");
+      showError(context, "Request failed");
       return null;
     } finally {
-      setRequestActive(false);
+      setRequestActive(context, false);
     }
   }
 
@@ -195,18 +207,21 @@
 
   document.querySelector("#chat-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const context = requestContexts.chat;
+    if (context.active) return;
     const input = document.querySelector("#chat-message");
-    if (!input.value.trim()) return showError("Message is required");
+    if (!input.value.trim()) return showError(context, "Message is required");
     const pendingMessage = { role: "user", content: input.value };
     messages.push(pendingMessage);
     renderChat();
     input.value = "";
     const request = post(
+      context,
       "/v1/chat",
       { capability: "chat", messages },
       "Generating response…",
     );
-    status.scrollIntoView({ block: "nearest" });
+    context.status.scrollIntoView({ block: "nearest" });
     const result = await request;
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       const assistantMessage = { role: "assistant", content: result.content };
@@ -216,12 +231,14 @@
     } else {
       rollbackPendingMessage(pendingMessage);
       if (input.value === "") input.value = pendingMessage.content;
-      if (result) showError("Request failed");
+      if (result) showError(context, "Request failed");
     }
   });
 
   document.querySelector("#code-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const context = requestContexts.code;
+    if (context.active) return;
     const input = document.querySelector("#code-text");
     const pendingMessage = { role: "user", content: input.value };
     const candidateMessages = [...codeMessages, pendingMessage];
@@ -230,17 +247,18 @@
       0,
     );
     if (!input.value.trim() || candidateBytes > byteLimit) {
-      return showError("Code conversation must be non-blank and within the accepted limit");
+      return showError(context, "Code conversation must be non-blank and within the accepted limit");
     }
     codeMessages.push(pendingMessage);
     renderCode();
     input.value = "";
     const request = post(
+      context,
       "/v1/chat",
       { capability: "code", messages: codeMessages },
       "Generating code…",
     );
-    status.scrollIntoView({ block: "nearest" });
+    context.status.scrollIntoView({ block: "nearest" });
     const result = await request;
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       const assistantMessage = { role: "assistant", content: result.content };
@@ -250,7 +268,7 @@
     } else {
       rollbackPendingCodeMessage(pendingMessage);
       if (input.value === "") input.value = pendingMessage.content;
-      if (result) showError("Request failed");
+      if (result) showError(context, "Request failed");
     }
   });
 
@@ -261,7 +279,7 @@
       const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
       document.querySelector("#summarize-text").value = text;
     } catch (_) {
-      showError("Selected file is not valid UTF-8 text");
+      showError(requestContexts.summarize, "Selected file is not valid UTF-8 text");
     }
   });
 
@@ -302,37 +320,39 @@
     const [file] = event.target.files;
     if (!file) return;
     event.target.value = "";
-    clearError();
+    clearError(requestContexts.summarize);
     if (file.size > pdfByteLimit) {
-      return showError("Selected PDF must be at most 8 MiB");
+      return showError(requestContexts.summarize, "Selected PDF must be at most 8 MiB");
     }
     try {
       const text = await readPdfText(file);
-      if (!text.trim()) return showError("Selected PDF contains no extractable text");
+      if (!text.trim()) return showError(requestContexts.summarize, "Selected PDF contains no extractable text");
       const input = document.querySelector("#summarize-text");
       input.value = text;
       if (new TextEncoder().encode(text).length > byteLimit) {
-        showError("Text must be non-blank and within the accepted limit");
+        showError(requestContexts.summarize, "Text must be non-blank and within the accepted limit");
       }
     } catch (failure) {
       if (failure === "password-protected") {
-        showError("Selected PDF is password-protected");
+        showError(requestContexts.summarize, "Selected PDF is password-protected");
       } else {
-        showError("Selected PDF could not be read");
+        showError(requestContexts.summarize, "Selected PDF could not be read");
       }
     }
   });
 
   document.querySelector("#summarize-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const context = requestContexts.summarize;
+    if (context.active) return;
     const text = document.querySelector("#summarize-text").value;
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit) {
-      return showError("Text must be non-blank and within the accepted limit");
+      return showError(context, "Text must be non-blank and within the accepted limit");
     }
-    const result = await post("/v1/summarize", { text }, "Summarizing…");
+    const result = await post(context, "/v1/summarize", { text }, "Summarizing…");
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       renderResult(document.querySelector("#summarize-result"), result.content, result.node_id);
-    } else if (result) showError("Request failed");
+    } else if (result) showError(context, "Request failed");
   });
 
   function updateLabelAccessibleNames() {
@@ -379,21 +399,23 @@
       const text = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
       document.querySelector("#classify-text").value = text;
     } catch (_) {
-      showError("Selected file is not valid UTF-8 text");
+      showError(requestContexts.classify, "Selected file is not valid UTF-8 text");
     }
   });
 
   document.querySelector("#classify-form").addEventListener("submit", async (event) => {
     event.preventDefault();
+    const context = requestContexts.classify;
+    if (context.active) return;
     const text = document.querySelector("#classify-text").value;
     const labels = Array.from(document.querySelectorAll(".classify-label"), (input) => input.value);
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit || labels.length < 2) {
-      return showError("Text and at least two labels are required");
+      return showError(context, "Text and at least two labels are required");
     }
-    const result = await post("/v1/classify", { text, labels }, "Classifying…");
+    const result = await post(context, "/v1/classify", { text, labels }, "Classifying…");
     if (result && typeof result.selected_label === "string" && typeof result.node_id === "string") {
       renderResult(document.querySelector("#classify-result"), result.selected_label, result.node_id);
-    } else if (result) showError("Request failed");
+    } else if (result) showError(context, "Request failed");
   });
 
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));

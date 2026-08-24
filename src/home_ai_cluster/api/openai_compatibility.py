@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.api.client_disconnect import run_routable_execution
 from home_ai_cluster.api.routes import handle_chat_cluster_request
 from home_ai_cluster.core.models import (
     Capability,
@@ -283,11 +284,14 @@ async def chat_completions(request: Request) -> JSONResponse:
             request.app.state.static_remote_collection_wiring
         )
         local_app_composition = request.app.state.local_app_composition
-        result = await handle_chat_cluster_request(
-            cluster_request,
-            static_remote_wiring=static_remote_wiring,
-            static_remote_collection_wiring=static_remote_collection_wiring,
-            local_app_composition=local_app_composition,
+        result = await run_routable_execution(
+            request,
+            lambda: handle_chat_cluster_request(
+                cluster_request,
+                static_remote_wiring=static_remote_wiring,
+                static_remote_collection_wiring=static_remote_collection_wiring,
+                local_app_composition=local_app_composition,
+            ),
         )
     except HTTPException as error:
         if error.status_code == 404:

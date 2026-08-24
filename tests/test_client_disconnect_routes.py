@@ -7,12 +7,18 @@ from starlette.requests import Request
 
 from home_ai_cluster.api.openai_compatibility import compatibility_router
 from home_ai_cluster.api.routes import ChatRequest
+from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
     ChatMessage,
     ClassifyResult,
     ClusterResult,
+    NodeDescription,
+    NodeHealth,
     SourceGroundedChatResult,
 )
+from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.main import create_app
 
 
@@ -517,6 +523,76 @@ def test_registered_completions_disconnect_cancels_execution(monkeypatch):
             with pytest.raises(asyncio.CancelledError):
                 await task
             assert calls == 1 and cancelled.is_set() and cleaned.is_set()
+        finally:
+            if not task.done():
+                task.cancel()
+            if not task.cancelled():
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+    asyncio.run(run())
+
+
+def test_registered_chat_local_adapter_cancellation():
+    async def run():
+        class Adapter:
+            name = "controlled"
+
+            def __init__(self):
+                self.calls = 0
+                self.request = None
+                self.entered = asyncio.Event()
+                self.cancelled = asyncio.Event()
+                self.cleaned = asyncio.Event()
+
+            def health(self):
+                return AdapterHealth(available=True)
+
+            def capabilities(self):
+                return [Capability(name="chat")]
+
+            async def chat(self, request):
+                self.calls += 1
+                self.request = request
+                self.entered.set()
+                try:
+                    await asyncio.Future()
+                except asyncio.CancelledError:
+                    self.cancelled.set()
+                    raise
+                finally:
+                    self.cleaned.set()
+
+        adapter = Adapter()
+        node = NodeDescription(
+            id="local",
+            name="Local",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="chat")],
+            adapters=[adapter.name],
+        )
+        composition = LocalAppComposition(
+            NodeRegistry([node]), AdapterRegistry([adapter])
+        )
+        app, state = create_app(local_app_composition=composition), State()
+        task = asyncio.create_task(endpoint(app)(payload(), request(app, state)))
+        try:
+            await asyncio.wait_for(adapter.entered.wait(), 1)
+            state.disconnected = True
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert (
+                adapter.calls == 1
+                and adapter.cancelled.is_set()
+                and adapter.cleaned.is_set()
+            )
+            assert (
+                adapter.request.capability.name == "chat"
+                and adapter.request.messages[-1].content == "Hello"
+            )
         finally:
             if not task.done():
                 task.cancel()

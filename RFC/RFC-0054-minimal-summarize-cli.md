@@ -349,4 +349,6 @@ None for this narrow proposed contract.
 
 ## Decision
 
-Pending.
+Accepted: add the `summarize` root subcommand with one required `--text`
+source, the existing native `/v1/summarize` request model and output modes, a
+caller-owned timeout, and no topology, runtime, or routing changes.

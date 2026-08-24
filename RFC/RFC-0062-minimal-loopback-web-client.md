@@ -428,4 +428,4 @@ An implementation is acceptable only when it:
 
 ## Decision
 
-Pending.
+Accepted.

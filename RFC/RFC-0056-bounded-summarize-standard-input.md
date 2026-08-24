@@ -1,6 +1,6 @@
 # RFC-0056: Bounded summarize standard input
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-27
 
@@ -394,4 +394,4 @@ privacy, and proof boundaries.
 
 ## Decision
 
-Pending.
+Accepted.

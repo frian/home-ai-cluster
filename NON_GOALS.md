@@ -1,6 +1,6 @@
 # Non-goals
 
-Status: Draft
+Status: Current
 
 This document records what Home AI Cluster deliberately does not try to be.
 
@@ -109,7 +109,7 @@ It may recommend.
 
 It may explain.
 
-It may fall back.
+It may use the accepted bounded pre-transmission fallback.
 
 But it must not silently expand its own authority.
 
@@ -139,11 +139,11 @@ Distributed tensor execution, expert placement, KV cache distribution, and low-l
 
 They are not the first goal.
 
-The first proof is simpler:
+The founding proof was achieved with the simpler shape:
 
 > One endpoint. Two machines. One routed request.
 
-That is enough to validate the core abstraction.
+That was enough to validate the core abstraction.
 
 ---
 
@@ -199,7 +199,8 @@ It may belong later.
 
 It may belong in an adapter.
 
-It may belong in a plugin.
+It may belong behind a separately investigated and accepted bounded plugin
+boundary.
 
 It may belong in an idea file.
 

@@ -1,5 +1,7 @@
 # Vision
 
+Status: Current
+
 Home AI Cluster turns multiple personal computers into one local AI system.
 
 Many machines.
@@ -32,11 +34,10 @@ Home AI Cluster exists to make them work together.
 
 ---
 
-The user should not have to think about which machine runs a model.
+The user should not have to select a machine, runtime, or model for an ordinary
+request.
 
 The user should not have to manage separate AI endpoints.
-
-The user should not have to remember where each model is installed.
 
 This is not only a convenience feature.
 
@@ -58,23 +59,23 @@ It is not a cloud platform.
 
 It is an orchestration layer for personal AI infrastructure.
 
-It discovers machines.
+Ordinary operation is local by default.
 
-It understands their capabilities.
+Multi-machine topology is explicit, static, and operator-owned.
 
-It routes requests.
+Capability eligibility is explicitly declared.
+
+Within declared operator boundaries, routing is deterministic and
+capability-centered.
+
+Home AI Cluster does not discover, register, rank, or dynamically optimize
+machines.
 
 It keeps the user in control.
 
-It reasons about capabilities, not brand names.
-
-A node announces what it can do.
-
-The cluster finds the best match.
-
 The user defines boundaries.
 
-The cluster chooses within them.
+The cluster chooses within them according to those declared boundaries.
 
 ---
 
@@ -92,14 +93,11 @@ Today’s runtime should be replaceable by tomorrow’s runtime without changing
 
 ---
 
-The first proof is simple:
+The founding proof was achieved:
 
 > One endpoint. Two machines. One routed request.
 
-This is not just a technical demo.
-
-It proves that capability-based orchestration can work.
-
-If Home AI Cluster can do that clearly, reliably, and understandably, the core idea is alive.
+This was not just a technical demo. It established that capability-centered
+orchestration can work clearly, reliably, and understandably.
 
 Everything else can come later.

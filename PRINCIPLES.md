@@ -1,6 +1,6 @@
 # Principles
 
-Status: Draft
+Status: Current
 
 This document defines the working principles of Home AI Cluster.
 
@@ -56,7 +56,11 @@ The safest default is:
 
 The cluster should reason about capabilities, not machine names, model names, runtime names, or vendor names.
 
-A node announces what it can do.
+Request eligibility is based on explicitly declared cluster-facing capabilities.
+
+Capability ownership remains within the accepted composition and
+caller-declaration boundaries. These declarations are not live discovery,
+receiver advertisement, runtime inventory, model inventory, or dynamic truth.
 
 The cluster matches requests to capabilities.
 
@@ -124,9 +128,11 @@ Complexity must justify itself.
 
 Home AI Cluster should be built in small, verifiable steps.
 
-The first meaningful proof is:
+The founding proof was achieved:
 
 > One endpoint. Two machines. One routed request.
+
+It established the core idea in a bounded, understandable form.
 
 Large ideas are allowed.
 

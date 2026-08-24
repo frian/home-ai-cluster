@@ -1,6 +1,6 @@
 # Foundations
 
-Status: Draft
+Status: Current
 
 Home AI Cluster is built on a small set of ideas that should remain stable even as models, runtimes, hardware, and implementations change.
 
@@ -28,9 +28,11 @@ One AI.
 
 > The user talks to the cluster, never to a machine.
 
-The user should not have to think about which machine runs a model, which runtime is available, or where a request should go.
+The user should not have to select a machine, runtime, or model for an ordinary
+request.
 
-The cluster should decide.
+Within operator-owned topology and explicit process-local composition, routing
+should make deterministic capability-centered choices.
 
 The user should simply ask.
 
@@ -102,7 +104,10 @@ It should ask:
 
 > What does this request need?
 
-Then it should find the best available node that can satisfy those needs.
+Then it should use explicitly declared capability eligibility and deterministic
+selection within operator-owned boundaries. Local candidates have fixed
+precedence; declared remotes retain operator-declared order. The cluster does
+not rank models, runtimes, load, latency, capacity, or live health.
 
 ---
 
@@ -170,7 +175,11 @@ Home AI Cluster should survive that.
 
 The cluster may automate decisions only inside boundaries chosen by the user.
 
-The user should explicitly control which machines are allowed, which runtimes are enabled, which models are available, whether cloud providers are allowed, whether prompts may be logged, and whether requests may leave the local network.
+The user should explicitly control which machines participate, network and
+privacy boundaries, explicit process-local runtime and model composition,
+whether optional external providers are allowed, whether prompts may be logged,
+and whether requests may leave the local network. Cluster-facing requests and
+routing remain independent of runtime and model names.
 
 The cluster may recommend.
 
@@ -217,12 +226,13 @@ These ideas should remain true over time:
 
 ## First proof
 
-The first meaningful proof of Home AI Cluster is not a distributed LLM.
+The founding proof of Home AI Cluster was achieved without distributed LLM
+execution.
 
-It is simpler:
+Its deliberately simple shape was:
 
 > One endpoint. Two machines. One routed request.
 
-That proves the core idea without pretending to solve the whole problem.
+It proved the core idea without pretending to solve the whole problem.
 
 Everything else can come later.

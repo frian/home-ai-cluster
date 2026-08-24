@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0085: Explicit HAC-Owned HTTP Environment Boundary](RFC-0085-explicit-hac-owned-http-environment-boundary.md)
+  — isolates all HAC-owned HTTPX clients from ambient proxy and certificate
+  environment configuration while preserving declared destinations and
+  verifying HTTPS; excludes plugin/provider and subprocess ownership and adds
+  no proxy or private-CA configuration.
 - [RFC-0084: Persistent Loopback Theme Preference](RFC-0084-persistent-loopback-theme-preference.md)
   — accepts exactly one browser-local presentation preference: a System default
   plus a persisted Light or Dark override in `home-ai-cluster.theme`, without

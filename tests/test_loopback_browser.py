@@ -96,8 +96,8 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "http://" not in script
     assert "https://" not in script
     assert '"/v1/chat"' in script
-    assert 'post("/v1/summarize"' in script
-    assert 'post("/v1/classify"' in script
+    assert 'post(context, "/v1/summarize"' in script
+    assert 'post(context, "/v1/classify"' in script
     assert 'accept="application/pdf,.pdf" id="summarize-pdf" type="file"' in html
     assert "const pdfByteLimit = 8388608;" in script
     assert 'const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";' in script
@@ -123,7 +123,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         < read_pdf_text.index("finally {")
         < read_pdf_text.index("await loadingTask.destroy();")
     )
-    assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
+    assert 'post(context, "/v1/summarize", { text }, "Summarizing…")' in script
     assert 'document.querySelector("#summarize-pdf")' in script
     assert 'document.querySelector("#classify-pdf")' not in script
     assert 'document.querySelector("#chat-pdf")' not in script
@@ -181,10 +181,10 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "focus(" not in render_chat
     assert "scrollIntoView" not in render_chat
     assert "window.scroll" not in render_chat
-    assert 'post("/v1/summarize", { text }, "Summarizing…")' in script
-    assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
-    assert 'status.textContent = active ? message : ""' in script
-    assert "finally {\n      setRequestActive(false);" in script
+    assert 'post(context, "/v1/summarize", { text }, "Summarizing…")' in script
+    assert 'post(context, "/v1/classify", { text, labels }, "Classifying…")' in script
+    assert 'context.status.textContent = active ? message : ""' in script
+    assert "finally {\n      setRequestActive(context, false);" in script
     assert "function rollbackPendingMessage(pendingMessage)" in script
     assert "rollbackPendingMessage(pendingMessage);" in script
     assert "messages.splice(pendingIndex, 1)" in script
@@ -207,7 +207,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         chat_handler.index("messages.push(pendingMessage);")
         < chat_handler.index('input.value = "";')
         < chat_handler.index("const request = post(")
-        < chat_handler.index('status.scrollIntoView({ block: "nearest" });')
+        < chat_handler.index('context.status.scrollIntoView({ block: "nearest" });')
         < chat_handler.index("const result = await request;")
     )
     assert '"Generating response…"' in chat_handler
@@ -215,12 +215,12 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     set_request_active = script.split("function setRequestActive", 1)[1].split(
         "function clearError", 1
     )[0]
-    assert 'status.textContent = active ? message : "";' in set_request_active
+    assert 'context.status.textContent = active ? message : "";' in set_request_active
     post_handler = script.split("async function post(", 1)[1].split(
         "function renderChat()", 1
     )[0]
     assert post_handler.index(
-        "setRequestActive(true, activeMessage);"
+        "setRequestActive(context, true, activeMessage);"
     ) < post_handler.index("await fetch(")
     success_handler = chat_handler.split(
         'if (result && typeof result.content === "string"', 1
@@ -238,10 +238,14 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "FormData" not in script
     assert "multipart/form-data" not in script
     assert ".name" not in script
-    assert (
-        'aria-live="polite" class="request-status" id="request-status" role="status"'
-        in html
-    )
+    for view in ("chat", "summarize", "classify", "code"):
+        assert (
+            f'aria-live="polite" class="error" id="{view}-error" role="status"' in html
+        )
+        assert (
+            f'aria-live="polite" class="request-status" '
+            f'id="{view}-status" role="status"' in html
+        )
     assert "@media (prefers-reduced-motion: reduce)" in stylesheet
     assert "color-scheme: light dark;" in stylesheet
     assert "@media (prefers-color-scheme: dark)" in stylesheet
@@ -301,13 +305,72 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         'document.querySelector("#classify-text").value = text;'
         in classify_file_handler
     )
-    assert 'showError("Selected file is not valid UTF-8 text")' in classify_file_handler
+    assert (
+        'showError(requestContexts.classify, "Selected file is not valid UTF-8 text")'
+        in classify_file_handler
+    )
     assert 'const text = document.querySelector("#classify-text").value;' in script
-    assert 'post("/v1/classify", { text, labels }, "Classifying…")' in script
+    assert 'post(context, "/v1/classify", { text, labels }, "Classifying…")' in script
     assert (
         'Array.from(document.querySelectorAll(".classify-label"), '
         "(input) => input.value)" in script
     )
+
+
+def test_browser_request_state_is_scoped_to_each_view() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert "let requestActive" not in script
+    assert 'querySelectorAll("[data-submit]")' not in script
+    assert "const requestContexts = {" in script
+    for view in ("chat", "summarize", "classify", "code"):
+        assert f"{view}: createRequestContext(" in script
+        assert f'id="{view}-error"' in html
+        assert f'id="{view}-status"' in html
+    assert 'function setRequestActive(context, active, message = "")' in script
+    assert "context.submit.disabled = active;" in script
+    assert "function clearError(context)" in script
+    assert "function showError(context, message)" in script
+    assert "async function post(context, path, body, activeMessage)" in script
+    post_handler = script.split(
+        "async function post(context, path, body, activeMessage)", 1
+    )[1].split("function renderChat()", 1)[0]
+    assert "if (context.active) return null;" in post_handler
+    assert "setRequestActive(context, true, activeMessage);" in post_handler
+    assert "clearError(context);" in post_handler
+    assert "showError(context," in post_handler
+    assert "setRequestActive(context, false);" in post_handler
+
+    handlers = {
+        "chat": script.split(
+            'document.querySelector("#chat-form").addEventListener(', 1
+        )[1].split('document.querySelector("#code-form")', 1)[0],
+        "code": script.split(
+            'document.querySelector("#code-form").addEventListener(', 1
+        )[1].split('document.querySelector("#summarize-file")', 1)[0],
+        "summarize": script.split(
+            'document.querySelector("#summarize-form").addEventListener(', 1
+        )[1].split("function updateLabelAccessibleNames", 1)[0],
+        "classify": script.split(
+            'document.querySelector("#classify-form").addEventListener(', 1
+        )[1].split("const tabs", 1)[0],
+    }
+    for view, handler in handlers.items():
+        assert f"const context = requestContexts.{view};" in handler
+        assert "if (context.active) return;" in handler
+
+    assert handlers["chat"].index("if (context.active) return;") < handlers[
+        "chat"
+    ].index("messages.push(pendingMessage);")
+    assert handlers["code"].index("if (context.active) return;") < handlers[
+        "code"
+    ].index("codeMessages.push(pendingMessage);")
+    assert 'context.status.scrollIntoView({ block: "nearest" });' in handlers["chat"]
+    assert 'context.status.scrollIntoView({ block: "nearest" });' in handlers["code"]
+    assert "showError(requestContexts.summarize," in script
+    assert "showError(requestContexts.classify," in script
 
 
 def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
@@ -321,7 +384,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html
-    code_view = html.split('id="code-view"', 1)[1].split('id="request-error"', 1)[0]
+    code_view = html.split('id="code-view"', 1)[1].split("</main>", 1)[0]
     code_section = code_view
     assert code_view.index('id="code-result-region"') < code_view.index(
         'id="code-form"'
@@ -354,8 +417,8 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert "new TextEncoder().encode(message.content).length" in code_handler
     assert "!input.value.trim() || candidateBytes > byteLimit" in code_handler
     assert (
-        'showError("Code conversation must be non-blank and within the accepted limit")'
-        in code_handler
+        'showError(context, "Code conversation must be non-blank '
+        'and within the accepted limit")' in code_handler
     )
     assert '"/v1/chat"' in code_handler
     assert '{ capability: "code", messages: codeMessages }' in code_handler
@@ -365,13 +428,13 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert "const messages" not in code_handler
     assert "assistantAttribution.set(assistantMessage, result.node_id);" in code_handler
     assert '"Generating code…"' in code_handler
-    assert 'status.scrollIntoView({ block: "nearest" });' in code_handler
+    assert 'context.status.scrollIntoView({ block: "nearest" });' in code_handler
     assert 'behavior: "smooth"' not in code_handler
     assert code_handler.index(
         "codeMessages.push(pendingMessage);"
     ) < code_handler.index("const request = post(")
     assert code_handler.index(
-        'status.scrollIntoView({ block: "nearest" });'
+        'context.status.scrollIntoView({ block: "nearest" });'
     ) < code_handler.index("const result = await request;")
     assert 'typeof result.content === "string"' in code_handler
     assert 'typeof result.node_id === "string"' in code_handler

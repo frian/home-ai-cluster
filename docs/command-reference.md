@@ -128,7 +128,9 @@ When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
 Chat, Summarize, Classify, and Code. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
-request is running. One explicitly selected Summarize or Classify file is read
+request is running. Each view permits at most one active request, while distinct
+views may have independent in-flight requests; the selected node or runtime may
+still queue their execution. One explicitly selected Summarize or Classify file is read
 locally with strict UTF-8 decoding and populates that view's editable text area;
 the current textarea value is submitted through the existing JSON text request.
 Classify preserves ordered labels and sends no multipart data or filename. Every

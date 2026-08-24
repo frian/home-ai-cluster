@@ -49,6 +49,8 @@
           <textarea id="chat-message" placeholder="Write your message…" required rows="6"></textarea>
           <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
+        <p aria-live="polite" class="error" id="chat-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="chat-status" role="status"></p>
       </section>
 
       <section aria-labelledby="summarize-tab" class="capability-panel" hidden id="summarize-view" role="tabpanel">
@@ -62,6 +64,8 @@
           </div>
           <div class="form-actions"><button data-submit type="submit">Summarize</button></div>
         </form>
+        <p aria-live="polite" class="error" id="summarize-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="summarize-status" role="status"></p>
         <section aria-labelledby="summarize-result-heading" class="result-section" hidden id="summarize-result-region">
           <h3 id="summarize-result-heading">Summary</h3><output class="result" hidden id="summarize-result"></output>
         </section>
@@ -76,6 +80,8 @@
           <fieldset><legend>Labels in order</legend><div id="label-inputs"></div><button id="add-label" type="button">Add label</button></fieldset>
           <div class="form-actions"><button data-submit type="submit">Classify</button></div>
         </form>
+        <p aria-live="polite" class="error" id="classify-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="classify-status" role="status"></p>
         <section aria-labelledby="classify-result-heading" class="result-section" hidden id="classify-result-region">
           <h3 id="classify-result-heading">Classification</h3><output class="result" hidden id="classify-result"></output>
         </section>
@@ -92,10 +98,9 @@
           <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
           <div class="form-actions"><button data-submit type="submit">Request code</button></div>
         </form>
+        <p aria-live="polite" class="error" id="code-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
       </section>
-
-      <p aria-live="polite" class="error" id="request-error" role="status"></p>
-      <p aria-live="polite" class="request-status" id="request-status" role="status"></p>
     </main>
     <script src="/assets/app.js"></script>
   </body>

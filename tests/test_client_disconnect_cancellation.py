@@ -2,6 +2,7 @@ import asyncio
 import inspect
 
 import pytest
+from fastapi import HTTPException
 
 from home_ai_cluster.api.client_disconnect import run_routable_execution
 
@@ -39,6 +40,24 @@ def test_execution_completion_returns_its_terminal_result_and_cleans_observer() 
     asyncio.run(run())
 
 
+def test_preexisting_disconnect_does_not_create_execution() -> None:
+    async def run() -> None:
+        request = DisconnectingRequest()
+        request.disconnected.set()
+        calls = 0
+
+        async def execution() -> str:
+            nonlocal calls
+            calls += 1
+            return "unexpected"
+
+        with pytest.raises(asyncio.CancelledError):
+            await run_routable_execution(request, execution)
+        assert calls == 0
+
+    asyncio.run(run())
+
+
 def test_existing_structured_failure_is_a_terminal_result() -> None:
     async def run() -> None:
         request = DisconnectingRequest()
@@ -50,6 +69,88 @@ def test_existing_structured_failure_is_a_terminal_result() -> None:
         result = await run_routable_execution(request, completed_failure)
 
         assert result is failure
+
+    asyncio.run(run())
+
+
+def test_execution_exception_preserves_its_exact_identity() -> None:
+    async def run() -> None:
+        request = DisconnectingRequest()
+        expected = ValueError("expected")
+
+        async def execution() -> str:
+            raise expected
+
+        with pytest.raises(ValueError) as raised:
+            await run_routable_execution(request, execution)
+        assert raised.value is expected
+
+    asyncio.run(run())
+
+
+def test_http_exception_preserves_its_exact_identity_and_semantics() -> None:
+    async def run() -> None:
+        request = DisconnectingRequest()
+        expected = HTTPException(
+            status_code=503,
+            detail="Runtime adapter unavailable",
+            headers={"Retry-After": "1"},
+        )
+
+        async def execution() -> str:
+            raise expected
+
+        with pytest.raises(HTTPException) as raised:
+            await run_routable_execution(request, execution)
+        assert raised.value is expected
+        assert (raised.value.status_code, raised.value.detail) == (503, expected.detail)
+        assert raised.value.headers == {"Retry-After": "1"}
+        assert not any(
+            task.get_coro().__qualname__ == "_wait_for_confirmed_disconnect"
+            for task in asyncio.all_tasks()
+            if task is not asyncio.current_task()
+        )
+
+    asyncio.run(run())
+
+
+def test_unexpected_observer_exception_cancels_pending_execution() -> None:
+    async def run() -> None:
+        execution_started = asyncio.Event()
+        execution_cancelled = asyncio.Event()
+        expected = RuntimeError("observer failed")
+
+        class BrokenRequest:
+            checks = 0
+
+            async def is_disconnected(self) -> bool:
+                self.checks += 1
+                if self.checks == 1:
+                    return False
+                raise expected
+
+        async def execution() -> str:
+            execution_started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                execution_cancelled.set()
+                raise
+
+        with pytest.raises(RuntimeError) as raised:
+            await run_routable_execution(BrokenRequest(), execution)
+        assert raised.value is expected
+        assert execution_started.is_set()
+        assert execution_cancelled.is_set()
+        assert not any(
+            task.get_coro().__qualname__
+            in {
+                "_wait_for_confirmed_disconnect",
+                "execution",
+            }
+            for task in asyncio.all_tasks()
+            if task is not asyncio.current_task()
+        )
 
     asyncio.run(run())
 
@@ -90,7 +191,12 @@ def test_terminal_completion_wins_when_disconnect_is_observed_together() -> None
         release_execution = asyncio.Event()
 
         class SimultaneousRequest(DisconnectingRequest):
+            checks = 0
+
             async def is_disconnected(self) -> bool:
+                self.checks += 1
+                if self.checks == 1:
+                    return False
                 release_execution.set()
                 await asyncio.sleep(0)
                 return True
@@ -153,6 +259,11 @@ def test_parent_cancellation_propagates_without_becoming_disconnect_handling() -
             await task
         assert execution_cancelled.is_set()
         assert not request.disconnected.is_set()
+        assert all(
+            task.get_coro().__qualname__ != "_wait_for_confirmed_disconnect"
+            for task in asyncio.all_tasks()
+            if task is not asyncio.current_task()
+        )
 
     asyncio.run(run())
 

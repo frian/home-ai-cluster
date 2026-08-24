@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [HAC-owned proxy environment boundary investigation](hac-owned-proxy-environment-boundary-investigation.md)
+  — documentation-only HTTPX inventory and controlled proxy evidence for a
+  possible future explicit boundary; it authorizes no RFC or implementation.
+
 - [v0.3.0 release-readiness investigation](v0.3.0-release-readiness-investigation.md)
   — documents the current-main comparison with `v0.2.0`; one small Ruff
   formatting follow-up is required before a `0.3.0` preparation PR.

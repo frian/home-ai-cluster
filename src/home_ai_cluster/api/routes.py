@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.api.client_disconnect import run_routable_execution
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
     StaticRemoteCollectionWiring,
@@ -289,11 +290,14 @@ async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     except ValidationError:
         raise HTTPException(status_code=422, detail="Invalid chat request") from None
 
-    return await handle_chat_cluster_request(
-        cluster_request,
-        static_remote_wiring,
-        static_remote_collection_wiring,
-        http_request.app.state.local_app_composition,
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_chat_cluster_request(
+            cluster_request,
+            static_remote_wiring,
+            static_remote_collection_wiring,
+            http_request.app.state.local_app_composition,
+        ),
     )
 
 
@@ -328,11 +332,14 @@ async def source_grounded_chat(
             detail="Invalid source-grounded chat request",
         ) from None
 
-    return await handle_chat_cluster_request(
-        cluster_request,
-        static_remote_wiring,
-        static_remote_collection_wiring,
-        http_request.app.state.local_app_composition,
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_chat_cluster_request(
+            cluster_request,
+            static_remote_wiring,
+            static_remote_collection_wiring,
+            http_request.app.state.local_app_composition,
+        ),
     )
 
 
@@ -362,11 +369,14 @@ async def summarize(http_request: Request) -> ClusterResult:
             detail="Invalid summarize request",
         ) from None
 
-    return await handle_summarize_cluster_request(
-        cluster_request,
-        http_request.app.state.static_remote_wiring,
-        http_request.app.state.static_remote_collection_wiring,
-        local_app_composition=http_request.app.state.local_app_composition,
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_summarize_cluster_request(
+            cluster_request,
+            http_request.app.state.static_remote_wiring,
+            http_request.app.state.static_remote_collection_wiring,
+            local_app_composition=http_request.app.state.local_app_composition,
+        ),
     )
 
 
@@ -397,11 +407,14 @@ async def classify(http_request: Request) -> ClassifyResult:
             detail="Invalid classify request",
         ) from None
 
-    return await handle_classify_cluster_request(
-        cluster_request,
-        http_request.app.state.static_remote_wiring,
-        http_request.app.state.static_remote_collection_wiring,
-        local_app_composition=http_request.app.state.local_app_composition,
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_classify_cluster_request(
+            cluster_request,
+            http_request.app.state.static_remote_wiring,
+            http_request.app.state.static_remote_collection_wiring,
+            local_app_composition=http_request.app.state.local_app_composition,
+        ),
     )
 
 
@@ -432,11 +445,17 @@ async def internal_cluster_request(
         request = envelope.request.normalized_request()
     local_app_composition = http_request.app.state.local_app_composition
     if local_app_composition is None:
-        return await handle_static_local_cluster_request(request)
+        return await run_routable_execution(
+            http_request,
+            lambda: handle_static_local_cluster_request(request),
+        )
 
-    return await handle_static_local_cluster_request(
-        request,
-        local_app_composition=local_app_composition,
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_static_local_cluster_request(
+            request,
+            local_app_composition=local_app_composition,
+        ),
     )
 
 

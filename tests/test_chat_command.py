@@ -11,6 +11,7 @@ def client_factory(handler: httpx.MockTransport):
         assert kwargs == {
             "timeout": 120.0,
             "follow_redirects": False,
+            "trust_env": False,
         }
         return httpx.Client(transport=handler, **kwargs)
 

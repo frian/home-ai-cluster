@@ -379,7 +379,9 @@ def test_complete_validation_precedes_exact_public_post_and_http_timeout(
     assert exit_code == 0
     assert stdout == "generated response\n"
     assert stderr == ""
-    assert client_options == [{"timeout": 300.0, "follow_redirects": False}]
+    assert client_options == [
+        {"timeout": 300.0, "follow_redirects": False, "trust_env": False}
+    ]
     assert len(requests) == 1
     assert str(requests[0].url) == "http://127.0.0.1:8000/v1/chat/sources"
     assert json.loads(requests[0].content) == {

@@ -142,7 +142,7 @@ def create_remote_declaration(
 
 def create_static_cluster_http_client() -> httpx.AsyncClient:
     """Create the process-owned remote client without a model read timeout."""
-    return httpx.AsyncClient(timeout=None)
+    return httpx.AsyncClient(timeout=None, trust_env=False)
 
 
 def _create_lifespan(

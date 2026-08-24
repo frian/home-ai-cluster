@@ -83,7 +83,7 @@ async def evaluate_static_cluster_status(
         ]
     )
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(trust_env=False) as client:
         return await collect_static_cluster_status(
             local_app_composition.node_registry,
             local_app_composition.adapter_registry,

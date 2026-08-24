@@ -528,6 +528,17 @@ contract as `hac local` and does not change status output.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
+## HTTPX environment boundary
+
+HAC-owned fixed-loopback, runtime-loopback, declared-remote execution, and
+declared-remote status clients ignore HTTPX proxy and certificate environment
+variables. This does not bypass VPNs, Tailscale, DNS, operating-system routing,
+routers, or transparent network controls. Declared HTTPS remotes retain
+verifying TLS, but ambient `SSL_CERT_FILE` and `SSL_CERT_DIR` private-CA
+discovery is unsupported. HAC provides no proxy or explicit private-CA
+configuration; plugin/provider clients and Aider subprocess networking retain
+their separate ownership.
+
 ## Output conventions
 
 Service commands stay in the foreground. Chat, code, and summarize return

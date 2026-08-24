@@ -133,6 +133,7 @@ def _post_native_request(
     with client_factory(
         timeout=timeout_seconds,
         follow_redirects=False,
+        trust_env=False,
     ) as client:
         return client.post(_ORDINARY_CHAT_URL, json=request)
 

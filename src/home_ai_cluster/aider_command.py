@@ -254,7 +254,9 @@ class _AiderTranslator:
                     request = _native_request(messages)
                     translator.native_request_count += 1
                     with translator._client_factory(
-                        timeout=translator._timeout_seconds, follow_redirects=False
+                        timeout=translator._timeout_seconds,
+                        follow_redirects=False,
+                        trust_env=False,
                     ) as client:
                         response = client.post(_NATIVE_CHAT_URL, json=request)
                     if not 200 <= response.status_code < 300:

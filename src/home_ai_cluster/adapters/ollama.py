@@ -51,6 +51,7 @@ class OllamaAdapter:
             with httpx.Client(
                 base_url=self.base_url,
                 transport=self._transport,
+                trust_env=False,
             ) as client:
                 response = client.get("/api/version")
                 response.raise_for_status()
@@ -81,6 +82,7 @@ class OllamaAdapter:
                 base_url=self.base_url,
                 transport=self._transport,
                 timeout=None,
+                trust_env=False,
             ) as client:
                 response = await client.post(
                     "/api/chat",
@@ -112,6 +114,7 @@ class OllamaAdapter:
                 base_url=self.base_url,
                 transport=self._transport,
                 timeout=None,
+                trust_env=False,
             ) as client:
                 response = await client.post(
                     "/api/chat",
@@ -157,6 +160,7 @@ class OllamaAdapter:
                 base_url=self.base_url,
                 transport=self._transport,
                 timeout=None,
+                trust_env=False,
             ) as client:
                 payload = self._chat_payload([{"role": "user", "content": prompt}])
                 payload["format"] = {

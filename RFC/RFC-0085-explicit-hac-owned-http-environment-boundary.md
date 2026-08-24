@@ -1,6 +1,6 @@
 # RFC-0085: Explicit HAC-Owned HTTP Environment Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-24
 
@@ -205,11 +205,10 @@ interception or routing controls.
 
 ## Impact
 
-This Draft changes no code, runtime behavior, tests, workflows, dependencies,
-lockfiles, or documentation index. It authorizes neither an implementation nor
-an RFC acceptance decision. A future implementation, if separately authorized,
-would make direct constructor changes only and would preserve the behavior
-listed above.
+This RFC acceptance changes no code, runtime behavior, tests, workflows,
+dependencies, or lockfiles. This PR includes and authorizes no implementation.
+A future implementation, if separately authorized, would make direct
+constructor changes only and would preserve the behavior listed above.
 
 Future implementation evidence should demonstrate all of the following:
 
@@ -230,4 +229,16 @@ investigation and RFC.
 
 ## Decision
 
-Pending.
+Accepted. Every HAC-owned HTTPX client used for fixed-loopback native requests,
+local-runtime requests, declared-remote execution, and declared-remote status
+must be constructed with `trust_env=False`. HAC must configure its owned client
+instances directly and must not mutate process-global environment variables.
+Plugin/provider-owned clients and Aider subprocess networking remain outside
+this boundary.
+
+Declared remote HTTP and HTTPS remain supported, and HTTPS verification must
+remain enabled. This boundary does not support ambient `SSL_CERT_FILE` or
+`SSL_CERT_DIR` private-CA discovery and adds neither proxy nor private-CA
+configuration. A demonstrated need for explicit private-CA support requires a
+separate future investigation and RFC. VPN, Tailscale, DNS, operating-system
+routing, and transparent network controls are not altered.

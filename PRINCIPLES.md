@@ -138,15 +138,17 @@ Large jumps are not.
 
 Important decisions should be written down before they become hidden assumptions.
 
-Questions belong in `QUESTIONS.md`.
+Unsettled questions should be investigated explicitly.
+
+Proposed architectural decisions belong in Draft RFCs before implementation.
+
+Accepted architectural decisions belong in accepted RFCs.
 
 Stable ideas belong in `FOUNDATIONS.md`.
 
 User-facing direction belongs in `VISION.md`.
 
 Deliberate refusals belong in `NON_GOALS.md`.
-
-Long-term decisions belong in RFCs.
 
 The repository is the memory of the project.
 

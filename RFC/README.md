@@ -53,6 +53,11 @@ A rejected RFC remains useful because it explains what was considered and why it
 
 A superseded RFC has been replaced by a newer RFC.
 
+The displayed RFC lists below are intentionally selective navigation aids. They
+highlight architecturally important or currently useful decisions. The `RFC/`
+directory is the complete canonical archive; omission from this selective index
+does not invalidate or supersede an RFC.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -60,7 +65,7 @@ A superseded RFC has been replaced by a newer RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
-## Accepted RFCs
+## Selected accepted RFCs
 
 - [RFC-0084: Persistent Loopback Theme Preference](RFC-0084-persistent-loopback-theme-preference.md)
   — accepts exactly one browser-local presentation preference: a System default
@@ -70,6 +75,10 @@ A superseded RFC has been replaced by a newer RFC.
   — accepts one current-page-only ordered Code conversation in the fixed
   loopback browser, preserving one existing native `code` request per turn and
   RFC-0067's aggregate bound without persistence or new authority.
+- [RFC-0082: Client-Disconnect Cancellation for Ordinary Requests](RFC-0082-client-disconnect-cancellation-for-ordinary-requests.md)
+  — accepts confirmed client-disconnect cancellation of HAC-owned pending
+  ordinary request work, discarding late results without guaranteeing runtime
+  or transport termination.
 - [RFC-0081: Explicit Code-File Target Creation](RFC-0081-explicit-code-file-target-creation.md)
   — accepts one caller-edge amendment to RFC-0080: after non-mutating
   validation, create one explicitly named missing leaf exclusively when its

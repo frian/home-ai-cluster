@@ -1,6 +1,6 @@
 # RFC-0057: Bounded summarize regular-file input
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-07-27
 
@@ -407,4 +407,4 @@ opened-descriptor, bounded-read, validation, privacy, and proof boundaries.
 
 ## Decision
 
-Pending.
+Accepted.

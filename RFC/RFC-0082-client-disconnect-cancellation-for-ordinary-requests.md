@@ -314,4 +314,7 @@ contract proposed here.
 
 ## Decision
 
-Pending.
+Accepted: a confirmed disconnect during pending ordinary-route execution
+cancels HAC-owned work and discards later results; an already terminal HAC
+result wins. This is best-effort HAC-side cancellation and does not guarantee
+runtime or transport termination.

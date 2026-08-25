@@ -543,6 +543,35 @@ def test_interactive_failed_turn_is_not_retained_and_session_continues() -> None
     assert stderr.getvalue() == "error: ordinary request timed out\n"
 
 
+def test_interactive_empty_result_is_not_retained_and_session_continues() -> None:
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        contents = ["first answer", "", "third answer"]
+        return httpx.Response(
+            200, json=result_body(content=contents[len(requests) - 1])
+        )
+
+    stdout, stderr = terminal(), StringIO()
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("first\nsecond\nthird\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert len(requests) == 3
+    assert requests[2]["messages"] == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "first answer"},
+        {"role": "user", "content": "third"},
+    ]
+    assert stderr.getvalue() == "error: invalid cluster response\n"
+    assert stdout.getvalue() == "> first answer\n> > third answer\n> "
+
+
 def test_interactive_blank_turns_send_nothing_and_eof_returns_normally() -> None:
     requests: list[httpx.Request] = []
 
@@ -590,6 +619,23 @@ def test_interactive_aggregate_bound_rejects_only_the_new_turn() -> None:
 
     assert len(requests) == 1
     assert stderr.getvalue() == "error: invalid request input\n"
+
+
+def test_one_shot_empty_result_remains_a_successful_content_response(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=""))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--message", "request"],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 0
+    assert stdout == "\n"
+    assert stderr == ""
 
 
 @pytest.mark.parametrize(

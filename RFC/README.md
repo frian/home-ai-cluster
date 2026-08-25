@@ -58,6 +58,13 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Selected draft RFCs
+
+- [RFC-0086: Positional Bounded Code Command Messages](RFC-0086-positional-bounded-code-command-messages.md)
+  — proposes one additive positional-message alternative for bounded `code`,
+  `code-file`, and `aider` commands while preserving their existing explicit
+  `--message`, file-target, request, and lifecycle boundaries.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

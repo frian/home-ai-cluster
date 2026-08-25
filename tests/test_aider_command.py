@@ -80,6 +80,9 @@ def _post_bridge(
         ["--message", "request"],
         ["--file", "target.py", "--file", "other.py", "--message", "request"],
         ["--file", "target.py", "--message", "request", "--message", "again"],
+        ["--file", "target.py", "request", "--message", "again"],
+        ["--file", "target.py", "one", "two"],
+        ["--file", "target.py", "   "],
         ["--file", "target.py", "--message", "   "],
         ["--file", "target.py", "--message", "request", "--timeout-seconds", "0"],
         ["--file", "target.py", "--message", "request", "--unknown"],
@@ -96,6 +99,7 @@ def test_input_uses_existing_timeout_default_and_validation() -> None:
     parsed = aider_command._parse_input(
         ["--file", "target.py", "--message", "request", "--timeout-seconds", "300"]
     )
+
     assert parsed.timeout_seconds == 300.0
     assert (
         aider_command._parse_input(
@@ -103,6 +107,28 @@ def test_input_uses_existing_timeout_default_and_validation() -> None:
         ).timeout_seconds
         == 120.0
     )
+
+
+def test_positional_and_option_messages_normalize_to_the_same_child_input() -> None:
+    positional = aider_command._parse_input(["--file", "target.py", "request"])
+    option = aider_command._parse_input(["--file", "target.py", "--message", "request"])
+
+    assert positional == option
+
+
+def test_aider_rejects_both_message_forms_before_child_or_target_creation(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "target.py"
+
+    with pytest.raises(SystemExit) as raised:
+        aider_command.main(
+            ["--file", str(target), "request", "--message", "other"],
+            _which=lambda name: pytest.fail("must not find Aider"),
+        )
+
+    assert raised.value.code == 2
+    assert not target.exists()
 
 
 def test_invalid_target_fails_before_aider_or_target_creation(

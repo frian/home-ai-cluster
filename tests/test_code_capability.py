@@ -100,12 +100,48 @@ def test_code_uses_legacy_chat_transport_envelope() -> None:
     assert body["request"]["capability"] == {"name": "code"}
 
 
-def test_code_command_requires_one_bounded_explicit_message() -> None:
+@pytest.mark.parametrize(
+    "argv",
+    (
+        [],
+        ["   "],
+        ["--message", "   "],
+        ["--message", "first", "--message", "second"],
+        ["message", "--message", "other"],
+        ["one", "two"],
+        ["--unknown"],
+        ["--message", "x" * 65_537],
+    ),
+)
+def test_code_command_requires_one_bounded_message(argv: list[str]) -> None:
     assert code_command._native_request("hello")["capability"] == "code"
     with pytest.raises(code_command.chat_command._InvalidRequestInput):
-        code_command._parse_input(["--message", "x" * 65_537])
-    with pytest.raises(code_command.chat_command._InvalidRequestInput):
-        code_command._parse_input([])
+        code_command._parse_input(argv)
+
+
+def test_code_positional_and_option_messages_normalize_to_the_same_request() -> None:
+    positional = code_command._parse_input(["Write a function"])
+    option = code_command._parse_input(["--message", "Write a function"])
+
+    assert positional.message == option.message == "Write a function"
+    assert code_command._native_request(
+        positional.message
+    ) == code_command._native_request(option.message)
+
+
+def test_code_rejects_both_message_forms_before_request_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        code_command.chat_command,
+        "_post_native_request",
+        lambda *args, **kwargs: pytest.fail("must not request"),
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        code_command.main(["request", "--message", "other"])
+
+    assert raised.value.code == 2
 
 
 def test_code_command_uses_chat_path_and_code_specific_404(

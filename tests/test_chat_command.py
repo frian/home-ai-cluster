@@ -514,7 +514,25 @@ def test_interactive_turns_send_complete_successful_context_and_per_turn_timeout
     ]
     assert timeouts == [300.0, 300.0]
     assert stdout.getvalue() == "> answer 1\n> answer 2\n> "
-    assert stderr.getvalue() == ""
+    assert stderr.getvalue() == "…\n…\n"
+
+
+def test_interactive_working_indicator_precedes_one_submitted_request() -> None:
+    stderr = StringIO()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert stderr.getvalue() == "…\n"
+        return httpx.Response(200, json=result_body(content="answer"))
+
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("message\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert stderr.getvalue() == "…\n"
 
 
 def test_interactive_failed_turn_is_not_retained_and_session_continues() -> None:
@@ -540,7 +558,7 @@ def test_interactive_failed_turn_is_not_retained_and_session_continues() -> None
         {"role": "assistant", "content": "answer 1"},
         {"role": "user", "content": "third"},
     ]
-    assert stderr.getvalue() == "error: ordinary request timed out\n"
+    assert stderr.getvalue() == "…\n…\nerror: ordinary request timed out\n…\n"
 
 
 def test_interactive_empty_result_is_not_retained_and_session_continues() -> None:
@@ -568,7 +586,7 @@ def test_interactive_empty_result_is_not_retained_and_session_continues() -> Non
         {"role": "assistant", "content": "first answer"},
         {"role": "user", "content": "third"},
     ]
-    assert stderr.getvalue() == "error: invalid cluster response\n"
+    assert stderr.getvalue() == "…\n…\nerror: invalid cluster response\n…\n"
     assert stdout.getvalue() == "> first answer\n> > third answer\n> "
 
 
@@ -579,25 +597,43 @@ def test_interactive_blank_turns_send_nothing_and_eof_returns_normally() -> None
         requests.append(request)
         return httpx.Response(200, json=result_body(content="answer"))
 
+    stderr = StringIO()
     main(
         [],
         _client_factory=client_factory(httpx.MockTransport(handler)),
         _stdin=terminal("\n  \t\nmessage\n"),
         _stdout=terminal(),
-        _stderr=StringIO(),
+        _stderr=stderr,
     )
 
     assert len(requests) == 1
+    assert stderr.getvalue() == "…\n"
+
+
+def test_interactive_blank_turns_and_eof_emit_no_working_indicator() -> None:
+    stderr = StringIO()
+    main(
+        [],
+        _client_factory=unused_client,
+        _stdin=terminal("\n  \t\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert stderr.getvalue() == ""
 
 
 def test_interactive_ctrl_c_exits_cleanly_without_a_request() -> None:
+    stderr = StringIO()
     main(
         [],
         _client_factory=unused_client,
         _stdin=interrupted_terminal(),
         _stdout=terminal(),
-        _stderr=StringIO(),
+        _stderr=stderr,
     )
+
+    assert stderr.getvalue() == ""
 
 
 def test_interactive_aggregate_bound_rejects_only_the_new_turn() -> None:
@@ -618,7 +654,7 @@ def test_interactive_aggregate_bound_rejects_only_the_new_turn() -> None:
     )
 
     assert len(requests) == 1
-    assert stderr.getvalue() == "error: invalid request input\n"
+    assert stderr.getvalue() == "…\nerror: invalid request input\n"
 
 
 def test_one_shot_empty_result_remains_a_successful_content_response(

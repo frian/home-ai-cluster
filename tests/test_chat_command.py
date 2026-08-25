@@ -1,9 +1,29 @@
 import json
+from io import StringIO
 
 import httpx
 import pytest
 
-from home_ai_cluster.chat_command import _REQUEST_TIMEOUT_SECONDS, main
+from home_ai_cluster.chat_command import (
+    _INTERACTIVE_MESSAGE_CONTENT_LIMIT,
+    _REQUEST_TIMEOUT_SECONDS,
+    main,
+)
+
+
+class terminal(StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+class non_terminal(StringIO):
+    def isatty(self) -> bool:
+        return False
+
+
+class interrupted_terminal(terminal):
+    def readline(self, size: int | None = -1) -> str:
+        raise KeyboardInterrupt
 
 
 def client_factory(handler: httpx.MockTransport):
@@ -420,6 +440,202 @@ def test_other_httpx_request_failures_are_safely_mapped(
     assert stderr == "error: ordinary request failed\n"
     assert "private" not in stderr
     assert "protocol" not in stderr
+
+
+def test_no_message_requires_both_terminal_streams_before_read_or_request() -> None:
+    for stdin, stdout in [
+        (non_terminal("unexpected"), terminal()),
+        (terminal(), non_terminal()),
+    ]:
+        stderr = StringIO()
+        with pytest.raises(SystemExit) as raised:
+            main(
+                [],
+                _client_factory=unused_client,
+                _stdin=stdin,
+                _stdout=stdout,
+                _stderr=stderr,
+            )
+
+        assert raised.value.code == 2
+        assert stdin.tell() == 0
+        assert stderr.getvalue() == "error: invalid request input\n"
+
+
+@pytest.mark.parametrize("arguments", [["--json"], ["--verbose"], ["-v"]])
+def test_no_message_output_modes_fail_before_request(arguments: list[str]) -> None:
+    stderr = StringIO()
+    with pytest.raises(SystemExit) as raised:
+        main(
+            arguments,
+            _client_factory=unused_client,
+            _stdin=terminal(),
+            _stdout=terminal(),
+            _stderr=stderr,
+        )
+
+    assert raised.value.code == 2
+    assert stderr.getvalue() == "error: invalid request input\n"
+
+
+def test_interactive_turns_send_complete_successful_context_and_per_turn_timeout() -> (
+    None
+):
+    requests: list[dict[str, object]] = []
+    timeouts: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=result_body(content=f"answer {len(requests)}"))
+
+    def create_client(**kwargs: object) -> httpx.Client:
+        timeouts.append(kwargs["timeout"])  # type: ignore[arg-type]
+        return httpx.Client(transport=httpx.MockTransport(handler), **kwargs)
+
+    stdout, stderr = terminal(), StringIO()
+    main(
+        ["--timeout-seconds", "300"],
+        _client_factory=create_client,
+        _stdin=terminal("first\nsecond\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert requests == [
+        {"messages": [{"role": "user", "content": "first"}], "capability": "chat"},
+        {
+            "messages": [
+                {"role": "user", "content": "first"},
+                {"role": "assistant", "content": "answer 1"},
+                {"role": "user", "content": "second"},
+            ],
+            "capability": "chat",
+        },
+    ]
+    assert timeouts == [300.0, 300.0]
+    assert stdout.getvalue() == "> answer 1\n> answer 2\n> "
+    assert stderr.getvalue() == ""
+
+
+def test_interactive_failed_turn_is_not_retained_and_session_continues() -> None:
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        if len(requests) == 2:
+            raise httpx.ReadTimeout("private")
+        return httpx.Response(200, json=result_body(content=f"answer {len(requests)}"))
+
+    stdout, stderr = terminal(), StringIO()
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("first\nfailed\nthird\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert requests[2]["messages"] == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "answer 1"},
+        {"role": "user", "content": "third"},
+    ]
+    assert stderr.getvalue() == "error: ordinary request timed out\n"
+
+
+def test_interactive_empty_result_is_not_retained_and_session_continues() -> None:
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        contents = ["first answer", "", "third answer"]
+        return httpx.Response(
+            200, json=result_body(content=contents[len(requests) - 1])
+        )
+
+    stdout, stderr = terminal(), StringIO()
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("first\nsecond\nthird\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert len(requests) == 3
+    assert requests[2]["messages"] == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "first answer"},
+        {"role": "user", "content": "third"},
+    ]
+    assert stderr.getvalue() == "error: invalid cluster response\n"
+    assert stdout.getvalue() == "> first answer\n> > third answer\n> "
+
+
+def test_interactive_blank_turns_send_nothing_and_eof_returns_normally() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json=result_body(content="answer"))
+
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("\n  \t\nmessage\n"),
+        _stdout=terminal(),
+        _stderr=StringIO(),
+    )
+
+    assert len(requests) == 1
+
+
+def test_interactive_ctrl_c_exits_cleanly_without_a_request() -> None:
+    main(
+        [],
+        _client_factory=unused_client,
+        _stdin=interrupted_terminal(),
+        _stdout=terminal(),
+        _stderr=StringIO(),
+    )
+
+
+def test_interactive_aggregate_bound_rejects_only_the_new_turn() -> None:
+    accepted = "é" * (_INTERACTIVE_MESSAGE_CONTENT_LIMIT // 2)
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=result_body(content="a"))
+
+    stderr = StringIO()
+    main(
+        [],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal(f"{accepted}\nx\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert len(requests) == 1
+    assert stderr.getvalue() == "error: invalid request input\n"
+
+
+def test_one_shot_empty_result_remains_a_successful_content_response(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body(content=""))
+
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--message", "request"],
+        httpx.MockTransport(handler),
+    )
+
+    assert exit_code == 0
+    assert stdout == "\n"
+    assert stderr == ""
 
 
 @pytest.mark.parametrize(

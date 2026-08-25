@@ -216,7 +216,8 @@ Summarize, classify, and code are not supported through this Chat-only surface.
 
 ## `hac chat`
 
-**Purpose:** Send one native chat request to an already-running ordinary process.
+**Purpose:** Send one native chat request to an already-running ordinary process,
+or start one bounded foreground conversation from an ordinary terminal.
 
 **Common forms:**
 
@@ -226,17 +227,30 @@ hac chat --message "Hello"
 hac chat --timeout-seconds 300 "Hello"
 hac chat "Hello" --verbose
 hac chat "Hello" --json
+hac chat
 ```
 
 **Important behavior:** The command sends one request to the fixed local caller
 endpoint; it does not start the application. It remains topology-blind and
-returns cluster-owned execution attribution. Request content is not retained by
-this command. `--timeout-seconds SECONDS` accepts one base-10 integer from `1`
-through `3600` for this invocation; omission keeps the 120-second default. The
-value is the HTTP client's pool/connect/write/read scalar timeout, not a total
-deadline. It adds no retry or cancellation. A timeout does not prove work has
-stopped elsewhere, so do not immediately repeat a timed-out request on slow
-hardware without accepting that it can create additional work.
+returns cluster-owned execution attribution. The explicit-message forms remain
+one-shot: each sends exactly one request and terminates, with their existing
+content, `--verbose`, and `--json` output behavior unchanged.
+
+With no message, `hac chat` is interactive only when both stdin and stdout are
+TTYs; otherwise it fails locally without reading stdin or sending a request.
+Interactive mode is ordinary content-only presentation: `--json`, `--verbose`,
+and `-v` are invalid without a message. Successful exchanges are retained only
+in the foreground process, in chronological user/assistant order, and every
+new turn sends that complete context in one ordinary Chat request. Nothing is
+persisted; EOF/Ctrl-D and Ctrl-C end the session.
+
+Interactive candidate message content is limited to 65,536 UTF-8 bytes across
+all retained messages and the new turn. An over-limit or failed turn is not
+retained, sends no retry, and leaves earlier successful context intact.
+`--timeout-seconds SECONDS` accepts one base-10 integer from `1` through `3600`;
+omission keeps the 120-second default. In interactive mode it applies separately
+to each request, never while waiting for terminal input. The value is the HTTP
+client's pool/connect/write/read scalar timeout, not a total deadline.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

@@ -274,6 +274,7 @@ def _run_interactive(
                 print(_INVALID_INPUT, file=stderr)
                 continue
 
+            print("…", file=stderr)
             result, failure = _send_native_request(
                 candidate,
                 timeout_seconds=timeout_seconds,

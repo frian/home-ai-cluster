@@ -1,6 +1,6 @@
 # Contributing
 
-Status: Draft
+Status: Current
 
 Home AI Cluster is built in small, understandable steps.
 
@@ -57,11 +57,12 @@ discussion
 For architectural decisions, the workflow is:
 
 ```text
-discussion
-  -> RFC
-  -> draft pull request
+architectural question
+  -> investigation
+  -> Draft RFC
+  -> Draft pull request
   -> review
-  -> merge
+  -> merge as Accepted RFC
   -> implementation
 ```
 
@@ -81,7 +82,10 @@ Before implementing a change, ask:
 
 If the answer is no, a normal pull request is enough.
 
-If the answer is yes, write or update an RFC first.
+If the answer is yes, investigate it explicitly when it is unsettled, then
+propose it in a Draft RFC. If it changes an accepted decision, use a new Draft
+RFC that explicitly amends or supersedes the earlier RFC as appropriate. Do not
+silently or casually rewrite accepted RFC history.
 
 A decision probably deserves an RFC when it affects:
 
@@ -141,7 +145,6 @@ Examples:
 ```text
 rfc-0003-runtime-adapter-interface
 docs-contributing
-bootstrap-python-project
 feature-static-node-registry
 fix-routing-explanation
 refactor-adapter-interface
@@ -205,6 +208,12 @@ It is a workspace.
 
 When the change is ready, mark it as ready for review, then merge it when accepted.
 
+Changes reach `main` through a pull request, not a direct push. Draft pull
+requests remain the preferred workspace while a change is being shaped, but a
+Draft pull request must be marked ready before merge. Before merge, update the
+topic branch with `main`, resolve conversations, pass the required quality
+checks, and use a normal merge commit.
+
 ## Development lockfile
 
 `uv.lock` is intentionally tracked so repository checkouts and CI use a
@@ -214,6 +223,22 @@ dependency metadata in `pyproject.toml`, not this repository lockfile.
 When dependencies change, update both `pyproject.toml` and `uv.lock`. Use
 `uv lock --check` to verify they remain synchronized. CI and release validation
 use the tracked lock without updating it; do not edit `uv.lock` manually.
+
+## Local quality gates
+
+Python 3.13 and 3.14 are supported and validated by CI. Use the locked
+environment and, before marking a Draft pull request ready, run the
+CI-aligned sequence below. GitHub runs the quality job on both Python 3.13 and
+3.14.
+
+```bash
+git diff --check
+uv lock --check
+uv sync --locked
+uv run --locked ruff format --check .
+uv run --locked ruff check .
+uv run --locked pytest
+```
 
 ---
 
@@ -230,7 +255,6 @@ Good examples:
 ```text
 Add RFC-0003 runtime adapter interface
 Document architecture-before-implementation workflow
-Bootstrap Python project
 Implement static node registry
 Add Ollama runtime adapter
 Fix node capability matching

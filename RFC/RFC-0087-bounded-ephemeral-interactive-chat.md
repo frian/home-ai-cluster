@@ -222,6 +222,18 @@ issue retries, correction requests, planning turns, tools, function calls, or
 agent loops. A valid `ClusterResult.content` becomes the next retained
 assistant message and remains ordinary text.
 
+An empty `ClusterResult.content` remains a valid ordinary one-shot Chat result
+and retains its existing one-shot success and output behavior. Interactive
+state has the stricter representability requirement that a retained assistant
+turn must be an existing non-empty `ChatMessage`. Therefore, an otherwise
+validated interactive result with empty content cannot become retained state:
+the CLI treats that submitted turn as a local interactive-conversation failure,
+reports the existing safe invalid-cluster-response classification, retains
+neither the submitted user turn nor an assistant turn, preserves earlier
+successful exchanges, performs no retry, and keeps the foreground session
+running. This narrow rule does not change `ClusterResult`, `ChatMessage`, a
+server response schema, or one-shot Chat behavior.
+
 ### Blank interactive turns
 
 A terminal input containing no characters or only whitespace is not a submitted
@@ -250,6 +262,12 @@ failure, or through invalid result validation, the command preserves all prior
 successful exchanges, appends no synthetic assistant message, and sends no
 automatic retry or correction request. The failed user text is not retained as
 conversation state.
+
+For this interactive lifecycle, an otherwise validated result with empty
+content is also a failed turn because it cannot be represented as the retained
+assistant `ChatMessage`. It uses the existing safe invalid-cluster-response
+classification; it does not alter ordinary one-shot result validation or
+presentation.
 
 The implementation may leave exact prompt redisplay wording to its focused
 terminal design, provided it remains foreground-owned and does not transform
@@ -341,6 +359,13 @@ each native request preserves its ordinary client boundary without imposing a
 deadline on operator thought or terminal input. Restricting interactive output
 to ordinary content avoids turning a human foreground loop into a second
 machine-readable protocol.
+
+The existing models deliberately allow an empty normalized result while
+requiring a non-empty retained `ChatMessage`. Widening that shared message model
+for one CLI edge would alter a broader contract, while creating a second
+retained-message representation would add needless lifecycle complexity. The
+existing failed-turn rollback is the smallest consistent behavior: it adds no
+fake assistant content, silent insertion, persistence, or schema change.
 
 ## Alternatives considered
 
@@ -435,13 +460,18 @@ A later implementation must demonstrate at minimum that:
 9. every failed turn, including a timeout, retains neither its user text nor a
    synthetic assistant message, continues the foreground session unless the
    operator terminates it, and preserves earlier successful exchanges;
-10. independent routing remains non-sticky across turns;
-11. the aggregate calculation includes retained assistant results and rejects an
+10. an interactive native response with a structurally valid `ClusterResult`
+    and `content=""` reports the safe invalid-cluster-response failure, retains
+    neither the submitted user turn nor an assistant turn, preserves earlier
+    successful context, continues the loop, and sends no automatic retry;
+    one-shot empty-result behavior remains unchanged;
+11. independent routing remains non-sticky across turns;
+12. the aggregate calculation includes retained assistant results and rejects an
    over-limit candidate before network transmission without modifying state;
-12. a successful oversized assistant result remains intact even if it prevents a
+13. a successful oversized assistant result remains intact even if it prevents a
    later turn;
-13. EOF and Ctrl-C end the foreground session without persistence; and
-14. no stdin protocol, file, database, session, conversation ID, daemon,
+14. EOF and Ctrl-C end the foreground session without persistence; and
+15. no stdin protocol, file, database, session, conversation ID, daemon,
    history expansion, retry, summary, pruning, token counting, tools, agents,
    streaming, filesystem, shell, browser, or compatibility behavior appears.
 
@@ -480,6 +510,14 @@ user/assistant context plus the new user message. Only successful
 user/assistant exchanges are retained; failed turns are not retained or
 automatically retried. Routing remains independent and stateless across turns,
 with no sticky node, model, runtime, or session ownership.
+
+An otherwise validated interactive `ClusterResult` with empty content is a
+failed turn because the existing retained assistant `ChatMessage` contract is
+non-empty. It reports the existing safe invalid-cluster-response classification,
+retains neither turn, preserves earlier successful context, performs no retry,
+and leaves the session active. This is interactive-only: one-shot empty-result
+behavior remains unchanged, and this decision changes neither core model nor
+server response schema.
 
 The interactive candidate request is bounded to 65,536 aggregate UTF-8 bytes of
 message content. Over-limit candidates are rejected locally without

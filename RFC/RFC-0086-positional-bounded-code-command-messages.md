@@ -1,6 +1,6 @@
 # RFC-0086: Positional Bounded Code Command Messages
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-25
 
@@ -239,4 +239,15 @@ None within this narrow proposed decision.
 
 ## Decision
 
-Pending.
+Accepted.
+
+`hac code`, `hac code-file`, and `hac aider` may accept exactly one message
+either positionally or through exactly one existing `--message`; the forms are
+mutually exclusive, and `--message` remains fully supported and
+non-deprecated. Existing `--file` semantics remain unchanged.
+
+This decision authorizes no interactive mode, stdin, REPL, argument joining,
+session state, or automatic message acquisition. Existing request,
+bounded-input, target, timeout, output, failure, privacy, routing, transport,
+runtime, fallback, persistence, and lifecycle behavior remains unchanged.
+Implementation is authorized only in a later separate implementation PR.

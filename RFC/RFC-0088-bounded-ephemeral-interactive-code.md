@@ -1,6 +1,6 @@
 # RFC-0088: Bounded Ephemeral Interactive Code
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-25
 
@@ -348,4 +348,50 @@ interactive capability, `code-file`, or `aider` behavior is proposed here.
 
 ## Decision
 
-Pending.
+Accepted.
+
+RFC-0088 accepts one TTY-only foreground interactive lifecycle for native
+`hac code` when neither positional `MESSAGE` nor `--message` is supplied.
+Existing positional and `--message` Code forms remain unchanged one-shot
+commands. Interactive eligibility requires both `sys.stdin.isatty()` and
+`sys.stdout.isatty()`; a non-TTY no-message invocation fails locally without
+reading stdin or sending a request.
+
+`--timeout-seconds N` is valid in interactive mode and applies independently to
+each submitted ordinary native Code request, never to terminal input waiting or
+as a session-wide deadline. No-message `--json`, `--verbose`, and `-v` are
+invalid local input, while those modes remain unchanged for one-shot
+explicit-message Code. Blank or whitespace-only input sends no request, changes
+no retained state, and leaves the loop running.
+
+Successful conversation state belongs only to the foreground CLI process and
+exists only in RAM. Each submitted turn sends exactly one ordinary,
+independently routed `capability=code` request containing the complete retained
+successful ordered user/assistant context plus the new user message. Retained
+assistant content is the exact prior Code result, including Markdown, prose,
+code fences, or usage instructions; HAC performs no automatic cleanup,
+Markdown stripping, code-fence extraction, or instruction removal. Only
+successful representable exchanges are retained; failed turns are not retained
+or automatically retried.
+
+RFC-0067's existing 65,536 UTF-8-byte aggregate Code message-content bound
+applies to the complete candidate request; no second interactive Code bound is
+introduced. Over-limit candidates are rejected locally before transmission,
+without pruning, summarization, truncation, or state mutation. A structurally
+valid empty one-shot Code result retains its existing one-shot behavior. An
+otherwise valid empty interactive result that cannot become a non-empty
+retained `ChatMessage` is the existing safe invalid-cluster-response failed
+turn: that turn rolls back and the session continues.
+
+Routing remains independent and stateless across turns, with no sticky
+node/model/runtime/adapter/session ownership. EOF / Ctrl-D and Ctrl-C terminate
+the foreground session without persistence. Simple foreground presentation may
+indicate request submission, but no spinner, animation, progress framework,
+timer, color system, or streaming contract is accepted.
+
+Interactive Code remains text-only bounded Code assistance. It gains no
+authority to execute generated code; read or write files; inspect repositories;
+run tests; invoke shell, Git, or build commands; call tools or functions;
+modify a workspace; or act as an agent. This decision accepts nothing for
+`code-file`, `aider`, or a generic interactive capability/session framework.
+Implementation is authorized only in a later separate implementation PR.

@@ -117,6 +117,49 @@ Under RFC-0050 and RFC-0052, root command aliases continue to forward their
 remaining arguments unchanged to the existing Chat command owner. The
 standalone Chat executable uses that same owner and has the same distinction.
 
+### Existing option behavior
+
+The existing timeout option is valid with no message:
+
+```text
+hac chat --timeout-seconds 300
+```
+
+RFC-0060 remains authoritative for validation and scalar timeout semantics. In
+interactive mode, the selected timeout applies independently to each ordinary
+native Chat request sent for a submitted user turn. It does not apply while the
+foreground process waits for terminal user input and does not create a
+session-wide deadline.
+
+If one submitted turn times out, it follows the failed-turn rule in this RFC:
+all earlier successful conversation state remains retained, the failed user
+turn is not retained, no assistant message is appended, and no retry occurs.
+The foreground interactive session continues unless the operator terminates it.
+
+No-message interactive mode supports only ordinary content presentation. These
+no-message forms are invalid local input:
+
+```text
+hac chat --json
+hac chat --verbose
+hac chat -v
+```
+
+They fail before any request. This RFC defines no interactive JSON, verbose
+multi-turn output, event stream, JSON Lines, transcript envelope, or other
+machine-readable interactive protocol. Keeping structured and verbose
+presentation one-shot avoids creating a new interactive presentation or
+automation contract.
+
+The existing output options remain unchanged for one-shot invocations with one
+positional message or exactly one `--message`; for example:
+
+```text
+hac chat "Hello" --json
+hac chat --message "Hello" --json
+hac chat "Hello" --verbose
+```
+
 ### TTY and non-TTY behavior
 
 No-message interactive entry requires both of these precise conditions:
@@ -179,6 +222,14 @@ issue retries, correction requests, planning turns, tools, function calls, or
 agent loops. A valid `ClusterResult.content` becomes the next retained
 assistant message and remains ordinary text.
 
+### Blank interactive turns
+
+A terminal input containing no characters or only whitespace is not a submitted
+Chat turn. The CLI rejects it locally, sends no native request, stores no input,
+leaves the retained successful conversation unchanged, and keeps the
+interactive session running for another terminal input. Exact prompt and error
+wording remain implementation details.
+
 ### Routing remains stateless
 
 Every interactive turn is an independent ordinary Chat request. Existing
@@ -235,10 +286,11 @@ starts a daemon, leaves a reconnectable session, or attempts to preserve
 conversation state.
 
 The terminal presentation is deliberately small. A later implementation may use
-simple operator and assistant prompts and ordinary existing result text. It
-must not introduce curses, Rich, a color system, Markdown rendering, streaming,
-a dashboard, or an interactive editor. Exact prompts and spacing are
-implementation details unless they become an explicit automation contract.
+simple operator and assistant prompts and ordinary content result text. It must
+not introduce curses, Rich, a color system, Markdown rendering, streaming, a
+dashboard, an interactive editor, or structured/verbose multi-turn output.
+Exact prompts and spacing are implementation details unless they become an
+explicit automation contract.
 
 ### Privacy and persistence boundary
 
@@ -261,8 +313,10 @@ message form.
 RFC-0049 remains authoritative for one-shot Chat success presentation.
 RFC-0050 and RFC-0052 remain authoritative for root and installed alias
 ownership. RFC-0055 and RFC-0060 remain authoritative for the ordinary native
-client timeout and timeout override. RFC-0062 remains browser-specific and is
-unchanged. RFC-0035 remains the separate explicit prompt-free local history.
+client timeout and timeout override; this RFC applies RFC-0060's selected
+per-request timeout to each submitted interactive turn, not terminal input.
+RFC-0062 remains browser-specific and is unchanged. RFC-0035 remains the
+separate explicit prompt-free local history.
 
 RFC-0083 is the architectural precedent for client-owned ephemeral ordered
 conversation, complete successful context on every independently routed turn,
@@ -282,7 +336,11 @@ responsible for validation, routing, execution, and results.
 The two-stream TTY check prevents `hac chat` from ambiguously blocking in
 automation or consuming data intended for another program. The fixed byte bound
 preserves a finite operator-owned limit without pretending to know every
-engine's tokenization or context window.
+engine's tokenization or context window. Reusing the existing timeout only for
+each native request preserves its ordinary client boundary without imposing a
+deadline on operator thought or terminal input. Restricting interactive output
+to ordinary content avoids turning a human foreground loop into a second
+machine-readable protocol.
 
 ## Alternatives considered
 
@@ -362,20 +420,30 @@ A later implementation must demonstrate at minimum that:
    are TTYs;
 3. every non-TTY no-message form fails before reading stdin or sending a
    request;
-4. the first and later successful turns send one ordinary `capability=chat`
+4. `hac chat --timeout-seconds N` enters interactive mode on eligible TTY
+   streams and applies the selected RFC-0060 timeout independently to each
+   submitted native request, while waiting for user input is not governed by
+   that timeout;
+5. no-message `--json`, `--verbose`, and `-v` each fail locally before any
+   request, while those output flags remain unchanged on one-shot message
+   invocations;
+6. blank and whitespace-only terminal input sends no request, changes no
+   retained state, stores no input, and leaves the loop active;
+7. the first and later successful turns send one ordinary `capability=chat`
    request each, with later lists containing complete successful context;
-5. successful turns are retained in chronological user/assistant order;
-6. every failed turn retains neither its user text nor a synthetic assistant
-   message, while preserving earlier successful exchanges;
-7. independent routing remains non-sticky across turns;
-8. the aggregate calculation includes retained assistant results and rejects an
+8. successful turns are retained in chronological user/assistant order;
+9. every failed turn, including a timeout, retains neither its user text nor a
+   synthetic assistant message, continues the foreground session unless the
+   operator terminates it, and preserves earlier successful exchanges;
+10. independent routing remains non-sticky across turns;
+11. the aggregate calculation includes retained assistant results and rejects an
    over-limit candidate before network transmission without modifying state;
-9. a successful oversized assistant result remains intact even if it prevents a
+12. a successful oversized assistant result remains intact even if it prevents a
    later turn;
-10. EOF and Ctrl-C end the foreground session without persistence; and
-11. no stdin protocol, file, database, session, conversation ID, daemon,
-    history expansion, retry, summary, pruning, token counting, tools, agents,
-    streaming, filesystem, shell, browser, or compatibility behavior appears.
+13. EOF and Ctrl-C end the foreground session without persistence; and
+14. no stdin protocol, file, database, session, conversation ID, daemon,
+   history expansion, retry, summary, pruning, token counting, tools, agents,
+   streaming, filesystem, shell, browser, or compatibility behavior appears.
 
 Retained proof material must contain no real prompts, generated content,
 private addresses, model/runtime details, credentials, or raw exceptions.

@@ -23,7 +23,7 @@ local-first, and explicit.
 | Native capabilities | Chat, Summarize, Classify, and Code. A narrow fallback applies only when an eligible candidate is unavailable before request transmission; results carry cluster-owned node attribution. |
 | Ordinary interfaces | Use the `hac` command, cluster-native HTTP endpoints, or the fixed loopback browser for Chat, Summarize, Classify, and Code. The browser is not a dashboard, LAN interface, persistent server-side conversation store, filesystem authority, or execution environment. |
 | Optional bounded integrations | Use the narrow loopback OpenAI-compatible Chat process, bounded Aider and code caller edges, or explicit separately installed external-information acquisition. |
-| Historical evidence | Retained investigations, runbooks, proofs, and closeouts are indexed separately; they are not required ordinary operation. |
+| Historical evidence | Retained investigations, runbooks, proofs, and closeouts are indexed separately; they are not required for ordinary operation. |
 
 Topology declarations and runtime lifecycle remain operator-owned.
 
@@ -69,8 +69,7 @@ Start the ordinary local process in the foreground:
 hac local
 ```
 
-From another terminal, or after starting the process on the same machine, send
-one request:
+From another terminal on the same machine, send one request:
 
 ```sh
 hac chat "Hello"

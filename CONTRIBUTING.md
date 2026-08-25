@@ -60,7 +60,7 @@ For architectural decisions, the workflow is:
 architectural question
   -> investigation
   -> Draft RFC
-  -> draft pull request
+  -> Draft pull request
   -> review
   -> merge as Accepted RFC
   -> implementation
@@ -231,7 +231,7 @@ environment and, before marking a Draft pull request ready, run the
 CI-aligned sequence below. GitHub runs the quality job on both Python 3.13 and
 3.14.
 
-```text
+```bash
 git diff --check
 uv lock --check
 uv sync --locked

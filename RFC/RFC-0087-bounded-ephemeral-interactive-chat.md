@@ -1,6 +1,6 @@
 # RFC-0087: Bounded Ephemeral Interactive Chat
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-25
 
@@ -457,4 +457,37 @@ session framework.
 
 ## Decision
 
-Pending.
+Accepted.
+
+RFC-0087 accepts one TTY-only foreground interactive lifecycle for native Chat
+when neither a positional message nor --message is supplied. Existing
+positional and --message forms remain unchanged one-shot commands. Interactive
+eligibility requires both sys.stdin.isatty() and sys.stdout.isatty(); a
+non-TTY no-message invocation fails locally without reading stdin or sending a
+request.
+
+--timeout-seconds N is valid in interactive mode and applies independently to
+each submitted ordinary native request, never to terminal input waiting and
+never as a session-wide deadline. No-message --json, --verbose, and -v are
+invalid local input, while those output modes remain unchanged for one-shot
+message forms. Blank or whitespace-only interactive input sends no request,
+changes no retained state, is not stored, and leaves the session running.
+
+Successful conversation state belongs only to the foreground CLI process and
+exists only in memory. Each submitted turn sends one ordinary native
+capability=chat request containing the complete retained successful
+user/assistant context plus the new user message. Only successful
+user/assistant exchanges are retained; failed turns are not retained or
+automatically retried. Routing remains independent and stateless across turns,
+with no sticky node, model, runtime, or session ownership.
+
+The interactive candidate request is bounded to 65,536 aggregate UTF-8 bytes of
+message content. Over-limit candidates are rejected locally without
+truncation, summarization, pruning, or state mutation. EOF / Ctrl-D and Ctrl-C
+terminate the foreground session without persistence.
+
+This decision accepts no stdin message protocol, persistent conversation, saved
+history, server session, database, conversation ID, slash commands, tools,
+agent loop, streaming, generic conversation framework, browser change,
+Code/Aider change, filesystem authority, or shell authority. Implementation is
+authorized only in a later separate implementation PR.

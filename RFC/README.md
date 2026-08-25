@@ -58,13 +58,6 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
-## Draft RFCs
-
-- [RFC-0087: Bounded Ephemeral Interactive Chat](RFC-0087-bounded-ephemeral-interactive-chat.md)
-  — proposes one TTY-only, process-owned, bounded ephemeral conversation for
-  no-message native Chat invocation while preserving every existing one-shot
-  Chat form.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -74,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0087: Bounded Ephemeral Interactive Chat](RFC-0087-bounded-ephemeral-interactive-chat.md)
+  — accepts one TTY-only, process-owned, bounded ephemeral conversation for
+  no-message native Chat invocation while preserving every existing one-shot
+  Chat form.
 - [RFC-0086: Positional Bounded Code Command Messages](RFC-0086-positional-bounded-code-command-messages.md)
   — accepts one additive positional-message alternative for bounded `code`,
   `code-file`, and `aider` commands while preserving their existing explicit

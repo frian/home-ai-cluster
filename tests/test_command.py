@@ -319,6 +319,21 @@ def test_chat_root_delegation_preserves_command_owned_request_and_output(
     )
 
 
+def test_root_forwards_no_message_chat_invocation_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    received: list[list[str]] = []
+
+    def chat(argv: list[str] | None = None) -> None:
+        assert argv is not None
+        received.append(argv)
+
+    monkeypatch.setitem(command._COMMANDS, "chat", chat)
+    command.main(["chat"])
+
+    assert received == [[]]
+
+
 def test_summarize_root_delegation_preserves_command_owned_request_and_output(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],

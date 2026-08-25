@@ -301,7 +301,8 @@ capability, URL fetching, or ordinary-server network authority.
 ## `hac code`
 
 **Purpose:** Send one native bounded textual code request to an already-running
-ordinary process.
+ordinary process, or start one bounded foreground Code conversation from an
+ordinary terminal.
 
 **Common forms:**
 
@@ -311,22 +312,28 @@ hac code "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code --timeout-seconds 300 --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --verbose
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --json
+hac code
 ```
 
-**Important behavior:** The command requires exactly one non-blank message,
-supplied either as one positional shell argument or through `--message`; it
-does not read code from a file or stdin. Its initial one-message
-request is limited to 65,536 UTF-8 bytes and is never truncated. The client is
-topology-blind: it explicitly sends `capability=code` through the existing
-native `POST /v1/chat` endpoint, does not start or inspect the process, and
-uses the existing 120-second omission default and per-invocation HTTP-client
-timeout behavior. Default output is free-form text, `--verbose` adds execution
-attribution, and `--json` returns the structured result. A topology with no
-eligible code capability produces a safe no-capability failure.
+**Important behavior:** Explicit-message forms remain one-shot: they require
+exactly one non-blank positional message or `--message`, send one request, and
+terminate. On a TTY, no-message `hac code` starts an ordinary content-only
+interactive session; non-TTY no-message use fails locally without reading stdin
+or sending a request. Successful context exists only in the foreground process:
+each follow-up sends all earlier successful user/result messages plus the new
+turn, so a refinement can refer to prior generated text. The RFC-0067 65,536
+UTF-8-byte aggregate bound applies to that complete candidate; rejected or
+failed turns are not retained. `--timeout-seconds` applies independently to
+each submitted request. No-message `--json`, `--verbose`, and `-v` are invalid;
+the corresponding explicit-message behavior remains unchanged. The client is
+topology-blind and sends `capability=code` through the existing native
+`POST /v1/chat` endpoint. A topology with no eligible code capability produces
+a safe no-capability failure.
 
 Generated code is response text only. This command grants no filesystem,
 repository, shell, Git, testing, tool, function, agent, or execution authority.
-It does not add `/v1/code` or a standalone `home-ai-cluster-code` command.
+It does not add `/v1/code` or a standalone `home-ai-cluster-code` command;
+`code-file` and `aider` remain separate, unchanged commands.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

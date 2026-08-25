@@ -103,7 +103,6 @@ def test_code_uses_legacy_chat_transport_envelope() -> None:
 @pytest.mark.parametrize(
     "argv",
     (
-        [],
         ["   "],
         ["--message", "   "],
         ["--message", "first", "--message", "second"],

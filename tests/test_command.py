@@ -191,6 +191,11 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("static-cluster", ["--declaration", "cluster.toml"]),
         ("compatibility", ["--declaration", "cluster.toml"]),
         ("aider", ["--file", "target.py", "--message", "Add a function"]),
+        ("aider", ["--file", "target.py", "Refactor this function"]),
+        ("code", ["--message", "Write a function"]),
+        ("code", ["Write a function"]),
+        ("code-file", ["--file", "target.py", "--message", "Add validation"]),
+        ("code-file", ["--file", "target.py", "Add validation"]),
         (
             "external-information",
             ["--plugin", "selected", "--query", "query", "--question", "question"],

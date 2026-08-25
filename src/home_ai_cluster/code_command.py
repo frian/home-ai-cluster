@@ -29,6 +29,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 
 def _parse_input(argv: Sequence[str] | None) -> _CodeCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster code")
+    parser.add_argument("message_positional", nargs="?")
     parser.add_argument("--message", action="append")
     parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
@@ -36,8 +37,17 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeCommandInput:
     output_options.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
 
-    messages = args.message or []
-    if len(messages) != 1 or not messages[0].strip():
+    option_messages = args.message or []
+    if args.message_positional is not None:
+        if option_messages:
+            raise chat_command._InvalidRequestInput
+        message = args.message_positional
+    elif len(option_messages) == 1:
+        message = option_messages[0]
+    else:
+        raise chat_command._InvalidRequestInput
+
+    if not message.strip():
         raise chat_command._InvalidRequestInput
 
     if args.verbose:
@@ -54,13 +64,13 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeCommandInput:
             else chat_command._parse_timeout_seconds(args.timeout_seconds)
         )
         ClusterRequest(
-            messages=[ChatMessage(role="user", content=messages[0])],
+            messages=[ChatMessage(role="user", content=message)],
             capability=Capability(name="code"),
         )
     except ValueError:
         raise chat_command._InvalidRequestInput from None
 
-    return _CodeCommandInput(messages[0], output_mode, timeout_seconds)
+    return _CodeCommandInput(message, output_mode, timeout_seconds)
 
 
 def _native_request(message: str) -> dict[str, Any]:

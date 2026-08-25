@@ -62,13 +62,23 @@ class _AiderCommandInput:
 def _parse_input(argv: Sequence[str] | None) -> _AiderCommandInput:
     parser = _ArgumentParser(prog="home-ai-cluster aider")
     parser.add_argument("--file", action="append")
+    parser.add_argument("message_positional", nargs="?")
     parser.add_argument("--message", action="append")
     parser.add_argument("--timeout-seconds")
     args = parser.parse_args(argv)
 
     files = args.file or []
-    messages = args.message or []
-    if len(files) != 1 or len(messages) != 1 or not messages[0].strip():
+    option_messages = args.message or []
+    if args.message_positional is not None:
+        if option_messages:
+            raise chat_command._InvalidRequestInput
+        message = args.message_positional
+    elif len(option_messages) == 1:
+        message = option_messages[0]
+    else:
+        raise chat_command._InvalidRequestInput
+
+    if len(files) != 1 or not message.strip():
         raise chat_command._InvalidRequestInput
 
     try:
@@ -80,7 +90,7 @@ def _parse_input(argv: Sequence[str] | None) -> _AiderCommandInput:
     except ValueError:
         raise chat_command._InvalidRequestInput from None
 
-    return _AiderCommandInput(Path(files[0]), messages[0], timeout_seconds)
+    return _AiderCommandInput(Path(files[0]), message, timeout_seconds)
 
 
 def _validate_target(target: Path) -> bool:

@@ -293,13 +293,15 @@ ordinary process.
 
 ```sh
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code --timeout-seconds 300 --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --verbose
 hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --json
 ```
 
-**Important behavior:** The command requires exactly one explicit, non-blank
-`--message`; it does not read code from a file or stdin. Its initial one-message
+**Important behavior:** The command requires exactly one non-blank message,
+supplied either as one positional shell argument or through `--message`; it
+does not read code from a file or stdin. Its initial one-message
 request is limited to 65,536 UTF-8 bytes and is never truncated. The client is
 topology-blind: it explicitly sends `capability=code` through the existing
 native `POST /v1/chat` endpoint, does not start or inspect the process, and
@@ -324,11 +326,13 @@ already exists.
 
 ```sh
 hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"
+hac code-file --file <PATH> "<OPERATOR_SUPPLIED_CODE_REQUEST>"
 hac code-file --file <PATH> --message "<OPERATOR_SUPPLIED_CODE_REQUEST>" --timeout-seconds 300
 ```
 
 **Important behavior:** The command accepts exactly one explicit target and one
-non-blank `--message`. An existing target must be a regular, non-symbolic-link
+non-blank message, supplied either as one positional shell argument or through
+`--message`. An existing target must be a regular, non-symbolic-link
 UTF-8 file. One explicitly named missing leaf may be created with exclusive
 non-overwriting creation only after input, parent, timeout, and
 empty-current-content request validation; its parent must already exist as a
@@ -357,12 +361,14 @@ selected file through the existing native `code` capability.
 
 ```sh
 hac aider --file <PATH> --message "<REQUEST>"
+hac aider --file <PATH> "<REQUEST>"
 hac aider --file <PATH> --message "<REQUEST>" --timeout-seconds 300
 ```
 
 **Important behavior:** This optional caller edge requires external Aider
 exactly 0.86.2 and an already-running `hac local` or `hac static-cluster`
-process. It accepts exactly one target and one non-blank message. An existing
+process. It accepts exactly one target and one non-blank message, supplied
+either as one positional shell argument or through `--message`. An existing
 target is read and edited by Aider; a missing target may be created only as the
 one named empty file after input, parent, and Aider prerequisite checks pass.
 Its parent must already exist as a directory, creation never overwrites an

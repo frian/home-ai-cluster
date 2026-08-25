@@ -31,6 +31,10 @@ def _response(content: str) -> httpx.Response:
         ["--message", "request"],
         ["--file", "target.py", "--file", "other.py", "--message", "request"],
         ["--file", "target.py", "--message", "request", "--message", "again"],
+        ["--file", "target.py", "request", "--message", "again"],
+        ["--file", "target.py", "one", "two"],
+        ["--file", "target.py", "--unknown"],
+        ["--file", "target.py", "   "],
         ["--file", "target.py", "--message", "   "],
         ["--file", "target.py", "--message", "request", "--timeout-seconds", "0"],
     ),
@@ -38,6 +42,18 @@ def _response(content: str) -> httpx.Response:
 def test_input_requires_exact_file_message_and_timeout(argv: list[str]) -> None:
     with pytest.raises(code_file_command.chat_command._InvalidRequestInput):
         code_file_command._parse_input(argv)
+
+
+def test_positional_and_option_messages_normalize_to_the_same_request() -> None:
+    positional = code_file_command._parse_input(["--file", "target.py", "request"])
+    option = code_file_command._parse_input(
+        ["--file", "target.py", "--message", "request"]
+    )
+
+    assert positional.message == option.message == "request"
+    assert code_file_command._native_request(positional.message, "before") == (
+        code_file_command._native_request(option.message, "before")
+    )
 
 
 def test_request_contains_only_fixed_and_json_messages(tmp_path: Path) -> None:
@@ -145,6 +161,7 @@ def test_missing_target_invalid_parent_fails_before_creation_and_request(
     "argv",
     (
         ["--message", "   "],
+        ["request", "--message", "other"],
         ["--message", "request", "--timeout-seconds", "0"],
     ),
 )

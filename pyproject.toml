@@ -4,7 +4,7 @@ version = "0.5.0.dev0"
 description = "Local-first orchestration for personal AI runtimes."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
-license-files = ["LICENSE", "NOTICE"]
+license-files = ["LICENSE", "NOTICE", "LICENSES/pdfjs-6.2.108-APACHE-2.0.txt"]
 requires-python = ">=3.13,<3.15"
 dependencies = [
     "fastapi>=0.116.0",

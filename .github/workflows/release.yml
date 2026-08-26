@@ -102,7 +102,7 @@ jobs:
       - name: Validate distributions
         run: python -m twine check dist/*
 
-      - name: Verify distribution metadata versions
+      - name: Verify distribution contents and metadata
         env:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
@@ -115,32 +115,68 @@ jobs:
           from pathlib import Path
 
           expected_version = sys.argv[1]
+          repository_files = {
+              "LICENSE": Path("LICENSE").read_bytes(),
+              "NOTICE": Path("NOTICE").read_bytes(),
+              "LICENSES/pdfjs-6.2.108-APACHE-2.0.txt": Path(
+                  "LICENSES/pdfjs-6.2.108-APACHE-2.0.txt"
+              ).read_bytes(),
+          }
+          pdfjs_assets = (
+              "pdf.min.mjs",
+              "pdf.worker.min.mjs",
+          )
           wheel_path = Path(
               f"dist/home_ai_cluster-{expected_version}-py3-none-any.whl"
           )
           sdist_path = Path(f"dist/home_ai_cluster-{expected_version}.tar.gz")
 
           with zipfile.ZipFile(wheel_path) as wheel:
-              names = [
+              metadata_names = [
                   name
                   for name in wheel.namelist()
                   if name.endswith(".dist-info/METADATA")
               ]
-              if len(names) != 1:
+              if len(metadata_names) != 1:
                   raise SystemExit("wheel must contain exactly one METADATA file")
-              wheel_metadata = BytesParser().parsebytes(wheel.read(names[0]))
+              dist_info = metadata_names[0].removesuffix("METADATA")
+              wheel_metadata = BytesParser().parsebytes(
+                  wheel.read(metadata_names[0])
+              )
+              for path, expected_content in repository_files.items():
+                  archive_path = f"{dist_info}licenses/{path}"
+                  if wheel.read(archive_path) != expected_content:
+                      raise SystemExit(f"wheel {archive_path} content differs")
+              for asset in pdfjs_assets:
+                  archive_path = (
+                      "home_ai_cluster/web/assets/pdfjs-6.2.108/" + asset
+                  )
+                  if archive_path not in wheel.namelist():
+                      raise SystemExit(f"wheel is missing {archive_path}")
 
           with tarfile.open(sdist_path) as sdist:
-              members = [
+              metadata_members = [
                   member
                   for member in sdist.getmembers()
                   if member.name.endswith("/PKG-INFO")
               ]
-              if len(members) != 1:
+              if len(metadata_members) != 1:
                   raise SystemExit("sdist must contain exactly one PKG-INFO file")
               sdist_metadata = BytesParser().parsebytes(
-                  sdist.extractfile(members[0]).read()
+                  sdist.extractfile(metadata_members[0]).read()
               )
+              root = metadata_members[0].name.removesuffix("/PKG-INFO")
+              for path, expected_content in repository_files.items():
+                  archive_path = f"{root}/{path}"
+                  member = sdist.getmember(archive_path)
+                  if sdist.extractfile(member).read() != expected_content:
+                      raise SystemExit(f"sdist {archive_path} content differs")
+              for asset in pdfjs_assets:
+                  archive_path = (
+                      f"{root}/src/home_ai_cluster/web/assets/"
+                      f"pdfjs-6.2.108/{asset}"
+                  )
+                  sdist.getmember(archive_path)
 
           for name, metadata in (
               ("wheel", wheel_metadata),

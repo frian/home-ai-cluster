@@ -6,6 +6,7 @@ repo_name: frian/home-ai-cluster
 
 theme:
   name: shadcn
+  custom_dir: docs/overrides
 
 extra_css:
   - stylesheets/extra.css

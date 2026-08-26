@@ -86,7 +86,16 @@ article code:not(pre code) {
 
 [data-sidebar="menu-item"] {
   border-radius: 0.5rem;
+  box-shadow: none !important;
   transition: background-color 140ms ease, color 140ms ease;
+}
+
+[data-sidebar="menu-item"]::before,
+[data-sidebar="menu-item"]::after,
+[data-sidebar="menu-button"]::before,
+[data-sidebar="menu-button"]::after {
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 [data-sidebar="menu-item"]:hover {
@@ -101,6 +110,8 @@ article code:not(pre code) {
   width: 100% !important;
   background: transparent !important;
   border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 [data-sidebar="menu-button"][data-active="true"] {

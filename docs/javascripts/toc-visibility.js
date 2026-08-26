@@ -12,12 +12,15 @@
 
     const tocRect = toc.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
-    const margin = 16;
+    const header = toc.querySelector(":scope > div > p");
+    const headerHeight = header?.getBoundingClientRect().height ?? 0;
+    const topMargin = headerHeight + 16;
+    const bottomMargin = 16;
 
-    if (activeRect.top < tocRect.top + margin) {
-      toc.scrollTop -= tocRect.top + margin - activeRect.top;
-    } else if (activeRect.bottom > tocRect.bottom - margin) {
-      toc.scrollTop += activeRect.bottom - (tocRect.bottom - margin);
+    if (activeRect.top < tocRect.top + topMargin) {
+      toc.scrollTop -= tocRect.top + topMargin - activeRect.top;
+    } else if (activeRect.bottom > tocRect.bottom - bottomMargin) {
+      toc.scrollTop += activeRect.bottom - (tocRect.bottom - bottomMargin);
     }
   };
 

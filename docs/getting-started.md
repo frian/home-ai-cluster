@@ -207,6 +207,16 @@ Ask for bounded textual code assistance:
 hac code "Write a Python function that returns the larger of two integers."
 ```
 
+Or start an interactive Code conversation:
+
+```sh
+hac code
+```
+
+Use Ctrl-D or Ctrl-C to end the interactive session. As with interactive Chat,
+successful conversation context exists only in that foreground client process
+and is not persisted.
+
 `hac code` returns text only. It does not execute generated code or grant shell,
 Git, repository, testing, or general filesystem authority.
 

@@ -219,10 +219,20 @@ One available plugin is
 It expects an operator-managed local SearXNG service and uses the explicit plugin
 name `searxng`.
 
-For a new isolated installation containing both HAC and that plugin:
+If you want the plugin from the initial HAC installation, use this instead of the
+plain command in step 4:
 
 ```sh
 uv tool install \
+  --with home-ai-cluster-plugin-searxng \
+  home-ai-cluster
+```
+
+If you already followed step 4 and installed HAC without the plugin, rebuild that
+isolated tool environment explicitly with the plugin included:
+
+```sh
+uv tool install --force \
   --with home-ai-cluster-plugin-searxng \
   home-ai-cluster
 ```

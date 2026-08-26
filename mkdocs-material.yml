@@ -10,6 +10,7 @@ theme:
   name: material
 
 nav:
-  - Home: getting-started.md
+  - Home: site-home.md
+  - Getting Started: getting-started.md
   - Command Reference: command-reference.md
   - Operator Workflow: operator-workflow.md

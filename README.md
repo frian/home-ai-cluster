@@ -21,7 +21,7 @@ local-first, and explicit.
 | Local runtime | Run one operator-managed local Ollama or llama-server composition. |
 | Static cluster | Run one explicit local-plus-remote cluster from operator-declared, ordered remote nodes. Routing is capability-centered and local-first; declared remote order is the only remote priority. |
 | Native capabilities | Chat, Summarize, Classify, and Code. A narrow fallback applies only when an eligible candidate is unavailable before request transmission; results carry cluster-owned node attribution. |
-| Ordinary interfaces | Use the `hac` command, cluster-native HTTP endpoints, or the fixed loopback browser for Chat, Summarize, Classify, and Code. The browser is not a dashboard, LAN interface, persistent server-side conversation store, filesystem authority, or execution environment. |
+| Ordinary interfaces | Use the `hac` command, cluster-native HTTP endpoints, or the fixed loopback browser for Chat, Summarize, Classify, and Code. `hac chat` and `hac code` also support bounded foreground interactive terminal conversations whose successful context exists only in the client process. The browser is not a dashboard, LAN interface, persistent server-side conversation store, filesystem authority, or execution environment. |
 | Optional bounded integrations | Use the narrow loopback OpenAI-compatible Chat process, bounded Aider and code caller edges, or explicit separately installed external-information acquisition. |
 | Historical evidence | Retained investigations, runbooks, proofs, and closeouts are indexed separately; they are not required for ordinary operation. |
 

@@ -30,6 +30,7 @@ def remote_base_url(value: str) -> str:
         parsed.scheme not in {"http", "https"}
         or host is None
         or parsed.username is not None
+        or parsed.netloc.endswith(":")
         or parsed.path not in {"", "/"}
         or "?" in value
         or "#" in value

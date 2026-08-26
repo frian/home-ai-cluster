@@ -214,6 +214,8 @@ def post(app: FastAPI) -> httpx.Response:
         ],
         ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test?"],
         ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test#"],
+        ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test:"],
+        ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test:/"],
         [
             "--remote-node-id",
             "remote",

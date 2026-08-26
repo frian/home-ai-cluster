@@ -176,6 +176,30 @@ def test_parse_args_rejects_unsupported_runtime() -> None:
                 "--runtime",
                 "llama-server",
                 "--llama-server-base-url",
+                "http://127.0.0.1:",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:/",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
                 "http://127.0.0.1:invalid",
                 "--llama-server-model",
                 "local-model",

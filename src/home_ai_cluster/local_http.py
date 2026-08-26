@@ -21,6 +21,7 @@ def local_http_url(value: str) -> str:
         parsed.scheme != "http"
         or host not in LOCAL_HOSTS
         or parsed.username is not None
+        or parsed.netloc.endswith(":")
         or parsed.path not in {"", "/"}
         or "?" in value
         or "#" in value

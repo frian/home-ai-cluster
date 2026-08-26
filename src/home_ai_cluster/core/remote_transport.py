@@ -1,6 +1,7 @@
 """Remote transport boundary for normalized cluster objects."""
 
 from typing import Protocol
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from pydantic import ValidationError
@@ -155,8 +156,7 @@ class HttpRemoteStatusTransport:
 
 def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
     """Return the RFC-0014 internal request endpoint for a declaration."""
-    address = declaration.transport_address.rstrip("/")
-    return f"{address}/internal/cluster/request"
+    return _internal_cluster_endpoint_url(declaration, "/internal/cluster/request")
 
 
 def internal_cluster_request_body(
@@ -198,8 +198,15 @@ def internal_cluster_request_body(
 
 def internal_cluster_status_url(declaration: RemoteNodeDeclaration) -> str:
     """Return the RFC-0041 internal status endpoint for a declaration."""
-    address = declaration.transport_address.rstrip("/")
-    return f"{address}/internal/cluster/status"
+    return _internal_cluster_endpoint_url(declaration, "/internal/cluster/status")
+
+
+def _internal_cluster_endpoint_url(
+    declaration: RemoteNodeDeclaration, path: str
+) -> str:
+    """Build one fixed cluster-owned path from a validated remote origin."""
+    origin = urlsplit(declaration.transport_address)
+    return urlunsplit((origin.scheme, origin.netloc, path, "", ""))
 
 
 def _remote_status_node(

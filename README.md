@@ -46,6 +46,10 @@ for the project rationale.
 
 ## Install and first use
 
+For a complete first-use walkthrough, including `uv`, Python, Ollama, the default
+model, browser use, and first commands, see the
+[Getting Started guide](docs/getting-started.md).
+
 ### Installed package
 
 The supported installed-package path uses the current published package release:
@@ -115,6 +119,9 @@ for exact syntax and boundaries, and the [documentation index](https://github.co
 for retained integration evidence and proofs.
 
 ## Documentation
+
+For a first installation and local run, use the
+[Getting Started guide](https://github.com/frian/home-ai-cluster/blob/main/docs/getting-started.md).
 
 For operating Home AI Cluster, use the [canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md),
 [command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md),

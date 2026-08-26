@@ -3,3 +3,7 @@ Copyright (C) 2026 frian
 SPDX-License-Identifier: AGPL-3.0-or-later
 
 The complete license terms are in LICENSE.
+
+Home AI Cluster redistributes Mozilla PDF.js (mozilla/pdf.js), version 6.2.108,
+under the Apache License 2.0. The complete redistributed license is in
+LICENSES/pdfjs-6.2.108-APACHE-2.0.txt.

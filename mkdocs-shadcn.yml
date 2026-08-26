@@ -1,0 +1,13 @@
+site_name: Home AI Cluster
+site_description: Local-first orchestration for personal AI runtimes.
+site_url: https://home-ai-cluster.com/
+repo_url: https://github.com/frian/home-ai-cluster
+repo_name: frian/home-ai-cluster
+
+theme:
+  name: shadcn
+
+nav:
+  - Home: getting-started.md
+  - Command Reference: command-reference.md
+  - Operator Workflow: operator-workflow.md

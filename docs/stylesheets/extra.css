@@ -30,6 +30,7 @@
   --hac-code-border: #c9d7dd;
   --hac-inline-code-bg: #edf3f5;
   --hac-toc-active: #dff1ef;
+  --hac-scrollbar-thumb: #9db4bd;
 }
 
 .dark {
@@ -64,6 +65,7 @@
   --hac-code-border: #29414d;
   --hac-inline-code-bg: #172831;
   --hac-toc-active: #16313a;
+  --hac-scrollbar-thumb: #3c5966;
 }
 
 body {
@@ -117,6 +119,25 @@ article code:not(pre code) {
 
 [data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] > [data-sidebar="menu-button"][data-active="true"] {
   color: var(--sidebar-accent-foreground) !important;
+}
+
+#toc {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hac-scrollbar-thumb) transparent;
+}
+
+#toc::-webkit-scrollbar {
+  display: block;
+  width: 0.45rem;
+}
+
+#toc::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#toc::-webkit-scrollbar-thumb {
+  background: var(--hac-scrollbar-thumb);
+  border-radius: 999px;
 }
 
 #toc a {

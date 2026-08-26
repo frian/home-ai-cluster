@@ -331,10 +331,9 @@ helper. This RFC prioritizes visible semantics over mandating an abstraction.
 
 ## Impact and Implementation Authorization
 
-This Draft changes no behavior and authorizes no implementation before
-acceptance.
+Acceptance of this RFC changes no runtime behavior.
 
-If accepted, one later small implementation may:
+One later small implementation may:
 
 1. reject URL user information, non-root paths, queries, and fragments at both
    explicit configuration boundaries;

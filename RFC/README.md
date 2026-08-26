@@ -58,6 +58,13 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Draft RFCs
+
+- [RFC-0089: Explicit HTTP Base URL Shape](RFC-0089-explicit-http-base-url-shape.md)
+  — proposes origin-only semantics for existing explicit remote Home AI Cluster
+  and loopback llama-server HTTP base URLs while preserving their accepted
+  scheme, trust, endpoint, and lifecycle boundaries.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

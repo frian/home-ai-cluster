@@ -132,3 +132,8 @@ article code:not(pre code) {
   color: var(--foreground) !important;
   font-weight: 600;
 }
+
+[data-sidebar="group"] + div.sticky[class*="bg-gradient-to-t"],
+[data-sidebar="group"] ~ div.sticky[class*="bg-gradient-to-t"] {
+  display: none;
+}

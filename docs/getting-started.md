@@ -85,6 +85,21 @@ Install the current published package as an isolated `uv` tool:
 uv tool install home-ai-cluster
 ```
 
+`uv tool install` is the recommended first-use path because it keeps the HAC CLI
+in an isolated Python environment without requiring you to manage that virtual
+environment directly.
+
+If you prefer `pip`, install HAC inside an explicitly managed virtual environment
+rather than into the system Python. For example:
+
+```sh
+python3.13 -m venv ~/.venvs/home-ai-cluster
+source ~/.venvs/home-ai-cluster/bin/activate
+python -m pip install home-ai-cluster
+```
+
+This guide uses the `uv tool` path for the remaining steps.
+
 Verify the installed command:
 
 ```sh

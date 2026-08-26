@@ -187,6 +187,39 @@ def post(app: FastAPI) -> httpx.Response:
         ],
         ["--remote-node-id", "remote", "--remote-base-url", "remote.test"],
         ["--remote-node-id", "remote", "--remote-base-url", "http:///missing"],
+        ["--remote-node-id", "remote", "--remote-base-url", "http://user@remote.test"],
+        [
+            "--remote-node-id",
+            "remote",
+            "--remote-base-url",
+            "http://user:secret@remote.test",
+        ],
+        [
+            "--remote-node-id",
+            "remote",
+            "--remote-base-url",
+            "http://remote.test/base",
+        ],
+        [
+            "--remote-node-id",
+            "remote",
+            "--remote-base-url",
+            "http://remote.test?token=x",
+        ],
+        [
+            "--remote-node-id",
+            "remote",
+            "--remote-base-url",
+            "http://remote.test#fragment",
+        ],
+        ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test?"],
+        ["--remote-node-id", "remote", "--remote-base-url", "http://remote.test#"],
+        [
+            "--remote-node-id",
+            "remote",
+            "--remote-base-url",
+            "http://remote.test:invalid",
+        ],
     ],
 )
 def test_parse_args_rejects_invalid_remote_declarations(argv: list[str]) -> None:

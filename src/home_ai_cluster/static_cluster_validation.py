@@ -17,9 +17,24 @@ def remote_node_id(value: str) -> str:
 
 def remote_base_url(value: str) -> str:
     """Validate and normalize one explicit remote HTTP base URL."""
-    parsed = urlsplit(value)
-    if parsed.scheme not in {"http", "https"} or parsed.hostname is None:
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+        _port = parsed.port
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "remote base URL must be an absolute http:// or https:// URL"
+        ) from None
+
+    if (
+        parsed.scheme not in {"http", "https"}
+        or host is None
+        or parsed.username is not None
+        or parsed.path not in {"", "/"}
+        or "?" in value
+        or "#" in value
+    ):
         raise argparse.ArgumentTypeError(
             "remote base URL must be an absolute http:// or https:// URL"
         )
-    return value.rstrip("/")
+    return value[:-1] if parsed.path == "/" else value

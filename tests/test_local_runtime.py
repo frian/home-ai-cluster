@@ -92,6 +92,102 @@ def test_parse_args_rejects_unsupported_runtime() -> None:
                 "--runtime",
                 "llama-server",
                 "--llama-server-base-url",
+                "http://user@127.0.0.1:8080",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://user:secret@127.0.0.1:8080",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080/base",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080?token=x",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080#fragment",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080?",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:8080#",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
+                "http://127.0.0.1:invalid",
+                "--llama-server-model",
+                "local-model",
+            ],
+            "argument --llama-server-base-url: "
+            "runtime URL must be an absolute loopback http:// URL",
+        ),
+        (
+            [
+                "--runtime",
+                "llama-server",
+                "--llama-server-base-url",
                 "http://127.0.0.1:8080",
                 "--llama-server-model",
                 "",
@@ -190,7 +286,7 @@ def test_parse_args_accepts_explicit_llama_server() -> None:
             "--runtime",
             "llama-server",
             "--llama-server-base-url",
-            "http://127.0.0.1:8080/",
+            "http://[::1]:8080/",
             "--llama-server-model",
             "local-model",
             "--host",
@@ -201,7 +297,7 @@ def test_parse_args_accepts_explicit_llama_server() -> None:
     )
 
     assert args.runtime == "llama-server"
-    assert args.llama_server_base_url == "http://127.0.0.1:8080"
+    assert args.llama_server_base_url == "http://[::1]:8080"
     assert args.llama_server_model == "local-model"
     assert args.host == "0.0.0.0"
     assert args.port == 8123

@@ -160,38 +160,56 @@ hac static-cluster \
   --remote-capability summarize
 ```
 
-**Important behavior:** Declaration and inline topology modes are mutually
-exclusive. Declaration mode supports one or more ordered remote nodes. The
-retained inline mode supports exactly one remote node. The same verified local
-runtime-composition options as `hac local` are accepted. Topology is static and
-explicit, and routing remains local-first and capability-centered. The process
-does not discover, start, stop, supervise, or repair remote machines or runtimes.
-Its optional Ollama-specific `--ollama-model` configures only the local runtime
-composition; omission keeps `llama3.2` and remote declarations carry no model.
-Its optional Ollama-specific `--ollama-disable-thinking` likewise configures
-only that process-local adapter, requests native `think: false` for every local
-adapter inference, and is neither per-request nor per-capability. Omission
-preserves the existing native request shape; remote declarations carry no such
-setting.
-`--runtime-config <PATH>` uses the same explicit closed runtime-composition
-contract as `hac local`; topology declarations remain separate.
-The accepted explicit capability names are `chat`, `summarize`, `classify`, and
-`code`:
-use `capabilities = ["..."]` in ordered TOML entries, `remote_capabilities =
-["..."]` in the legacy flat TOML form, or repeat `--remote-capability <NAME>`
-for the one-remote inline form. Omission retains only `chat` plus `summarize`,
-so `classify` and `code` eligibility are always explicit.
-Caller-local routing capabilities use `local_capabilities = ["..."]` at the
-TOML root or repeated `--local-capability <NAME>` in the complete inline form.
-They control only which capabilities the caller-side static-cluster router may
-consider locally; they do not disable adapters, change runtime health, remove
-endpoints, configure `hac local`, change receiver behavior, verify remote
-runtime capability, select a target node, or create scheduling or preference.
-Omission also retains local `chat` plus `summarize`. Explicit local and remote
-sets must be non-empty and use only the accepted explicit names; duplicates and
-unknown names are rejected. Capability membership controls eligibility only, and its
-order is not priority. Remote declaration order remains the only remote priority
-rule. Declarations do not probe remotes or schedule requests.
+**Important behavior:**
+
+**Topology**
+
+- Declaration and inline topology modes are mutually exclusive.
+- Declaration mode supports one or more ordered remote nodes.
+- The retained inline mode supports exactly one remote node.
+- Topology is static and explicit. The process does not discover, start, stop,
+  supervise, or repair remote machines or runtimes.
+
+**Local runtime composition**
+
+- The same verified local runtime-composition options as `hac local` are
+  accepted.
+- `--ollama-model` configures only the local Ollama runtime composition;
+  omission keeps `llama3.2`. Remote declarations carry no model.
+- `--ollama-disable-thinking` configures only the process-local Ollama adapter
+  and requests native `think: false` for every local adapter inference. It is
+  neither per-request nor per-capability. Omission preserves the existing
+  native request shape, and remote declarations carry no such setting.
+- `--runtime-config <PATH>` uses the same explicit closed runtime-composition
+  contract as `hac local`; topology declarations remain separate.
+
+**Capabilities**
+
+- The accepted explicit capability names are `chat`, `summarize`, `classify`,
+  and `code`.
+- For remote declarations, use `capabilities = ["..."]` in ordered TOML
+  entries, `remote_capabilities = ["..."]` in the legacy flat TOML form, or
+  repeat `--remote-capability <NAME>` for the one-remote inline form.
+- Remote capability omission retains only `chat` plus `summarize`, so
+  `classify` and `code` eligibility are always explicit.
+- Caller-local routing capabilities use `local_capabilities = ["..."]` at the
+  TOML root or repeated `--local-capability <NAME>` in the complete inline
+  form. Omission also retains local `chat` plus `summarize`.
+- Explicit local and remote capability sets must be non-empty and use only the
+  accepted names; duplicates and unknown names are rejected.
+- Capability membership controls eligibility only. Capability order is not
+  priority.
+
+**Routing and boundaries**
+
+- Routing remains local-first and capability-centered.
+- Caller-local capability declarations control only which capabilities the
+  caller-side static-cluster router may consider locally. They do not disable
+  adapters, change runtime health, remove endpoints, configure `hac local`,
+  change receiver behavior, verify remote runtime capability, select a target
+  node, or create scheduling or preference.
+- Remote declaration order remains the only remote priority rule.
+- Declarations do not probe remotes or schedule requests.
 
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.
@@ -269,34 +287,77 @@ hac external-information \
   --question "<OPERATOR_QUESTION>"
 ```
 
+**Available plugin example:**
+
+The separately packaged
+[`home-ai-cluster-plugin-searxng`](https://github.com/frian/home-ai-cluster-plugin-searxng)
+provides the entry-point name `searxng`. It expects an operator-managed SearXNG
+service already running at `127.0.0.1:8888` with JSON output enabled. The plugin
+does not install, configure, start, stop, or manage SearXNG.
+
+For an isolated `uv` tool, install HAC and the published plugin into the same
+tool environment:
+
+```sh
+uv tool install \
+  --with home-ai-cluster-plugin-searxng \
+  home-ai-cluster
+```
+
+Then, with `hac local` or `hac static-cluster` already running, for example:
+
+```sh
+hac external-information \
+  --plugin searxng \
+  --query "local AI inference developments" \
+  --question "What are the main recent developments?"
+```
+
+A second example can separate the acquisition query from the question answered
+from the resulting evidence:
+
+```sh
+hac external-information \
+  --plugin searxng \
+  --query "Python 3.14 release notes free threading" \
+  --question "What changed for free-threaded Python in 3.14?"
+```
+
+For repository-checkout installation and SearXNG-specific setup, see the
+[plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme).
+
 `--timeout-seconds SECONDS`, `--verbose`, and `--json` use the same caller
 presentation and HTTP conventions as `hac chat`. The timeout accepts one
 base-10 integer from `1` through `3600`, with a 120-second default.
 
-**Important behavior:** No provider is bundled. The operator must explicitly
-select one compatible separately installed plugin by its exact entry-point name.
-Only this finite caller edge discovers and loads that plugin; the ordinary HAC
-server does not discover, import, configure, or invoke acquisition plugins.
-Here, "separately installed" means a compatible Python distribution in the same
-Python environment that provides `hac`. HAC discovers it only through
-`importlib.metadata.entry_points()` in
-`home_ai_cluster.external_information_acquisition.v1`, not from a HAC
-`plugins/` directory or filesystem scan. For an isolated `uv` tool, additional
-plugin requirements belong in that same tool environment; for a project
-checkout, install them into that project's `.venv`. Provider-specific
-installation instructions belong to the provider plugin documentation.
-Installation alone neither loads a plugin nor grants network access: ordinary
-HAC startup, ordinary Chat, and the ordinary server remain unchanged.
-The plugin receives only `--query`, may make its own one bounded provider
-operation under its own configuration, credentials, and network limits, and
-returns bounded title/URL/content candidates. HAC reconstructs and validates
-RFC-0077 source evidence before sending exactly one validated body to existing
-`/v1/chat/sources`; ordinary `capability=chat` routing then applies unchanged.
+**Important behavior:**
 
-`--timeout-seconds` governs only that native HAC HTTP request. It does not
-impose a timeout on plugin acquisition. The command has no provider selection,
-fallback, retry, plugin enumeration, generic plugin configuration, new
-capability, URL fetching, or ordinary-server network authority.
+- No provider is bundled. The operator must explicitly select one compatible
+  separately installed plugin by its exact entry-point name.
+- Only this finite caller edge discovers and loads that plugin; the ordinary HAC
+  server does not discover, import, configure, or invoke acquisition plugins.
+- "Separately installed" means a compatible Python distribution in the same
+  Python environment that provides `hac`. HAC discovers it only through
+  `importlib.metadata.entry_points()` in
+  `home_ai_cluster.external_information_acquisition.v1`, not from a HAC
+  `plugins/` directory or filesystem scan.
+- For an isolated `uv` tool, additional plugin requirements belong in that same
+  tool environment; for a project checkout, install them into that project's
+  `.venv`. Provider-specific installation instructions belong to the provider
+  plugin documentation.
+- Installation alone neither loads a plugin nor grants network access: ordinary
+  HAC startup, ordinary Chat, and the ordinary server remain unchanged.
+- The plugin receives only `--query`, may make its own one bounded provider
+  operation under its own configuration, credentials, and network limits, and
+  returns bounded title/URL/content candidates.
+- HAC reconstructs and validates RFC-0077 source evidence before sending exactly
+  one validated body to existing `/v1/chat/sources`; ordinary
+  `capability=chat` routing then applies unchanged.
+- `--timeout-seconds` governs only that native HAC HTTP request. It does not
+  impose a timeout on plugin acquisition.
+- The command has no provider selection, fallback, retry, plugin enumeration,
+  generic plugin configuration, new capability, URL fetching, or ordinary-server
+  network authority.
 
 ## `hac code`
 

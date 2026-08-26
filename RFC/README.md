@@ -58,13 +58,6 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
-## Draft RFCs
-
-- [RFC-0089: Explicit HTTP Base URL Shape](RFC-0089-explicit-http-base-url-shape.md)
-  — proposes origin-only semantics for existing explicit remote Home AI Cluster
-  and loopback llama-server HTTP base URLs while preserving their accepted
-  scheme, trust, endpoint, and lifecycle boundaries.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -74,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0089: Explicit HTTP Base URL Shape](RFC-0089-explicit-http-base-url-shape.md)
+  — accepts origin-only semantics for existing explicit remote Home AI Cluster
+  and loopback llama-server HTTP base URLs while preserving their accepted
+  scheme, trust, endpoint, and lifecycle boundaries.
 - [RFC-0088: Bounded Ephemeral Interactive Code](RFC-0088-bounded-ephemeral-interactive-code.md)
   — accepts one TTY-only, process-owned, bounded ephemeral conversation for
   no-message native Code invocation while preserving explicit-message Code,

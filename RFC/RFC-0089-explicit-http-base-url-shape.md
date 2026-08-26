@@ -1,6 +1,6 @@
 # RFC-0089: Explicit HTTP Base URL Shape
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-26
 
@@ -359,4 +359,19 @@ remain implementation details.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Existing explicit HTTP base URLs in this RFC's scope identify HTTP origins.
+Their allowed components are a scheme, host, and optional explicit port. User
+information, non-root paths, queries, and fragments are rejected. An empty path
+and `/` remain equivalent and normalize to the same base URL without a trailing
+slash.
+
+Remote Home AI Cluster URLs retain their existing `http` / `https` and
+trusted-LAN boundaries. Explicit llama-server URLs retain loopback-only `http`.
+The cluster-owned internal request and status paths remain fixed, and
+prefix-mounted receivers are not authorized.
+
+This decision adds no authentication, TLS policy, proxy, discovery, generic URL
+framework, or other network authority. Implementation remains a separate
+follow-up pull request.

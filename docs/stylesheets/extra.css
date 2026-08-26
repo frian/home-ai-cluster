@@ -72,6 +72,8 @@ body {
 
 article pre,
 article .highlight pre {
+  max-width: 100%;
+  overflow-x: auto;
   background: var(--hac-code-bg) !important;
   border: 1px solid var(--hac-code-border);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);

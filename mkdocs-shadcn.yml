@@ -4,6 +4,8 @@ site_url: https://home-ai-cluster.com/
 repo_url: https://github.com/frian/home-ai-cluster
 repo_name: frian/home-ai-cluster
 
+dev_addr: 127.0.0.1:8001
+
 theme:
   name: shadcn
 

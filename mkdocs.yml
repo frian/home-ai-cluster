@@ -10,6 +10,7 @@ theme:
   hide_source_files: true
   favicon: img/favicon.ico
   icon: assets/home-ai-cluster-icon.svg
+  show_stargazers: false
 
 extra_css:
   - stylesheets/extra.css

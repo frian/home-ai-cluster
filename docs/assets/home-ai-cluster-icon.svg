@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <defs>
+    <linearGradient id="hacGradient" gradientUnits="userSpaceOnUse" x1="100" y1="0" x2="900" y2="0">
+      <stop offset="0%" stop-color="#39E6B0"/>
+      <stop offset="48%" stop-color="#24C7D8"/>
+      <stop offset="100%" stop-color="#2F7FF2"/>
+    </linearGradient>
+
+    <filter id="smallGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g
+    fill="none"
+    stroke="url(#hacGradient)"
+    stroke-width="36"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#smallGlow)"
+  >
+    <path d="M 300 420 L 300 285 L 500 130 L 700 285 L 700 420" />
+    <path d="M 190 470 L 300 470" />
+    <path d="M 700 470 L 810 470" />
+
+    <path d="M 500 420
+             L 587 470
+             L 587 570
+             L 500 620
+             L 413 570
+             L 413 470
+             Z" />
+
+    <path d="M 413 570 L 310 630" />
+    <path d="M 587 570 L 690 630" />
+    <path d="M 500 620 L 500 742" />
+
+    <circle cx="145" cy="470" r="44" />
+    <circle cx="855" cy="470" r="44" />
+    <circle cx="270" cy="653" r="44" />
+    <circle cx="730" cy="653" r="44" />
+    <circle cx="500" cy="790" r="44" />
+  </g>
+</svg>

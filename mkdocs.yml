@@ -8,6 +8,8 @@ theme:
   name: shadcn
   custom_dir: docs/overrides
   hide_source_files: true
+  favicon: img/favicon.ico
+  icon: assets/home-ai-cluster-icon.svg
 
 extra_css:
   - stylesheets/extra.css

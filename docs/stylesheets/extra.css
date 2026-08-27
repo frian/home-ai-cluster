@@ -72,6 +72,16 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+header a[href="https://frian.github.io/home-ai-cluster/"] > span:first-child,
+header a[href="https://frian.github.io/home-ai-cluster/"] > span:first-child > svg {
+  width: 50px;
+  height: 50px;
+}
+
+header a[href="https://frian.github.io/home-ai-cluster/"] > span:first-child {
+  flex: 0 0 50px;
+}
+
 article pre,
 article .highlight pre {
   max-width: 100%;

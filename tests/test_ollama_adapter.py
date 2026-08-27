@@ -201,6 +201,46 @@ def test_ollama_adapter_summarize_preserves_existing_empty_content_behavior() ->
     assert result.content == ""
 
 
+@pytest.mark.parametrize(
+    ("response_body", "invalid_json"),
+    [
+        pytest.param(b"not valid JSON", True, id="invalid-json"),
+        pytest.param([], False, id="non-object-body"),
+        pytest.param({"message": "not an object"}, False, id="non-object-message"),
+        pytest.param(
+            {"message": {"content": 123}},
+            False,
+            id="non-string-content",
+        ),
+    ],
+)
+@pytest.mark.parametrize("operation", ["chat", "summarize"])
+def test_ollama_adapter_normalizes_malformed_successful_responses(
+    response_body: object,
+    invalid_json: bool,
+    operation: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if invalid_json:
+            return httpx.Response(200, content=response_body)
+        return httpx.Response(200, json=response_body)
+
+    adapter = OllamaAdapter(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        if operation == "chat":
+            asyncio.run(adapter.chat(make_request()))
+        else:
+            asyncio.run(adapter.summarize(make_summarize_request()))
+
+    assert str(exc_info.value) == "Runtime adapter unavailable"
+    assert not isinstance(
+        exc_info.value,
+        RuntimeConnectionUnavailableBeforeRequestError,
+    )
+    assert exc_info.value.__cause__ is not None
+
+
 def test_ollama_adapter_disable_thinking_adds_false_to_summarize_request() -> None:
     seen_payloads: list[dict[str, object]] = []
 

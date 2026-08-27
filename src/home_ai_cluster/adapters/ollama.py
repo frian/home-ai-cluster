@@ -1,6 +1,7 @@
 """Ollama runtime adapter."""
 
 import json
+from collections.abc import Mapping
 
 import httpx
 
@@ -71,6 +72,21 @@ class OllamaAdapter:
             payload["think"] = False
         return payload
 
+    def _response_content(self, body: object) -> str:
+        """Return content from one Ollama chat response body."""
+        if not isinstance(body, Mapping):
+            raise ValueError("Ollama response must be an object")
+
+        message = body.get("message", {})
+        if not isinstance(message, Mapping):
+            raise ValueError("Ollama response message must be an object")
+
+        content = message.get("content", "")
+        if not isinstance(content, str):
+            raise ValueError("Ollama response content must be a string")
+
+        return content
+
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         messages = [
             {"role": message.role, "content": message.content}
@@ -98,8 +114,12 @@ class OllamaAdapter:
                 "Runtime adapter unavailable",
             ) from exc
 
-        body = response.json()
-        content = body.get("message", {}).get("content", "")
+        try:
+            content = self._response_content(response.json())
+        except ValueError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
 
         return RuntimeResult(
             content=content,
@@ -140,7 +160,12 @@ class OllamaAdapter:
                 "Runtime adapter unavailable",
             ) from exc
 
-        content = response.json().get("message", {}).get("content", "")
+        try:
+            content = self._response_content(response.json())
+        except ValueError as exc:
+            raise RuntimeAdapterUnavailableError(
+                "Runtime adapter unavailable",
+            ) from exc
 
         return RuntimeResult(
             content=content,

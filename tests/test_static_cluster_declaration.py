@@ -178,6 +178,16 @@ def test_rejects_invalid_toml_without_parser_detail(tmp_path: Path) -> None:
         ("", "http://192.0.2.10:8000", "invalid remote node ID declaration:"),
         ("local", "http://192.0.2.10:8000", "invalid remote node ID declaration:"),
         ("remote-node", "not-a-url", "invalid remote base URL declaration:"),
+        (
+            "remote-node",
+            "http://user:secret@192.0.2.10:8000",
+            "invalid remote base URL declaration:",
+        ),
+        (
+            "remote-node",
+            "http://192.0.2.10:invalid",
+            "invalid remote base URL declaration:",
+        ),
     ],
 )
 def test_reuses_static_cluster_value_validation(
@@ -195,6 +205,42 @@ def test_reuses_static_cluster_value_validation(
         load_static_cluster_declaration(path)
 
     assert str(raised.value).startswith(failure_category)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'remote_node_id = "remote-node"\n'
+        'remote_base_url = "http://192.0.2.10:8000/base"\n',
+        "[[remote_nodes]]\n"
+        'node_id = "remote-node"\n'
+        'base_url = "http://192.0.2.10:8000?"\n',
+    ],
+)
+def test_rejects_non_origin_remote_base_urls_in_both_declaration_forms(
+    tmp_path: Path, content: str
+) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(write_declaration(tmp_path, content))
+
+    assert str(raised.value).startswith("invalid remote base URL declaration:")
+
+
+def test_rejects_duplicate_root_normalized_remote_base_urls(tmp_path: Path) -> None:
+    with pytest.raises(StaticClusterDeclarationError) as raised:
+        load_static_cluster_declarations(
+            write_declaration(
+                tmp_path,
+                "[[remote_nodes]]\n"
+                'node_id = "remote-one"\n'
+                'base_url = "http://remote.example:8000"\n\n'
+                "[[remote_nodes]]\n"
+                'node_id = "remote-two"\n'
+                'base_url = "http://remote.example:8000/"\n',
+            )
+        )
+
+    assert str(raised.value) == "duplicate remote base URL declaration"
 
 
 def test_private_base_url_is_absent_from_failure_messages(tmp_path: Path) -> None:

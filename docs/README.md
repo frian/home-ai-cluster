@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [Release direction to 1.0](release-direction-to-1.0.md)
+  — records the non-binding product-maturity direction from `0.5` through
+  `1.0.0`; it is not a roadmap, backlog, implementation authorization, or
+  architectural decision.
 - [v0.3.0 release-readiness investigation](v0.3.0-release-readiness-investigation.md)
   — documents the current-main comparison with `v0.2.0`; one small Ruff
   formatting follow-up is required before a `0.3.0` preparation PR.

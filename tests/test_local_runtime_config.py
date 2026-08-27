@@ -93,6 +93,8 @@ def test_load_runtime_config_accepts_and_normalizes_llama_server(
         'model = "local-model"\n',
         'runtime = "llama-server"\n[llama_server]\nbase_url = "http://example.com"\n'
         'model = "local-model"\n',
+        'runtime = "llama-server"\n[llama_server]\n'
+        'base_url = "http://127.0.0.1:8080#fragment"\nmodel = "local-model"\n',
         'runtime = "ollama"\n[ollama\n',
     ],
 )

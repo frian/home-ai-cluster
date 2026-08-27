@@ -82,6 +82,10 @@ header a[href="https://frian.github.io/home-ai-cluster/"] > span:first-child {
   flex: 0 0 50px;
 }
 
+:root:not(.dark) header a[href="https://frian.github.io/home-ai-cluster/"] > span:first-child > svg {
+  filter: drop-shadow(0 1px 1px rgb(15 30 45 / 35%));
+}
+
 article pre,
 article .highlight pre {
   max-width: 100%;

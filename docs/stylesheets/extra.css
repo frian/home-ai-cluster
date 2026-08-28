@@ -100,6 +100,15 @@ article code:not(pre code) {
   border: 1px solid var(--hac-code-border);
 }
 
+article :is(h1, h2, h3, h4, h5, h6) > code:not(pre code),
+article table code:not(pre code) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
 [data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] {
   overflow: hidden;
   isolation: isolate;

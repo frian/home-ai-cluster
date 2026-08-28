@@ -109,6 +109,27 @@ article table code:not(pre code) {
   box-shadow: none;
 }
 
+article h2#quick-command-map + p + .table-wrapper tbody tr {
+  position: relative;
+  transition: background-color 140ms ease;
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody td:first-child > a::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody td:first-child > a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 [data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] {
   overflow: hidden;
   isolation: isolate;

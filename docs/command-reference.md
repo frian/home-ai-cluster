@@ -46,19 +46,19 @@ ten finite commands.
 
 | Command | Purpose | Process type |
 | ------- | ------- | ------------ |
-| `local` | Run one local ordinary application. | Foreground service |
-| `static-cluster` | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
-| `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
-| `aider` | Run one bounded external Aider code edit. | One-shot caller edge |
-| `external-information` | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
-| `chat` | Send one native chat request. | One-shot request |
-| `code` | Send one native bounded textual code request. | One-shot request |
-| `code-file` | Replace one selected file from one bounded code result. | One-shot caller edge |
-| `summarize` | Send one native bounded summarize request. | One-shot request |
-| `classify` | Send one native bounded classification request. | One-shot request |
-| `preflight` | Inspect static declaration coherence. | Finite inspection |
-| `health` | Observe local runtime health. | Finite inspection |
-| `status` | Inspect one declared static cluster. | Finite inspection |
+| [`local`](#hac-local) | Run one local ordinary application. | Foreground service |
+| [`static-cluster`](#hac-static-cluster) | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
+| [`compatibility`](#hac-compatibility) | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
+| [`aider`](#hac-aider) | Run one bounded external Aider code edit. | One-shot caller edge |
+| [`external-information`](#hac-external-information) | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
+| [`chat`](#hac-chat) | Send one native chat request. | One-shot request |
+| [`code`](#hac-code) | Send one native bounded textual code request. | One-shot request |
+| [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. | One-shot caller edge |
+| [`summarize`](#hac-summarize) | Send one native bounded summarize request. | One-shot request |
+| [`classify`](#hac-classify) | Send one native bounded classification request. | One-shot request |
+| [`preflight`](#hac-preflight) | Inspect static declaration coherence. | Finite inspection |
+| [`health`](#hac-health) | Observe local runtime health. | Finite inspection |
+| [`status`](#hac-status) | Inspect one declared static cluster. | Finite inspection |
 
 ## `hac local`
 

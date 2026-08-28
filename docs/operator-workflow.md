@@ -1,3 +1,7 @@
+---
+order: 50
+---
+
 # Canonical Operator Workflow
 
 Status: Canonical

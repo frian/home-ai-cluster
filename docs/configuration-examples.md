@@ -1,3 +1,7 @@
+---
+order: 40
+---
+
 # Configuration Examples
 
 Status: Current

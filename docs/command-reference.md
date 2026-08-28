@@ -1,3 +1,7 @@
+---
+order: 30
+---
+
 # Command Reference
 
 Status: Current

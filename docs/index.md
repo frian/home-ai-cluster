@@ -1,3 +1,7 @@
+---
+order: 10
+---
+
 # Home AI Cluster
 
 > Many machines. One AI.

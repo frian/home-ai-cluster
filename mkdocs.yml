@@ -22,4 +22,5 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Command Reference: command-reference.md
+  - Configuration Examples: configuration-examples.md
   - Operator Workflow: operator-workflow.md

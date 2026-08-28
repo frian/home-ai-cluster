@@ -285,7 +285,7 @@ If this local first run works, the useful next documents are:
   boundaries for every ordinary command.
 - [Canonical operator workflow](operator-workflow.md) — preflight, health,
   startup, shutdown, recovery, and explicit static multi-node operation.
-- [Configuration examples](../examples/README.md) — runtime-composition and
+- [Configuration examples](configuration-examples.md) — runtime-composition and
   static-cluster declaration examples.
 - [Project README](../README.md) — current project scope and deliberate
   boundaries.

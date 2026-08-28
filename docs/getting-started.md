@@ -291,7 +291,7 @@ If this local first run works, the useful next documents are:
   startup, shutdown, recovery, and explicit static multi-node operation.
 - [Configuration examples](configuration-examples.md) — runtime-composition and
   static-cluster declaration examples.
-- [Project README](../README.md) — current project scope and deliberate
+- [Project README](https://github.com/frian/home-ai-cluster#readme) — current project scope and deliberate
   boundaries.
 
 A second machine is optional. Local-only operation remains the shortest and

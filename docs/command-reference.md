@@ -233,7 +233,7 @@ foreground. It provides narrow, non-streaming chat-completions compatibility,
 not the internal cluster protocol or general OpenAI API compatibility.
 Summarize, classify, and code are not supported through this Chat-only surface.
 
-**See also:** [README compatibility guidance](../README.md#run-the-minimal-openai-compatible-endpoint).
+**See also:** [README compatibility guidance](https://github.com/frian/home-ai-cluster#optional-bounded-integrations).
 
 ## `hac chat`
 
@@ -674,14 +674,14 @@ All four historical installed proof launchers were retired by RFC-0075; their
 commands remain in historical records and require the matching historical
 repository revision for exact reproduction.
 
-**See also:** [Documentation index](README.md), retained proof documents, and
-the [RFC index](../RFC/README.md).
+**See also:** [Documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md), retained proof documents, and
+the [RFC index](https://github.com/frian/home-ai-cluster/blob/main/RFC/README.md).
 
 ## Related documentation
 
-- [Project README](../README.md) — project entry point, installation, and common
+- [Project README](https://github.com/frian/home-ai-cluster#readme) — project entry point, installation, and common
   examples.
 - [Canonical operator workflow](operator-workflow.md) — procedural start, check,
   stop, and recovery sequence.
-- [Documentation index](README.md) — current guidance and historical records.
-- [RFC index](../RFC/README.md) — accepted architectural decisions.
+- [Documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md) — current guidance and historical records.
+- [RFC index](https://github.com/frian/home-ai-cluster/blob/main/RFC/README.md) — accepted architectural decisions.

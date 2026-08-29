@@ -131,6 +131,33 @@ def short_arguments(
     return ["--plugin", "selected", query, question]
 
 
+def test_help_uses_public_positional_names_without_discovery(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    discovered = False
+
+    def entry_points() -> object:
+        nonlocal discovered
+        discovered = True
+        raise AssertionError("help must not discover plugins")
+
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata, "entry_points", entry_points
+    )
+
+    with pytest.raises(SystemExit) as raised:
+        external_information_command.main(["--help"])
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 0
+    assert "QUERY" in captured.out
+    assert "QUESTION" in captured.out
+    assert "query_positional" not in captured.out
+    assert "question_positional" not in captured.out
+    assert captured.err == ""
+    assert not discovered
+
+
 @pytest.mark.parametrize(
     "argv",
     [

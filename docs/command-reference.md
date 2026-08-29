@@ -306,15 +306,6 @@ required: QUERY goes only to that selected plugin, while QUESTION does not go
 to the plugin. Neither form implies a configured default or retained plugin
 preference.
 
-**Retained explicit form:**
-
-```sh
-hac external-information \
-  --plugin <NAME> \
-  --query "<EXPLICIT_OPERATOR_QUERY>" \
-  --question "<OPERATOR_QUESTION>"
-```
-
 **Available plugin example:**
 
 The separately packaged

@@ -139,7 +139,8 @@ http://127.0.0.1:25042/v1/classify
 
 With this ordinary default exact host, the same process also serves the fixed
 browser page at `http://127.0.0.1:25042/`. Its only views are Chat, Summarize,
-and Classify, which make same-origin calls to the existing native endpoints.
+Classify, and Code, which make same-origin calls to the existing native
+endpoints.
 Chat is memory-only and shows discreet attribution per assistant response. The
 page provides accessible active feedback for each request. One explicitly
 selected Summarize or Classify file is read locally with strict UTF-8 decoding
@@ -471,8 +472,8 @@ uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 The same process also accepts an explicit bounded textual code request through
 `hac code --message "<OPERATOR_SUPPLIED_CODE_REQUEST>"`. A declared code-capable
 node can be selected only when `code` is explicit in its static declaration;
-omission remains exactly `chat` plus `summarize`. This does not make the browser
-page a Code surface or expand the Chat-only OpenAI-compatible process.
+omission remains exactly `chat` plus `summarize`. This does not expand the
+Chat-only OpenAI-compatible process.
 
 A usable eligible local candidate has precedence. A declared remote can be
 selected directly when the local candidate is ineligible for the requested

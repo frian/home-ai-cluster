@@ -72,6 +72,11 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+article > .typography > blockquote:first-child {
+  margin-top: 0;
+  font-size: 1.5em;
+}
+
 header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child,
 header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child > svg {
   width: 50px;

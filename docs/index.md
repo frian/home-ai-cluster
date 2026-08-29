@@ -41,7 +41,7 @@ uv tool install home-ai-cluster
 hac local
 ```
 
-Then open `http://127.0.0.1:8000/` or send a request from another terminal:
+Then open `http://127.0.0.1:25042/` or send a request from another terminal:
 
 ```sh
 hac chat "Hello"

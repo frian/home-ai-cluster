@@ -1,2 +1,2 @@
 remote_node_id = "remote-node"
-remote_base_url = "http://192.0.2.10:8000"
+remote_base_url = "http://192.0.2.10:25042"

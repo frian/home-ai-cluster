@@ -26,7 +26,7 @@ from home_ai_cluster.chat_command import (
 )
 from home_ai_cluster.core.models import ClusterResult, SummarizeRequest
 
-_ORDINARY_SUMMARIZE_URL = "http://127.0.0.1:8000/v1/summarize"
+_ORDINARY_SUMMARIZE_URL = "http://127.0.0.1:25042/v1/summarize"
 _NO_CAPABILITY = "error: no available summarize capability"
 _MAX_SOURCE_BYTES = 65_537
 

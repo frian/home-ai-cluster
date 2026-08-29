@@ -30,7 +30,7 @@ from home_ai_cluster.core.models import (
 _AIDER_VERSION = "0.86.2"
 _AIDER_MODEL = "openai/home-ai-cluster"
 _AIDER_ENDPOINT_MODEL = "home-ai-cluster"
-_NATIVE_CHAT_URL = "http://127.0.0.1:8000/v1/chat"
+_NATIVE_CHAT_URL = "http://127.0.0.1:25042/v1/chat"
 _BRIDGE_FAILURE = "Home AI Cluster request failed"
 _AIDER_FAILURE = "error: Aider caller edge failed"
 _AIDER_PREREQUISITE_FAILURE = "error: Aider 0.86.2 is required"

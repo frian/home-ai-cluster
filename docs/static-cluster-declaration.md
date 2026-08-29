@@ -20,7 +20,7 @@ It contains exactly two top-level TOML keys:
 
 ```toml
 remote_node_id = "remote-node"
-remote_base_url = "http://192.0.2.10:8000"
+remote_base_url = "http://192.0.2.10:25042"
 ```
 
 The file must not contain sections, nested tables, unknown keys, secrets, or
@@ -42,7 +42,7 @@ Edit only the two values:
 
 ```toml
 remote_node_id = "<remote-node-id>"
-remote_base_url = "http://<receiving-lan-address>:8000"
+remote_base_url = "http://<receiving-lan-address>:25042"
 ```
 
 Do not commit a real private LAN address, machine name, secret, prompt, or
@@ -69,7 +69,7 @@ uv run home-ai-cluster-static-cluster \
 The calling endpoint remains:
 
 ```text
-http://127.0.0.1:8000/v1/chat
+http://127.0.0.1:25042/v1/chat
 ```
 
 The host, port, local-first routing, narrow remote fallback, transport,
@@ -83,7 +83,7 @@ The existing inline form remains valid:
 ```sh
 uv run home-ai-cluster-static-cluster \
   --remote-node-id <remote-node-id> \
-  --remote-base-url http://<receiving-lan-address>:8000
+  --remote-base-url http://<receiving-lan-address>:25042
 ```
 
 Use either the declaration mode or the complete inline mode.

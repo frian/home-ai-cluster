@@ -119,7 +119,7 @@ uv run home-ai-cluster-local
 The native endpoint is:
 
 ```text
-http://127.0.0.1:8000/v1/chat
+http://127.0.0.1:25042/v1/chat
 ```
 
 This existing ordered-message endpoint carries both ordinary `chat` and `code`;
@@ -128,17 +128,17 @@ there is no `/v1/code` endpoint.
 The same process also exposes the native bounded summarize endpoint:
 
 ```text
-http://127.0.0.1:8000/v1/summarize
+http://127.0.0.1:25042/v1/summarize
 ```
 
 It also exposes the native bounded classification endpoint:
 
 ```text
-http://127.0.0.1:8000/v1/classify
+http://127.0.0.1:25042/v1/classify
 ```
 
 With this ordinary default exact host, the same process also serves the fixed
-browser page at `http://127.0.0.1:8000/`. Its only views are Chat, Summarize,
+browser page at `http://127.0.0.1:25042/`. Its only views are Chat, Summarize,
 and Classify, which make same-origin calls to the existing native endpoints.
 Chat is memory-only and shows discreet attribution per assistant response. The
 page provides accessible active feedback for each request. One explicitly
@@ -270,7 +270,7 @@ reachability from the calling machine.
 On every receiving machine represented by the declaration:
 
 ```sh
-uv run home-ai-cluster-local --host 0.0.0.0 --port 8000
+uv run home-ai-cluster-local --host 0.0.0.0 --port 25042
 ```
 
 This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
@@ -295,7 +295,7 @@ For one remote, use these root keys:
 
 ```toml
 remote_node_id = "<DECLARED_REMOTE_NODE_ID>"
-remote_base_url = "http://<RECEIVER_ADDRESS>:8000"
+remote_base_url = "http://<RECEIVER_ADDRESS>:25042"
 local_capabilities = ["chat"]
 remote_capabilities = ["chat", "summarize"]
 ```
@@ -305,12 +305,12 @@ For multiple remotes, use ordered tables:
 ```toml
 [[remote_nodes]]
 node_id = "<DECLARED_REMOTE_NODE_A_ID>"
-base_url = "http://<RECEIVER_A_ADDRESS>:8000"
+base_url = "http://<RECEIVER_A_ADDRESS>:25042"
 capabilities = ["chat"]
 
 [[remote_nodes]]
 node_id = "<DECLARED_REMOTE_NODE_B_ID>"
-base_url = "http://<RECEIVER_B_ADDRESS>:8000"
+base_url = "http://<RECEIVER_B_ADDRESS>:25042"
 capabilities = ["summarize"]
 ```
 
@@ -331,7 +331,7 @@ For one inline remote, repeat the closed capability option as needed:
 ```sh
 uv run home-ai-cluster-static-cluster \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
-  --remote-base-url http://<RECEIVER_ADDRESS>:8000 \
+  --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
   --remote-capability summarize
 ```
@@ -370,7 +370,7 @@ local_capabilities = ["chat", "summarize"]
 
 [[remote_nodes]]
 node_id = "classification-remote"
-base_url = "http://<RECEIVER_ADDRESS>:8000"
+base_url = "http://<RECEIVER_ADDRESS>:25042"
 capabilities = ["classify"]
 ```
 
@@ -400,7 +400,7 @@ set without network activity:
 ```sh
 uv run home-ai-cluster-preflight \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
-  --remote-base-url http://<RECEIVER_ADDRESS>:8000 \
+  --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
   --remote-capability summarize
 ```
@@ -452,7 +452,7 @@ uv run home-ai-cluster-static-cluster --declaration "$DECLARATION"
 It binds the calling machine's native endpoint to:
 
 ```text
-http://127.0.0.1:8000/v1/chat
+http://127.0.0.1:25042/v1/chat
 ```
 
 The same process also exposes the separate native `/v1/summarize` and
@@ -554,8 +554,8 @@ Do not reinterpret one layer's failure as another layer's result.
 | Process | Purpose | Accepted port and exposure | Ownership |
 | --- | --- | --- | --- |
 | External AI runtime | Model execution | Runtime-specific | Operator-owned |
-| Ordinary Home AI Cluster application | Native local or receiving endpoint | `8000`; loopback by default, trusted-LAN bind only when explicitly started that way | Home AI Cluster process, manually started |
-| Static multi-node process | Calling-machine ordinary multi-node endpoint | `8000` on the calling machine loopback | Home AI Cluster process, manually started |
+| Ordinary Home AI Cluster application | Native local or receiving endpoint | `25042`; loopback by default, trusted-LAN bind only when explicitly started that way | Home AI Cluster process, manually started |
+| Static multi-node process | Calling-machine ordinary multi-node endpoint | `25042` on the calling machine loopback | Home AI Cluster process, manually started |
 | Historical static proof process | Historical calling-machine proof endpoint | `8000` on the calling machine loopback | Historical repository revision only |
 | OpenAI-compatible process | Optional compatibility access | `8001`; loopback only | Separate optional Home AI Cluster process |
 

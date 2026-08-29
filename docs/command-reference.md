@@ -71,7 +71,7 @@ The ordinary root surface has thirteen commands.
 
 ```sh
 hac local
-hac local --host 127.0.0.1 --port 8000
+hac local --host 127.0.0.1 --port 25042
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
 hac local --runtime-config <PATH>
@@ -128,7 +128,7 @@ Both llama-server values are required. Runtime-composition files configure only
 the caller-local runtime and remain separate from static topology declarations.
 
 When the selected host is exactly `127.0.0.1`, open
-`http://127.0.0.1:8000/` for the fixed same-origin browser page. It contains
+`http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
 Chat, Summarize, Classify, and Code. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
 request is running. Each view permits at most one active request, while distinct

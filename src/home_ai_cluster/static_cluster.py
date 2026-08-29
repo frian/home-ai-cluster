@@ -44,7 +44,7 @@ from home_ai_cluster.static_cluster_validation import (
 )
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
-STATIC_CLUSTER_PORT = 8000
+STATIC_CLUSTER_PORT = 25042
 REMOTE_HTTP_ADAPTER_NAME = "remote-http"
 """Cluster-facing label for caller-side declared remote HTTP execution."""
 

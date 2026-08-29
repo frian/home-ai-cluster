@@ -27,7 +27,7 @@ class _NativeClient:
         return None
 
     def post(self, url: str, *, json: dict[str, Any]) -> httpx.Response:
-        assert url == "http://127.0.0.1:8000/v1/chat"
+        assert url == "http://127.0.0.1:25042/v1/chat"
         self._requests.append(json)
         return self._response
 

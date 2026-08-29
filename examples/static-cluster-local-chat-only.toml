@@ -2,4 +2,4 @@ local_capabilities = ["chat"]
 
 [[remote_nodes]]
 node_id = "remote-node"
-base_url = "http://192.0.2.10:8000"
+base_url = "http://192.0.2.10:25042"

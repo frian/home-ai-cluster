@@ -131,7 +131,7 @@ With the default host and port, Home AI Cluster is now available only on the
 local machine at:
 
 ```text
-http://127.0.0.1:8000/
+http://127.0.0.1:25042/
 ```
 
 This same process serves both the native local API and the fixed loopback browser
@@ -142,7 +142,7 @@ interface.
 Open this address in a browser on the same machine:
 
 ```text
-http://127.0.0.1:8000/
+http://127.0.0.1:25042/
 ```
 
 The current browser provides four ordinary views:

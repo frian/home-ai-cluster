@@ -1,6 +1,6 @@
 # RFC-0090: Ordinary Loopback Port 25042
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-29
 
@@ -256,4 +256,23 @@ configurability question is opened by this RFC.
 
 ## Decision
 
-Pending.
+Accepted.
+
+The ordinary fixed/default Home AI Cluster loopback convention is
+`127.0.0.1:25042`. A later implementation will move the ordinary local default,
+ordinary static-cluster fixed bind, built-in fixed ordinary callers, and
+same-origin loopback browser to that convention. The existing explicit
+`hac local --port <PORT>` remains a server override only; it does not become
+client discovery or client configuration.
+
+This acceptance amends only the port-specific portions of RFC-0038, RFC-0045,
+RFC-0054, and RFC-0062. All other provisions remain unchanged, and dependent
+accepted caller/browser contracts inherit the new ordinary port without new
+semantics. Native endpoint paths do not change.
+
+OpenAI compatibility remains on `127.0.0.1:8001`, and RFC-0079 SearXNG remains
+on `127.0.0.1:8888`. Explicit remote-node and runtime-provider URLs remain
+operator-owned values and are not globally rewritten. No automatic fallback to
+8000, dual listener, redirect, compatibility proxy, free-port selection,
+discovery, or port configuration is introduced. Implementation remains a
+separate follow-up pull request.

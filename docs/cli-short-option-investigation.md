@@ -54,7 +54,7 @@ also have argparse `-h/--help`, as noted above.
 | local | `--llama-server-base-url` | — | value | runtime-specific network destination | E |
 | local | `--llama-server-model` | — | value | runtime-specific advanced composition | E |
 | local | `--host` | — | value | bind/exposure choice; infrequent | E |
-| local | `--port` | — | value | conventional server port; occasional explicit bind | B |
+| local | `--port` | — | value | conventional server port; exceptional server-only override of fixed ordinary port 25042 | C |
 | static-cluster | `--declaration` | — | value; MX inline topology | shared retained declaration selection; repeated operator workflow | B |
 | static-cluster | `--remote-node-id` | — | value; paired with URL | inline topology identity; rare structural proof/setup | E |
 | static-cluster | `--remote-base-url` | — | value; paired with ID | inline topology/network destination; rare structural setup | E |
@@ -125,37 +125,42 @@ also have argparse `-h/--help`, as noted above.
 | `-d` | declaration | static-cluster, compatibility, preflight, status | strong: the same retained static declaration selection everywhere it occurs |
 | `-l` | label | classify | strong: conventional repeated classification input; no competing ordinary meaning |
 | `-j` | JSON output | chat, code, external-information, summarize, classify, preflight, health, status | strong: consistent explicit machine-output mode, only where JSON already exists |
-| `-p` | port | local | strong: conventional server spelling; reserve it exclusively for port |
+| `-p` | port | local | possible later: conventional, but RFC-0090 makes it an exceptional server-only override of fixed port 25042 |
 | `-r` | runtime | local, static-cluster, status | possible later: coherent but startup-only and retained config reduces repetition |
 | `-m` | message | chat, code, code-file, aider | reject: accepted positional forms already solve ordinary typing |
 | `-t` | text or timeout | summarize/classify versus request clients | reject: one letter cannot coherently mean both |
-| `-p` | plugin | external-information | reject: plugin selection must remain visibly named and would collide with port |
+| `-p` | plugin | external-information | reject: plugin selection must remain visibly named; `-p` is unassigned by this proposed RFC |
 | `-q` | query or question | external-information | reject: two distinct concepts already have accepted positional forms |
 
 `-f`, `-d`, `-l`, and `-j` have direct repeated-use evidence in current
-ordinary examples. `-p` is a conventional but less frequent foreground-server
-convenience; it is still small and unambiguous if reserved solely for port.
-`-r` is coherent, but does not clear the same practical-value bar because the
-default and `--runtime-config` commonly avoid repeating it.
+ordinary examples. `-p` is conventional for port, but RFC-0090 fixes ordinary
+HAC at 25042: `--port` is an exceptional server-only override and built-in
+callers do not discover, propagate, fall back to, or reconcile it. It therefore
+does not meet the same repeated daily-use threshold and remains long-only for
+now; later operator evidence may justify reconsideration. `-r` is coherent,
+but does not clear the same practical-value bar because the default and
+`--runtime-config` commonly avoid repeating it.
 
 ## Authority-sensitive options and collisions
 
 Named `--plugin` must remain long-only. RFC-0091 deliberately retains that
 per-operation selection because it makes the acquisition/plugin and network
-disclosure boundary visible; `-p` must not weaken it. `--host`, inline remote
-identity/URL/capability options, runtime configuration, runtime-specific model
-and URL choices, and `--proof-observation` likewise remain long-only: they are
-rare structural, exposure, lifecycle, or runtime authority decisions and are
-normally replaced by retained declarations/configuration.
+disclosure boundary visible; `-p` is not an alias for it. `--host`, inline
+remote identity/URL/capability options, runtime configuration, runtime-specific
+model and URL choices, and `--proof-observation` likewise remain long-only:
+they are rare structural, exposure, lifecycle, or runtime authority decisions
+and are normally replaced by retained declarations/configuration.
 
 No recommended alias changes validation, repeatability, mutually exclusive
 forms, defaults, output, exit status, request shape, routing, privacy,
 lifecycle, or authority. Long forms remain canonical and non-deprecated.
 
-The explicit reservations are material: `-p` is port, never plugin; `-t` is
-neither text nor timeout; `-q` is neither query nor question; and `-m` is not
-needed beside existing positional messages. No automatic abbreviation, prefix
-matching, command renaming, or new syntax family is suggested.
+For this bounded RFC, `-p` remains unassigned and is explicitly not plugin;
+`--port` remains long-only for now. `-t` remains unassigned because text and
+timeout would collide, `-q` remains unassigned because query and question are
+distinct positional values, and `-m` is unnecessary beside existing positional
+messages. No automatic abbreviation, prefix matching, command renaming, or new
+syntax family is suggested.
 
 ## 0.6 relevance
 
@@ -175,14 +180,16 @@ One bounded RFC should ask:
 > `code-file`, `summarize`, and `classify`; `-d/--declaration` for
 > `static-cluster`, `compatibility`, `preflight`, and `status`; `-l/--label`
 > for `classify`; `-j/--json` for every current JSON-capable ordinary command;
-> `-p/--port` for `local`; and root `-h/--help` for both root spellings, while
-> retaining all long forms, preserving semantic equivalence, and reserving
-> collisions including `-p` for plugin and `-t` for text/timeout?
+> and root `-h/--help` for both root spellings, while preserving existing
+> `-v/--verbose`, retaining every long form as supported and non-deprecated,
+> and preserving semantic behavior? The RFC would keep `-m` unnecessary beside
+> positional messages, leave `-q` unassigned because QUERY and QUESTION are
+> distinct positional values, leave `-t` unassigned because text and timeout
+> collide, leave `-p` unassigned and not an alias for plugin, and defer
+> `-r/--runtime`.
 
-The RFC should preserve existing `-v/--verbose`, explicitly reject aliases for
-message/query/question because positional forms already serve them, and retain
-authority-sensitive choices long-only. `-r/--runtime` is deferred. No alias
-may be implemented unless that RFC is accepted.
+The RFC should retain authority-sensitive choices long-only. No alias may be
+implemented unless that RFC is accepted.
 
 ## Next step
 

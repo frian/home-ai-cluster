@@ -127,7 +127,7 @@ This RFC amends only the following port-specific portions of accepted RFCs:
 All non-port provisions of those RFCs remain unchanged. Accepted RFC files are
 historical architectural records and are not retroactively edited by this RFC.
 RFC-0049, RFC-0055 through RFC-0057, RFC-0061, RFC-0063, RFC-0065, RFC-0067
-through RFC-0070, RFC-0077 through RFC-0078, RFC-0080 through RFC-0081, and
+through RFC-0072, RFC-0077 through RFC-0078, RFC-0080 through RFC-0081, and
 RFC-0083 through RFC-0088 reuse an amended fixed ordinary target or RFC-0062's
 same-origin composition where applicable. They inherit the new port without
 new architectural semantics. Illustrative explicit remote `:8000` URLs do not
@@ -170,8 +170,8 @@ depend on a known ordinary process. The privacy and security property is the
 loopback bind, not obscurity of the port number; this change is not a security
 mechanism.
 
-25042 is selected because the investigation found it sufficiently low-collision
-and defensible, not because it is uniquely optimal, permanently unused, or
+25042 is selected because the investigation found it sufficiently defensible,
+not because it is uniquely optimal, permanently unused, or
 owned by HAC. Retaining 8000 keeps a known first-use collision risk. A simple
 fixed replacement now preserves a boring, explainable contract before 1.0.
 

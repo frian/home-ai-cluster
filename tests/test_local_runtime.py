@@ -16,7 +16,7 @@ def test_parse_args_defaults_to_ollama() -> None:
     assert args.ollama_model is None
     assert args.ollama_disable_thinking is False
     assert args.host == "127.0.0.1"
-    assert args.port == 8000
+    assert args.port == 25042
 
 
 def test_parse_args_accepts_explicit_ollama() -> None:
@@ -507,5 +507,5 @@ def test_main_starts_default_ollama_composition(
         "runtime": "ollama",
         "app": app,
         "host": "127.0.0.1",
-        "port": 8000,
+        "port": 25042,
     }

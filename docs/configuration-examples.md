@@ -29,7 +29,7 @@ Source: [`examples/static-cluster-single-remote.toml`](https://github.com/frian/
 
 ```toml
 remote_node_id = "remote-node"
-remote_base_url = "http://192.0.2.10:8000"
+remote_base_url = "http://192.0.2.10:25042"
 ```
 
 ### Two ordered remote nodes
@@ -42,11 +42,11 @@ Source: [`examples/static-cluster-two-remotes.toml`](https://github.com/frian/ho
 ```toml
 [[remote_nodes]]
 node_id = "remote-a"
-base_url = "http://192.0.2.10:8000"
+base_url = "http://192.0.2.10:25042"
 
 [[remote_nodes]]
 node_id = "remote-b"
-base_url = "http://192.0.2.11:8000"
+base_url = "http://192.0.2.11:25042"
 ```
 
 ### Local Chat-only eligibility
@@ -62,7 +62,7 @@ local_capabilities = ["chat"]
 
 [[remote_nodes]]
 node_id = "remote-node"
-base_url = "http://192.0.2.10:8000"
+base_url = "http://192.0.2.10:25042"
 ```
 
 ## Local runtime composition

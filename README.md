@@ -82,7 +82,7 @@ hac chat "Hello"
 ```
 
 The same fixed loopback process serves the browser at
-`http://127.0.0.1:8000/`.
+`http://127.0.0.1:25042/`.
 
 ### Repository checkout
 

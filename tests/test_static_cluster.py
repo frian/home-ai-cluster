@@ -41,7 +41,6 @@ from home_ai_cluster.static_cluster import (
     LOCAL_NODE_ID,
     REMOTE_HTTP_ADAPTER_NAME,
     STATIC_CLUSTER_HOST,
-    STATIC_CLUSTER_PORT,
     create_remote_declaration,
     create_static_cluster_app,
     create_static_cluster_collection_app,
@@ -439,7 +438,7 @@ def test_main_wraps_the_fixed_loopback_static_cluster_application(
         "api_app": api_app,
         "app": browser_app,
         "host": STATIC_CLUSTER_HOST,
-        "port": STATIC_CLUSTER_PORT,
+        "port": 25042,
     }
 
 
@@ -886,7 +885,7 @@ def test_main_runs_fixed_loopback_static_cluster_server(
         "local_app_composition": local_composition,
         "app": app,
         "host": STATIC_CLUSTER_HOST,
-        "port": STATIC_CLUSTER_PORT,
+        "port": 25042,
     }
 
 

@@ -383,7 +383,7 @@ def test_complete_validation_precedes_exact_public_post_and_http_timeout(
         {"timeout": 300.0, "follow_redirects": False, "trust_env": False}
     ]
     assert len(requests) == 1
-    assert str(requests[0].url) == "http://127.0.0.1:8000/v1/chat/sources"
+    assert str(requests[0].url) == "http://127.0.0.1:25042/v1/chat/sources"
     assert json.loads(requests[0].content) == {
         "question": "operator question",
         "sources": [valid_candidate()],

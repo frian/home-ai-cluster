@@ -49,7 +49,7 @@ def test_posts_exact_body_with_default_timeout_and_preserved_order(capsys):
     assert options == [
         {"timeout": 120.0, "follow_redirects": False, "trust_env": False}
     ]
-    assert str(requests[0].url) == "http://127.0.0.1:8000/v1/classify"
+    assert str(requests[0].url) == "http://127.0.0.1:25042/v1/classify"
     assert json.loads(requests[0].content) == {
         "text": "  Source  ",
         "labels": [" A ", "Résumé"],

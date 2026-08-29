@@ -185,7 +185,7 @@ def test_every_output_mode_posts_one_exact_native_request(
     assert len(requests) == 1
     request = requests[0]
     assert request.method == "POST"
-    assert str(request.url) == "http://127.0.0.1:8000/v1/chat"
+    assert str(request.url) == "http://127.0.0.1:25042/v1/chat"
     assert request.headers["content-type"] == "application/json"
     assert json.loads(request.content) == {
         "messages": [{"role": "user", "content": "  preserved message  "}],

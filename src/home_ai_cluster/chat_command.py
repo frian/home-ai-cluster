@@ -17,7 +17,7 @@ from home_ai_cluster.core.models import (
     ClusterResult,
 )
 
-_ORDINARY_CHAT_URL = "http://127.0.0.1:8000/v1/chat"
+_ORDINARY_CHAT_URL = "http://127.0.0.1:25042/v1/chat"
 _REQUEST_TIMEOUT_SECONDS = 120.0
 _MIN_REQUEST_TIMEOUT_SECONDS = 1
 _MAX_REQUEST_TIMEOUT_SECONDS = 3600

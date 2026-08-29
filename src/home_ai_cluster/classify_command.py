@@ -29,7 +29,7 @@ from home_ai_cluster.summarize_command import (
     _read_bounded_utf8_source,
 )
 
-_ORDINARY_CLASSIFY_URL = "http://127.0.0.1:8000/v1/classify"
+_ORDINARY_CLASSIFY_URL = "http://127.0.0.1:25042/v1/classify"
 _NO_CAPABILITY = "error: no available classify capability"
 
 

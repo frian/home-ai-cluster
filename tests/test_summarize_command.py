@@ -196,7 +196,7 @@ def test_stdin_posts_one_decoded_native_request(
     assert len(requests) == 1
     request = requests[0]
     assert request.method == "POST"
-    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert str(request.url) == "http://127.0.0.1:25042/v1/summarize"
     assert json.loads(request.content) == {"text": expected_text}
 
 
@@ -334,7 +334,7 @@ def test_regular_file_posts_one_decoded_native_request(
     assert len(requests) == 1
     request = requests[0]
     assert request.method == "POST"
-    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert str(request.url) == "http://127.0.0.1:25042/v1/summarize"
     assert json.loads(request.content) == {"text": expected_text}
 
 
@@ -622,7 +622,7 @@ def test_every_output_mode_posts_one_exact_native_request(
     assert len(requests) == 1
     request = requests[0]
     assert request.method == "POST"
-    assert str(request.url) == "http://127.0.0.1:8000/v1/summarize"
+    assert str(request.url) == "http://127.0.0.1:25042/v1/summarize"
     assert request.headers["content-type"] == "application/json"
     assert json.loads(request.content) == {"text": "  preserved source  "}
 

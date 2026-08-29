@@ -21,7 +21,7 @@ from home_ai_cluster.core.models import (
 )
 
 _ENTRY_POINT_GROUP = "home_ai_cluster.external_information_acquisition.v1"
-_SOURCE_GROUNDED_CHAT_URL = "http://127.0.0.1:8000/v1/chat/sources"
+_SOURCE_GROUNDED_CHAT_URL = "http://127.0.0.1:25042/v1/chat/sources"
 _MAX_PLUGIN_NAME_BYTES = 64
 _MAX_QUERY_BYTES = 4_096
 _ACQUISITION_FAILED = "error: external-information-acquisition-failed"

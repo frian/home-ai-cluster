@@ -16,7 +16,7 @@ from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
-LOCAL_RUNTIME_PORT = 8000
+LOCAL_RUNTIME_PORT = 25042
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:

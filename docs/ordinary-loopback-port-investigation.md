@@ -65,12 +65,18 @@ to use 8000.
 ### C and E. Current user documentation and examples
 
 Current operator-facing references occur in `README.md`, `docs/getting-started.md`,
-`docs/index.md`, `docs/command-reference.md`, `docs/operator-workflow.md`, and
-`docs/static-cluster-declaration.md`. Their ordinary local/browser examples
-would need alignment. Remote receiver and static-declaration examples require
-case-by-case treatment: a receiver started with the ordinary default should
-show the new port, while an explicitly supplied remote URL remains operator
-owned and is not globally rewritten.
+`docs/index.md`, `docs/command-reference.md`, `docs/operator-workflow.md`,
+`docs/static-cluster-declaration.md`, and `docs/configuration-examples.md`.
+Their ordinary local/browser examples would need alignment. The explicit remote
+URLs in static-declaration/configuration examples and
+`examples/static-cluster-single-remote.toml`,
+`examples/static-cluster-two-remotes.toml`, and
+`examples/static-cluster-local-chat-only.toml` require case-by-case treatment:
+they MUST NOT be blindly changed merely because the ordinary default changes.
+If an example is intended to show a remote HAC receiver running on the ordinary
+default, a later accepted implementation may align it to the new port; that
+documentation decision belongs to eventual implementation alignment, not this
+investigation.
 
 ### D. Accepted RFC contracts
 

@@ -1,6 +1,6 @@
 # RFC-0092: Ordinary CLI Short Options
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-29
 
@@ -18,8 +18,8 @@ This RFC proposes one finite, additive ordinary CLI vocabulary:
 | `-l` | `--label` | classify |
 | `-j` | `--json` | chat, code, external-information, summarize, classify, preflight, health, status |
 
-Every long form remains supported, canonical, and non-deprecated. This Draft
-authorizes no implementation.
+Every long form remains supported, canonical, and non-deprecated. This RFC
+authorizes no implementation in this acceptance change.
 
 Existing behavior is not newly proposed:
 
@@ -244,9 +244,9 @@ is neither amended nor decided by this RFC.
 
 ## Implementation boundary
 
-This Draft authorizes no implementation, tests, or user-documentation change.
-If accepted, one later focused implementation PR may add only these option
-strings, focused parser/help tests, and relevant current documentation/examples.
+This acceptance authorizes no implementation, tests, or user-documentation
+change. One later focused implementation PR may add only these option strings,
+focused parser/help tests, and relevant current documentation/examples.
 It must preserve every long form and semantic boundary and must introduce no
 unrelated CLI cleanup.
 
@@ -256,4 +256,32 @@ None within this finite proposed mapping.
 
 ## Decision
 
-Draft. No decision or implementation is authorized until review and acceptance.
+Accepted.
+
+Home AI Cluster accepts exactly one finite additive ordinary CLI vocabulary:
+
+- root `-h/--help` for both `hac` and `home-ai-cluster`;
+- `-f/--file` for aider, code-file, summarize, and classify;
+- `-d/--declaration` for static-cluster, compatibility, preflight, and status;
+- `-l/--label` for classify; and
+- `-j/--json` for chat, code, external-information, summarize, classify,
+  preflight, health, and status.
+
+Existing argparse subcommand `-h/--help` and existing `-v/--verbose` remain
+unchanged. Every long option remains supported, canonical, and non-deprecated.
+
+The aliases change CLI spelling only. They preserve all existing validation,
+parser destinations, mutual exclusion, repeatability, request and output
+semantics, routing, capability behavior, privacy, authority, lifecycle,
+failures, and exit codes.
+
+This acceptance does not add `-m`, `-q`, `-t`, `-p`, or `-r`; short aliases for
+`--plugin`, `--port`, topology/network controls, runtime-specific controls, or
+proof controls; automatic abbreviation; a generic alias registry or framework;
+combined short flags; parser redesign; or configuration or lifecycle behavior.
+
+RFC-0050 and RFC-0052 are amended only for the additive root `-h` spelling and
+equivalent behavior through `hac`. All other accepted contracts listed by this
+RFC remain authoritative except for their narrowly amended CLI spellings.
+
+Implementation is authorized only in a later focused follow-up PR.

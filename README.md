@@ -4,6 +4,8 @@ Local-first orchestration for personal AI runtimes.
 
 Project maturity: early prototype.
 
+**User documentation:** [frian.github.io/home-ai-cluster](https://frian.github.io/home-ai-cluster/)
+
 Home AI Cluster is an orchestration layer, not an LLM or inference engine. It
 presents multiple personal machines and replaceable AI runtimes as one
 capability-centered local system:

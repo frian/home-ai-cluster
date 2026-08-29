@@ -190,7 +190,9 @@ the current bounded evidence, not a universal prohibition on later aliases.
 RFC-0092 amends only CLI spelling, and leaves every non-spelling provision
 unchanged, in these accepted contracts:
 
-- RFC-0050 for the custom ordinary root command's exact `-h` help request;
+- RFC-0050 for the custom ordinary root command's additive `-h` help spelling;
+- RFC-0052 only to preserve identical root `-h` behavior through the accepted
+  `hac` executable alias;
 - RFC-0068 for Aider's selected `--file` argument;
 - RFC-0080 and RFC-0081 for Code-file's selected `--file` argument;
 - RFC-0054 and RFC-0057 for Summarize's source/file and output forms;

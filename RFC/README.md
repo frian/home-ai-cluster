@@ -67,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0090: Ordinary Loopback Port 25042](RFC-0090-ordinary-loopback-port-25042.md)
+  — moves the fixed ordinary HAC loopback convention from port 8000 to 25042
+  before 0.5 while preserving loopback exposure, fixed native paths, explicit
+  remote URLs, compatibility port 8001, and SearXNG port 8888.
 - [RFC-0089: Explicit HTTP Base URL Shape](RFC-0089-explicit-http-base-url-shape.md)
   — accepts origin-only semantics for existing explicit remote Home AI Cluster
   and loopback llama-server HTTP base URLs while preserving their accepted

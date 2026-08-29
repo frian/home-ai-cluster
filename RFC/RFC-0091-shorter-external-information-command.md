@@ -182,29 +182,51 @@ hac external-information \
   "What do the sources say?"
 ~~~
 
-The existing invalid-request boundary applies before plugin discovery or
+The existing local invalid-request boundary applies before plugin discovery or
 network work. It rejects:
 
 - missing or repeated --plugin;
+- blank or oversized plugin names;
 - missing one or both text values;
 - only one positional text value;
 - more than two positional text values;
 - positional query/question combined with either --query or --question;
 - repeated --query or repeated --question;
-- blank values;
-- values that violate existing RFC-0078 query or RFC-0077 question bounds; and
+- blank or oversized QUERY values under RFC-0078;
+- invalid output-option combinations;
+- invalid timeout syntax or value; and
 - unknown arguments.
 
 This RFC defines no variable-length positional grammar and no argument joining.
+It does not move RFC-0077 QUESTION semantic validation into this local boundary.
+
+### Preserved question-validation ordering
+
+Both accepted spellings retain the existing RFC-0078 ordering:
+
+~~~text
+explicit QUESTION value
+  -> selected plugin acquisition using QUERY only
+  -> candidate-source reconstruction
+  -> SourceGroundedChatRequest construction
+  -> RFC-0077 QUESTION and evidence validation
+~~~
+
+The parser still requires the applicable question input source, but does not
+newly validate RFC-0077 question semantics before plugin discovery. A blank or
+oversized QUESTION is currently validated when the existing
+SourceGroundedChatRequest is constructed after acquisition, and its failure
+retains the existing acquisition-failure ownership. The short form must not
+make that validation earlier or later than the retained full form.
 
 ### Normalization and unchanged behavior
 
 For semantically equal inputs, both forms normalize to exactly the same existing
-operation: exact selected-plugin validation, one selected plugin invocation,
-existing query validation, existing question and complete RFC-0077 evidence
-reconstruction/validation, and the existing source-grounded request to the
-fixed ordinary HAC loopback destination. Ordinary capability=chat routing then
-applies unchanged.
+operation: exact selected-plugin validation, one selected plugin invocation
+using QUERY only, candidate-source reconstruction, existing
+SourceGroundedChatRequest construction and complete RFC-0077 QUESTION/evidence
+validation, and the existing source-grounded request to the fixed ordinary HAC
+loopback destination. Ordinary capability=chat routing then applies unchanged.
 
 The existing timeout, content/verbose/JSON output, exit statuses, privacy-safe
 external-information-acquisition-failed failure, ordinary request failures,
@@ -330,14 +352,20 @@ A later implementation must demonstrate:
    query, and source-grounded request;
 4. both root executable names preserve that behavior;
 5. --plugin remains required exactly once;
-6. mixed forms fail before plugin discovery or network work;
-7. one positional value and more than two positional values fail;
-8. blank, invalid, repeated-option, and unknown inputs retain current local
-   failure behavior;
-9. output modes and timeout behavior remain unchanged;
-10. acquisition failures remain unchanged;
-11. no plugin is selected implicitly; and
-12. focused fake-entry-point and request-capture tests suffice, without a live
+6. malformed, mixed, missing, repeated-option, and unknown parser-level input
+   forms fail before plugin discovery or network work;
+7. invalid plugin and QUERY values retain their current local failure behavior;
+8. one positional value and more than two positional values fail before plugin
+   discovery;
+9. equal valid QUESTION values from both forms reach the same downstream
+   reconstruction path;
+10. an RFC-0077-invalid QUESTION in either form retains the existing
+    validation point, plugin-invocation behavior, failure code, stdout, stderr,
+    and exit status;
+11. output modes and timeout behavior remain unchanged;
+12. acquisition failures remain unchanged;
+13. no plugin is selected implicitly; and
+14. focused fake-entry-point and request-capture tests suffice, without a live
     provider, SearXNG instance, runtime, model, or network proof.
 
 ## Open questions

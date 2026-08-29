@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0091: Shorter External-Information Command](RFC-0091-shorter-external-information-command.md)
+  — accepts one additive --plugin NAME QUERY QUESTION spelling for explicit
+  external-information use while retaining the existing
+  --plugin/--query/--question form, named per-operation plugin selection,
+  distinct query/question semantics, and unchanged acquisition/privacy
+  boundaries.
 - [RFC-0090: Ordinary Loopback Port 25042](RFC-0090-ordinary-loopback-port-25042.md)
   — moves the fixed ordinary HAC loopback convention from port 8000 to 25042
   before 0.5 while preserving loopback exposure, fixed native paths, explicit

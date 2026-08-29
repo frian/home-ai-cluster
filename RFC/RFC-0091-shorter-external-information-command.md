@@ -1,6 +1,6 @@
 # RFC-0091: Shorter External-Information Command
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-29
 
@@ -376,4 +376,32 @@ the named per-operation authority boundary.
 
 ## Decision
 
-Pending.
+Accepted.
+
+hac external-information may gain exactly one additive shorter spelling:
+
+~~~sh
+hac external-information --plugin NAME QUERY QUESTION
+~~~
+
+The existing fully explicit --plugin NAME --query QUERY --question QUESTION
+form remains fully supported and non-deprecated. Both forms require exactly one
+named, explicitly supplied --plugin NAME, one acquisition QUERY, and one
+source-grounded QUESTION; the two input styles must not be mixed. QUERY remains
+the selected plugin's input and QUESTION remains the later RFC-0077 question,
+so the values remain semantically distinct. Equal inputs normalize to the same
+existing operation.
+
+Existing validation ordering and failure ownership remain unchanged. Plugin-name
+and QUERY local validation remain pre-discovery. RFC-0077 QUESTION semantic and
+evidence validation remains at its existing downstream
+SourceGroundedChatRequest reconstruction point; existing failure codes,
+including external-information-acquisition-failed, remain unchanged.
+
+RFC-0077 source-grounded Chat semantics, RFC-0079's optional operator-owned
+SearXNG endpoint and lifecycle semantics, and ordinary capability=chat routing
+remain unchanged. This decision accepts no configuration, default plugin,
+retained preference, implicit selection, automatic acquisition, fallback,
+provider ranking or lifecycle, routing, endpoint, persistence, or new
+capability. Future configuration remains a separate architectural question.
+Implementation is authorized only in a later focused follow-up PR.

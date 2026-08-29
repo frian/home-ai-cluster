@@ -200,6 +200,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
             "external-information",
             ["--plugin", "selected", "--query", "query", "--question", "question"],
         ),
+        ("external-information", ["--plugin", "selected", "query", "question"]),
         ("chat", ["--message", "Hello"]),
         ("summarize", []),
         ("summarize", ["--text", "Source text"]),

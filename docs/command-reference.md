@@ -281,14 +281,30 @@ client's pool/connect/write/read scalar timeout, not a total deadline.
 selected separately installed plugin, then send it through the existing
 source-grounded Chat boundary.
 
-**Form:**
+**Common forms:** The retained explicit form is:
 
-```sh
+~~~sh
 hac external-information \
   --plugin <NAME> \
   --query "<EXPLICIT_OPERATOR_QUERY>" \
   --question "<OPERATOR_QUESTION>"
-```
+~~~
+
+The additive short form is:
+
+~~~sh
+hac external-information \
+  --plugin <NAME> \
+  "<EXPLICIT_OPERATOR_QUERY>" \
+  "<OPERATOR_QUESTION>"
+~~~
+
+The short form's first positional value is the acquisition QUERY and its second
+is the source-grounded QUESTION. Quote multi-word values. Both forms are equal
+and supported, but they must not be mixed. --plugin <NAME> remains explicitly
+required: QUERY goes only to that selected plugin, while QUESTION does not go
+to the plugin. Neither form implies a configured default or retained plugin
+preference.
 
 **Available plugin example:**
 
@@ -312,8 +328,8 @@ Then, with `hac local` or `hac static-cluster` already running, for example:
 ```sh
 hac external-information \
   --plugin searxng \
-  --query "local AI inference developments" \
-  --question "What are the main recent developments?"
+  "local AI inference developments" \
+  "What are the main recent developments?"
 ```
 
 A second example can separate the acquisition query from the question answered

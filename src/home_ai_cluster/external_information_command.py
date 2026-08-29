@@ -69,6 +69,8 @@ def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
     parser.add_argument("--plugin", action="append")
     parser.add_argument("--query", action="append")
     parser.add_argument("--question", action="append")
+    parser.add_argument("query_positional", nargs="?", metavar="QUERY")
+    parser.add_argument("question_positional", nargs="?", metavar="QUESTION")
     parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
@@ -78,8 +80,18 @@ def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
     plugins = args.plugin or []
     queries = args.query or []
     questions = args.question or []
-    if len(plugins) != 1 or len(queries) != 1 or len(questions) != 1:
+    positional_values = [args.query_positional, args.question_positional]
+    if len(plugins) != 1:
         raise _InvalidRequestInput
+
+    if any(value is not None for value in positional_values):
+        if any(value is None for value in positional_values) or queries or questions:
+            raise _InvalidRequestInput
+        query, question = positional_values
+    else:
+        if len(queries) != 1 or len(questions) != 1:
+            raise _InvalidRequestInput
+        query, question = queries[0], questions[0]
 
     try:
         timeout_seconds = (
@@ -92,8 +104,8 @@ def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
 
     return _CommandInput(
         plugin_name=_validate_name(plugins[0]),
-        query=_validate_query(queries[0]),
-        question=questions[0],
+        query=_validate_query(query),
+        question=question,
         output_mode="verbose" if args.verbose else "json" if args.json else "content",
         timeout_seconds=timeout_seconds,
     )

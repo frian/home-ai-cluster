@@ -6,9 +6,21 @@ repo_name: frian/home-ai-cluster
 
 theme:
   name: shadcn
+  custom_dir: docs/overrides
+  hide_source_files: true
+  favicon: img/favicon.ico
+  icon: assets/home-ai-cluster-icon.svg
+  show_stargazers: false
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/toc-visibility.js
 
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Command Reference: command-reference.md
+  - Configuration Examples: configuration-examples.md
   - Operator Workflow: operator-workflow.md

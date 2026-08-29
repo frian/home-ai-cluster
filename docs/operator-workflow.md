@@ -1,3 +1,7 @@
+---
+order: 50
+---
+
 # Canonical Operator Workflow
 
 Status: Canonical
@@ -495,7 +499,7 @@ not a universal terminal requirement. Normal process interruption is the
 current stop mechanism; no PID file, detached mode, stop command, supervision,
 or service manager is implied.
 
-The retained [daily workflow evidence](daily-operator-workflow-evidence-result.md)
+The retained [daily workflow evidence](https://github.com/frian/home-ai-cluster/blob/main/docs/daily-operator-workflow-evidence-result.md)
 records one successful native two-machine exercise. Its only measured recovery
 event was an invalid declaration; repeated same-day creation and deletion of
 declarations was broader workflow friction. Foreground operation and normal
@@ -596,13 +600,13 @@ account details, or secrets. Use placeholders for operator-specific values.
 
 ## Detailed references
 
-- `README.md`
-- `docs/static-two-machine-proof.md`
-- `docs/phase-8-ordinary-static-multi-node-proof.md`
-- `RFC/RFC-0036-static-operator-preflight.md`
-- `RFC/RFC-0037-canonical-operator-workflow.md`
-- `RFC/RFC-0038-ordinary-static-multi-node-mode.md`
-- `RFC/RFC-0041-explicit-static-cluster-status.md`
-- `docs/daily-operator-workflow-evidence-result.md`
+- [`README.md`](https://github.com/frian/home-ai-cluster/blob/main/README.md)
+- [`docs/static-two-machine-proof.md`](https://github.com/frian/home-ai-cluster/blob/main/docs/static-two-machine-proof.md)
+- [`docs/phase-8-ordinary-static-multi-node-proof.md`](https://github.com/frian/home-ai-cluster/blob/main/docs/phase-8-ordinary-static-multi-node-proof.md)
+- [`RFC/RFC-0036-static-operator-preflight.md`](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0036-static-operator-preflight.md)
+- [`RFC/RFC-0037-canonical-operator-workflow.md`](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0037-canonical-operator-workflow.md)
+- [`RFC/RFC-0038-ordinary-static-multi-node-mode.md`](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0038-ordinary-static-multi-node-mode.md)
+- [`RFC/RFC-0041-explicit-static-cluster-status.md`](https://github.com/frian/home-ai-cluster/blob/main/RFC/RFC-0041-explicit-static-cluster-status.md)
+- [`docs/daily-operator-workflow-evidence-result.md`](https://github.com/frian/home-ai-cluster/blob/main/docs/daily-operator-workflow-evidence-result.md)
 
 This document remains the canonical shortest operator sequence.

@@ -1,0 +1,222 @@
+:root {
+  --background: #fbfcfd;
+  --foreground: #17212b;
+  --card: #ffffff;
+  --card-foreground: #17212b;
+  --popover: #ffffff;
+  --popover-foreground: #17212b;
+  --primary: #087f8c;
+  --primary-foreground: #ffffff;
+  --secondary: #eef4f6;
+  --secondary-foreground: #17212b;
+  --muted: #eef4f6;
+  --muted-foreground: #5f6f79;
+  --accent: #e4f3f2;
+  --accent-foreground: #16323a;
+  --border: #d9e3e7;
+  --input: #d9e3e7;
+  --ring: #2aa89b;
+  --sidebar: #f7fafb;
+  --sidebar-foreground: #17212b;
+  --sidebar-primary: #087f8c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4f3f2;
+  --sidebar-accent-foreground: #16323a;
+  --sidebar-border: #d9e3e7;
+  --sidebar-ring: #2aa89b;
+  --surface: #f1f5f7;
+  --surface-foreground: #33434d;
+  --hac-code-bg: #e9f0f3;
+  --hac-code-border: #c9d7dd;
+  --hac-inline-code-bg: #edf3f5;
+  --hac-toc-active: #dff1ef;
+  --hac-scrollbar-thumb: #9db4bd;
+}
+
+.dark {
+  --background: #0b1218;
+  --foreground: #e7eef4;
+  --card: #101a22;
+  --card-foreground: #e7eef4;
+  --popover: #111c25;
+  --popover-foreground: #e7eef4;
+  --primary: #55d6b3;
+  --primary-foreground: #07120f;
+  --secondary: #14212a;
+  --secondary-foreground: #e7eef4;
+  --muted: #15242e;
+  --muted-foreground: #a9b9c3;
+  --accent: #16343b;
+  --accent-foreground: #effffb;
+  --border: #22313c;
+  --input: #243945;
+  --ring: #4cc9b0;
+  --sidebar: #0d151c;
+  --sidebar-foreground: #e7eef4;
+  --sidebar-primary: #55d6b3;
+  --sidebar-primary-foreground: #07120f;
+  --sidebar-accent: #162a32;
+  --sidebar-accent-foreground: #effffb;
+  --sidebar-border: #1d2a34;
+  --sidebar-ring: #4cc9b0;
+  --surface: #111c25;
+  --surface-foreground: #c3d0d8;
+  --hac-code-bg: #13222c;
+  --hac-code-border: #29414d;
+  --hac-inline-code-bg: #172831;
+  --hac-toc-active: #16313a;
+  --hac-scrollbar-thumb: #3c5966;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+article > .typography > blockquote:first-child {
+  margin-top: 0;
+  font-size: 1.5em;
+}
+
+header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child,
+header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child > svg {
+  width: 50px;
+  height: 50px;
+}
+
+header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child {
+  flex: 0 0 50px;
+}
+
+:root:not(.dark) header a[data-slot="button"]:has(> span:first-child > svg) > span:first-child > svg {
+  filter: drop-shadow(0 1px 1px rgb(15 30 45 / 35%));
+}
+
+article pre,
+article .highlight pre {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--hac-code-bg) !important;
+  border: 1px solid var(--hac-code-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+
+article code:not(pre code) {
+  background: var(--hac-inline-code-bg) !important;
+  border: 1px solid var(--hac-code-border);
+}
+
+article :is(h1, h2, h3, h4, h5, h6) > code:not(pre code),
+article table code:not(pre code) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody tr {
+  position: relative;
+  transition: background-color 140ms ease;
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody td:first-child > a::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+}
+
+article h2#quick-command-map + p + .table-wrapper tbody td:first-child > a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] {
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 0.5rem;
+  box-shadow: none !important;
+  filter: none !important;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"]:hover {
+  background: var(--sidebar-accent);
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"]:has(> [data-sidebar="menu-button"][data-active="true"]) {
+  background: color-mix(in srgb, var(--sidebar-accent) 82%, var(--primary) 18%);
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] > [data-sidebar="menu-button"] {
+  width: 100% !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] > [data-sidebar="menu-button"]::before,
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] > [data-sidebar="menu-button"]::after {
+  content: none !important;
+  display: none !important;
+}
+
+[data-sidebar="group-content"] > [data-sidebar="menu"] > [data-sidebar="menu-item"] > [data-sidebar="menu-button"][data-active="true"] {
+  color: var(--sidebar-accent-foreground) !important;
+}
+
+#toc {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hac-scrollbar-thumb) transparent;
+}
+
+#toc::-webkit-scrollbar {
+  display: block;
+  width: 0.45rem;
+}
+
+#toc::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#toc::-webkit-scrollbar-thumb {
+  background: var(--hac-scrollbar-thumb);
+  border-radius: 999px;
+}
+
+#toc a {
+  display: block;
+  margin-inline: -0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.45rem;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+#toc a[data-depth="3"] {
+  padding-left: 1.35rem;
+}
+
+#toc a[data-depth="4"] {
+  padding-left: 1.8rem;
+}
+
+#toc a:hover {
+  background: color-mix(in srgb, var(--hac-toc-active) 70%, transparent);
+}
+
+#toc a[data-active="true"] {
+  background: var(--hac-toc-active);
+  color: var(--foreground) !important;
+  font-weight: 600;
+}
+
+[data-slot="sidebar"] > div[class*="bg-gradient-to-b"][class*="blur-xs"],
+[data-sidebar="group"] + div.sticky[class*="bg-gradient-to-t"],
+[data-sidebar="group"] ~ div.sticky[class*="bg-gradient-to-t"] {
+  display: none;
+}

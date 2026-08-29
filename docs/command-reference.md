@@ -1,3 +1,7 @@
+---
+order: 30
+---
+
 # Command Reference
 
 Status: Current
@@ -41,24 +45,23 @@ home-ai-cluster-preflight`.
 
 ## Quick command map
 
-The ordinary root surface has thirteen commands: three foreground processes and
-ten finite commands.
+The ordinary root surface has thirteen commands.
 
-| Command | Purpose | Process type |
-| ------- | ------- | ------------ |
-| `local` | Run one local ordinary application. | Foreground service |
-| `static-cluster` | Run one explicit static cluster with the local node and one or more declared remote nodes. | Foreground service |
-| `compatibility` | Run the narrow loopback OpenAI-compatible chat surface. | Foreground service |
-| `aider` | Run one bounded external Aider code edit. | One-shot caller edge |
-| `external-information` | Acquire bounded evidence for one source-grounded Chat request. | One-shot caller edge |
-| `chat` | Send one native chat request. | One-shot request |
-| `code` | Send one native bounded textual code request. | One-shot request |
-| `code-file` | Replace one selected file from one bounded code result. | One-shot caller edge |
-| `summarize` | Send one native bounded summarize request. | One-shot request |
-| `classify` | Send one native bounded classification request. | One-shot request |
-| `preflight` | Inspect static declaration coherence. | Finite inspection |
-| `health` | Observe local runtime health. | Finite inspection |
-| `status` | Inspect one declared static cluster. | Finite inspection |
+| Command | Purpose |
+| ------- | ------- |
+| [`local`](#hac-local) | Run one local ordinary application. |
+| [`static-cluster`](#hac-static-cluster) | Run one explicit static cluster with the local node and one or more declared remote nodes. |
+| [`compatibility`](#hac-compatibility) | Run the narrow loopback OpenAI-compatible chat surface. |
+| [`aider`](#hac-aider) | Run one bounded external Aider code edit. |
+| [`external-information`](#hac-external-information) | Acquire bounded evidence for one source-grounded Chat request. |
+| [`chat`](#hac-chat) | Send one native chat request. |
+| [`code`](#hac-code) | Send one native bounded textual code request. |
+| [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. |
+| [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
+| [`classify`](#hac-classify) | Send one native bounded classification request. |
+| [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
+| [`health`](#hac-health) | Observe local runtime health. |
+| [`status`](#hac-status) | Inspect one declared static cluster. |
 
 ## `hac local`
 
@@ -230,7 +233,7 @@ foreground. It provides narrow, non-streaming chat-completions compatibility,
 not the internal cluster protocol or general OpenAI API compatibility.
 Summarize, classify, and code are not supported through this Chat-only surface.
 
-**See also:** [README compatibility guidance](../README.md#run-the-minimal-openai-compatible-endpoint).
+**See also:** [README compatibility guidance](https://github.com/frian/home-ai-cluster#optional-bounded-integrations).
 
 ## `hac chat`
 
@@ -671,14 +674,14 @@ All four historical installed proof launchers were retired by RFC-0075; their
 commands remain in historical records and require the matching historical
 repository revision for exact reproduction.
 
-**See also:** [Documentation index](README.md), retained proof documents, and
-the [RFC index](../RFC/README.md).
+**See also:** [Documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md), retained proof documents, and
+the [RFC index](https://github.com/frian/home-ai-cluster/blob/main/RFC/README.md).
 
 ## Related documentation
 
-- [Project README](../README.md) — project entry point, installation, and common
+- [Project README](https://github.com/frian/home-ai-cluster#readme) — project entry point, installation, and common
   examples.
 - [Canonical operator workflow](operator-workflow.md) — procedural start, check,
   stop, and recovery sequence.
-- [Documentation index](README.md) — current guidance and historical records.
-- [RFC index](../RFC/README.md) — accepted architectural decisions.
+- [Documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md) — current guidance and historical records.
+- [RFC index](https://github.com/frian/home-ai-cluster/blob/main/RFC/README.md) — accepted architectural decisions.

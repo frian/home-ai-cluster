@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0092: Ordinary CLI Short Options](RFC-0092-ordinary-cli-short-options.md)
+  — accepts one finite additive ordinary short-option vocabulary: root `-h`,
+  `-f/--file`, `-d/--declaration`, `-l/--label`, and `-j/--json`, while
+  preserving existing `-v`, all long forms, semantic behavior, and explicit
+  authority-sensitive options.
 - [RFC-0091: Shorter External-Information Command](RFC-0091-shorter-external-information-command.md)
   — accepts one additive --plugin NAME QUERY QUESTION spelling for explicit
   external-information use while retaining the existing

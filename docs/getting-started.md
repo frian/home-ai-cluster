@@ -271,8 +271,8 @@ With SearXNG and `hac local` already running, an example request is:
 ```sh
 hac external-information \
   --plugin searxng \
-  --query "local AI inference developments" \
-  --question "What are the main recent developments?"
+  "local AI inference developments" \
+  "What are the main recent developments?"
 ```
 
 See the

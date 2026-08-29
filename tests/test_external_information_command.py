@@ -125,11 +125,53 @@ def arguments(*, query: str = "operator query") -> list[str]:
     ]
 
 
+def short_arguments(
+    *, query: str = "operator query", question: str = "operator question"
+) -> list[str]:
+    return ["--plugin", "selected", query, question]
+
+
 @pytest.mark.parametrize(
     "argv",
     [
         [],
         ["--plugin", "selected", "--query", "query"],
+        [
+            "--plugin",
+            "selected",
+            "--plugin",
+            "other",
+            "--query",
+            "query",
+            "--question",
+            "question",
+        ],
+        ["--plugin", "selected", "query"],
+        ["--plugin", "selected", "query", "question", "extra"],
+        ["--plugin", "selected", "query", "--question", "question"],
+        ["--plugin", "selected", "--query", "query", "question"],
+        [
+            "--plugin",
+            "selected",
+            "--query",
+            "query",
+            "--query",
+            "other",
+            "--question",
+            "question",
+        ],
+        [
+            "--plugin",
+            "selected",
+            "--query",
+            "query",
+            "--question",
+            "question",
+            "--question",
+            "other",
+        ],
+        ["--plugin", "selected", "", "question"],
+        ["--plugin", "selected", "x" * 4_097, "question"],
         ["--plugin", "", "--query", "query", "--question", "question"],
         ["--plugin", "x" * 65, "--query", "query", "--question", "question"],
         ["--plugin", "selected", "--query", "", "--question", "question"],
@@ -238,6 +280,97 @@ def test_unselected_plugin_is_not_loaded_and_selected_plugin_runs_once(
     assert chosen.loads == 1
     assert received == ["  exact query  "]
     assert len(requests) == 1
+
+
+def test_short_form_normalizes_to_the_existing_request_and_output(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    received: list[str] = []
+
+    async def acquire(query: str) -> list[dict[str, str]]:
+        received.append(query)
+        return [valid_candidate()]
+
+    configure_entries(monkeypatch, [EntryPoint("selected", acquire)])
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=result_body())
+
+    handler_transport = httpx.MockTransport(handler)
+    full_result = run_command(capsys, arguments(query="same query"), handler_transport)
+    short_result = run_command(
+        capsys, short_arguments(query="same query"), handler_transport
+    )
+
+    assert full_result == short_result == (0, "generated response\n", "")
+    assert received == ["same query", "same query"]
+    assert requests == [
+        {"question": "operator question", "sources": [valid_candidate()]},
+        {"question": "operator question", "sources": [valid_candidate()]},
+    ]
+
+
+@pytest.mark.parametrize(
+    "arguments_suffix",
+    [[], ["--verbose"], ["--json"], ["--timeout-seconds", "300"]],
+)
+def test_short_form_preserves_output_and_timeout_behavior(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    arguments_suffix: list[str],
+) -> None:
+    async def acquire(query: str) -> list[dict[str, str]]:
+        return [valid_candidate()]
+
+    configure_entries(monkeypatch, [EntryPoint("selected", acquire)])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body())
+
+    transport = httpx.MockTransport(handler)
+    full_result = run_command(capsys, [*arguments(), *arguments_suffix], transport)
+    short_result = run_command(
+        capsys, [*short_arguments(), *arguments_suffix], transport
+    )
+
+    assert full_result == short_result
+
+
+@pytest.mark.parametrize("question", ["", "x" * 65_537])
+def test_short_invalid_question_preserves_downstream_acquisition_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], question: str
+) -> None:
+    received: list[str] = []
+
+    async def acquire(query: str) -> list[dict[str, str]]:
+        received.append(query)
+        return [valid_candidate()]
+
+    configure_entries(monkeypatch, [EntryPoint("selected", acquire)])
+
+    full = [
+        "--plugin",
+        "selected",
+        "--query",
+        "operator query",
+        "--question",
+        question,
+    ]
+    full_result = run_command(capsys, full)
+    short_result = run_command(capsys, short_arguments(question=question))
+
+    assert (
+        full_result
+        == short_result
+        == (
+            1,
+            "",
+            "error: external-information-acquisition-failed\n",
+        )
+    )
+    assert received == ["operator query", "operator query"]
 
 
 def test_async_callable_instance_is_selected_and_invoked_once(

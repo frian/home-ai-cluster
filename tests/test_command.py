@@ -10,6 +10,7 @@ from home_ai_cluster import (
     aider_command,
     chat_command,
     command,
+    config_command,
     external_information_command,
     local_health_snapshot,
     static_preflight,
@@ -36,6 +37,7 @@ Finite commands:
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
+  config          Manage retained local configuration.
 
 Use 'home-ai-cluster <command> --help' for command-specific help.
 """
@@ -61,6 +63,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "preflight",
         "health",
         "status",
+        "config",
     }
     assert {
         name: scripts[name]
@@ -208,6 +211,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("preflight", ["--json"]),
         ("health", ["--json"]),
         ("status", ["--declaration", "cluster.toml", "--json"]),
+        ("config", ["show"]),
     ),
 )
 def test_subcommands_delegate_the_exact_remaining_arguments(
@@ -259,6 +263,7 @@ def test_subcommand_system_exit_propagates_unchanged(
         ("preflight", command.static_preflight.main),
         ("health", command.local_health_snapshot.main),
         ("status", command.status_command.main),
+        ("config", config_command.main),
     ),
 )
 def test_dispatch_table_uses_existing_command_main_functions(name: str, target) -> None:

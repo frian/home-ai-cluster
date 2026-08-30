@@ -10,6 +10,7 @@ from home_ai_cluster import (
     classify_command,
     code_command,
     code_file_command,
+    config_command,
     external_information_command,
     local_health_snapshot,
     local_runtime,
@@ -38,6 +39,7 @@ Finite commands:
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
+  config          Manage retained local configuration.
 
 Use 'home-ai-cluster <command> --help' for command-specific help.
 """
@@ -56,6 +58,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "preflight": static_preflight.main,
     "health": local_health_snapshot.main,
     "status": status_command.main,
+    "config": config_command.main,
 }
 
 

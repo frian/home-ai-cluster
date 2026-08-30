@@ -115,6 +115,11 @@ execution authority.
 `hac external-information` explicitly uses one separately installed compatible
 acquisition plugin for one source-grounded Chat request. No provider is bundled,
 and the ordinary HAC server does not acquire external information by itself.
+Two published examples prove the same acquisition boundary with materially
+different provider ownership: the operator-managed local-service
+[SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng) and
+the credentialed external-service
+[Tavily plugin](https://github.com/frian/home-ai-cluster-plugin-tavily).
 
 Use the [command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md)
 for exact syntax and boundaries, and the [documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md)

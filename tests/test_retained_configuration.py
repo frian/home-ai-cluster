@@ -55,6 +55,48 @@ def test_path_uses_home_config_fallback_when_xdg_config_home_is_unset(
     )
 
 
+@pytest.mark.parametrize("xdg_config_home", ["", "relative-config"])
+def test_path_uses_home_config_fallback_when_xdg_config_home_is_not_absolute(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    xdg_config_home: str,
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", xdg_config_home)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert retained_configuration_file() == (
+        tmp_path / ".config" / "home-ai-cluster" / "retained-config.json"
+    )
+    assert not (tmp_path / ".config").exists()
+
+
+def test_save_creates_owner_only_application_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "config-home"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    path = retained_configuration_file()
+
+    save_retained_configuration(RetainedConfiguration())
+
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_save_does_not_chmod_an_existing_application_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "config-home"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    path = retained_configuration_file()
+    path.parent.mkdir(parents=True)
+    path.parent.chmod(0o755)
+
+    save_retained_configuration(RetainedConfiguration())
+
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o755
+
+
 def test_missing_file_loads_empty_configuration(tmp_path: Path) -> None:
     assert load_retained_configuration(tmp_path / "missing.json") == (
         RetainedConfiguration()

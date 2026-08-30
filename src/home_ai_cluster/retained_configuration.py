@@ -54,7 +54,7 @@ class RetainedConfiguration:
 def retained_configuration_file() -> Path:
     """Return the private retained-configuration path without creating it."""
     config_home = os.environ.get("XDG_CONFIG_HOME")
-    if config_home is None:
+    if not config_home or not Path(config_home).is_absolute():
         config_home = str(Path(os.environ["HOME"]) / ".config")
     return Path(config_home) / _CONFIGURATION_DIRECTORY / _CONFIGURATION_FILENAME
 
@@ -103,7 +103,7 @@ def save_retained_configuration(
     configuration_path = path or retained_configuration_file()
     temporary_path: Path | None = None
     try:
-        configuration_path.parent.mkdir(parents=True, exist_ok=True)
+        configuration_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",

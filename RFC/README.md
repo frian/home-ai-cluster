@@ -58,6 +58,13 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Draft RFCs
+
+- [RFC-0094: Retained HAC Configuration](RFC-0094-retained-hac-configuration.md)
+  — proposes one HAC-managed retained-configuration surface for local runtime
+  composition and caller-owned static topology, with explicit temporary CLI
+  overrides and no general configuration framework.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

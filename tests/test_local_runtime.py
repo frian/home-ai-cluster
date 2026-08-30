@@ -1,4 +1,5 @@
 import argparse
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -509,3 +510,11 @@ def test_main_starts_default_ollama_composition(
         "host": "127.0.0.1",
         "port": 25042,
     }
+
+
+@pytest.fixture(autouse=True)
+def isolated_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))

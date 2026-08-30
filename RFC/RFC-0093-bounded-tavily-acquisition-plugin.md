@@ -134,9 +134,11 @@ provider connection.
 ### Credential ownership
 
 The sole first-version credential mechanism is a nonblank `TAVILY_API_KEY`. The
-Tavily package reads it directly from its own process environment only when
-explicitly invoked. HAC core does not read, parse, pass, retain, configure, or
-otherwise know the key. The only use of the key is constructing:
+selected Tavily plugin reads it directly from the `hac external-information`
+caller process environment when its `acquire` callable is invoked. HAC core does
+not read, parse, pass, retain, configure, or otherwise handle the key. This
+introduces no separate plugin process, subprocess, sandbox, IPC, or isolation
+mechanism. The only use of the key is constructing:
 
 ~~~text
 Authorization: Bearer <key>

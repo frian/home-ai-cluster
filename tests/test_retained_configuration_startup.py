@@ -299,9 +299,13 @@ def test_explicit_inline_topology_replaces_retained_topology(
 ) -> None:
     save_retained_configuration(
         RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama"),
+                local_capabilities=("code",),
+            ),
             remote_nodes=(
                 RemoteNodeDeclaration("retained", "http://192.0.2.10:25042", ("chat",)),
-            )
+            ),
         )
     )
     captured = []
@@ -312,8 +316,13 @@ def test_explicit_inline_topology_replaces_retained_topology(
         ["--remote-node-id", "inline", "--remote-base-url", "http://192.0.2.11:25042"]
     )
 
-    nodes = captured[0].state.static_remote_wiring.remote_registry.list_declarations()
+    wiring = captured[0].state.static_remote_wiring
+    nodes = wiring.remote_registry.list_declarations()
     assert [node.node.id for node in nodes] == ["inline"]
+    assert [
+        capability.name
+        for capability in wiring.node_registry.list_nodes()[0].capabilities
+    ] == ["chat", "summarize"]
     assert [capability.name for capability in nodes[0].node.capabilities] == [
         "chat",
         "summarize",

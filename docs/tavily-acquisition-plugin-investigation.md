@@ -103,7 +103,12 @@ API](https://docs.tavily.com/documentation/api-reference/endpoint/search),
 20. A later RFC can fix it to exactly 5, matching RFC-0077's maximum rather than
 requesting extra provider results that the plugin would discard. `chunks_per_source`
 currently defaults to 3 and ranges from 1 through 3; each chunk is documented as
-at most 500 characters. That is a provider response-size control but is not a
+at most 500 characters. The smallest first shape should fix
+`chunks_per_source=1`, reducing provider-returned content before RFC-0078 and
+RFC-0077 validation. It cannot guarantee RFC-0077's 1,024 UTF-8-byte `content`
+limit because Tavily documents characters, not UTF-8 bytes. Complete RFC-0077
+validation therefore remains authoritative, and the plugin must never truncate
+or repair oversized content. This is a provider response-size control, not a
 substitute for RFC-0077 byte validation or the plugin's raw response envelope.
 [Tavily Search API](https://docs.tavily.com/documentation/api-reference/endpoint/search)
 
@@ -165,6 +170,7 @@ Authorization: Bearer <plugin-owned Tavily API key>
   "query": "<exact RFC-0078 operator query>",
   "search_depth": "basic",
   "max_results": 5,
+  "chunks_per_source": 1,
   "include_answer": false,
   "include_raw_content": false,
   "include_images": false,
@@ -267,8 +273,10 @@ altering RFC-0077 or RFC-0078:
    verification, no endpoint override, no redirects, and disabled ambient proxy
    or client-environment inheritance.
 3. The exact one-request JSON body: unchanged query, fixed `basic` depth,
-   `max_results=5`, fixed false feature flags, and no provider tracking headers
-   or other search controls.
+   `max_results=5`, `chunks_per_source=1`, fixed false feature flags, and no
+   provider tracking headers or other search controls. The RFC must retain
+   complete RFC-0077 validation because Tavily's one-chunk character maximum is
+   not a UTF-8-byte guarantee, and must prohibit truncation or repair.
 4. Explicit finite total/connect/read/write/pool timeouts, connection limits,
    and incrementally enforced decoded response-size maximum; no retry,
    pagination, fallback, or subsequent provider API call.

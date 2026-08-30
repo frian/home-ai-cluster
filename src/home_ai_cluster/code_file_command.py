@@ -52,7 +52,7 @@ class _InvalidEnvelope(ValueError):
 
 def _parse_input(argv: Sequence[str] | None) -> _CodeFileInput:
     parser = _ArgumentParser(prog="home-ai-cluster code-file")
-    parser.add_argument("--file", action="append")
+    parser.add_argument("-f", "--file", action="append")
     parser.add_argument("message_positional", nargs="?")
     parser.add_argument("--message", action="append")
     parser.add_argument("--timeout-seconds")

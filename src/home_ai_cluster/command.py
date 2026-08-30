@@ -72,7 +72,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     """Dispatch one accepted ordinary command without changing its behavior."""
     arguments = list(sys.argv[1:] if argv is None else argv)
 
-    if not arguments or arguments == ["--help"]:
+    if not arguments or arguments in (["--help"], ["-h"]):
         _write_help()
         return
 

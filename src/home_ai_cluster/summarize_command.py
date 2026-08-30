@@ -103,11 +103,11 @@ def _parse_input(
     parser = _ArgumentParser(prog="home-ai-cluster summarize")
     source_options = parser.add_mutually_exclusive_group()
     source_options.add_argument("--text", action="append")
-    source_options.add_argument("--file", action="append")
+    source_options.add_argument("-f", "--file", action="append")
     parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("--json", action="store_true")
+    output_options.add_argument("-j", "--json", action="store_true")
     args = parser.parse_args(argv)
 
     texts = args.text or []

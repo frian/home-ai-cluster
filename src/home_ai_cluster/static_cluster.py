@@ -51,7 +51,7 @@ REMOTE_HTTP_ADAPTER_NAME = "remote-http"
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-static-cluster")
-    parser.add_argument("--declaration", type=Path)
+    parser.add_argument("-d", "--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
     parser.add_argument("--local-capability", action="append")

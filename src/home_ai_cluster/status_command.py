@@ -32,9 +32,9 @@ STATUS_FAILURE_MESSAGE = "error: unable to construct cluster status result"
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-status")
-    parser.add_argument("--declaration", type=Path, required=True)
+    parser.add_argument("-d", "--declaration", type=Path, required=True)
     add_local_runtime_arguments(parser)
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("-j", "--json", action="store_true")
     return parser
 
 

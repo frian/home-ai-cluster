@@ -125,6 +125,9 @@ Use the [command reference](https://github.com/frian/home-ai-cluster/blob/main/d
 for exact syntax and boundaries, and the [documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md)
 for retained integration evidence and proofs.
 
+Operators can retain local runtime choices and static remote declarations with
+`hac config`; explicit invocation values remain temporary.
+
 ## Documentation
 
 For a first installation and local run, use the

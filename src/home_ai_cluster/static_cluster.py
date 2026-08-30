@@ -26,6 +26,11 @@ from home_ai_cluster.local_runtime_composition import (
 )
 from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedConfigurationError,
+    load_retained_configuration,
+)
 from home_ai_cluster.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
@@ -92,9 +97,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if has_remote_node_id != has_remote_base_url:
         parser.error("--remote-node-id and --remote-base-url must be provided together")
 
-    if not has_declaration and not has_remote_node_id:
-        parser.error("provide either --declaration or both inline remote arguments")
-
     if has_remote_capabilities:
         try:
             args.remote_capability = validate_static_capabilities(
@@ -117,7 +119,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     else:
         args.local_capability = DEFAULT_STATIC_CAPABILITY_NAMES
 
-    validate_local_runtime_arguments(parser, args)
+    needs_retained_runtime = args.runtime_config is None
+    needs_retained_topology = not has_declaration and not has_remote_node_id
+    retained = RetainedConfiguration()
+    if needs_retained_runtime or needs_retained_topology:
+        try:
+            retained = load_retained_configuration()
+        except RetainedConfigurationError as error:
+            parser.error(str(error))
+
+    retained_values = retained.local.runtime if retained.local is not None else None
+    validate_local_runtime_arguments(
+        parser,
+        args,
+        retained_values if needs_retained_runtime else None,
+    )
+    if needs_retained_topology:
+        if not retained.remote_nodes:
+            parser.error(
+                "provide --declaration, complete inline remote arguments, "
+                "or retained topology"
+            )
+        args.retained_remote_nodes = retained.remote_nodes
+        args.local_capability = (
+            retained.local.local_capabilities
+            if retained.local is not None
+            and retained.local.local_capabilities is not None
+            else DEFAULT_STATIC_CAPABILITY_NAMES
+        )
     return args
 
 
@@ -236,7 +265,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             declarations.remote_nodes,
             local_app_composition=local_app_composition,
         )
-    else:
+    elif args.remote_node_id is not None:
         local_app_composition = create_local_runtime_composition(
             runtime=values.runtime,
             ollama_model=values.ollama_model,
@@ -249,6 +278,19 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.remote_node_id,
             args.remote_base_url,
             capabilities=args.remote_capability,
+            local_app_composition=local_app_composition,
+        )
+    else:
+        local_app_composition = create_local_runtime_composition(
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
+            capabilities=args.local_capability,
+        )
+        app = create_static_cluster_collection_app(
+            args.retained_remote_nodes,
             local_app_composition=local_app_composition,
         )
 

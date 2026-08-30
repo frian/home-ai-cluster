@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0093: Bounded Tavily Acquisition Plugin](RFC-0093-bounded-tavily-acquisition-plugin.md)
+  — accepts one separately installed Tavily acquisition plugin under unchanged
+  RFC-0078, with a fixed public HTTPS destination, plugin-owned
+  `TAVILY_API_KEY`, one bounded provider request, deterministic candidate
+  normalization, and no automatic network authority or generic provider
+  framework.
 - [RFC-0092: Ordinary CLI Short Options](RFC-0092-ordinary-cli-short-options.md)
   — accepts one finite additive ordinary short-option vocabulary: root `-h`,
   `-f/--file`, `-d/--declaration`, `-l/--label`, and `-j/--json`, while

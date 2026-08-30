@@ -1,0 +1,362 @@
+import json
+import stat
+from pathlib import Path
+
+import pytest
+
+import home_ai_cluster.retained_configuration as retained_configuration
+from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedConfigurationError,
+    RetainedLocalConfiguration,
+    load_retained_configuration,
+    retained_configuration_file,
+    save_retained_configuration,
+)
+from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
+
+
+def ollama_configuration(
+    *, capabilities: tuple[str, ...] | None = None
+) -> RetainedConfiguration:
+    return RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(
+                runtime="ollama",
+                ollama_model="private-model",
+                ollama_disable_thinking=True,
+            ),
+            local_capabilities=capabilities,
+        )
+    )
+
+
+def test_path_uses_xdg_config_home_without_creating_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("HOME", "/not-the-real-home")
+
+    assert retained_configuration_file() == (
+        tmp_path / "home-ai-cluster" / "retained-config.json"
+    )
+    assert not (tmp_path / "home-ai-cluster").exists()
+
+
+def test_path_uses_home_config_fallback_when_xdg_config_home_is_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert retained_configuration_file() == (
+        tmp_path / ".config" / "home-ai-cluster" / "retained-config.json"
+    )
+
+
+@pytest.mark.parametrize("xdg_config_home", ["", "relative-config"])
+def test_path_uses_home_config_fallback_when_xdg_config_home_is_not_absolute(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    xdg_config_home: str,
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", xdg_config_home)
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    assert retained_configuration_file() == (
+        tmp_path / ".config" / "home-ai-cluster" / "retained-config.json"
+    )
+    assert not (tmp_path / ".config").exists()
+
+
+def test_save_creates_owner_only_application_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "config-home"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    path = retained_configuration_file()
+
+    save_retained_configuration(RetainedConfiguration())
+
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_save_does_not_chmod_an_existing_application_directory(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "config-home"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    path = retained_configuration_file()
+    path.parent.mkdir(parents=True)
+    path.parent.chmod(0o755)
+
+    save_retained_configuration(RetainedConfiguration())
+
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o755
+
+
+def test_missing_file_loads_empty_configuration(tmp_path: Path) -> None:
+    assert load_retained_configuration(tmp_path / "missing.json") == (
+        RetainedConfiguration()
+    )
+
+
+def test_ollama_and_local_capability_values_round_trip_distinctly(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    configuration = ollama_configuration(capabilities=("code", "chat"))
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+    document = json.loads(path.read_text(encoding="utf-8"))
+    assert document["local"]["ollama_disable_thinking"] is True
+    assert document["local"]["local_capabilities"] == ["code", "chat"]
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_none_local_capabilities_round_trips_without_inventing_a_default(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+
+    save_retained_configuration(ollama_configuration(), path)
+
+    assert load_retained_configuration(path).local is not None
+    assert load_retained_configuration(path).local.local_capabilities is None
+
+
+def test_llama_server_round_trip_preserves_existing_url_normalization(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(
+                runtime="llama-server",
+                llama_server_base_url="http://127.0.0.1:8080/",
+                llama_server_model="private-model",
+            )
+        )
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path).local == RetainedLocalConfiguration(
+        runtime=LocalRuntimeCompositionValues(
+            runtime="llama-server",
+            llama_server_base_url="http://127.0.0.1:8080",
+            llama_server_model="private-model",
+        )
+    )
+
+
+def test_ordered_remote_nodes_and_capabilities_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        remote_nodes=(
+            RemoteNodeDeclaration(
+                "remote-a", "https://remote-a.example:8000", ("code",)
+            ),
+            RemoteNodeDeclaration(
+                "remote-b", "http://192.0.2.20:25042", ("summarize", "chat")
+            ),
+        )
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+
+
+def test_save_uses_same_directory_temporary_replacement(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained.json"
+    replacements: list[tuple[object, object]] = []
+    replace = retained_configuration.os.replace
+
+    def record_replace(source: object, target: object) -> None:
+        replacements.append((source, target))
+        replace(source, target)
+
+    monkeypatch.setattr(retained_configuration.os, "replace", record_replace)
+
+    save_retained_configuration(RetainedConfiguration(), path)
+
+    assert len(replacements) == 1
+    assert Path(replacements[0][0]).parent == path.parent
+    assert replacements[0][1] == path
+
+
+@pytest.mark.parametrize(
+    "contents",
+    [b"not json", b"\xff"],
+)
+def test_invalid_encoding_or_json_fails_without_echoing_contents(
+    tmp_path: Path, contents: bytes
+) -> None:
+    path = tmp_path / "private-path.json"
+    path.write_bytes(contents)
+
+    with pytest.raises(RetainedConfigurationError) as raised:
+        load_retained_configuration(path)
+
+    assert str(raised.value) == "invalid retained configuration"
+    assert "private-path" not in str(raised.value)
+    assert "not json" not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"local": None},
+        {"local": None, "remote_nodes": [], "unexpected": True},
+        {"local": {"unexpected": True}, "remote_nodes": []},
+        {
+            "local": None,
+            "remote_nodes": [
+                {
+                    "node_id": "remote",
+                    "base_url": "http://192.0.2.1:25042",
+                    "capabilities": ["chat"],
+                    "unexpected": True,
+                }
+            ],
+        },
+    ],
+)
+def test_unknown_or_missing_structural_fields_fail(
+    tmp_path: Path, document: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {
+            "local": {
+                "runtime": "llama-server",
+                "ollama_model": "private-model",
+                "ollama_disable_thinking": False,
+                "llama_server_base_url": "http://127.0.0.1:8080",
+                "llama_server_model": "private-model",
+                "local_capabilities": None,
+            },
+            "remote_nodes": [],
+        },
+        {
+            "local": {
+                "runtime": "ollama",
+                "ollama_model": None,
+                "ollama_disable_thinking": False,
+                "llama_server_base_url": None,
+                "llama_server_model": None,
+                "local_capabilities": [],
+            },
+            "remote_nodes": [],
+        },
+        {
+            "local": None,
+            "remote_nodes": [
+                {
+                    "node_id": "local",
+                    "base_url": "http://private.example:25042",
+                    "capabilities": ["chat"],
+                }
+            ],
+        },
+        {
+            "local": None,
+            "remote_nodes": [
+                {
+                    "node_id": "remote",
+                    "base_url": "http://private.example:25042/path",
+                    "capabilities": ["unknown"],
+                }
+            ],
+        },
+    ],
+)
+def test_invalid_semantic_values_fail_without_echoing_private_values(
+    tmp_path: Path, document: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(RetainedConfigurationError) as raised:
+        load_retained_configuration(path)
+
+    assert "private.example" not in str(raised.value)
+    assert "private-model" not in str(raised.value)
+
+
+@pytest.mark.parametrize("field", ["node_id", "base_url"])
+def test_duplicate_remote_values_fail_explicitly(tmp_path: Path, field: str) -> None:
+    path = tmp_path / "retained.json"
+    first = {
+        "node_id": "remote-a",
+        "base_url": "http://192.0.2.1:25042",
+        "capabilities": ["chat"],
+    }
+    second = {
+        "node_id": "remote-b",
+        "base_url": "http://192.0.2.2:25042",
+        "capabilities": ["summarize"],
+    }
+    second[field] = first[field]
+
+    contents = json.dumps({"local": None, "remote_nodes": [first, second]})
+    path.write_text(contents, encoding="utf-8")
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+    assert path.read_text(encoding="utf-8") == contents
+
+
+def test_invalid_state_does_not_replace_an_existing_destination(tmp_path: Path) -> None:
+    path = tmp_path / "retained.json"
+    original = b'{"local":null,"remote_nodes":[]}\n'
+    path.write_bytes(original)
+    invalid = RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(
+                runtime="llama-server",
+                ollama_model="private-model",
+                llama_server_base_url="http://127.0.0.1:8080",
+                llama_server_model="private-model",
+            )
+        )
+    )
+
+    with pytest.raises(RetainedConfigurationError):
+        save_retained_configuration(invalid, path)
+
+    assert path.read_bytes() == original
+
+
+def test_failed_replacement_cleans_up_temporary_file_and_preserves_destination(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained.json"
+    original = b'{"local":null,"remote_nodes":[]}\n'
+    path.write_bytes(original)
+
+    def fail_replace(_source: object, _target: object) -> None:
+        raise OSError("private replacement failure")
+
+    monkeypatch.setattr(retained_configuration.os, "replace", fail_replace)
+
+    with pytest.raises(RetainedConfigurationError) as raised:
+        save_retained_configuration(ollama_configuration(), path)
+
+    assert str(raised.value) == "unable to save retained configuration"
+    assert path.read_bytes() == original
+    assert not list(tmp_path.glob(".retained-config-*"))

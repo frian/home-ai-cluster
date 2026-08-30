@@ -324,7 +324,7 @@ required: QUERY goes only to that selected plugin, while QUESTION does not go
 to the plugin. Neither form implies a configured default or retained plugin
 preference.
 
-**Available plugin example:**
+**Available plugin examples:**
 
 The separately packaged
 [`home-ai-cluster-plugin-searxng`](https://github.com/frian/home-ai-cluster-plugin-searxng)
@@ -362,6 +362,35 @@ hac external-information \
 
 For repository-checkout installation and SearXNG-specific setup, see the
 [plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme).
+
+The separately packaged
+[`home-ai-cluster-plugin-tavily`](https://github.com/frian/home-ai-cluster-plugin-tavily)
+provides the entry-point name `tavily`. It uses a fixed external Tavily provider
+service and requires `TAVILY_API_KEY` in the environment of the
+`hac external-information` caller. The explicit acquisition QUERY is disclosed
+to Tavily; the QUESTION remains within the existing RFC-0078/HAC boundary and
+is not passed to the plugin. Installation alone makes no provider request.
+
+For an isolated `uv` tool, install HAC and the published plugin into the same
+tool environment:
+
+```sh
+uv tool install \
+  --with home-ai-cluster-plugin-tavily \
+  home-ai-cluster
+```
+
+Then, with `hac local` or `hac static-cluster` already running, for example:
+
+```sh
+hac external-information \
+  --plugin tavily \
+  --query "Python 3.14 release notes free threading" \
+  --question "What changed for free-threaded Python in 3.14?"
+```
+
+For Tavily-specific setup, see the
+[plugin README](https://github.com/frian/home-ai-cluster-plugin-tavily#readme).
 
 `--timeout-seconds SECONDS`, `--verbose`, and `--json` use the same caller
 presentation and HTTP conventions as `hac chat`. The timeout accepts one

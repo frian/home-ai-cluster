@@ -241,14 +241,18 @@ to your own local setup.
 
 Ordinary Home AI Cluster requests do not acquire Web information by themselves.
 External-information acquisition is an explicit optional caller edge using one
-separately installed compatible plugin.
+separately installed compatible plugin. Plugin selection is required;
+installation alone does not perform acquisition, and ordinary Chat does not
+automatically use either provider.
 
-One available plugin is
-[`home-ai-cluster-plugin-searxng`](https://github.com/frian/home-ai-cluster-plugin-searxng).
-It expects an operator-managed local SearXNG service and uses the explicit plugin
-name `searxng`.
+Choose either published plugin. The
+[SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng#readme)
+keeps acquisition against an operator-managed local SearXNG service. The
+[Tavily plugin](https://github.com/frian/home-ai-cluster-plugin-tavily#readme)
+uses the external Tavily service, requires `TAVILY_API_KEY` in the caller
+environment, and discloses the explicit acquisition query to Tavily.
 
-If you want the plugin from the initial HAC installation, use this instead of the
+For an initial isolated HAC installation, choose one of these instead of the
 plain command in step 4:
 
 ```sh
@@ -257,12 +261,24 @@ uv tool install \
   home-ai-cluster
 ```
 
-If you already followed step 4 and installed HAC without the plugin, rebuild that
-isolated tool environment explicitly with the plugin included:
+```sh
+uv tool install \
+  --with home-ai-cluster-plugin-tavily \
+  home-ai-cluster
+```
+
+If you already followed step 4, rebuild that isolated tool environment
+explicitly with your chosen plugin included:
 
 ```sh
 uv tool install --force \
   --with home-ai-cluster-plugin-searxng \
+  home-ai-cluster
+```
+
+```sh
+uv tool install --force \
+  --with home-ai-cluster-plugin-tavily \
   home-ai-cluster
 ```
 
@@ -275,9 +291,23 @@ hac external-information \
   "What are the main recent developments?"
 ```
 
-See the
-[plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme)
-for SearXNG-specific setup and the
+For Tavily, set the caller credential and use the selected plugin:
+
+```sh
+export TAVILY_API_KEY="<YOUR_TAVILY_API_KEY>"
+
+hac external-information \
+  --plugin tavily \
+  "Python 3.14 free-threading changes" \
+  "What changed for free-threaded Python in 3.14?"
+```
+
+Manage or unset the environment credential according to your normal shell and
+security practice.
+
+See the [SearXNG plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme),
+[Tavily plugin README](https://github.com/frian/home-ai-cluster-plugin-tavily#readme),
+and the
 [`hac external-information` command reference](command-reference.md#hac-external-information)
 for the exact HAC boundary.
 

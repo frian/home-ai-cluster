@@ -35,7 +35,7 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeCommandInput:
     parser.add_argument("--timeout-seconds")
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("--json", action="store_true")
+    output_options.add_argument("-j", "--json", action="store_true")
     args = parser.parse_args(argv)
 
     option_messages = args.message or []

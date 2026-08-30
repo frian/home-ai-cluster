@@ -43,6 +43,24 @@ For checkout use, first run `uv sync`, then use the verified standalone script
 where one exists, for example `uv run home-ai-cluster-local` or `uv run
 home-ai-cluster-preflight`.
 
+## Ordinary short options
+
+The following additive short options are equivalent to their long forms. Long
+forms remain canonical, supported, and non-deprecated.
+
+| Short | Long | Commands |
+| --- | --- | --- |
+| `-h` | `--help` | root `hac`, root `home-ai-cluster` |
+| `-f` | `--file` | aider, code-file, summarize, classify |
+| `-d` | `--declaration` | static-cluster, compatibility, preflight, status |
+| `-l` | `--label` | classify |
+| `-j` | `--json` | chat, code, external-information, summarize, classify, preflight, health, status |
+
+Every argparse-backed subcommand continues to provide `-h/--help`. Existing
+`-v/--verbose` remains available only where already supported: chat, code,
+external-information, summarize, and classify. Short and long spellings have
+the same semantics.
+
 ## Quick command map
 
 The ordinary root surface has thirteen commands.

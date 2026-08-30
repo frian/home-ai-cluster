@@ -51,7 +51,7 @@ def create_static_cluster_openai_compatibility_app(
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-openai-compatibility")
-    parser.add_argument("--declaration", type=Path)
+    parser.add_argument("-d", "--declaration", type=Path)
     parser.add_argument("--proof-observation", action="store_true")
     return parser
 

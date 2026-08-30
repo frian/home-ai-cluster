@@ -204,7 +204,7 @@ def _format_value(value: object) -> str:
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-health")
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("-j", "--json", action="store_true")
     return parser
 
 

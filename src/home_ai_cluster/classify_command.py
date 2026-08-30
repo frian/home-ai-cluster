@@ -49,12 +49,12 @@ def _parse_input(
     parser = _ArgumentParser(prog="home-ai-cluster classify")
     sources = parser.add_mutually_exclusive_group()
     sources.add_argument("--text", action="append")
-    sources.add_argument("--file", action="append")
-    parser.add_argument("--label", action="append")
+    sources.add_argument("-f", "--file", action="append")
+    parser.add_argument("-l", "--label", action="append")
     parser.add_argument("--timeout-seconds", action="append")
     output = parser.add_mutually_exclusive_group()
     output.add_argument("-v", "--verbose", action="store_true")
-    output.add_argument("--json", action="store_true")
+    output.add_argument("-j", "--json", action="store_true")
     args = parser.parse_args(argv)
     texts, files = args.text or [], args.file or []
     if len(texts) > 1 or len(files) > 1:

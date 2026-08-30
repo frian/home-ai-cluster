@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,12 +52,27 @@ class RetainedConfiguration:
     remote_nodes: tuple[RemoteNodeDeclaration, ...] = ()
 
 
+def _retained_configuration_home() -> Path:
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support"
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data and Path(local_app_data).is_absolute():
+            return Path(local_app_data)
+        return Path.home() / "AppData" / "Local"
+    config_home = os.environ.get("XDG_CONFIG_HOME")
+    if config_home and Path(config_home).is_absolute():
+        return Path(config_home)
+    return Path.home() / ".config"
+
+
 def retained_configuration_file() -> Path:
     """Return the private retained-configuration path without creating it."""
-    config_home = os.environ.get("XDG_CONFIG_HOME")
-    if not config_home or not Path(config_home).is_absolute():
-        config_home = str(Path(os.environ["HOME"]) / ".config")
-    return Path(config_home) / _CONFIGURATION_DIRECTORY / _CONFIGURATION_FILENAME
+    return (
+        _retained_configuration_home()
+        / _CONFIGURATION_DIRECTORY
+        / _CONFIGURATION_FILENAME
+    )
 
 
 def load_retained_configuration(

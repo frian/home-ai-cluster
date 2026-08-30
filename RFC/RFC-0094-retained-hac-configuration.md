@@ -1,6 +1,6 @@
 # RFC-0094: Retained HAC Configuration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-30
 
@@ -331,9 +331,9 @@ new network authority, dynamic behavior, or a general configuration system.
 
 ## Implementation boundary
 
-No implementation is authorized by this Draft RFC. If accepted, work may add a
-small HAC-managed local persistence boundary, the three specified facade
-surfaces, suppliedness preservation for relevant runtime/topology inputs,
+Later implementation is authorized only within this bounded implementation
+boundary: a small HAC-managed local persistence boundary, the three specified
+facade surfaces, suppliedness preservation for relevant runtime/topology inputs,
 effective-domain construction, focused tests, and operator documentation. This
 may include the retained RFC-0059 caller-local static routing restriction while
 keeping it distinct from runtime composition.
@@ -380,11 +380,12 @@ None within this RFC's architectural scope.
 
 ## Decision
 
-Draft. RFC-0094 proposes one HAC-managed retained configuration surface with
+Accepted. RFC-0094 accepts one HAC-managed retained configuration surface with
 `config local`, `config node`, and `config show`; separate retained local runtime
 composition, caller-local static routing capabilities, and caller-side static
 topology; retained state as an optional baseline; explicit compatible CLI values
 as temporary overrides; runtime/topology domain replacement; and RFC-0074 as a
 self-contained alternative local runtime source.
 
-It authorizes no implementation until accepted.
+Later implementation is authorized only within the bounded implementation
+boundary defined by this RFC.

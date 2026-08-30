@@ -1,6 +1,6 @@
 # RFC-0093: Bounded Tavily Acquisition Plugin
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-30
 
@@ -8,14 +8,14 @@ Author: frian
 
 ## Summary
 
-This RFC proposes one concrete Tavily provider decision under accepted RFC-0078.
+This RFC accepts one concrete Tavily provider decision under accepted RFC-0078.
 A separately installed, separately versioned Tavily package may be selected only
 by the explicit external-information caller edge. It makes one bounded HTTPS
 search request, returns only an ordered concrete list of `title`/`url`/`content`
 candidates, and leaves fresh complete RFC-0077 validation to the existing caller
 before ordinary source-grounded Chat routing.
 
-The proposal does not revise RFC-0077 or RFC-0078, and does not implement the
+This acceptance does not revise RFC-0077 or RFC-0078, and does not implement the
 plugin in this RFC. An installed package does not grant ordinary Chat or HAC
 startup automatic network authority.
 
@@ -318,7 +318,7 @@ them fit by altering evidence.
 
 ## Impact
 
-If accepted, this RFC authorizes a later separately installed Tavily plugin
+This RFC authorizes a later separately installed Tavily plugin
 implementation only. HAC core gains no dependency, provider import, API key,
 configuration, endpoint, capability, route, routing behavior, or automatic
 network access. RFC-0077 and RFC-0078 remain unchanged. Later implementation
@@ -342,7 +342,7 @@ must provide focused proof of:
 
 ## Open questions
 
-No open question blocks this Draft. Real implementation proof may show that
+No open question blocks this acceptance. Real implementation proof may show that
 useful candidates repeatedly exceed RFC-0077's content bound; that would justify
 a separate investigation, not a silent adjustment here. Provider pricing,
 account policy, availability, and future Tavily features remain outside HAC's
@@ -350,4 +350,30 @@ first provider contract.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts one concrete Tavily acquisition plugin under RFC-0078:
+
+- repository `frian/home-ai-cluster-plugin-tavily`, distribution
+  `home-ai-cluster-plugin-tavily`, and entry point `tavily` in
+  `home_ai_cluster.external_information_acquisition.v1`;
+- explicit selection only through `hac external-information` and exactly one
+  `POST https://api.tavily.com/search`;
+- ordinary TLS verification, redirects disabled, and ambient client environment
+  disabled with `trust_env=False` or an equivalent;
+- `TAVILY_API_KEY` read only by the selected plugin from the
+  `hac external-information` caller process environment when `acquire` runs;
+- the exact fixed request body defined by this RFC;
+- a 30-second total deadline; connect/read/write/pool timeouts of 5/20/5/2
+  seconds; at most one simultaneous provider connection; a one-MiB maximum
+  decoded response body; zero retries; and disabled redirects;
+- deterministic normalization to at most five concrete `title`/`url`/`content`
+  dictionaries, followed by fresh complete RFC-0077 validation before ordinary
+  routing; and
+- existing RFC-0078 privacy-safe
+  `external-information-acquisition-failed` behavior.
+
+This acceptance adds no HAC capability; generic provider, plugin,
+configuration, or secrets framework; automatic provider selection or fallback;
+ordinary Chat acquisition; URL fetching; research loop; or automatic network
+authority. It authorizes only later separately packaged Tavily plugin
+implementation and focused proof under this RFC. This acceptance PR contains no
+implementation.

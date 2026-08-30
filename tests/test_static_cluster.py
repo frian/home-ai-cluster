@@ -56,6 +56,14 @@ from home_ai_cluster.static_cluster_declaration import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolated_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+
 class FakeAdapter:
     def __init__(self, error: Exception | None = None) -> None:
         self._error = error

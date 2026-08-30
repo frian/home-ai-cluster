@@ -126,8 +126,13 @@ health observation, DNS, HTTP, or mutation. The retained-state physical path
 and file representation are internal implementation details, not a manual-edit
 API or output schema.
 
-This is Step 2 of retained configuration: it can be managed and inspected now,
-but `hac local` and `hac static-cluster` do not consume it yet.
+Retained configuration is the optional normal startup baseline. `hac local`
+uses retained local runtime composition when present; explicitly supplied
+compatible runtime options are one-invocation overrides, while parser defaults
+are not overrides. An explicitly different `--runtime` replaces that runtime
+domain, and `--runtime-config` remains a self-contained alternative. Startup
+never mutates retained state; `show` continues to report retained facts rather
+than current runtime or cluster truth.
 
 ## `hac local`
 
@@ -217,6 +222,7 @@ and one or more declared remote nodes.
 **Common forms:**
 
 ```sh
+hac static-cluster
 hac static-cluster --declaration <PATH>
 hac static-cluster --declaration <PATH> --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac static-cluster --declaration <PATH> --runtime ollama --ollama-disable-thinking
@@ -233,7 +239,10 @@ hac static-cluster \
 
 **Topology**
 
-- Declaration and inline topology modes are mutually exclusive.
+- With no explicit topology source, `hac static-cluster` uses retained ordered
+  remote nodes when present; it still fails when no retained topology exists.
+- Declaration and inline topology modes are mutually exclusive and each replaces
+  retained topology for that invocation.
 - Declaration mode supports one or more ordered remote nodes.
 - The retained inline mode supports exactly one remote node.
 - Topology is static and explicit. The process does not discover, start, stop,
@@ -268,6 +277,10 @@ hac static-cluster \
   accepted names; duplicates and unknown names are rejected.
 - Capability membership controls eligibility only. Capability order is not
   priority.
+
+When retained caller-local capabilities are present, they apply only to
+static-cluster routing eligibility. Omission retains the existing `chat` plus
+`summarize` compatibility default; no capability is inferred from the runtime.
 
 **Routing and boundaries**
 

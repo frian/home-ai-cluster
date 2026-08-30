@@ -223,8 +223,9 @@ def load_local_runtime_config(path: Path) -> LocalRuntimeCompositionValues:
 def resolve_local_runtime_composition_values(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
+    retained_values: LocalRuntimeCompositionValues | None = None,
 ) -> LocalRuntimeCompositionValues:
-    """Resolve exactly one explicit file or existing CLI composition source."""
+    """Resolve one explicit file, retained baseline, or CLI composition source."""
     cached = getattr(args, _RESOLVED_RUNTIME_VALUES, None)
     if cached is not None:
         return cached
@@ -240,7 +241,7 @@ def resolve_local_runtime_composition_values(
             values = load_local_runtime_config(runtime_config)
         except LocalRuntimeCompositionError as error:
             parser.error(str(error))
-    else:
+    elif retained_values is None:
         try:
             base_url = validate_local_runtime_values(
                 runtime=args.runtime,
@@ -257,6 +258,49 @@ def resolve_local_runtime_composition_values(
             ollama_disable_thinking=args.ollama_disable_thinking,
             llama_server_base_url=base_url,
             llama_server_model=args.llama_server_model,
+        )
+    else:
+        explicit_arguments = getattr(args, _EXPLICIT_RUNTIME_ARGUMENTS, frozenset())
+        replaces_runtime = (
+            "--runtime" in explicit_arguments
+            and args.runtime != retained_values.runtime
+        )
+        if replaces_runtime:
+            runtime = args.runtime
+            ollama_model = args.ollama_model
+            disable_thinking = args.ollama_disable_thinking
+            llama_server_base_url = args.llama_server_base_url
+            llama_server_model = args.llama_server_model
+        else:
+            runtime = retained_values.runtime
+            ollama_model = retained_values.ollama_model
+            disable_thinking = retained_values.ollama_disable_thinking
+            llama_server_base_url = retained_values.llama_server_base_url
+            llama_server_model = retained_values.llama_server_model
+            if "--ollama-model" in explicit_arguments:
+                ollama_model = args.ollama_model
+            if "--ollama-disable-thinking" in explicit_arguments:
+                disable_thinking = True
+            if "--llama-server-base-url" in explicit_arguments:
+                llama_server_base_url = args.llama_server_base_url
+            if "--llama-server-model" in explicit_arguments:
+                llama_server_model = args.llama_server_model
+        try:
+            base_url = validate_local_runtime_values(
+                runtime=runtime,
+                ollama_model=ollama_model,
+                ollama_disable_thinking=disable_thinking,
+                llama_server_base_url=llama_server_base_url,
+                llama_server_model=llama_server_model,
+            )
+        except LocalRuntimeCompositionError as error:
+            parser.error(str(error))
+        values = LocalRuntimeCompositionValues(
+            runtime=runtime,
+            ollama_model=ollama_model,
+            ollama_disable_thinking=disable_thinking,
+            llama_server_base_url=base_url,
+            llama_server_model=llama_server_model,
         )
     setattr(args, _RESOLVED_RUNTIME_VALUES, values)
     return values
@@ -306,9 +350,10 @@ def validate_local_runtime_values(
 def validate_local_runtime_arguments(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
+    retained_values: LocalRuntimeCompositionValues | None = None,
 ) -> None:
     """Apply shared local runtime validation through the supplied parser."""
-    resolve_local_runtime_composition_values(parser, args)
+    resolve_local_runtime_composition_values(parser, args, retained_values)
 
 
 def _create_local_node(

@@ -117,6 +117,20 @@ To update a previously installed published package later, use the appropriate
 `uv tool` upgrade operation rather than installing a repository checkout over
 it.
 
+### Optional: retain stable choices
+
+The default first-use path needs no retained configuration. To keep a stable
+local runtime choice for later ordinary starts, use:
+
+```sh
+hac config local --runtime ollama --ollama-model qwen3:8b
+hac config show
+hac local
+```
+
+Later compatible runtime CLI values are temporary one-invocation overrides and
+do not rewrite retained configuration.
+
 ## 5. Start Home AI Cluster
 
 Start the ordinary local process:

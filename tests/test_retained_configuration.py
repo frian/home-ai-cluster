@@ -70,6 +70,54 @@ def test_path_uses_home_config_fallback_when_xdg_config_home_is_not_absolute(
     assert not (tmp_path / ".config").exists()
 
 
+def test_path_uses_macos_application_support_without_creating_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(retained_configuration.sys, "platform", "darwin")
+    monkeypatch.setattr(retained_configuration.Path, "home", lambda: tmp_path)
+
+    assert retained_configuration_file() == (
+        tmp_path
+        / "Library"
+        / "Application Support"
+        / "home-ai-cluster"
+        / "retained-config.json"
+    )
+    assert not (tmp_path / "Library").exists()
+
+
+def test_path_uses_windows_local_app_data_without_creating_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    local_app_data = tmp_path / "LocalAppData"
+    monkeypatch.setattr(retained_configuration.sys, "platform", "win32")
+    monkeypatch.setenv("LOCALAPPDATA", str(local_app_data))
+
+    assert retained_configuration_file() == (
+        local_app_data / "home-ai-cluster" / "retained-config.json"
+    )
+    assert not local_app_data.exists()
+
+
+@pytest.mark.parametrize("local_app_data", [None, "", "relative-local-app-data"])
+def test_windows_path_falls_back_to_home_local_app_data(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    local_app_data: str | None,
+) -> None:
+    monkeypatch.setattr(retained_configuration.sys, "platform", "win32")
+    monkeypatch.setattr(retained_configuration.Path, "home", lambda: tmp_path)
+    if local_app_data is None:
+        monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    else:
+        monkeypatch.setenv("LOCALAPPDATA", local_app_data)
+
+    assert retained_configuration_file() == (
+        tmp_path / "AppData" / "Local" / "home-ai-cluster" / "retained-config.json"
+    )
+    assert not (tmp_path / "AppData").exists()
+
+
 def test_save_creates_owner_only_application_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

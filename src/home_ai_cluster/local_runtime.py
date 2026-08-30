@@ -14,6 +14,10 @@ from home_ai_cluster.local_runtime_composition import (
 )
 from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
+from home_ai_cluster.retained_configuration import (
+    RetainedConfigurationError,
+    load_retained_configuration,
+)
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
 LOCAL_RUNTIME_PORT = 25042
@@ -31,7 +35,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse one explicit ordinary local runtime composition."""
     parser = _create_argument_parser()
     args = parser.parse_args(argv)
-    validate_local_runtime_arguments(parser, args)
+    retained_values = None
+    if args.runtime_config is None:
+        try:
+            retained = load_retained_configuration()
+        except RetainedConfigurationError as error:
+            parser.error(str(error))
+        if retained.local is not None:
+            retained_values = retained.local.runtime
+    validate_local_runtime_arguments(parser, args, retained_values)
     return args
 
 

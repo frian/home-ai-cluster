@@ -247,12 +247,12 @@ def _format_value(value: object) -> str:
 
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="home-ai-cluster-preflight")
-    parser.add_argument("--declaration", type=Path)
+    parser.add_argument("-d", "--declaration", type=Path)
     parser.add_argument("--remote-node-id", type=remote_node_id)
     parser.add_argument("--remote-base-url", type=remote_base_url)
     parser.add_argument("--local-capability", action="append")
     parser.add_argument("--remote-capability", action="append")
-    parser.add_argument("--json", action="store_true")
+    parser.add_argument("-j", "--json", action="store_true")
     return parser
 
 

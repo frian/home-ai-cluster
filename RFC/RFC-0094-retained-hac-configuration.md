@@ -103,6 +103,12 @@ editing. A physical file may exist and be visible to its operator, but this RFC
 does not promise a stable pathname, encoding, manually editable schema, or
 scriptable representation, nor introduce a migration framework.
 
+Retained local and remote-node configuration must be operator-correctable and
+removable. The exact CLI spelling for correction/removal is not part of this
+RFC's architectural contract: a later implementation may choose the smallest
+clear spelling consistent with the existing CLI, then harden or freeze it during
+pre-1.0 product stabilization.
+
 ### Ownership boundaries
 
 The two retained domains remain deliberately separate:
@@ -370,10 +376,7 @@ exposure of private retained facts.
 
 ## Open questions
 
-- What exact user-facing mutation/removal spelling makes retained nodes and
-  local state operator-correctable? This RFC requires correctability/removal
-  as a semantic property but does not invent durable syntax absent an accepted
-  naming decision. It must be resolved before implementation.
+None within this RFC's architectural scope.
 
 ## Decision
 
@@ -384,5 +387,4 @@ topology; retained state as an optional baseline; explicit compatible CLI values
 as temporary overrides; runtime/topology domain replacement; and RFC-0074 as a
 self-contained alternative local runtime source.
 
-It authorizes no implementation unless accepted and the listed necessary open
-questions are resolved.
+It authorizes no implementation until accepted.

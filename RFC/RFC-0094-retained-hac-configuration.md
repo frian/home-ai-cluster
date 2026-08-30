@@ -17,12 +17,13 @@ hac config node
 hac config show
 ```
 
-It retains two already accepted, distinct operator-owned domains: this
-machine's local runtime composition and the caller-side static remote topology.
-Retained state is a local HAC-managed baseline for ordinary later invocations;
-explicitly supplied compatible CLI values are temporary overrides. It neither
-creates a general configuration framework nor changes runtime, routing, remote
-ownership, or network authority.
+It retains already accepted, distinct operator-owned facts: this machine's
+local runtime composition, this caller's RFC-0059 static local routing
+capabilities, and caller-side static remote topology. Retained state is a local
+HAC-managed baseline for ordinary later invocations; explicitly supplied
+compatible CLI values are temporary overrides. It neither creates a general
+configuration framework nor changes runtime, routing, remote ownership, or
+network authority.
 
 `hac config show` reports retained state only. It is local and read-only, and
 does not observe a runtime or cluster.
@@ -55,8 +56,8 @@ pushes durable private LAN/runtime facts into shell history or ad hoc wrappers.
 ## Goals
 
 - Provide one ordinary `hac config` concept for retained HAC state.
-- Retain only accepted local runtime-composition and caller-side static-topology
-  facts.
+- Retain only accepted local runtime-composition, caller-local static-routing,
+  and caller-side remote-topology facts.
 - Make retained state a local baseline, optional for ordinary operation.
 - Define explicit CLI values as temporary, suppliedness-aware overrides.
 - Keep inspection distinct from preflight, health, and status.
@@ -83,8 +84,8 @@ vLLM-specific architecture.
 
 The root facade gains exactly these semantic surfaces:
 
-- `hac config local` owns mutation of retained local runtime composition for
-  this machine.
+- `hac config local` owns retained facts belonging to this machine: local
+  runtime composition and RFC-0059 caller-local static routing capabilities.
 - `hac config node` owns mutation of caller-side retained static remote-node
   declarations.
 - `hac config show` owns local, read-only inspection of the retained state HAC
@@ -94,11 +95,13 @@ Equivalent long-form `home-ai-cluster config ...` behavior follows the
 accepted facade relationship. This RFC does not add other general configuration
 commands.
 
-Retained configuration is HAC-managed. An implementation may use a local
-persisted representation, but a manually edited general HAC config file is not
-the ordinary product interface. The exact local storage path and byte format
-remain implementation details: the architecture requires durable, local,
-operator-correctable state, not a file-format contract.
+Retained configuration is deterministic HAC-managed local persistent state. Its
+physical path and byte format are implementation details, not a supported
+user-facing configuration API. The ordinary interface is `hac config ...`, and
+inspection is `hac config show`; the architecture does not require manual file
+editing. A physical file may exist and be visible to its operator, but this RFC
+does not promise a stable pathname, encoding, manually editable schema, or
+scriptable representation, nor introduce a migration framework.
 
 ### Ownership boundaries
 
@@ -107,6 +110,7 @@ The two retained domains remain deliberately separate:
 ```text
 config local
   -> local runtime composition for this executing machine
+  -> caller-local RFC-0059 static routing capabilities
 
 config node
   -> caller-owned declarations of remote topology and eligibility
@@ -117,9 +121,13 @@ treated as local runtime configuration plus an IP address. A remote machine
 continues to configure its own runtime locally; its caller declares only static
 facts needed for capability-centered routing.
 
-Capability-centered routing, local-first selection, accepted remote declaration
-order, request/result contracts, status/health ownership, and external runtime
-lifecycle ownership remain unchanged.
+The retained caller-local capability fact remains exactly RFC-0059 static
+caller-side routing permission. It is not a statement of runtime/model
+implementation, `hac local` exposure, receiver-side advertisement, adapter
+discovery, runtime observation, or probing. Capability-centered routing,
+local-first selection, accepted remote declaration order, request/result
+contracts, status/health ownership, and external runtime lifecycle ownership
+remain unchanged.
 
 ### Retained local runtime domain
 
@@ -136,10 +144,29 @@ installation, supervision, arbitrary runtime options, or generic provider
 configuration. The same existing runtime-specific validation remains
 authoritative.
 
+### Retained caller-local routing capabilities
+
+`hac config local` may also retain the RFC-0059 caller-local static routing
+capability restriction. This is separate from local runtime composition even
+though both facts belong to this machine's operator-facing configuration
+surface. It restricts only which accepted capabilities the caller-side
+static-cluster router may consider locally.
+
+When neither retained state nor an explicit selected topology source supplies a
+caller-local restriction, omission retains RFC-0059's compatibility default of
+`chat` plus `summarize`, never an empty set. HAC must not infer this fact from
+an adapter or runtime.
+
 ### Retained static topology domain
 
-`hac config node` may retain one or more caller-owned static remote-node
-declarations. Each contains only already accepted topology facts:
+The effective retained static topology consists of an explicitly retained
+caller-local RFC-0059 restriction, when present, and the ordered remote-node
+declarations retained through `hac config node`. These different local and
+remote capability facts retain their RFC-0059 and RFC-0058 ownership semantics;
+this does not introduce a generic topology object or schema.
+
+Each retained remote-node declaration contains only already accepted topology
+facts:
 
 - node ID;
 - explicit HTTP base URL/address under existing URL rules; and
@@ -194,11 +221,16 @@ remains authoritative. Missing values are not invented.
 ### Topology-domain replacement
 
 An explicitly selected existing complete topology source replaces retained
-topology for that invocation. This applies to `--declaration PATH` and the
-existing complete bounded inline static-topology form. Retained node collections
-must not merge with an explicit declaration, and individual remote facts or
-capability patches must not merge across topology modes. Existing
-declaration-versus-inline mutual exclusion remains authoritative.
+topology, including its caller-local capability portion, for that invocation.
+This applies to `--declaration PATH` and the existing complete bounded inline
+static-topology form. A selected declaration uses its own `local_capabilities`,
+or the RFC-0059 omission default when absent; a retained caller-local value must
+not patch it. The complete inline mode is likewise self-contained.
+
+Retained node collections must not merge with an explicit declaration, and
+individual remote facts or standalone capability flags must not patch retained
+topology across modes. Existing RFC-0059/RFC-0058 declaration-versus-inline
+rules and mutual exclusion remain authoritative.
 
 ### RFC-0074 interaction
 
@@ -296,7 +328,9 @@ new network authority, dynamic behavior, or a general configuration system.
 No implementation is authorized by this Draft RFC. If accepted, work may add a
 small HAC-managed local persistence boundary, the three specified facade
 surfaces, suppliedness preservation for relevant runtime/topology inputs,
-effective-domain construction, focused tests, and operator documentation.
+effective-domain construction, focused tests, and operator documentation. This
+may include the retained RFC-0059 caller-local static routing restriction while
+keeping it distinct from runtime composition.
 
 It must not add persistence for requests/results, a generic configuration
 framework, changed routing/request/status contracts, network probing during
@@ -324,6 +358,13 @@ Later implementation must prove that:
 8. `config show` is read-only retained-state inspection with no runtime/node
    observation.
 
+Later implementation must also prove that the RFC-0059 caller-local capability
+restriction can be retained, remains distinct from runtime composition, is
+consumed by ordinary retained static-cluster use without repeated CLI input,
+preserves `chat` plus `summarize` on omission, and is replaced with the rest of
+the topology by an explicit declaration or complete inline topology. No runtime
+or node probing may be introduced.
+
 Proof must also show unchanged capability/routing contracts and no unnecessary
 exposure of private retained facts.
 
@@ -333,18 +374,15 @@ exposure of private retained facts.
   local state operator-correctable? This RFC requires correctability/removal
   as a semantic property but does not invent durable syntax absent an accepted
   naming decision. It must be resolved before implementation.
-- Does implementation need a canonical platform-standard storage location and
-  a concrete format, or can those safely remain internal? If a public contract
-  is necessary, it requires explicit review of its location, migration, and
-  privacy implications before implementation.
 
 ## Decision
 
 Draft. RFC-0094 proposes one HAC-managed retained configuration surface with
 `config local`, `config node`, and `config show`; separate retained local runtime
-and caller-side static topology domains; retained state as an optional baseline;
-explicit compatible CLI values as temporary overrides; runtime/topology domain
-replacement; and RFC-0074 as a self-contained alternative local runtime source.
+composition, caller-local static routing capabilities, and caller-side static
+topology; retained state as an optional baseline; explicit compatible CLI values
+as temporary overrides; runtime/topology domain replacement; and RFC-0074 as a
+self-contained alternative local runtime source.
 
 It authorizes no implementation unless accepted and the listed necessary open
 questions are resolved.

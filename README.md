@@ -12,6 +12,58 @@ capability-centered local system:
 
 > Many machines. One AI.
 
+## Architecture at a glance
+
+A request names the capability it needs. Home AI Cluster routes it among the
+eligible declared nodes without making the caller choose a machine or runtime.
+
+```text
+                         Home AI Cluster
+                    "Many machines. One AI."
+
+
+                           User / Tool
+                               │
+                               ▼
+                     ┌───────────────────┐
+                     │   HAC endpoint    │
+                     │     /v1/chat      │
+                     │                   │
+                     │ capability: code  │
+                     └─────────┬─────────┘
+                               │
+                               ▼
+                     ┌───────────────────┐
+                     │   Orchestrator    │
+                     │                   │
+                     │ capability-based  │
+                     │      routing      │
+                     └─────────┬─────────┘
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+             ▼                 ▼                 ▼
+    ┌────────────────┐  ┌────────────────┐  ┌────────────────┐
+    │   Local node   │  │ Remote node A  │  │ Remote node B  │
+    │                │  │                │  │                │
+    │ capabilities   │  │ capabilities   │  │ capabilities   │
+    │ • chat         │  │ • summarize    │  │ • chat         │
+    │ • code         │  │ • classify     │  │ • code         │
+    │                │  │                │  │                │
+    │    adapter     │  │    HAC app     │  │    HAC app     │
+    │       │        │  │       │        │  │       │        │
+    │       ▼        │  │       ▼        │  │       ▼        │
+    │    runtime     │  │    adapter     │  │    adapter     │
+    │                │  │       │        │  │       │        │
+    │                │  │       ▼        │  │       ▼        │
+    │                │  │    runtime     │  │    runtime     │
+    └────────────────┘  └────────────────┘  └────────────────┘
+```
+
+The capability labels are illustrative examples from the currently supported
+explicit capability vocabulary; they are declaration-owned routing eligibility,
+not runtime discovery or dynamic status.
+
 The user addresses the cluster rather than selecting a machine or runtime
 brand for an ordinary request. Ordinary operation remains intentionally small,
 local-first, and explicit.

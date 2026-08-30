@@ -63,7 +63,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has thirteen commands.
+The ordinary root surface has fourteen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -80,6 +80,54 @@ The ordinary root surface has thirteen commands.
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`health`](#hac-health) | Observe local runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
+| [`config`](#hac-config) | Manage and inspect retained configuration. |
+
+## `hac config`
+
+**Purpose:** Manage the bounded HAC-managed retained configuration baseline.
+
+**Common forms:**
+
+```sh
+hac config local --runtime ollama
+hac config local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
+hac config local --runtime ollama --ollama-disable-thinking
+hac config local \
+  --runtime llama-server \
+  --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
+  --llama-server-model <MODEL_IDENTIFIER>
+hac config local --reset
+
+hac config node <NODE_ID> --base-url <BASE_URL>
+hac config node <NODE_ID> --base-url <BASE_URL> --capability code
+hac config node <NODE_ID> --remove
+
+hac config show
+```
+
+**Important behavior:** `local` is a complete retained local-runtime and
+caller-local-capability replacement. Non-reset local mutation requires explicit
+`--runtime`; supported runtimes and their validation remain the same as `hac
+local`. Repeat `--local-capability <NAME>` to retain an explicit caller-local
+capability set. Omission retains no explicit local capability restriction.
+`--reset` removes only the retained local facts and is mutually exclusive with
+all local mutation options.
+
+`node` adds a retained remote declaration or completely replaces the existing
+declaration with the same node ID. New nodes append; replacement preserves that
+node's existing order. `--base-url` is required for mutation. Omitted
+`--capability` retains the existing `chat, summarize` compatibility default;
+repeated `--capability <NAME>` retains an explicit ordered set. `--remove`
+removes exactly one retained node, preserving all other node order, and is
+mutually exclusive with node mutation options.
+
+`show` reports retained facts only. It performs no runtime or node probing,
+health observation, DNS, HTTP, or mutation. The retained-state physical path
+and file representation are internal implementation details, not a manual-edit
+API or output schema.
+
+This is Step 2 of retained configuration: it can be managed and inspected now,
+but `hac local` and `hac static-cluster` do not consume it yet.
 
 ## `hac local`
 

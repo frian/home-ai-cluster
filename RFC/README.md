@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0094: Retained HAC Configuration](RFC-0094-retained-hac-configuration.md)
+  — accepts one HAC-managed retained configuration for local runtime composition,
+  RFC-0059 caller-local static routing capabilities, and caller-owned static
+  remote topology, with explicit temporary CLI overrides and no general
+  configuration framework.
 - [RFC-0093: Bounded Tavily Acquisition Plugin](RFC-0093-bounded-tavily-acquisition-plugin.md)
   — accepts one separately installed Tavily acquisition plugin under unchanged
   RFC-0078, with a fixed public HTTPS destination, plugin-owned

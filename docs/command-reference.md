@@ -80,7 +80,7 @@ The ordinary root surface has fourteen commands.
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`health`](#hac-health) | Observe local runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
-| [`config`](#hac-config) | Manage and inspect retained local configuration. |
+| [`config`](#hac-config) | Manage and inspect retained configuration. |
 
 ## `hac config`
 

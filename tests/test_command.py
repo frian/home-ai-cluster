@@ -37,7 +37,7 @@ Finite commands:
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
-  config          Manage retained local configuration.
+  config          Manage retained configuration.
 
 Use 'home-ai-cluster <command> --help' for command-specific help.
 """

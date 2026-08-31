@@ -51,11 +51,27 @@ class _InvalidEnvelope(ValueError):
 
 
 def _parse_input(argv: Sequence[str] | None) -> _CodeFileInput:
-    parser = _ArgumentParser(prog="home-ai-cluster code-file")
-    parser.add_argument("-f", "--file", action="append")
-    parser.add_argument("message_positional", nargs="?")
-    parser.add_argument("--message", action="append")
-    parser.add_argument("--timeout-seconds")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster code-file",
+        description="Replace exactly one selected file from one bounded Code result.",
+    )
+    parser.add_argument(
+        "-f", "--file", action="append", help="Exactly one file to replace."
+    )
+    parser.add_argument(
+        "message_positional",
+        nargs="?",
+        metavar="MESSAGE",
+        help="One Code replacement request.",
+    )
+    parser.add_argument(
+        "--message",
+        action="append",
+        help="One Code replacement request, instead of MESSAGE.",
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="Native HAC request timeout in seconds."
+    )
     args = parser.parse_args(argv)
 
     targets = args.file or []

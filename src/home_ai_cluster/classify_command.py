@@ -46,15 +46,36 @@ def _parse_input(
     stdin: BinaryIO | None = None,
     file_opener: Callable[[str, str], BinaryIO] = open,
 ) -> _ClassifyCommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster classify")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster classify",
+        description=(
+            "Classify bounded input against operator-supplied labels; read stdin "
+            "when no source is supplied."
+        ),
+    )
     sources = parser.add_mutually_exclusive_group()
-    sources.add_argument("--text", action="append")
-    sources.add_argument("-f", "--file", action="append")
-    parser.add_argument("-l", "--label", action="append")
-    parser.add_argument("--timeout-seconds", action="append")
+    sources.add_argument("--text", action="append", help="Text to classify.")
+    sources.add_argument(
+        "-f", "--file", action="append", help="UTF-8 file to classify."
+    )
+    parser.add_argument(
+        "-l",
+        "--label",
+        action="append",
+        help="Candidate label supplied by the operator; repeat as needed.",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        action="append",
+        help="Native HAC request timeout in seconds.",
+    )
     output = parser.add_mutually_exclusive_group()
-    output.add_argument("-v", "--verbose", action="store_true")
-    output.add_argument("-j", "--json", action="store_true")
+    output.add_argument(
+        "-v", "--verbose", action="store_true", help="Include execution attribution."
+    )
+    output.add_argument(
+        "-j", "--json", action="store_true", help="Print the compact structured result."
+    )
     args = parser.parse_args(argv)
     texts, files = args.text or [], args.file or []
     if len(texts) > 1 or len(files) > 1:

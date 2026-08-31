@@ -203,14 +203,25 @@ def _format_value(value: object) -> str:
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-health")
-    parser.add_argument("-j", "--json", action="store_true")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-health",
+        description="Take one finite local runtime/adapter health snapshot.",
+    )
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        help="Print the compact structured snapshot.",
+    )
     return parser
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse the selected local health snapshot output format."""
-    return _create_argument_parser().parse_args(argv)
+    parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster health"
+    return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> None:

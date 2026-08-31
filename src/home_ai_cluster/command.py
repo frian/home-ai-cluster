@@ -87,4 +87,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if delegated_main is None:
         _unknown_command()
 
+    if arguments[0] == "chat" and arguments[1:] in (["-h"], ["--help"]):
+        chat_command._parse_input(arguments[1:], facade_help=True)
+
     delegated_main(arguments[1:])

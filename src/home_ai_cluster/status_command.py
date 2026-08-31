@@ -31,10 +31,24 @@ STATUS_FAILURE_MESSAGE = "error: unable to construct cluster status result"
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-status")
-    parser.add_argument("-d", "--declaration", type=Path, required=True)
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-status",
+        description="Take one finite inspection of explicit static-cluster status.",
+    )
+    parser.add_argument(
+        "-d",
+        "--declaration",
+        type=Path,
+        required=True,
+        help="Explicit static topology declaration file.",
+    )
     add_local_runtime_arguments(parser)
-    parser.add_argument("-j", "--json", action="store_true")
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        help="Print the compact structured status result.",
+    )
     return parser
 
 
@@ -43,6 +57,8 @@ def parse_args(
 ) -> tuple[argparse.ArgumentParser, argparse.Namespace]:
     """Parse status arguments while preserving parser-mediated validation errors."""
     parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster status"
     return parser, parser.parse_args(argv)
 
 

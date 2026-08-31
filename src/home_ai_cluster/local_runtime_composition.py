@@ -93,26 +93,35 @@ def add_local_runtime_arguments(parser: argparse.ArgumentParser) -> None:
         choices=LOCAL_RUNTIMES,
         default="ollama",
         action=_ExplicitRuntimeValueAction,
+        help="Supported operator-managed runtime composition to use.",
     )
-    parser.add_argument("--runtime-config", type=Path)
     parser.add_argument(
-        "--ollama-model", type=non_empty_value, action=_ExplicitRuntimeValueAction
+        "--runtime-config", type=Path, help="Explicit runtime-composition TOML file."
+    )
+    parser.add_argument(
+        "--ollama-model",
+        type=non_empty_value,
+        action=_ExplicitRuntimeValueAction,
+        help="Ollama model identifier for this process.",
     )
     parser.add_argument(
         "--ollama-disable-thinking",
         action=_ExplicitRuntimeTrueAction,
         default=False,
         nargs=0,
+        help="Disable Ollama thinking for this process.",
     )
     parser.add_argument(
         "--llama-server-base-url",
         type=local_http_url,
         action=_ExplicitRuntimeValueAction,
+        help="Loopback base URL for an operator-managed llama-server.",
     )
     parser.add_argument(
         "--llama-server-model",
         type=non_empty_value,
         action=_ExplicitRuntimeValueAction,
+        help="llama-server model identifier for this process.",
     )
 
 

@@ -28,35 +28,120 @@ from home_ai_cluster.static_cluster_validation import remote_base_url, remote_no
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster config")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster config",
+        description="Manage retained Home AI Cluster configuration.",
+    )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    local = commands.add_parser("local")
-    local.add_argument("--reset", action="store_true")
-    local.add_argument("--runtime", choices=LOCAL_RUNTIMES)
-    local.add_argument("--ollama-model", type=non_empty_value)
-    local.add_argument("--ollama-disable-thinking", action="store_true")
-    local.add_argument("--llama-server-base-url")
-    local.add_argument("--llama-server-model", type=non_empty_value)
-    local.add_argument("--local-capability", action="append")
-
-    node = commands.add_parser("node")
-    node.add_argument("node_id", type=remote_node_id)
-    node.add_argument("--remove", action="store_true")
-    node.add_argument("--base-url", type=remote_base_url)
-    node.add_argument("--capability", action="append")
-
-    external_information = commands.add_parser("external-information")
-    external_information.add_argument("--reset", action="store_true")
-    external_information.add_argument(
-        "--plugin", type=_external_information_plugin_name
+    local = commands.add_parser(
+        "local",
+        help=(
+            "Configure or reset retained local runtime composition and routing "
+            "capabilities."
+        ),
+        description=(
+            "Configure or reset retained local runtime composition and routing "
+            "capabilities."
+        ),
+    )
+    local.add_argument(
+        "--reset", action="store_true", help="Clear retained local configuration."
+    )
+    local.add_argument(
+        "--runtime", choices=LOCAL_RUNTIMES, help="Retained local runtime."
+    )
+    local.add_argument(
+        "--ollama-model", type=non_empty_value, help="Retained Ollama model identifier."
+    )
+    local.add_argument(
+        "--ollama-disable-thinking",
+        action="store_true",
+        help="Retain disabled Ollama thinking.",
+    )
+    local.add_argument(
+        "--llama-server-base-url", help="Retained llama-server base URL."
+    )
+    local.add_argument(
+        "--llama-server-model",
+        type=non_empty_value,
+        help="Retained llama-server model identifier.",
+    )
+    local.add_argument(
+        "--local-capability",
+        action="append",
+        help="Retained caller-local routing capability; repeat as needed.",
     )
 
-    chat = commands.add_parser("chat")
-    chat.add_argument("--reset", action="store_true")
-    chat.add_argument("--external-information-fallback", action="store_true")
+    node = commands.add_parser(
+        "node",
+        help="Add, update, or remove one retained explicit static remote node.",
+        description="Add, update, or remove one retained explicit static remote node.",
+    )
+    node.add_argument(
+        "node_id", type=remote_node_id, help="Operator-chosen static remote node ID."
+    )
+    node.add_argument(
+        "--remove", action="store_true", help="Remove this retained remote node."
+    )
+    node.add_argument(
+        "--base-url",
+        type=remote_base_url,
+        help="Retained base URL for this static remote node.",
+    )
+    node.add_argument(
+        "--capability",
+        action="append",
+        help="Retained remote capability; repeat as needed.",
+    )
 
-    commands.add_parser("show")
+    external_information = commands.add_parser(
+        "external-information",
+        help="Configure or reset the retained external-information plugin choice.",
+        description=(
+            "Configure or reset the retained external-information plugin choice."
+        ),
+    )
+    external_information.add_argument(
+        "--reset", action="store_true", help="Clear the retained plugin name."
+    )
+    external_information.add_argument(
+        "--plugin",
+        type=_external_information_plugin_name,
+        help="Exact plugin name to retain; no plugin is contacted.",
+    )
+
+    chat = commands.add_parser(
+        "chat",
+        help=(
+            "Configure or reset retained Chat external-information fallback "
+            "authorization."
+        ),
+        description=(
+            "Configure or reset retained Chat external-information fallback "
+            "authorization."
+        ),
+    )
+    chat.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear retained Chat fallback authorization.",
+    )
+    chat.add_argument(
+        "--external-information-fallback",
+        action="store_true",
+        help="Retain operator authorization for eligible one-shot Chat fallback.",
+    )
+
+    commands.add_parser(
+        "show",
+        help=(
+            "Print retained configuration only, without runtime or network observation."
+        ),
+        description=(
+            "Print retained configuration only, without runtime or network observation."
+        ),
+    )
     return parser
 
 

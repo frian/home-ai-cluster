@@ -29,13 +29,35 @@ class _ArgumentParser(argparse.ArgumentParser):
 
 
 def _parse_input(argv: Sequence[str] | None) -> _CodeCommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster code")
-    parser.add_argument("message_positional", nargs="?")
-    parser.add_argument("--message", action="append")
-    parser.add_argument("--timeout-seconds")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster code",
+        description=(
+            "Return one-shot textual Code assistance, or start bounded "
+            "interactive Code on a TTY."
+        ),
+    )
+    parser.add_argument(
+        "message_positional",
+        nargs="?",
+        metavar="MESSAGE",
+        help="One-shot Code request.",
+    )
+    parser.add_argument(
+        "--message", action="append", help="One-shot Code request, instead of MESSAGE."
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="One-shot request timeout in seconds."
+    )
     output_options = parser.add_mutually_exclusive_group()
-    output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("-j", "--json", action="store_true")
+    output_options.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="One-shot output with execution attribution.",
+    )
+    output_options.add_argument(
+        "-j", "--json", action="store_true", help="One-shot compact structured output."
+    )
     args = parser.parse_args(argv)
 
     option_messages = args.message or []

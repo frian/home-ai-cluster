@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0096: Bounded Operator-Authorized Chat External-Information Fallback](RFC-0096-bounded-operator-authorized-chat-external-information-fallback.md)
+  — accepts one separate retained Chat disclosure authorization for native
+  one-shot Chat, one caller-local bounded Classify decision, and at most one
+  selected RFC-0078 acquisition followed by one RFC-0077 source-grounded
+  Chat request, with exact-question disclosure and no provider fallback,
+  query rewriting, or interactive automatic acquisition.
 - [RFC-0095: Retained External-Information Plugin Choice](RFC-0095-retained-external-information-plugin-choice.md)
   — accepts one optional retained exact RFC-0078 acquisition-plugin name as
   the baseline selection for explicit external-information operations, with

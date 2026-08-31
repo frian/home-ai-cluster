@@ -1,6 +1,6 @@
 # RFC-0096: Bounded Operator-Authorized Chat External-Information Fallback
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-31
 
@@ -125,7 +125,7 @@ This RFC does not authorize:
 - implementation, tests, configuration spelling, documentation changes, or an
   update to RFC-0095 or the RFC index in this RFC pull request.
 
-## Proposal
+## Decision / accepted architecture
 
 ### One orthogonal retained authorization
 
@@ -643,4 +643,31 @@ A later implementation must provide focused proof that:
 
 ## Decision
 
-Pending.
+Accepted.
+
+HAC may retain one separate Chat-specific authorization for bounded automatic
+external-information use in native one-shot Chat. RFC-0095 retained
+acquisition-plugin selection remains selection only and grants no Chat
+authority by itself.
+
+After valid RFC-0094 retained-state resolution, automatic fallback is
+considered only when authorization is present, one retained RFC-0078 plugin is
+selected, and the exact question fits RFC-0078's 4,096 UTF-8-byte query bound.
+Otherwise the invocation remains ordinary Chat without a decision or
+acquisition.
+
+Eligible invocations may perform exactly one caller-local, HAC-owned two-label
+decision using the existing `classify` capability through a dedicated bounded
+local decision surface. The ordinary and source-grounded Chat branches retain
+their existing routing semantics.
+
+An external decision permits the caller to invoke exactly the retained
+RFC-0078 plugin once with the exact Chat question as `QUERY`, followed by at
+most one RFC-0077 source-grounded Chat request. There is no query rewriting,
+truncation, retry, alternate provider, loop, or ordinary-Chat substitution
+after acquisition begins.
+
+Interactive Chat remains unchanged. Acquisition remains caller-owned, provider
+credentials remain plugin/operator-owned, startup remains inert, and this
+decision introduces no new executable capability, provider framework, generic
+permission framework, or secrets manager.

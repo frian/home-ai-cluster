@@ -9,6 +9,16 @@ from home_ai_cluster.chat_command import (
     _REQUEST_TIMEOUT_SECONDS,
     main,
 )
+from home_ai_cluster.retained_configuration import RetainedConfiguration
+
+
+@pytest.fixture(autouse=True)
+def neutral_retained_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command, "load_retained_configuration", lambda: RetainedConfiguration()
+    )
 
 
 class terminal(StringIO):
@@ -100,6 +110,573 @@ def result_body(
 
 def unused_client(**kwargs: object) -> httpx.Client:
     raise AssertionError("invalid input and --help must not send a request")
+
+
+def test_authorized_external_decision_uses_exact_question_and_sources(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.core.models import SourceEvidence, SourceGroundedChatRequest
+
+    question = "  Unicode \u00e9 question  "
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    acquired: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        external_information_command,
+        "_acquire_source_grounded_request",
+        lambda plugin, query, request_question: (
+            acquired.append((plugin, query, request_question))
+            or SourceGroundedChatRequest(
+                question=request_question,
+                sources=[
+                    SourceEvidence(title="T", url="https://example.test", content="C")
+                ],
+            )
+        ),
+    )
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("external-information-decision"):
+            return httpx.Response(
+                200, json={"selected_label": "external", "node_id": "local"}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "content": "grounded",
+                "adapter": "a",
+                "model": None,
+                "node_id": "n",
+                "sources": [
+                    {"title": "T", "url": "https://example.test", "content": "C"}
+                ],
+            },
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", question], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0 and stderr == ""
+    assert [request.url.path for request in requests] == [
+        "/internal/chat/external-information-decision",
+        "/v1/chat/sources",
+    ]
+    assert json.loads(requests[0].content) == {"question": question}
+    assert acquired == [("selected", question, question)]
+    assert json.loads(stdout)["branch"] == "source-grounded"
+
+
+def test_authorized_decision_failure_falls_back_to_one_ordinary_request(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(
+            503 if len(paths) == 1 else 200, json=result_body(content="ordinary")
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", "question"], httpx.MockTransport(handler)
+    )
+    assert exit_code == 0 and stderr == ""
+    assert paths == ["/internal/chat/external-information-decision", "/v1/chat"]
+    assert json.loads(stdout)["branch"] == "ordinary"
+
+
+@pytest.mark.parametrize(
+    ("content", "separator"),
+    [
+        ("answer", "\n\n"),
+        ("answer\n", "\n"),
+        ("answer\n\n", ""),
+        ("", "\n"),
+        ("first\nsecond", "\n\n"),
+        ("Gr\u00fc\u00dfe \U0001f44b", "\n\n"),
+    ],
+)
+def test_authorized_ordinary_verbose_preserves_rfc0049_separator(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    content: str,
+    separator: str,
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(chat_external_information_fallback=True),
+    )
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--verbose", "question"],
+        httpx.MockTransport(
+            lambda _: httpx.Response(200, json=result_body(content=content))
+        ),
+    )
+    assert exit_code == 0 and stderr == ""
+    assert stdout == (
+        f"Response:\n{content}{separator}External information:\n"
+        "  Branch: ordinary\n\nExecution:\n  Node: cluster-node\n"
+        "  Adapter: test-adapter\n  Model: cluster-model\n"
+    )
+
+
+@pytest.mark.parametrize("question", ["a" * 4097, "\u00e9" * 2049])
+def test_authorized_ineligible_question_skips_decision_and_plugin_work(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, question: str
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    paths: list[str] = []
+    exit_code, _, _ = run_command(
+        capsys,
+        [question],
+        httpx.MockTransport(
+            lambda request: (
+                paths.append(request.url.path)
+                or httpx.Response(200, json=result_body(content="ordinary"))
+            )
+        ),
+    )
+    assert exit_code == 0 and paths == ["/v1/chat"]
+
+
+def test_invalid_retained_configuration_does_no_work(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.retained_configuration import RetainedConfigurationError
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(
+            RetainedConfigurationError("invalid retained Chat configuration")
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["question"],
+        httpx.MockTransport(lambda _: (_ for _ in ()).throw(AssertionError("no HTTP"))),
+    )
+    assert (
+        exit_code == 1
+        and stdout == ""
+        and stderr == "error: invalid retained Chat configuration\n"
+    )
+
+
+def test_disabled_authorization_with_plugin_is_exact_legacy_output(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(external_information_plugin="selected"),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    paths: list[str] = []
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--json", "question"],
+        httpx.MockTransport(
+            lambda request: (
+                paths.append(request.url.path)
+                or httpx.Response(200, json=result_body(content="answer"))
+            )
+        ),
+    )
+    assert exit_code == 0 and stderr == "" and paths == ["/v1/chat"]
+    assert stdout == (
+        '{"content":"answer","adapter":"test-adapter",'
+        '"model":"cluster-model","node_id":"cluster-node"}\n'
+    )
+
+
+def test_enabled_without_plugin_skips_decision_and_uses_authorized_ordinary_json(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(chat_external_information_fallback=True),
+    )
+    paths: list[str] = []
+    exit_code, stdout, _ = run_command(
+        capsys,
+        ["--json", "question"],
+        httpx.MockTransport(
+            lambda request: (
+                paths.append(request.url.path)
+                or httpx.Response(200, json=result_body(content="answer"))
+            )
+        ),
+    )
+    assert exit_code == 0 and paths == ["/v1/chat"]
+    assert stdout == (
+        '{"branch":"ordinary","result":{"content":"answer",'
+        '"adapter":"test-adapter","model":"cluster-model",'
+        '"node_id":"cluster-node"}}\n'
+    )
+
+
+@pytest.mark.parametrize("kind", ["404", "503", "500", "malformed", "invalid", "label"])
+def test_decision_failures_make_one_authorized_ordinary_request(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, kind: str
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        if len(paths) == 1:
+            if kind in {"404", "503", "500"}:
+                return httpx.Response(int(kind), text="private")
+            if kind == "malformed":
+                return httpx.Response(200, content=b"{")
+            if kind == "invalid":
+                return httpx.Response(200, json={"selected_label": "ordinary"})
+            return httpx.Response(
+                200, json={"selected_label": "other", "node_id": "local"}
+            )
+        return httpx.Response(200, json=result_body(content="answer"))
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", " question \u00e9 "], httpx.MockTransport(handler)
+    )
+    assert (
+        exit_code == 0
+        and stderr == ""
+        and paths == ["/internal/chat/external-information-decision", "/v1/chat"]
+    )
+    assert "private" not in stdout
+    assert json.loads(stdout)["branch"] == "ordinary"
+
+
+def test_exact_4096_bytes_reaches_one_decision_with_exact_body(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command
+
+    question = "\u00e9" * 2048
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    requests: list[httpx.Request] = []
+    exit_code, _, _ = run_command(
+        capsys,
+        [question],
+        httpx.MockTransport(
+            lambda request: (
+                requests.append(request)
+                or httpx.Response(
+                    200,
+                    json={"selected_label": "ordinary", "node_id": "local"}
+                    if len(requests) == 1
+                    else result_body(content="answer"),
+                )
+            )
+        ),
+    )
+    assert exit_code == 0 and len(requests) == 2
+    assert json.loads(requests[0].content) == {"question": question}
+
+
+def test_external_uses_real_selected_plugin_and_preserves_source_provenance(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    class EntryPoint:
+        def __init__(self, name: str, loaded: object) -> None:
+            self.name, self.loaded, self.loads = name, loaded, 0
+
+        def load(self) -> object:
+            self.loads += 1
+            return self.loaded
+
+    class EntryPoints:
+        def __init__(self, entries: list[EntryPoint]) -> None:
+            self.entries = entries
+
+        def select(self, *, group: str) -> list[EntryPoint]:
+            return self.entries
+
+    class Acquisition:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+
+        async def __call__(self, query: str) -> list[dict[str, str]]:
+            self.queries.append(query)
+            return [
+                {"title": "one", "url": "https://one.example", "content": "first"},
+                {"title": "two", "url": "https://two.example", "content": "second"},
+            ]
+
+    question, acquisition = "  exact é question  ", Acquisition()
+    ignored, selected = (
+        EntryPoint("ignored", Acquisition()),
+        EntryPoint("selected", acquisition),
+    )
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: EntryPoints([ignored, selected]),
+    )
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("decision"):
+            return httpx.Response(
+                200, json={"selected_label": "external", "node_id": "private"}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "content": "grounded",
+                "adapter": "a",
+                "model": None,
+                "node_id": "n",
+                "sources": [
+                    {"title": "one", "url": "https://one.example", "content": "first"},
+                    {"title": "two", "url": "https://two.example", "content": "second"},
+                ],
+            },
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", question], httpx.MockTransport(handler)
+    )
+    assert (
+        exit_code == 0
+        and stderr == ""
+        and [r.url.path for r in requests]
+        == ["/internal/chat/external-information-decision", "/v1/chat/sources"]
+    )
+    assert json.loads(requests[0].content) == {"question": question}
+    assert (
+        ignored.loads == 0 and selected.loads == 1 and acquisition.queries == [question]
+    )
+    body = json.loads(requests[1].content)
+    assert body["question"] == question and [
+        source["title"] for source in body["sources"]
+    ] == ["one", "two"]
+    assert json.loads(stdout) == {
+        "branch": "source-grounded",
+        "result": {
+            "content": "grounded",
+            "adapter": "a",
+            "model": None,
+            "node_id": "n",
+            "sources": [
+                {"title": "one", "url": "https://one.example", "content": "first"},
+                {"title": "two", "url": "https://two.example", "content": "second"},
+            ],
+        },
+    }
+
+
+def test_external_acquisition_failure_never_falls_back(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="missing",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: type("EP", (), {"select": lambda self, **_: []})(),
+    )
+    paths: list[str] = []
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["question"],
+        httpx.MockTransport(
+            lambda request: (
+                paths.append(request.url.path)
+                or httpx.Response(
+                    200, json={"selected_label": "external", "node_id": "n"}
+                )
+            )
+        ),
+    )
+    assert (
+        exit_code == 1
+        and stdout == ""
+        and stderr == "error: external-information-acquisition-failed\n"
+    )
+    assert paths == ["/internal/chat/external-information-decision"]
+
+
+def test_source_grounded_failure_never_falls_back(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    class Acquisition:
+        async def __call__(self, query: str) -> list[dict[str, str]]:
+            return [{"title": "t", "url": "https://e.test", "content": "c"}]
+
+    class EP:
+        name, loads = "selected", 0
+
+        def load(self) -> object:
+            self.loads += 1
+            return Acquisition()
+
+    entry = EP()
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: type("EPS", (), {"select": lambda self, **_: [entry]})(),
+    )
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return (
+            httpx.Response(200, json={"selected_label": "external", "node_id": "n"})
+            if len(paths) == 1
+            else httpx.Response(503)
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["question"], httpx.MockTransport(handler)
+    )
+    assert (
+        exit_code == 1
+        and stdout == ""
+        and stderr == "error: runtime adapter unavailable\n"
+    )
+    assert (
+        paths == ["/internal/chat/external-information-decision", "/v1/chat/sources"]
+        and entry.loads == 1
+    )
+
+
+def test_interactive_never_loads_retained_fallback_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load")),
+    )
+    paths: list[str] = []
+    stdout, stderr = terminal(), StringIO()
+    main(
+        [],
+        _client_factory=client_factory(
+            httpx.MockTransport(
+                lambda request: (
+                    paths.append(request.url.path)
+                    or httpx.Response(200, json=result_body(content="answer"))
+                )
+            )
+        ),
+        _stdin=terminal("question\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+    assert (
+        paths == ["/v1/chat"]
+        and stdout.getvalue() == "> answer\n> "
+        and stderr.getvalue() == "…\n"
+    )
 
 
 @pytest.mark.parametrize(

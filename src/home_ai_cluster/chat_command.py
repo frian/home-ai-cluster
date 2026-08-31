@@ -13,11 +13,18 @@ from pydantic import ValidationError
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
+    ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    SourceGroundedChatResult,
+)
+from home_ai_cluster.retained_configuration import (
+    RetainedConfigurationError,
+    load_retained_configuration,
 )
 
 _ORDINARY_CHAT_URL = "http://127.0.0.1:25042/v1/chat"
+_DECISION_URL = "http://127.0.0.1:25042/internal/chat/external-information-decision"
 _REQUEST_TIMEOUT_SECONDS = 120.0
 _MIN_REQUEST_TIMEOUT_SECONDS = 1
 _MAX_REQUEST_TIMEOUT_SECONDS = 3600
@@ -144,6 +151,40 @@ def _post_native_request(
         return client.post(_ORDINARY_CHAT_URL, json=request)
 
 
+def _post_decision(
+    question: str,
+    *,
+    timeout_seconds: float,
+    client_factory: Callable[..., httpx.Client],
+) -> httpx.Response:
+    with client_factory(
+        timeout=timeout_seconds, follow_redirects=False, trust_env=False
+    ) as client:
+        return client.post(_DECISION_URL, json={"question": question})
+
+
+def _decision(
+    question: str,
+    *,
+    timeout_seconds: float,
+    client_factory: Callable[..., httpx.Client],
+) -> str | None:
+    try:
+        response = _post_decision(
+            question, timeout_seconds=timeout_seconds, client_factory=client_factory
+        )
+        if not 200 <= response.status_code < 300:
+            return None
+        result = ClassifyResult.model_validate(response.json())
+        return (
+            result.selected_label
+            if result.selected_label in {"ordinary", "external"}
+            else None
+        )
+    except Exception:
+        return None
+
+
 def _exit_with_failure(
     message: str, exit_code: int, *, stderr: TextIO | None = None
 ) -> None:
@@ -172,6 +213,16 @@ def _write_content(content: str, *, stdout: TextIO | None = None) -> None:
         stdout.write("\n")
 
 
+def _verbose_separator(content: str) -> str:
+    if not content:
+        return "\n"
+    if content.endswith("\n\n"):
+        return ""
+    if content.endswith("\n"):
+        return "\n"
+    return "\n\n"
+
+
 def _write_verbose_result(
     result: ClusterResult, *, stdout: TextIO | None = None
 ) -> None:
@@ -180,16 +231,7 @@ def _write_verbose_result(
     stdout.write("Response:\n")
     stdout.write(result.content)
 
-    if not result.content:
-        separator = "\n"
-    elif result.content.endswith("\n\n"):
-        separator = ""
-    elif result.content.endswith("\n"):
-        separator = "\n"
-    else:
-        separator = "\n\n"
-
-    stdout.write(separator)
+    stdout.write(_verbose_separator(result.content))
     stdout.write("Execution:\n")
     stdout.write(f"  Node: {result.node_id}\n")
     stdout.write(f"  Adapter: {result.adapter}\n")
@@ -208,6 +250,71 @@ def _write_success(
         _write_verbose_result(result, stdout=stdout)
     else:
         print(json.dumps(result.model_dump(), separators=(",", ":")), file=stdout)
+
+
+def _write_authorized_success(
+    result: ClusterResult | SourceGroundedChatResult,
+    branch: str,
+    output_mode: str,
+    *,
+    stdout: TextIO,
+) -> None:
+    if output_mode == "content":
+        _write_content(result.content, stdout=stdout)
+    elif output_mode == "json":
+        print(
+            json.dumps(
+                {"branch": branch, "result": result.model_dump()}, separators=(",", ":")
+            ),
+            file=stdout,
+        )
+    else:
+        stdout.write("Response:\n" + result.content)
+        stdout.write(_verbose_separator(result.content))
+        stdout.write("External information:\n" + f"  Branch: {branch}\n")
+        if isinstance(result, SourceGroundedChatResult):
+            stdout.write("  Sources:\n")
+            for index, source in enumerate(result.sources, 1):
+                source_json = json.dumps(
+                    source.model_dump(), separators=(",", ":"), ensure_ascii=False
+                )
+                stdout.write(f"    {index}: {source_json}\n")
+        stdout.write(
+            "\nExecution:\n"
+            + f"  Node: {result.node_id}\n  Adapter: {result.adapter}\n"
+        )
+        if result.model:
+            stdout.write(f"  Model: {result.model}\n")
+
+
+def _send_source_grounded(
+    request: Any, *, timeout_seconds: float, client_factory: Callable[..., httpx.Client]
+) -> tuple[SourceGroundedChatResult | None, str | None]:
+    from home_ai_cluster import external_information_command
+
+    try:
+        response = external_information_command._post_source_grounded_request(
+            external_information_command._public_request(request),
+            timeout_seconds=timeout_seconds,
+            client_factory=client_factory,
+        )
+    except httpx.ConnectError:
+        return None, _CLUSTER_UNAVAILABLE
+    except httpx.TimeoutException:
+        return None, _ORDINARY_REQUEST_TIMED_OUT
+    except httpx.RequestError:
+        return None, _ORDINARY_REQUEST_FAILED
+    except Exception:
+        return None, _ORDINARY_REQUEST_FAILED
+    failure = _failure_for_status(response.status_code)
+    if failure:
+        return None, failure
+    try:
+        return SourceGroundedChatResult.model_validate(response.json()), None
+    except (ValidationError, ValueError):
+        return None, _INVALID_CLUSTER_RESPONSE
+    except Exception:
+        return None, _ORDINARY_REQUEST_FAILED
 
 
 def _send_native_request(
@@ -326,6 +433,53 @@ def main(
         )
         return
 
+    try:
+        retained = load_retained_configuration()
+    except RetainedConfigurationError as error:
+        _exit_with_failure(f"error: {error}", 1, stderr=stderr)
+
+    authorized = retained.chat_external_information_fallback
+    if (
+        authorized
+        and retained.external_information_plugin
+        and len(command_input.message.encode("utf-8")) <= 4_096
+    ):
+        decision = _decision(
+            command_input.message,
+            timeout_seconds=command_input.timeout_seconds,
+            client_factory=_client_factory,
+        )
+        if decision == "external":
+            from home_ai_cluster import external_information_command
+
+            try:
+                source_request = (
+                    external_information_command._acquire_source_grounded_request(
+                        retained.external_information_plugin,
+                        command_input.message,
+                        command_input.message,
+                    )
+                )
+            except external_information_command._AcquisitionFailure:
+                _exit_with_failure(
+                    external_information_command._ACQUISITION_FAILED, 1, stderr=stderr
+                )
+            source_result, source_failure = _send_source_grounded(
+                source_request,
+                timeout_seconds=command_input.timeout_seconds,
+                client_factory=_client_factory,
+            )
+            if source_failure is not None:
+                _exit_with_failure(source_failure, 1, stderr=stderr)
+            assert source_result is not None
+            _write_authorized_success(
+                source_result,
+                "source-grounded",
+                command_input.output_mode,
+                stdout=stdout,
+            )
+            return
+
     result, failure = _send_native_request(
         [ChatMessage(role="user", content=command_input.message)],
         timeout_seconds=command_input.timeout_seconds,
@@ -334,4 +488,9 @@ def main(
     if failure is not None:
         _exit_with_failure(failure, 1, stderr=stderr)
     assert result is not None
-    _write_success(result, command_input.output_mode, stdout=stdout)
+    if authorized:
+        _write_authorized_success(
+            result, "ordinary", command_input.output_mode, stdout=stdout
+        )
+    else:
+        _write_success(result, command_input.output_mode, stdout=stdout)

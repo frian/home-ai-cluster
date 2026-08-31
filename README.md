@@ -76,7 +76,7 @@ local-first, and explicit.
 | Static cluster | Run one explicit local-plus-remote cluster from operator-declared, ordered remote nodes. Routing is capability-centered and local-first; declared remote order is the only remote priority. |
 | Native capabilities | Chat, Summarize, Classify, and Code. A narrow fallback applies only when an eligible candidate is unavailable before request transmission; results carry cluster-owned node attribution. |
 | Ordinary interfaces | Use the `hac` command, cluster-native HTTP endpoints, or the fixed loopback browser for Chat, Summarize, Classify, and Code. `hac chat` and `hac code` also support bounded foreground interactive terminal conversations whose successful context exists only in the client process. The browser is not a dashboard, LAN interface, persistent server-side conversation store, filesystem authority, or execution environment. |
-| Optional bounded integrations | Use the narrow loopback OpenAI-compatible Chat process, bounded Aider and code caller edges, or explicit separately installed external-information acquisition. |
+| Optional bounded integrations | Use the narrow loopback OpenAI-compatible Chat process, bounded Aider and code caller edges, or separately installed external-information acquisition: explicitly, or through separately authorized one-shot Chat. |
 | Historical evidence | Retained investigations, runbooks, proofs, and closeouts are indexed separately; they are not required for ordinary operation. |
 
 Topology declarations and runtime lifecycle remain operator-owned.
@@ -165,8 +165,10 @@ these commands grant no general repository, shell, Git, testing, agent, or
 execution authority.
 
 `hac external-information` explicitly uses one separately installed compatible
-acquisition plugin for one source-grounded Chat request. No provider is bundled,
-and the ordinary HAC server does not acquire external information by itself.
+acquisition plugin for one source-grounded Chat request. An operator may also
+authorize eligible one-shot `hac chat` to use that same bounded caller-owned
+plugin boundary. No provider is bundled, and the ordinary HAC server does not
+acquire external information by itself.
 Two published examples prove the same acquisition boundary with materially
 different provider ownership: the operator-managed local-service
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng) and

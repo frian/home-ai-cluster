@@ -4,6 +4,10 @@ import httpx
 import pytest
 
 from home_ai_cluster import external_information_command
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedConfigurationError,
+)
 
 
 class EntryPoints:
@@ -131,6 +135,16 @@ def short_arguments(
     return ["--plugin", "selected", query, question]
 
 
+def configure_retained_plugin(
+    monkeypatch: pytest.MonkeyPatch, plugin: str | None
+) -> None:
+    monkeypatch.setattr(
+        external_information_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(external_information_plugin=plugin),
+    )
+
+
 def test_help_uses_public_positional_names_without_discovery(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -253,6 +267,196 @@ def test_invalid_input_fails_before_discovery(
     assert stdout == ""
     assert stderr == "error: invalid request input\n"
     assert not discovered
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["query", "question"],
+        ["--query", "query", "--question", "question"],
+    ],
+)
+def test_no_retained_plugin_preserves_invalid_input_before_discovery(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+) -> None:
+    configure_retained_plugin(monkeypatch, None)
+    discovered = False
+
+    def entry_points() -> object:
+        nonlocal discovered
+        discovered = True
+        raise AssertionError("invalid input must not discover plugins")
+
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata, "entry_points", entry_points
+    )
+
+    assert run_command(capsys, argv) == (2, "", "error: invalid request input\n")
+    assert not discovered
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["operator query", "operator question"],
+        ["--query", "operator query", "--question", "operator question"],
+    ],
+)
+def test_retained_plugin_selects_the_existing_acquisition_path(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+) -> None:
+    received: list[str] = []
+
+    async def acquire(query: str) -> list[dict[str, str]]:
+        received.append(query)
+        return [valid_candidate()]
+
+    configure_retained_plugin(monkeypatch, "selected")
+    selected = EntryPoint("selected", acquire)
+    metadata = configure_entries(monkeypatch, [selected])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content) == {
+            "question": "operator question",
+            "sources": [valid_candidate()],
+        }
+        return httpx.Response(200, json=result_body())
+
+    assert run_command(capsys, argv, httpx.MockTransport(handler)) == (
+        0,
+        "generated response\n",
+        "",
+    )
+    assert metadata.groups == [external_information_command._ENTRY_POINT_GROUP]
+    assert selected.loads == 1
+    assert received == ["operator query"]
+
+
+def test_explicit_plugin_bypasses_retained_loading_and_overrides_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def acquire(query: str) -> list[dict[str, str]]:
+        return [valid_candidate()]
+
+    monkeypatch.setattr(
+        external_information_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load retained state")),
+    )
+    retained = EntryPoint("retained", acquire)
+    selected = EntryPoint("selected", acquire)
+    configure_entries(monkeypatch, [retained, selected])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body())
+
+    assert run_command(capsys, arguments(), httpx.MockTransport(handler)) == (
+        0,
+        "generated response\n",
+        "",
+    )
+    assert retained.loads == 0
+    assert selected.loads == 1
+
+
+def test_explicit_override_does_not_mutate_the_retained_selection(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def acquire(query: str) -> list[dict[str, str]]:
+        return [valid_candidate()]
+
+    configure_retained_plugin(monkeypatch, "retained")
+    retained = EntryPoint("retained", acquire)
+    selected = EntryPoint("selected", acquire)
+    configure_entries(monkeypatch, [retained, selected])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=result_body())
+
+    transport = httpx.MockTransport(handler)
+    assert run_command(capsys, arguments(), transport)[0] == 0
+    assert run_command(capsys, ["query", "question"], transport)[0] == 0
+    assert selected.loads == 1
+    assert retained.loads == 1
+
+
+@pytest.mark.parametrize("plugin", ["", "   ", "x" * 65])
+def test_invalid_explicit_plugin_does_not_fall_back_to_retained_selection(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    plugin: str,
+) -> None:
+    configure_retained_plugin(monkeypatch, "retained")
+    discovered = False
+
+    def entry_points() -> object:
+        nonlocal discovered
+        discovered = True
+        raise AssertionError("invalid input must not discover plugins")
+
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata, "entry_points", entry_points
+    )
+
+    assert run_command(
+        capsys, ["--plugin", plugin, "--query", "query", "--question", "question"]
+    ) == (2, "", "error: invalid request input\n")
+    assert not discovered
+
+
+def test_duplicate_explicit_plugin_does_not_fall_back_to_retained_selection(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    configure_retained_plugin(monkeypatch, "retained")
+    configure_entries(monkeypatch, [])
+
+    assert run_command(
+        capsys,
+        [
+            "--plugin",
+            "selected",
+            "--plugin",
+            "other",
+            "query",
+            "question",
+        ],
+    ) == (2, "", "error: invalid request input\n")
+
+
+def test_retained_load_failure_is_safe_invalid_input_before_discovery(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        external_information_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(RetainedConfigurationError("private")),
+    )
+    metadata = configure_entries(monkeypatch, [])
+
+    assert run_command(capsys, ["query", "question"]) == (
+        2,
+        "",
+        "error: invalid request input\n",
+    )
+    assert metadata.groups == []
+
+
+def test_missing_retained_plugin_uses_existing_acquisition_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    configure_retained_plugin(monkeypatch, "missing")
+    metadata = configure_entries(monkeypatch, [])
+
+    assert run_command(capsys, ["query", "question"]) == (
+        1,
+        "",
+        "error: external-information-acquisition-failed\n",
+    )
+    assert metadata.groups == [external_information_command._ENTRY_POINT_GROUP]
 
 
 @pytest.mark.parametrize("entry_count", [0, 2])

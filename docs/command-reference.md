@@ -102,6 +102,9 @@ hac config node <NODE_ID> --base-url <BASE_URL>
 hac config node <NODE_ID> --base-url <BASE_URL> --capability code
 hac config node <NODE_ID> --remove
 
+hac config external-information --plugin <NAME>
+hac config external-information --reset
+
 hac config show
 ```
 
@@ -121,10 +124,20 @@ repeated `--capability <NAME>` retains an explicit ordered set. `--remove`
 removes exactly one retained node, preserving all other node order, and is
 mutually exclusive with node mutation options.
 
+`external-information --plugin <NAME>` retains one exact acquisition-plugin
+name for later explicit external-information operations; setting it again
+replaces that one choice. `external-information --reset` removes only that
+choice, leaving retained local and remote facts unchanged. Configuration
+validates the name syntax only: it does not inspect installation, credentials,
+provider configuration, or health, and it does not import a plugin or contact a
+provider.
+
 `show` reports retained facts only. It performs no runtime or node probing,
-health observation, DNS, HTTP, or mutation. The retained-state physical path
-and file representation are internal implementation details, not a manual-edit
-API or output schema.
+health observation, plugin discovery/import, DNS, HTTP, or mutation. Its
+external-information section reports the retained name only, not credential,
+installation, compatibility, provider, or health status. The retained-state
+physical path and file representation are internal implementation details, not
+a manual-edit API or output schema.
 
 Retained configuration is the optional normal startup baseline. `hac local`
 uses retained local runtime composition when present; explicitly supplied
@@ -360,7 +373,7 @@ client's pool/connect/write/read scalar timeout, not a total deadline.
 selected separately installed plugin, then send it through the existing
 source-grounded Chat boundary.
 
-**Common forms:** The retained explicit form is:
+**Common forms:** An explicit one-invocation selection is:
 
 ~~~sh
 hac external-information \
@@ -369,7 +382,7 @@ hac external-information \
   --question "<OPERATOR_QUESTION>"
 ~~~
 
-The additive short form is:
+Its additive short form is:
 
 ~~~sh
 hac external-information \
@@ -380,10 +393,26 @@ hac external-information \
 
 The short form's first positional value is the acquisition QUERY and its second
 is the source-grounded QUESTION. Quote multi-word values. Both forms are equal
-and supported, but they must not be mixed. --plugin <NAME> remains explicitly
-required: QUERY goes only to that selected plugin, while QUESTION does not go
-to the plugin. Neither form implies a configured default or retained plugin
-preference.
+and supported, but they must not be mixed. QUERY goes only to the selected
+plugin, while QUESTION does not go to the plugin.
+
+An operator may retain one baseline selection for explicit
+external-information operations:
+
+~~~sh
+hac config external-information --plugin searxng
+
+hac external-information \
+  "<EXPLICIT_OPERATOR_QUERY>" \
+  "<OPERATOR_QUESTION>"
+~~~
+
+The named `--query` / `--question` form may likewise omit `--plugin` when that
+retained choice exists. An explicit `--plugin <NAME>` wins for one invocation
+and does not change the retained selection. With neither an explicit nor a
+retained choice, input is invalid; installation alone never selects a plugin.
+Only an explicit `hac external-information` invocation authorizes acquisition;
+ordinary Chat remains unchanged.
 
 **Available plugin examples:**
 
@@ -459,8 +488,9 @@ base-10 integer from `1` through `3600`, with a 120-second default.
 
 **Important behavior:**
 
-- No provider is bundled. The operator must explicitly select one compatible
-  separately installed plugin by its exact entry-point name.
+- No provider is bundled. The operator may explicitly select one compatible
+  separately installed plugin by its exact entry-point name or retain one exact
+  baseline selection for later explicit external-information operations.
 - Only this finite caller edge discovers and loads that plugin; the ordinary HAC
   server does not discover, import, configure, or invoke acquisition plugins.
 - "Separately installed" means a compatible Python distribution in the same

@@ -19,10 +19,14 @@ from home_ai_cluster.core.models import (
     SourceGroundedChatRequest,
     SourceGroundedChatResult,
 )
+from home_ai_cluster.retained_configuration import (
+    RetainedConfigurationError,
+    load_retained_configuration,
+    validate_external_information_plugin_name,
+)
 
 _ENTRY_POINT_GROUP = "home_ai_cluster.external_information_acquisition.v1"
 _SOURCE_GROUNDED_CHAT_URL = "http://127.0.0.1:25042/v1/chat/sources"
-_MAX_PLUGIN_NAME_BYTES = 64
 _MAX_QUERY_BYTES = 4_096
 _ACQUISITION_FAILED = "error: external-information-acquisition-failed"
 _SOURCE_FIELDS = {"title", "url", "content"}
@@ -52,10 +56,21 @@ class _CommandInput:
     timeout_seconds: float
 
 
-def _validate_name(value: str) -> str:
-    if not value.strip() or len(value.encode("utf-8")) > _MAX_PLUGIN_NAME_BYTES:
+def _effective_plugin_name(plugins: list[str]) -> str:
+    if len(plugins) > 1:
         raise _InvalidRequestInput
-    return value
+    if plugins:
+        try:
+            return validate_external_information_plugin_name(plugins[0])
+        except ValueError:
+            raise _InvalidRequestInput from None
+    try:
+        retained_plugin = load_retained_configuration().external_information_plugin
+    except RetainedConfigurationError:
+        raise _InvalidRequestInput from None
+    if retained_plugin is None:
+        raise _InvalidRequestInput
+    return retained_plugin
 
 
 def _validate_query(value: str) -> str:
@@ -81,9 +96,6 @@ def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
     queries = args.query or []
     questions = args.question or []
     positional_values = [args.query_positional, args.question_positional]
-    if len(plugins) != 1:
-        raise _InvalidRequestInput
-
     if any(value is not None for value in positional_values):
         if any(value is None for value in positional_values) or queries or questions:
             raise _InvalidRequestInput
@@ -102,9 +114,11 @@ def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
     except ValueError:
         raise _InvalidRequestInput from None
 
+    validated_query = _validate_query(query)
+
     return _CommandInput(
-        plugin_name=_validate_name(plugins[0]),
-        query=_validate_query(query),
+        plugin_name=_effective_plugin_name(plugins),
+        query=validated_query,
         question=question,
         output_mode="verbose" if args.verbose else "json" if args.json else "content",
         timeout_seconds=timeout_seconds,

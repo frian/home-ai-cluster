@@ -1,6 +1,6 @@
 # RFC-0095: Retained External-Information Plugin Choice
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-08-31
 
@@ -50,7 +50,7 @@ unnecessary selection friction, but it does not justify automatic acquisition,
 selection inferred from installation, provider arbitration, or HAC ownership of
 provider-specific setup.
 
-## Proposal
+## Decision / accepted architecture
 
 ### One orthogonal retained fact
 
@@ -311,6 +311,14 @@ None within this RFC's architectural scope.
 
 ## Decision
 
-Draft. This RFC proposes one optional retained exact RFC-0078 acquisition-plugin
-name as baseline selection for a future explicit external-information operation.
-It accepts no behavior until reviewed and accepted.
+Accepted. HAC may retain one optional exact RFC-0078 acquisition-plugin name
+as baseline selection only for an explicit external-information operation. An
+explicit `--plugin` temporarily replaces that selection for one invocation;
+with neither value, current invalid-input behavior remains. Configuration
+validates syntax only, while RFC-0078 remains responsible for operation-time
+validation and its privacy-safe failure behavior.
+
+Credentials and provider configuration remain plugin/operator-owned; HAC does
+not retain a Tavily key. Retention grants no startup or ordinary Chat authority,
+and this decision adds no fallback, provider list, generic configuration,
+plugin, provider, or secrets framework.

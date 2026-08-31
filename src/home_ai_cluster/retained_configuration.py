@@ -1,4 +1,4 @@
-"""Private retained configuration storage for accepted RFC-0094 facts."""
+"""Private storage for accepted retained-configuration facts."""
 
 import argparse
 import json
@@ -20,7 +20,7 @@ from home_ai_cluster.static_cluster_validation import remote_base_url, remote_no
 
 _CONFIGURATION_DIRECTORY = "home-ai-cluster"
 _CONFIGURATION_FILENAME = "retained-config.json"
-_TOP_LEVEL_KEYS = ("local", "remote_nodes")
+_TOP_LEVEL_KEYS = ("local", "remote_nodes", "external_information_plugin")
 _LOCAL_KEYS = (
     "runtime",
     "ollama_model",
@@ -34,6 +34,19 @@ _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
 
 class RetainedConfigurationError(Exception):
     """Raised when private retained configuration cannot be used safely."""
+
+
+def validate_external_information_plugin_name(value: object) -> str:
+    """Validate one exact RFC-0078 acquisition-plugin entry-point name."""
+    if not isinstance(value, str):
+        raise ValueError("external-information plugin name must be a string")
+    if not value.strip():
+        raise ValueError("external-information plugin name must be nonblank")
+    if len(value.encode("utf-8")) > 64:
+        raise ValueError(
+            "external-information plugin name must be at most 64 UTF-8 bytes"
+        )
+    return value
 
 
 @dataclass(frozen=True)
@@ -50,6 +63,7 @@ class RetainedConfiguration:
 
     local: RetainedLocalConfiguration | None = None
     remote_nodes: tuple[RemoteNodeDeclaration, ...] = ()
+    external_information_plugin: str | None = None
 
 
 def _retained_configuration_home() -> Path:
@@ -147,6 +161,7 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     _require_exact_keys(document, _TOP_LEVEL_KEYS, "retained configuration")
     local_value = document["local"]
     remote_nodes_value = document["remote_nodes"]
+    external_information_plugin = document["external_information_plugin"]
     if local_value is not None and not isinstance(local_value, dict):
         raise RetainedConfigurationError("invalid retained local configuration")
     if not isinstance(remote_nodes_value, list):
@@ -156,7 +171,21 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     return RetainedConfiguration(
         local=None if local_value is None else _parse_local(local_value),
         remote_nodes=remote_nodes,
+        external_information_plugin=_parse_external_information_plugin(
+            external_information_plugin
+        ),
     )
+
+
+def _parse_external_information_plugin(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        return validate_external_information_plugin_name(value)
+    except ValueError as error:
+        raise RetainedConfigurationError(
+            "invalid retained external-information plugin"
+        ) from error
 
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
@@ -212,6 +241,7 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
             "remote_nodes": [
                 _serialize_remote_node(remote) for remote in configuration.remote_nodes
             ],
+            "external_information_plugin": configuration.external_information_plugin,
         }
     )
     _validate_unique_remote_nodes(validated.remote_nodes)
@@ -220,6 +250,7 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
         "remote_nodes": [
             _serialize_remote_node(remote) for remote in validated.remote_nodes
         ],
+        "external_information_plugin": validated.external_information_plugin,
     }
 
 

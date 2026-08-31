@@ -17,6 +17,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedLocalConfiguration,
     load_retained_configuration,
     save_retained_configuration,
+    validate_external_information_plugin_name,
 )
 from home_ai_cluster.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
@@ -45,8 +46,21 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     node.add_argument("--base-url", type=remote_base_url)
     node.add_argument("--capability", action="append")
 
+    external_information = commands.add_parser("external-information")
+    external_information.add_argument("--reset", action="store_true")
+    external_information.add_argument(
+        "--plugin", type=_external_information_plugin_name
+    )
+
     commands.add_parser("show")
     return parser
+
+
+def _external_information_plugin_name(value: str) -> str:
+    try:
+        return validate_external_information_plugin_name(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 def _validated_capabilities(
@@ -169,6 +183,11 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                     f"    capabilities: {', '.join(node.capabilities)}",
                 ]
             )
+    lines.append("External information:")
+    if configuration.external_information_plugin is None:
+        lines.append("  not configured")
+    else:
+        lines.append(f"  plugin: {configuration.external_information_plugin}")
     return "\n".join(lines) + "\n"
 
 
@@ -177,14 +196,22 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         _validate_reset(parser, args)
         configuration = load_retained_configuration()
         save_retained_configuration(
-            RetainedConfiguration(local=None, remote_nodes=configuration.remote_nodes)
+            RetainedConfiguration(
+                local=None,
+                remote_nodes=configuration.remote_nodes,
+                external_information_plugin=configuration.external_information_plugin,
+            )
         )
         print("local configuration reset")
         return
     local = _local_configuration(parser, args)
     configuration = load_retained_configuration()
     save_retained_configuration(
-        RetainedConfiguration(local=local, remote_nodes=configuration.remote_nodes)
+        RetainedConfiguration(
+            local=local,
+            remote_nodes=configuration.remote_nodes,
+            external_information_plugin=configuration.external_information_plugin,
+        )
     )
     print("local configuration retained")
 
@@ -200,7 +227,11 @@ def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
             print("error: retained node not found", file=sys.stderr)
             raise SystemExit(1)
         save_retained_configuration(
-            RetainedConfiguration(local=configuration.local, remote_nodes=nodes)
+            RetainedConfiguration(
+                local=configuration.local,
+                remote_nodes=nodes,
+                external_information_plugin=configuration.external_information_plugin,
+            )
         )
         print("node configuration removed")
         return
@@ -215,9 +246,35 @@ def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
     else:
         nodes.append(declaration)
     save_retained_configuration(
-        RetainedConfiguration(local=configuration.local, remote_nodes=tuple(nodes))
+        RetainedConfiguration(
+            local=configuration.local,
+            remote_nodes=tuple(nodes),
+            external_information_plugin=configuration.external_information_plugin,
+        )
     )
     print("node configuration retained")
+
+
+def _mutate_external_information(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    if args.reset and args.plugin is not None:
+        parser.error("--reset cannot be combined with --plugin")
+    if not args.reset and args.plugin is None:
+        parser.error("--plugin is required unless --reset")
+    configuration = load_retained_configuration()
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=configuration.local,
+            remote_nodes=configuration.remote_nodes,
+            external_information_plugin=None if args.reset else args.plugin,
+        )
+    )
+    print(
+        "external-information configuration reset"
+        if args.reset
+        else "external-information configuration retained"
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -231,8 +288,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             )
         elif args.command == "local":
             _mutate_local(parser, args)
-        else:
+        elif args.command == "node":
             _mutate_node(parser, args)
+        else:
+            _mutate_external_information(parser, args)
     except RetainedConfigurationError as error:
         print(f"error: {error}", file=sys.stderr)
         raise SystemExit(1) from error

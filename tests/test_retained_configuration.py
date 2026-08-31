@@ -151,6 +151,75 @@ def test_missing_file_loads_empty_configuration(tmp_path: Path) -> None:
     )
 
 
+def test_external_information_plugin_round_trips_exactly(tmp_path: Path) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(external_information_plugin="tävily")
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+    document = json.loads(path.read_text(encoding="utf-8"))
+    assert document["external_information_plugin"] == "tävily"
+
+
+def test_external_information_plugin_coexists_with_local_and_remote_facts(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        local=ollama_configuration().local,
+        remote_nodes=(
+            RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",)),
+        ),
+        external_information_plugin="searxng",
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+
+
+@pytest.mark.parametrize("plugin", ["", "   ", "x" * 65])
+def test_invalid_external_information_plugin_is_rejected_on_save(
+    tmp_path: Path, plugin: str
+) -> None:
+    with pytest.raises(RetainedConfigurationError):
+        save_retained_configuration(
+            RetainedConfiguration(external_information_plugin=plugin),
+            tmp_path / "retained.json",
+        )
+
+
+def test_non_string_external_information_plugin_is_rejected_on_save(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(RetainedConfigurationError):
+        save_retained_configuration(
+            RetainedConfiguration(external_information_plugin=42),  # type: ignore[arg-type]
+            tmp_path / "retained.json",
+        )
+
+
+@pytest.mark.parametrize("plugin", [42, "", "\t", "x" * 65])
+def test_invalid_serialized_external_information_plugin_is_rejected(
+    tmp_path: Path, plugin: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(
+        json.dumps(
+            {
+                "local": None,
+                "remote_nodes": [],
+                "external_information_plugin": plugin,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
 def test_ollama_and_local_capability_values_round_trip_distinctly(
     tmp_path: Path,
 ) -> None:
@@ -262,8 +331,17 @@ def test_invalid_encoding_or_json_fails_without_echoing_contents(
     "document",
     [
         {"local": None},
-        {"local": None, "remote_nodes": [], "unexpected": True},
-        {"local": {"unexpected": True}, "remote_nodes": []},
+        {
+            "local": None,
+            "remote_nodes": [],
+            "external_information_plugin": None,
+            "unexpected": True,
+        },
+        {
+            "local": {"unexpected": True},
+            "remote_nodes": [],
+            "external_information_plugin": None,
+        },
         {
             "local": None,
             "remote_nodes": [
@@ -274,6 +352,7 @@ def test_invalid_encoding_or_json_fails_without_echoing_contents(
                     "unexpected": True,
                 }
             ],
+            "external_information_plugin": None,
         },
     ],
 )
@@ -300,6 +379,7 @@ def test_unknown_or_missing_structural_fields_fail(
                 "local_capabilities": None,
             },
             "remote_nodes": [],
+            "external_information_plugin": None,
         },
         {
             "local": {
@@ -311,6 +391,7 @@ def test_unknown_or_missing_structural_fields_fail(
                 "local_capabilities": [],
             },
             "remote_nodes": [],
+            "external_information_plugin": None,
         },
         {
             "local": None,
@@ -321,6 +402,7 @@ def test_unknown_or_missing_structural_fields_fail(
                     "capabilities": ["chat"],
                 }
             ],
+            "external_information_plugin": None,
         },
         {
             "local": None,
@@ -331,6 +413,7 @@ def test_unknown_or_missing_structural_fields_fail(
                     "capabilities": ["unknown"],
                 }
             ],
+            "external_information_plugin": None,
         },
     ],
 )
@@ -362,7 +445,13 @@ def test_duplicate_remote_values_fail_explicitly(tmp_path: Path, field: str) -> 
     }
     second[field] = first[field]
 
-    contents = json.dumps({"local": None, "remote_nodes": [first, second]})
+    contents = json.dumps(
+        {
+            "local": None,
+            "remote_nodes": [first, second],
+            "external_information_plugin": None,
+        }
+    )
     path.write_text(contents, encoding="utf-8")
     with pytest.raises(RetainedConfigurationError):
         load_retained_configuration(path)

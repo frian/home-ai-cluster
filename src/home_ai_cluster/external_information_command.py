@@ -80,16 +80,52 @@ def _validate_query(value: str) -> str:
 
 
 def _parse_input(argv: Sequence[str] | None) -> _CommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster external-information")
-    parser.add_argument("--plugin", action="append")
-    parser.add_argument("--query", action="append")
-    parser.add_argument("--question", action="append")
-    parser.add_argument("query_positional", nargs="?", metavar="QUERY")
-    parser.add_argument("question_positional", nargs="?", metavar="QUESTION")
-    parser.add_argument("--timeout-seconds")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster external-information",
+        description=(
+            "Acquire bounded evidence, then send one source-grounded Chat request."
+        ),
+    )
+    parser.add_argument(
+        "--plugin",
+        action="append",
+        help="Plugin name; overrides the retained choice for this invocation.",
+    )
+    parser.add_argument(
+        "--query",
+        action="append",
+        help="Legacy named QUERY sent to the selected acquisition plugin.",
+    )
+    parser.add_argument(
+        "--question",
+        action="append",
+        help="Legacy named QUESTION answered by source-grounded Chat.",
+    )
+    parser.add_argument(
+        "query_positional",
+        nargs="?",
+        metavar="QUERY",
+        help="Acquisition query sent to the selected plugin.",
+    )
+    parser.add_argument(
+        "question_positional",
+        nargs="?",
+        metavar="QUESTION",
+        help="Question answered by source-grounded Chat.",
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="Native HAC request timeout in seconds."
+    )
     output_options = parser.add_mutually_exclusive_group()
-    output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("-j", "--json", action="store_true")
+    output_options.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Include execution attribution and evidence details.",
+    )
+    output_options.add_argument(
+        "-j", "--json", action="store_true", help="Print the compact structured result."
+    )
     args = parser.parse_args(argv)
 
     plugins = args.plugin or []

@@ -50,15 +50,29 @@ def create_static_cluster_openai_compatibility_app(
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-openai-compatibility")
-    parser.add_argument("-d", "--declaration", type=Path)
-    parser.add_argument("--proof-observation", action="store_true")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-openai-compatibility",
+        description="Run the narrow loopback OpenAI-compatible Chat access process.",
+    )
+    parser.add_argument(
+        "-d",
+        "--declaration",
+        type=Path,
+        help="Explicit static topology declaration file.",
+    )
+    parser.add_argument(
+        "--proof-observation",
+        action="store_true",
+        help="Retained proof/testing observation surface.",
+    )
     return parser
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse the local-only default or one explicit static declaration."""
     parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster compatibility"
     args = parser.parse_args(argv)
     if args.proof_observation and args.declaration is None:
         parser.error("--proof-observation requires --declaration")

@@ -76,14 +76,37 @@ def _parse_timeout_seconds(value: str) -> float:
     return float(seconds)
 
 
-def _parse_input(argv: Sequence[str] | None) -> _ChatCommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster-chat")
-    parser.add_argument("message_positional", nargs="?")
-    parser.add_argument("--message", action="append")
-    parser.add_argument("--timeout-seconds")
+def _parse_input(
+    argv: Sequence[str] | None, *, facade_help: bool = False
+) -> _ChatCommandInput:
+    parser = _ArgumentParser(
+        prog="home-ai-cluster-chat",
+        description="Send one-shot Chat, or start bounded interactive Chat on a TTY.",
+    )
+    parser.add_argument(
+        "message_positional",
+        nargs="?",
+        metavar="MESSAGE",
+        help="One-shot Chat message.",
+    )
+    parser.add_argument(
+        "--message", action="append", help="One-shot Chat message, instead of MESSAGE."
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="One-shot request timeout in seconds."
+    )
     output_options = parser.add_mutually_exclusive_group()
-    output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("-j", "--json", action="store_true")
+    output_options.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="One-shot output with execution attribution.",
+    )
+    output_options.add_argument(
+        "-j", "--json", action="store_true", help="One-shot compact structured output."
+    )
+    if facade_help and argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster chat"
     args = parser.parse_args(argv)
 
     option_messages = args.message or []

@@ -24,16 +24,30 @@ LOCAL_RUNTIME_PORT = 25042
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-local")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-local",
+        description=(
+            "Run one foreground local HAC process with an operator-managed runtime."
+        ),
+    )
     add_local_runtime_arguments(parser)
-    parser.add_argument("--host", default=LOCAL_RUNTIME_HOST)
-    parser.add_argument("--port", type=int, default=LOCAL_RUNTIME_PORT)
+    parser.add_argument(
+        "--host", default=LOCAL_RUNTIME_HOST, help="Address on which to serve HAC."
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=LOCAL_RUNTIME_PORT,
+        help="Port on which to serve HAC.",
+    )
     return parser
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse one explicit ordinary local runtime composition."""
     parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster local"
     args = parser.parse_args(argv)
     retained_values = None
     if args.runtime_config is None:

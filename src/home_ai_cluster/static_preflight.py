@@ -246,19 +246,53 @@ def _format_value(value: object) -> str:
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-preflight")
-    parser.add_argument("-d", "--declaration", type=Path)
-    parser.add_argument("--remote-node-id", type=remote_node_id)
-    parser.add_argument("--remote-base-url", type=remote_base_url)
-    parser.add_argument("--local-capability", action="append")
-    parser.add_argument("--remote-capability", action="append")
-    parser.add_argument("-j", "--json", action="store_true")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-preflight",
+        description=(
+            "Read-only inspection of static declaration coherence; no runtime "
+            "or network activity."
+        ),
+    )
+    parser.add_argument(
+        "-d",
+        "--declaration",
+        type=Path,
+        help="Explicit static topology declaration file.",
+    )
+    parser.add_argument(
+        "--remote-node-id",
+        type=remote_node_id,
+        help="ID for one inline static remote node.",
+    )
+    parser.add_argument(
+        "--remote-base-url",
+        type=remote_base_url,
+        help="Base URL for one inline static remote node.",
+    )
+    parser.add_argument(
+        "--local-capability",
+        action="append",
+        help="Caller-local routing capability; repeat as needed.",
+    )
+    parser.add_argument(
+        "--remote-capability",
+        action="append",
+        help="Inline remote capability; repeat as needed.",
+    )
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        help="Print the compact structured inspection result.",
+    )
     return parser
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse local-only, inline single-remote, or declaration preflight mode."""
     parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster preflight"
     args = parser.parse_args(argv)
 
     has_declaration = args.declaration is not None

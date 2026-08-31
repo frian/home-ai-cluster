@@ -60,11 +60,25 @@ class _AiderCommandInput:
 
 
 def _parse_input(argv: Sequence[str] | None) -> _AiderCommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster aider")
-    parser.add_argument("-f", "--file", action="append")
-    parser.add_argument("message_positional", nargs="?")
-    parser.add_argument("--message", action="append")
-    parser.add_argument("--timeout-seconds")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster aider",
+        description="Run one bounded Aider caller edge for one selected file.",
+    )
+    parser.add_argument(
+        "-f", "--file", action="append", help="Exactly one target file to edit."
+    )
+    parser.add_argument(
+        "message_positional",
+        nargs="?",
+        metavar="MESSAGE",
+        help="One Aider edit request.",
+    )
+    parser.add_argument(
+        "--message", action="append", help="One Aider edit request, instead of MESSAGE."
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="Native HAC request timeout in seconds."
+    )
     args = parser.parse_args(argv)
 
     files = args.file or []

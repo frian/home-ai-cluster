@@ -119,6 +119,91 @@ def test_no_arguments_and_help_emit_static_root_help(
     assert captured.err == ""
 
 
+@pytest.mark.parametrize("name", tuple(command._COMMANDS))
+def test_every_ordinary_command_help_alias_is_equivalent_and_descriptive(
+    name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outputs: list[str] = []
+    for help_option in ("-h", "--help"):
+        with pytest.raises(SystemExit) as raised:
+            command.main([name, help_option])
+        assert raised.value.code == 0
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        outputs.append(captured.out)
+
+    assert outputs[0] == outputs[1]
+    assert "usage:" in outputs[0]
+    assert "options:" in outputs[0]
+    assert len(outputs[0].splitlines()) > 5
+    historical_programs = {
+        "local": "home-ai-cluster-local",
+        "static-cluster": "home-ai-cluster-static-cluster",
+        "compatibility": "home-ai-cluster-openai-compatibility",
+        "chat": "home-ai-cluster-chat",
+        "preflight": "home-ai-cluster-preflight",
+        "health": "home-ai-cluster-health",
+        "status": "home-ai-cluster-status",
+    }
+    if historical_program := historical_programs.get(name):
+        assert historical_program not in outputs[0]
+
+
+@pytest.mark.parametrize(
+    "subcommand", ("local", "node", "external-information", "chat", "show")
+)
+def test_every_config_subcommand_help_alias_is_equivalent_and_descriptive(
+    subcommand: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outputs: list[str] = []
+    for help_option in ("-h", "--help"):
+        with pytest.raises(SystemExit) as raised:
+            command.main(["config", subcommand, help_option])
+        assert raised.value.code == 0
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        outputs.append(captured.out)
+
+    assert outputs[0] == outputs[1]
+    assert "usage:" in outputs[0]
+    assert "retained" in outputs[0]
+
+
+def test_ordinary_help_surfaces_explain_important_boundaries(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def help_for(*arguments: str) -> str:
+        with pytest.raises(SystemExit) as raised:
+            command.main(list(arguments) + ["--help"])
+        assert raised.value.code == 0
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        return captured.out
+
+    config_help = help_for("config")
+    for name in ("local", "node", "external-information", "chat", "show"):
+        assert name in config_help
+
+    external_information_help = " ".join(help_for("external-information").split())
+    assert "QUERY" in external_information_help
+    assert "selected acquisition plugin" in external_information_help
+    assert "QUESTION" in external_information_help
+    assert "source-grounded Chat" in external_information_help
+    assert "retained choice" in external_information_help
+
+    assert "one-shot Chat" in help_for("chat")
+    assert "interactive Chat on a TTY" in help_for("chat")
+    assert "textual Code" in help_for("code")
+    assert "file to replace" in help_for("code-file")
+    assert "read stdin" in help_for("summarize")
+    assert "read stdin" in help_for("classify")
+    assert "Read-only" in help_for("preflight")
+    assert "without runtime or network observation" in help_for("config", "show")
+
+    for name in ("local", "static-cluster", "compatibility", "health", "status"):
+        assert f"home-ai-cluster {name}" in help_for(name)
+
+
 def test_version_emits_only_installed_package_version(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

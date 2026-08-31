@@ -55,12 +55,36 @@ REMOTE_HTTP_ADAPTER_NAME = "remote-http"
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="home-ai-cluster-static-cluster")
-    parser.add_argument("-d", "--declaration", type=Path)
-    parser.add_argument("--remote-node-id", type=remote_node_id)
-    parser.add_argument("--remote-base-url", type=remote_base_url)
-    parser.add_argument("--local-capability", action="append")
-    parser.add_argument("--remote-capability", action="append")
+    parser = argparse.ArgumentParser(
+        prog="home-ai-cluster-static-cluster",
+        description="Run one foreground explicit local-plus-remote static HAC process.",
+    )
+    parser.add_argument(
+        "-d",
+        "--declaration",
+        type=Path,
+        help="Explicit static topology declaration file.",
+    )
+    parser.add_argument(
+        "--remote-node-id",
+        type=remote_node_id,
+        help="ID for one inline static remote node.",
+    )
+    parser.add_argument(
+        "--remote-base-url",
+        type=remote_base_url,
+        help="Base URL for one inline static remote node.",
+    )
+    parser.add_argument(
+        "--local-capability",
+        action="append",
+        help="Caller-local routing capability; repeat as needed.",
+    )
+    parser.add_argument(
+        "--remote-capability",
+        action="append",
+        help="Inline remote capability; repeat as needed.",
+    )
     add_local_runtime_arguments(parser)
     return parser
 
@@ -68,6 +92,8 @@ def _create_argument_parser() -> argparse.ArgumentParser:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     """Parse exactly one complete static topology input mode."""
     parser = _create_argument_parser()
+    if argv in (["-h"], ["--help"]):
+        parser.prog = "home-ai-cluster static-cluster"
     args = parser.parse_args(argv)
 
     has_declaration = args.declaration is not None

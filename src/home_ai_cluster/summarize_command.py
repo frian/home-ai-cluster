@@ -100,14 +100,27 @@ def _parse_input(
     stdin: BinaryIO | None = None,
     file_opener: Callable[[str, str], BinaryIO] = open,
 ) -> _SummarizeCommandInput:
-    parser = _ArgumentParser(prog="home-ai-cluster summarize")
+    parser = _ArgumentParser(
+        prog="home-ai-cluster summarize",
+        description=(
+            "Send one bounded summarize request; read stdin when no source is supplied."
+        ),
+    )
     source_options = parser.add_mutually_exclusive_group()
-    source_options.add_argument("--text", action="append")
-    source_options.add_argument("-f", "--file", action="append")
-    parser.add_argument("--timeout-seconds")
+    source_options.add_argument("--text", action="append", help="Text to summarize.")
+    source_options.add_argument(
+        "-f", "--file", action="append", help="UTF-8 file to summarize."
+    )
+    parser.add_argument(
+        "--timeout-seconds", help="Native HAC request timeout in seconds."
+    )
     output_options = parser.add_mutually_exclusive_group()
-    output_options.add_argument("-v", "--verbose", action="store_true")
-    output_options.add_argument("-j", "--json", action="store_true")
+    output_options.add_argument(
+        "-v", "--verbose", action="store_true", help="Include execution attribution."
+    )
+    output_options.add_argument(
+        "-j", "--json", action="store_true", help="Print the compact structured result."
+    )
     args = parser.parse_args(argv)
 
     texts = args.text or []

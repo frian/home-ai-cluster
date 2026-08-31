@@ -10,9 +10,11 @@ from home_ai_cluster.adapters.base import (
 )
 from home_ai_cluster.api.routes import InternalClusterStatusResponse
 from home_ai_cluster.api.wiring import (
+    LocalAppComposition,
     build_static_remote_collection_wiring,
     build_static_remote_wiring,
 )
+from home_ai_cluster.chat_external_information_decision import DECISION_POLICY
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -934,6 +936,244 @@ def test_classify_endpoint_falls_through_ordered_eligible_remotes_once() -> None
     assert response.json() == {"selected_label": "personal", "node_id": "second"}
     assert transport.attempts == ["first", "second"]
     assert local.requests == []
+
+
+def test_chat_external_information_decision_uses_only_caller_local_classify() -> None:
+    local_adapter = RecordingClassifyAdapter("external")
+    local_node = NodeDescription(
+        id="caller-local",
+        name="Caller local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[local_adapter.name],
+    )
+
+    def declaration(node_id: str) -> RemoteNodeDeclaration:
+        return RemoteNodeDeclaration(
+            node=NodeDescription(
+                id=node_id,
+                name=f"Declared {node_id}",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="classify")],
+                adapters=["remote"],
+            ),
+            transport_address=f"http://{node_id}.example:8000",
+        )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(
+            self, request: ClassifyRequest, remote: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.calls += 1
+            raise AssertionError(f"decision must not invoke {remote.node.id}")
+
+    transport = RemoteTransport()
+    node_registry = NodeRegistry([local_node])
+    adapter_registry = AdapterRegistry([local_adapter])
+    wiring = build_static_remote_collection_wiring(
+        node_registry=node_registry,
+        adapter_registry=adapter_registry,
+        remote_declarations=[declaration("first"), declaration("second")],
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    app = create_app(
+        local_app_composition=LocalAppComposition(node_registry, adapter_registry),
+        static_remote_collection_wiring=wiring,
+    )
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/internal/chat/external-information-decision",
+                json={"question": "  Need external evidence?  "},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 200
+    assert response.json() == {"selected_label": "external", "node_id": "caller-local"}
+    assert local_adapter.requests == [
+        ClassifyRequest(
+            text=f'{DECISION_POLICY}"  Need external evidence?  "',
+            labels=["ordinary", "external"],
+            constraints={"local_only": True},
+        )
+    ]
+    assert transport.calls == 0
+
+
+def test_chat_external_information_decision_never_falls_back_to_declared_remote() -> (
+    None
+):
+    local_adapter = RecordingChatAdapter()
+    local_node = NodeDescription(
+        id="caller-local",
+        name="Caller local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=[local_adapter.name],
+    )
+    remote = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="remote-classify",
+            name="Remote classify node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(
+            self, request: ClassifyRequest, _: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.calls += 1
+            raise AssertionError("remote Classify must never be invoked")
+
+    transport = RemoteTransport()
+    node_registry = NodeRegistry([local_node])
+    adapter_registry = AdapterRegistry([local_adapter])
+    wiring = build_static_remote_wiring(
+        node_registry=node_registry,
+        adapter_registry=adapter_registry,
+        remote_declaration=remote,
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    app = create_app(
+        local_app_composition=LocalAppComposition(node_registry, adapter_registry),
+        static_remote_wiring=wiring,
+    )
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/internal/chat/external-information-decision",
+                json={"question": "Need evidence"},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No adapter provides capability: classify"}
+    assert local_adapter.requests == []
+    assert transport.calls == 0
+
+
+def test_decision_does_not_use_remote_after_local_failure() -> None:
+    local_adapter = UnavailableClassifyAdapter("ordinary")
+    local_node = NodeDescription(
+        id="caller-local",
+        name="Caller local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[local_adapter.name],
+    )
+    remote = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="remote-classify",
+            name="Remote classify node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(
+            self, request: ClassifyRequest, _: RemoteNodeDeclaration
+        ) -> ClassifyResult:
+            self.calls += 1
+            raise AssertionError("remote Classify must never be invoked")
+
+    transport = RemoteTransport()
+    node_registry = NodeRegistry([local_node])
+    adapter_registry = AdapterRegistry([local_adapter])
+    app = create_app(
+        local_app_composition=LocalAppComposition(node_registry, adapter_registry),
+        static_remote_wiring=build_static_remote_wiring(
+            node_registry=node_registry,
+            adapter_registry=adapter_registry,
+            remote_declaration=remote,
+            remote_transport=transport,
+            selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        ),
+    )
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/internal/chat/external-information-decision",
+                json={"question": "Need evidence"},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert len(local_adapter.requests) == 1
+    assert transport.calls == 0
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"question": " "},
+        {"question": "question", "labels": ["ordinary", "external"]},
+        {"question": "question", "constraints": {"local_only": False}},
+        {"question": "question", "provider": "private"},
+    ],
+)
+def test_chat_external_information_decision_rejects_invalid_body_without_execution(
+    monkeypatch: pytest.MonkeyPatch, payload: object
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = RecordingClassifyAdapter("ordinary")
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    async def send() -> httpx.Response:
+        transport = httpx.ASGITransport(app=create_app())
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/internal/chat/external-information-decision", json=payload
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Invalid chat external-information decision request"
+    }
+    assert adapter.requests == []
 
 
 def test_chat_endpoint_uses_last_user_message(use_test_registry: None) -> None:

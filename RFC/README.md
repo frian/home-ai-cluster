@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0095: Retained External-Information Plugin Choice](RFC-0095-retained-external-information-plugin-choice.md)
+  — accepts one optional retained exact RFC-0078 acquisition-plugin name as
+  the baseline selection for explicit external-information operations, with
+  one-invocation `--plugin` override, provider-owned credentials and
+  configuration, and no startup or ordinary Chat network authority.
 - [RFC-0094: Retained HAC Configuration](RFC-0094-retained-hac-configuration.md)
   — accepts one HAC-managed retained configuration for local runtime composition,
   RFC-0059 caller-local static routing capabilities, and caller-owned static

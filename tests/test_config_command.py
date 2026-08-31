@@ -40,7 +40,7 @@ def test_config_requires_one_of_the_bounded_surfaces(
     code, out, err = _run(capsys, [])
     assert code == 2
     assert out == ""
-    assert "{local,node,show}" in err
+    assert "{local,node,external-information,show}" in err
 
 
 def test_config_help_shows_exactly_the_bounded_surfaces(
@@ -49,14 +49,15 @@ def test_config_help_shows_exactly_the_bounded_surfaces(
     code, out, err = _run(capsys, ["--help"])
     assert code == 0
     assert err == ""
-    assert "{local,node,show}" in out
+    assert "{local,node,external-information,show}" in out
     assert "edit" not in out
 
 
 def test_show_empty_output_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n",
+        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "External information:\n  not configured\n",
         "",
     )
 
@@ -66,6 +67,19 @@ def test_show_rejects_unexpected_options(capsys: pytest.CaptureFixture[str]) -> 
     assert code == 2
     assert out == ""
     assert "unrecognized arguments" in err
+
+
+def test_show_reports_only_the_retained_external_information_plugin(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["external-information", "--plugin", "tavily"])
+
+    assert _run(capsys, ["show"]) == (
+        0,
+        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "External information:\n  plugin: tavily\n",
+        "",
+    )
 
 
 def test_local_ollama_replacement_and_optional_fields(
@@ -146,6 +160,16 @@ def test_local_reset_is_idempotent_and_preserves_nodes(
     ]
 
 
+def test_local_mutations_preserve_external_information_plugin(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["external-information", "--plugin", "tavily"])
+    _run(capsys, ["local", "--runtime", "ollama"])
+    _run(capsys, ["local", "--reset"])
+
+    assert load_retained_configuration().external_information_plugin == "tavily"
+
+
 def test_node_upsert_default_capabilities_and_order(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -217,6 +241,70 @@ def test_node_removal_preserves_local_and_remaining_order(
     assert [node.node_id for node in configuration.remote_nodes] == ["one", "three"]
 
 
+def test_node_mutations_preserve_external_information_plugin(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["external-information", "--plugin", "tavily"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.2:25042"])
+    _run(capsys, ["node", "one", "--remove"])
+
+    assert load_retained_configuration().external_information_plugin == "tavily"
+
+
+def test_external_information_set_replace_reset_and_preservation(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["local", "--runtime", "ollama"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    assert _run(capsys, ["external-information", "--plugin", "tavily"]) == (
+        0,
+        "external-information configuration retained\n",
+        "",
+    )
+    assert _run(capsys, ["external-information", "--plugin", "searxng"]) == (
+        0,
+        "external-information configuration retained\n",
+        "",
+    )
+    configuration = load_retained_configuration()
+    assert configuration.external_information_plugin == "searxng"
+    assert configuration.local is not None
+    assert [node.node_id for node in configuration.remote_nodes] == ["one"]
+    assert _run(capsys, ["external-information", "--reset"]) == (
+        0,
+        "external-information configuration reset\n",
+        "",
+    )
+    assert _run(capsys, ["external-information", "--reset"]) == (
+        0,
+        "external-information configuration reset\n",
+        "",
+    )
+    configuration = load_retained_configuration()
+    assert configuration.external_information_plugin is None
+    assert configuration.local is not None
+    assert [node.node_id for node in configuration.remote_nodes] == ["one"]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["external-information"],
+        ["external-information", "--reset", "--plugin", "tavily"],
+        ["external-information", "--plugin", "   "],
+        ["external-information", "--plugin", "x" * 65],
+    ],
+)
+def test_external_information_invalid_input_does_not_write(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    before = load_retained_configuration()
+
+    assert _run(capsys, argv)[0] == 2
+    assert load_retained_configuration() == before
+
+
 def test_duplicate_node_url_fails_without_changing_valid_state(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -278,7 +366,9 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "  llama-server model: model\n"
         "  caller-local capabilities: not retained\n"
         "Remote nodes:\n"
-        "  none\n",
+        "  none\n"
+        "External information:\n"
+        "  not configured\n",
         "",
     )
 

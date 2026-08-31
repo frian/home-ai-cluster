@@ -52,6 +52,10 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         "--plugin", type=_external_information_plugin_name
     )
 
+    chat = commands.add_parser("chat")
+    chat.add_argument("--reset", action="store_true")
+    chat.add_argument("--external-information-fallback", action="store_true")
+
     commands.add_parser("show")
     return parser
 
@@ -188,6 +192,15 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
         lines.append("  not configured")
     else:
         lines.append(f"  plugin: {configuration.external_information_plugin}")
+    lines.append("Chat external information:")
+    lines.append(
+        "  automatic fallback: "
+        + (
+            "authorized"
+            if configuration.chat_external_information_fallback
+            else "not authorized"
+        )
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -200,6 +213,9 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
                 local=None,
                 remote_nodes=configuration.remote_nodes,
                 external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
             )
         )
         print("local configuration reset")
@@ -211,6 +227,9 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
             local=local,
             remote_nodes=configuration.remote_nodes,
             external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
         )
     )
     print("local configuration retained")
@@ -231,6 +250,9 @@ def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
                 local=configuration.local,
                 remote_nodes=nodes,
                 external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
             )
         )
         print("node configuration removed")
@@ -250,6 +272,9 @@ def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
             local=configuration.local,
             remote_nodes=tuple(nodes),
             external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
         )
     )
     print("node configuration retained")
@@ -268,6 +293,9 @@ def _mutate_external_information(
             local=configuration.local,
             remote_nodes=configuration.remote_nodes,
             external_information_plugin=None if args.reset else args.plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
         )
     )
     print(
@@ -275,6 +303,23 @@ def _mutate_external_information(
         if args.reset
         else "external-information configuration retained"
     )
+
+
+def _mutate_chat(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.reset and args.external_information_fallback:
+        parser.error("--reset cannot be combined with --external-information-fallback")
+    if not args.reset and not args.external_information_fallback:
+        parser.error("--external-information-fallback is required unless --reset")
+    configuration = load_retained_configuration()
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=configuration.local,
+            remote_nodes=configuration.remote_nodes,
+            external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=not args.reset,
+        )
+    )
+    print("chat configuration reset" if args.reset else "chat configuration retained")
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -290,6 +335,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             _mutate_local(parser, args)
         elif args.command == "node":
             _mutate_node(parser, args)
+        elif args.command == "chat":
+            _mutate_chat(parser, args)
         else:
             _mutate_external_information(parser, args)
     except RetainedConfigurationError as error:

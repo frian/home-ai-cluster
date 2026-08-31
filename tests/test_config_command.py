@@ -40,7 +40,7 @@ def test_config_requires_one_of_the_bounded_surfaces(
     code, out, err = _run(capsys, [])
     assert code == 2
     assert out == ""
-    assert "{local,node,external-information,show}" in err
+    assert "{local,node,external-information,chat,show}" in err
 
 
 def test_config_help_shows_exactly_the_bounded_surfaces(
@@ -49,7 +49,7 @@ def test_config_help_shows_exactly_the_bounded_surfaces(
     code, out, err = _run(capsys, ["--help"])
     assert code == 0
     assert err == ""
-    assert "{local,node,external-information,show}" in out
+    assert "{local,node,external-information,chat,show}" in out
     assert "edit" not in out
 
 
@@ -57,7 +57,8 @@ def test_show_empty_output_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
     assert _run(capsys, ["show"]) == (
         0,
         "Local:\n  not configured\nRemote nodes:\n  none\n"
-        "External information:\n  not configured\n",
+        "External information:\n  not configured\n"
+        "Chat external information:\n  automatic fallback: not authorized\n",
         "",
     )
 
@@ -77,7 +78,22 @@ def test_show_reports_only_the_retained_external_information_plugin(
     assert _run(capsys, ["show"]) == (
         0,
         "Local:\n  not configured\nRemote nodes:\n  none\n"
-        "External information:\n  plugin: tavily\n",
+        "External information:\n  plugin: tavily\n"
+        "Chat external information:\n  automatic fallback: not authorized\n",
+        "",
+    )
+
+
+def test_show_reports_chat_authorization_only_as_a_retained_fact(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["chat", "--external-information-fallback"])
+
+    assert _run(capsys, ["show"]) == (
+        0,
+        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "External information:\n  not configured\n"
+        "Chat external information:\n  automatic fallback: authorized\n",
         "",
     )
 
@@ -305,6 +321,73 @@ def test_external_information_invalid_input_does_not_write(
     assert load_retained_configuration() == before
 
 
+def test_chat_authorization_set_reset_and_preservation(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["local", "--runtime", "ollama"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    _run(capsys, ["external-information", "--plugin", "tavily"])
+
+    assert _run(capsys, ["chat", "--external-information-fallback"]) == (
+        0,
+        "chat configuration retained\n",
+        "",
+    )
+    assert _run(capsys, ["chat", "--external-information-fallback"]) == (
+        0,
+        "chat configuration retained\n",
+        "",
+    )
+    configuration = load_retained_configuration()
+    assert configuration.chat_external_information_fallback is True
+    assert configuration.local is not None
+    assert [node.node_id for node in configuration.remote_nodes] == ["one"]
+    assert configuration.external_information_plugin == "tavily"
+
+    assert _run(capsys, ["chat", "--reset"]) == (0, "chat configuration reset\n", "")
+    assert _run(capsys, ["chat", "--reset"]) == (0, "chat configuration reset\n", "")
+    assert load_retained_configuration().chat_external_information_fallback is False
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["chat"],
+        ["chat", "--reset", "--external-information-fallback"],
+    ],
+)
+def test_invalid_chat_configuration_does_not_write(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    before = load_retained_configuration()
+
+    assert _run(capsys, argv)[0] == 2
+    assert load_retained_configuration() == before
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["local", "--runtime", "ollama"],
+        ["local", "--reset"],
+        ["node", "one", "--base-url", "http://192.0.2.1:25042"],
+        ["node", "one", "--remove"],
+        ["external-information", "--plugin", "tavily"],
+        ["external-information", "--reset"],
+    ],
+)
+def test_existing_mutations_preserve_chat_authorization(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    if argv[:2] == ["node", "one"] and argv[-1] == "--remove":
+        _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    _run(capsys, ["chat", "--external-information-fallback"])
+
+    _run(capsys, argv)
+
+    assert load_retained_configuration().chat_external_information_fallback is True
+
+
 def test_duplicate_node_url_fails_without_changing_valid_state(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -368,7 +451,9 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "Remote nodes:\n"
         "  none\n"
         "External information:\n"
-        "  not configured\n",
+        "  not configured\n"
+        "Chat external information:\n"
+        "  automatic fallback: not authorized\n",
         "",
     )
 

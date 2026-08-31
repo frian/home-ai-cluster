@@ -105,6 +105,9 @@ hac config node <NODE_ID> --remove
 hac config external-information --plugin <NAME>
 hac config external-information --reset
 
+hac config chat --external-information-fallback
+hac config chat --reset
+
 hac config show
 ```
 
@@ -131,6 +134,13 @@ choice, leaving retained local and remote facts unchanged. Configuration
 validates the name syntax only: it does not inspect installation, credentials,
 provider configuration, or health, and it does not import a plugin or contact a
 provider.
+
+`chat --external-information-fallback` retains the RFC-0096 Chat-specific
+authorization; `chat --reset` removes it. This configuration alone does not
+perform external-information acquisition. The retained RFC-0095 plugin name is
+a separate selection fact, and plugin selection alone grants no Chat disclosure
+authority. These Chat configuration forms do not inspect plugins, credentials,
+providers, runtime health, or network state.
 
 `show` reports retained facts only. It performs no runtime or node probing,
 health observation, plugin discovery/import, DNS, HTTP, or mutation. Its

@@ -151,6 +151,80 @@ def test_missing_file_loads_empty_configuration(tmp_path: Path) -> None:
     )
 
 
+def test_chat_external_information_fallback_defaults_to_not_authorized() -> None:
+    assert RetainedConfiguration().chat_external_information_fallback is False
+
+
+def test_chat_external_information_fallback_round_trips_as_json_boolean(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        chat_external_information_fallback=True,
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+    assert (
+        json.loads(path.read_text(encoding="utf-8"))[
+            "chat_external_information_fallback"
+        ]
+        is True
+    )
+
+
+def test_chat_external_information_fallback_coexists_with_other_retained_facts(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        local=ollama_configuration().local,
+        remote_nodes=(
+            RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",)),
+        ),
+        external_information_plugin="searxng",
+        chat_external_information_fallback=True,
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+
+
+@pytest.mark.parametrize("value", ["true", 1, None])
+def test_non_boolean_chat_external_information_fallback_is_rejected(
+    tmp_path: Path, value: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(
+        json.dumps(
+            {
+                "local": None,
+                "remote_nodes": [],
+                "external_information_plugin": None,
+                "chat_external_information_fallback": value,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
+def test_non_boolean_chat_external_information_fallback_is_rejected_on_save(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(RetainedConfigurationError):
+        save_retained_configuration(
+            RetainedConfiguration(
+                chat_external_information_fallback=1,  # type: ignore[arg-type]
+            ),
+            tmp_path / "retained.json",
+        )
+
+
 def test_external_information_plugin_round_trips_exactly(tmp_path: Path) -> None:
     path = tmp_path / "retained.json"
     configuration = RetainedConfiguration(external_information_plugin="tävily")
@@ -211,6 +285,7 @@ def test_invalid_serialized_external_information_plugin_is_rejected(
                 "local": None,
                 "remote_nodes": [],
                 "external_information_plugin": plugin,
+                "chat_external_information_fallback": False,
             }
         ),
         encoding="utf-8",
@@ -335,12 +410,14 @@ def test_invalid_encoding_or_json_fails_without_echoing_contents(
             "local": None,
             "remote_nodes": [],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
             "unexpected": True,
         },
         {
             "local": {"unexpected": True},
             "remote_nodes": [],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
         {
             "local": None,
@@ -353,6 +430,7 @@ def test_invalid_encoding_or_json_fails_without_echoing_contents(
                 }
             ],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
     ],
 )
@@ -380,6 +458,7 @@ def test_unknown_or_missing_structural_fields_fail(
             },
             "remote_nodes": [],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
         {
             "local": {
@@ -392,6 +471,7 @@ def test_unknown_or_missing_structural_fields_fail(
             },
             "remote_nodes": [],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
         {
             "local": None,
@@ -403,6 +483,7 @@ def test_unknown_or_missing_structural_fields_fail(
                 }
             ],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
         {
             "local": None,
@@ -414,6 +495,7 @@ def test_unknown_or_missing_structural_fields_fail(
                 }
             ],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         },
     ],
 )
@@ -450,6 +532,7 @@ def test_duplicate_remote_values_fail_explicitly(tmp_path: Path, field: str) -> 
             "local": None,
             "remote_nodes": [first, second],
             "external_information_plugin": None,
+            "chat_external_information_fallback": False,
         }
     )
     path.write_text(contents, encoding="utf-8")

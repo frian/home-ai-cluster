@@ -9,6 +9,7 @@ from home_ai_cluster.chat_command import (
     _REQUEST_TIMEOUT_SECONDS,
     main,
 )
+from home_ai_cluster.retained_configuration import RetainedConfiguration
 
 
 class terminal(StringIO):
@@ -100,6 +101,99 @@ def result_body(
 
 def unused_client(**kwargs: object) -> httpx.Client:
     raise AssertionError("invalid input and --help must not send a request")
+
+
+def test_authorized_external_decision_uses_exact_question_and_sources(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.core.models import SourceEvidence, SourceGroundedChatRequest
+
+    question = "  Unicode \u00e9 question  "
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    acquired: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        external_information_command,
+        "_acquire_source_grounded_request",
+        lambda plugin, query, request_question: (
+            acquired.append((plugin, query, request_question))
+            or SourceGroundedChatRequest(
+                question=request_question,
+                sources=[
+                    SourceEvidence(title="T", url="https://example.test", content="C")
+                ],
+            )
+        ),
+    )
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("external-information-decision"):
+            return httpx.Response(
+                200, json={"selected_label": "external", "node_id": "local"}
+            )
+        return httpx.Response(
+            200,
+            json={
+                "content": "grounded",
+                "adapter": "a",
+                "model": None,
+                "node_id": "n",
+                "sources": [
+                    {"title": "T", "url": "https://example.test", "content": "C"}
+                ],
+            },
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", question], httpx.MockTransport(handler)
+    )
+
+    assert exit_code == 0 and stderr == ""
+    assert [request.url.path for request in requests] == [
+        "/internal/chat/external-information-decision",
+        "/v1/chat/sources",
+    ]
+    assert json.loads(requests[0].content) == {"question": question}
+    assert acquired == [("selected", question, question)]
+    assert json.loads(stdout)["branch"] == "source-grounded"
+
+
+def test_authorized_decision_failure_falls_back_to_one_ordinary_request(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.path)
+        return httpx.Response(
+            503 if len(paths) == 1 else 200, json=result_body(content="ordinary")
+        )
+
+    exit_code, stdout, stderr = run_command(
+        capsys, ["--json", "question"], httpx.MockTransport(handler)
+    )
+    assert exit_code == 0 and stderr == ""
+    assert paths == ["/internal/chat/external-information-decision", "/v1/chat"]
+    assert json.loads(stdout)["branch"] == "ordinary"
 
 
 @pytest.mark.parametrize(

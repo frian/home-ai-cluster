@@ -356,8 +356,15 @@ hac chat
 **Important behavior:** The command sends one request to the fixed local caller
 endpoint; it does not start the application. It remains topology-blind and
 returns cluster-owned execution attribution. The explicit-message forms remain
-one-shot: each sends exactly one request and terminates, with their existing
-content, `--verbose`, and `--json` output behavior unchanged.
+one-shot. Ordinary Chat remains the default. An operator may separately enable
+`hac config chat --external-information-fallback`; with that authorization, a
+retained external-information plugin, and a question of at most 4,096 UTF-8
+bytes, Chat makes one caller-local decision. Only `external` invokes the exact
+retained plugin, with the exact QUESTION as QUERY; acquisition remains
+caller-owned. Decision failure stays ordinary Chat, while failure after
+acquisition starts is visible and does not fall back. Authorized `--verbose`
+and `--json` identify the `ordinary` or `source-grounded` branch and preserve
+source provenance. Interactive Chat is excluded.
 
 With no message, `hac chat` is interactive only when both stdin and stdout are
 TTYs; otherwise it fails locally without reading stdin or sending a request.
@@ -421,8 +428,10 @@ The named `--query` / `--question` form may likewise omit `--plugin` when that
 retained choice exists. An explicit `--plugin <NAME>` wins for one invocation
 and does not change the retained selection. With neither an explicit nor a
 retained choice, input is invalid; installation alone never selects a plugin.
-Only an explicit `hac external-information` invocation authorizes acquisition;
-ordinary Chat remains unchanged.
+An explicit `hac external-information` invocation authorizes its own QUERY and
+QUESTION pair. Separately authorized eligible one-shot Chat may also use the
+same bounded caller-owned acquisition boundary, where its exact QUESTION is
+also the QUERY; ordinary Chat remains unchanged without that authorization.
 
 **Available plugin examples:**
 

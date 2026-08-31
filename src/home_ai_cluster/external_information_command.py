@@ -173,20 +173,26 @@ def _candidate_sources(value: object) -> list[SourceEvidence]:
     return sources
 
 
-def _acquire_request(command_input: _CommandInput) -> SourceGroundedChatRequest:
-    entry_point = _selected_entry_point(command_input.plugin_name)
+def _acquire_source_grounded_request(
+    plugin_name: str, query: str, question: str
+) -> SourceGroundedChatRequest:
+    """Acquire one RFC-0077 request through the existing RFC-0078 boundary."""
+    entry_point = _selected_entry_point(plugin_name)
     acquisition = _load_async_acquisition(entry_point)
     try:
-        candidates = asyncio.run(acquisition(command_input.query))
+        candidates = asyncio.run(acquisition(query))
         sources = _candidate_sources(candidates)
-        return SourceGroundedChatRequest(
-            question=command_input.question,
-            sources=sources,
-        )
+        return SourceGroundedChatRequest(question=question, sources=sources)
     except _AcquisitionFailure:
         raise
     except Exception:
         raise _AcquisitionFailure from None
+
+
+def _acquire_request(command_input: _CommandInput) -> SourceGroundedChatRequest:
+    return _acquire_source_grounded_request(
+        command_input.plugin_name, command_input.query, command_input.question
+    )
 
 
 def _public_request(request: SourceGroundedChatRequest) -> dict[str, object]:

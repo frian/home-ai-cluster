@@ -10,6 +10,9 @@ from home_ai_cluster.api.wiring import (
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
 )
+from home_ai_cluster.chat_external_information_decision import (
+    ChatExternalInformationDecisionRequest,
+)
 from home_ai_cluster.core.executor import InvalidClassificationLabelError
 from home_ai_cluster.core.models import (
     INTERNAL_CLUSTER_REQUEST_ADAPTER,
@@ -413,6 +416,33 @@ async def classify(http_request: Request) -> ClassifyResult:
             cluster_request,
             http_request.app.state.static_remote_wiring,
             http_request.app.state.static_remote_collection_wiring,
+            local_app_composition=http_request.app.state.local_app_composition,
+        ),
+    )
+
+
+@router.post(
+    "/internal/chat/external-information-decision",
+    response_model=ClassifyResult,
+)
+async def chat_external_information_decision(
+    http_request: Request,
+) -> ClassifyResult:
+    """Execute the fixed RFC-0096 decision only on caller-local Classify."""
+    try:
+        decision = ChatExternalInformationDecisionRequest.model_validate(
+            await http_request.json()
+        )
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid chat external-information decision request",
+        ) from None
+
+    return await run_routable_execution(
+        http_request,
+        lambda: handle_static_local_cluster_request(
+            decision.classify_request(),
             local_app_composition=http_request.app.state.local_app_composition,
         ),
     )

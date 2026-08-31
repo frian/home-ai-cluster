@@ -213,6 +213,16 @@ def _write_content(content: str, *, stdout: TextIO | None = None) -> None:
         stdout.write("\n")
 
 
+def _verbose_separator(content: str) -> str:
+    if not content:
+        return "\n"
+    if content.endswith("\n\n"):
+        return ""
+    if content.endswith("\n"):
+        return "\n"
+    return "\n\n"
+
+
 def _write_verbose_result(
     result: ClusterResult, *, stdout: TextIO | None = None
 ) -> None:
@@ -221,16 +231,7 @@ def _write_verbose_result(
     stdout.write("Response:\n")
     stdout.write(result.content)
 
-    if not result.content:
-        separator = "\n"
-    elif result.content.endswith("\n\n"):
-        separator = ""
-    elif result.content.endswith("\n"):
-        separator = "\n"
-    else:
-        separator = "\n\n"
-
-    stdout.write(separator)
+    stdout.write(_verbose_separator(result.content))
     stdout.write("Execution:\n")
     stdout.write(f"  Node: {result.node_id}\n")
     stdout.write(f"  Adapter: {result.adapter}\n")
@@ -269,7 +270,8 @@ def _write_authorized_success(
         )
     else:
         stdout.write("Response:\n" + result.content)
-        stdout.write("\n\nExternal information:\n" + f"  Branch: {branch}\n")
+        stdout.write(_verbose_separator(result.content))
+        stdout.write("External information:\n" + f"  Branch: {branch}\n")
         if isinstance(result, SourceGroundedChatResult):
             stdout.write("  Sources:\n")
             for index, source in enumerate(result.sources, 1):

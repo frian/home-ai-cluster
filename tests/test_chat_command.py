@@ -12,6 +12,15 @@ from home_ai_cluster.chat_command import (
 from home_ai_cluster.retained_configuration import RetainedConfiguration
 
 
+@pytest.fixture(autouse=True)
+def neutral_retained_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command, "load_retained_configuration", lambda: RetainedConfiguration()
+    )
+
+
 class terminal(StringIO):
     def isatty(self) -> bool:
         return True
@@ -194,6 +203,108 @@ def test_authorized_decision_failure_falls_back_to_one_ordinary_request(
     assert exit_code == 0 and stderr == ""
     assert paths == ["/internal/chat/external-information-decision", "/v1/chat"]
     assert json.loads(stdout)["branch"] == "ordinary"
+
+
+@pytest.mark.parametrize(
+    ("content", "separator"),
+    [
+        ("answer", "\n\n"),
+        ("answer\n", "\n"),
+        ("answer\n\n", ""),
+        ("", "\n"),
+        ("first\nsecond", "\n\n"),
+        ("Gr\u00fc\u00dfe \U0001f44b", "\n\n"),
+    ],
+)
+def test_authorized_ordinary_verbose_preserves_rfc0049_separator(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    content: str,
+    separator: str,
+) -> None:
+    from home_ai_cluster import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(chat_external_information_fallback=True),
+    )
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["--verbose", "question"],
+        httpx.MockTransport(
+            lambda _: httpx.Response(200, json=result_body(content=content))
+        ),
+    )
+    assert exit_code == 0 and stderr == ""
+    assert stdout == (
+        f"Response:\n{content}{separator}External information:\n"
+        "  Branch: ordinary\n\nExecution:\n  Node: cluster-node\n"
+        "  Adapter: test-adapter\n  Model: cluster-model\n"
+    )
+
+
+@pytest.mark.parametrize("question", ["a" * 4097, "\u00e9" * 2049])
+def test_authorized_ineligible_question_skips_decision_and_plugin_work(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, question: str
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(
+            external_information_plugin="selected",
+            chat_external_information_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    paths: list[str] = []
+    exit_code, _, _ = run_command(
+        capsys,
+        [question],
+        httpx.MockTransport(
+            lambda request: (
+                paths.append(request.url.path)
+                or httpx.Response(200, json=result_body(content="ordinary"))
+            )
+        ),
+    )
+    assert exit_code == 0 and paths == ["/v1/chat"]
+
+
+def test_invalid_retained_configuration_does_no_work(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.retained_configuration import RetainedConfigurationError
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(
+            RetainedConfigurationError("invalid retained Chat configuration")
+        ),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: (_ for _ in ()).throw(AssertionError("no discovery")),
+    )
+    exit_code, stdout, stderr = run_command(
+        capsys,
+        ["question"],
+        httpx.MockTransport(lambda _: (_ for _ in ()).throw(AssertionError("no HTTP"))),
+    )
+    assert (
+        exit_code == 1
+        and stdout == ""
+        and stderr == "error: invalid retained Chat configuration\n"
+    )
 
 
 @pytest.mark.parametrize(

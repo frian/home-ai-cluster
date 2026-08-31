@@ -255,9 +255,9 @@ to your own local setup.
 
 Ordinary Home AI Cluster requests do not acquire Web information by themselves.
 External-information acquisition is an explicit optional caller edge using one
-separately installed compatible plugin. Plugin selection is required;
-installation alone does not perform acquisition, and ordinary Chat does not
-automatically use either provider.
+separately installed compatible plugin. Installation alone does not select or
+perform acquisition, and ordinary Chat does not automatically use either
+provider.
 
 Choose either published plugin. The
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng#readme)
@@ -296,13 +296,25 @@ uv tool install --force \
   home-ai-cluster
 ```
 
-With SearXNG and `hac local` already running, an example request is:
+With SearXNG and `hac local` already running, retain that choice once, then use
+it for explicit external-information requests:
+
+```sh
+hac config external-information --plugin searxng
+
+hac external-information \
+  "local AI inference developments" \
+  "What are the main recent developments?"
+```
+
+An explicit one-off override remains possible and does not change the retained
+selection:
 
 ```sh
 hac external-information \
-  --plugin searxng \
-  "local AI inference developments" \
-  "What are the main recent developments?"
+  --plugin <OTHER_NAME> \
+  QUERY \
+  QUESTION
 ```
 
 For Tavily, set the caller credential and use the selected plugin:
@@ -317,7 +329,9 @@ hac external-information \
 ```
 
 Manage or unset the environment credential according to your normal shell and
-security practice.
+security practice. Retaining `tavily` selects only that plugin for later
+explicit external-information operations; it does not retain or manage
+`TAVILY_API_KEY`.
 
 See the [SearXNG plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme),
 [Tavily plugin README](https://github.com/frian/home-ai-cluster-plugin-tavily#readme),

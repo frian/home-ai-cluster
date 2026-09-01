@@ -862,16 +862,20 @@ mapping is useful for compatibility or reference:
 `hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
 ordinary root command; none has a separate installed checkout script.
 
-## Historical and specialized commands
+## Specialized compatibility commands
 
-The repository also retains historical proof and specialized operator commands,
-including static proof, routing explanation, actual-request explanation, and
-history inspection and clearing. They are not part of the ordinary ten-command
-root surface and are intentionally not fully documented here.
+The retained standalone launchers `home-ai-cluster-explain-routing`,
+`home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
+`home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
+surfaces. They remain installed and supported in their bounded roles, but are
+not ordinary commands in the fourteen-command `hac` root and have no ordinary
+`hac` equivalents.
 
-All four historical installed proof launchers were retired by RFC-0075; their
-commands remain in historical records and require the matching historical
-repository revision for exact reproduction.
+## Historical proof commands
+
+RFC-0075 retired four historical proof-only installed launchers. Their names
+remain only in historical material and require the corresponding historical
+repository revision for reproduction.
 
 **See also:** [Documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md), retained proof documents, and
 the [RFC index](https://github.com/frian/home-ai-cluster/blob/main/RFC/README.md).

@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [O-08 retained inspection semantics investigation](v1.0-o08-retained-inspection-semantics-investigation.md)
+  — investigates retained configuration against preflight and status separately;
+  it finds retained preflight ambiguous and keeps status topology and runtime
+  selection explicit under accepted contracts.
 - [O-13 remote failure traceback investigation](v1.0-o13-remote-failure-investigation.md)
   — reproduces the caller-side static-cluster traceback leak with loopback-only
   receivers, finds it an accepted-boundary implementation defect, and leaves

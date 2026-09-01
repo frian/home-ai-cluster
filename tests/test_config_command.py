@@ -40,24 +40,42 @@ def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
 
-def test_config_requires_one_of_the_bounded_surfaces(
+@pytest.mark.parametrize("argv", ([], ["--help"], ["-h"]))
+def test_config_discovery_shows_exactly_the_bounded_surfaces(
+    argv: list[str],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    code, out, err = _run(capsys, [])
-    assert code == 2
-    assert out == ""
-    assert "{local,node,external-information,chat,reset,show}" in err
-
-
-def test_config_help_shows_exactly_the_bounded_surfaces(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    code, out, err = _run(capsys, ["--help"])
+    code, out, err = _run(capsys, argv)
     assert code == 0
     assert err == ""
     assert "{local,node,external-information,chat,reset,show}" in out
-    assert "reset" in out
     assert "edit" not in out
+
+
+def test_bare_config_discovery_does_not_access_retained_state(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def forbidden(*args: object, **kwargs: object) -> None:
+        raise AssertionError("bare config discovery must not access retained state")
+
+    monkeypatch.setattr(config_command, "load_retained_configuration", forbidden)
+    monkeypatch.setattr(config_command, "save_retained_configuration", forbidden)
+    monkeypatch.setattr(config_command, "remove_retained_configuration", forbidden)
+
+    code, out, err = _run(capsys, [])
+    assert code == 0
+    assert err == ""
+    assert "{local,node,external-information,chat,reset,show}" in out
+
+
+@pytest.mark.parametrize("argv", (["unknown"], ["local"], ["node"]))
+def test_concrete_or_unknown_config_actions_remain_parser_errors(
+    argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, err = _run(capsys, argv)
+    assert code == 2
+    assert out == ""
+    assert "error:" in err
 
 
 def test_show_empty_output_is_exact(capsys: pytest.CaptureFixture[str]) -> None:

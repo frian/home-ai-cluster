@@ -120,6 +120,18 @@ def test_no_arguments_and_help_emit_static_root_help(
     assert captured.err == ""
 
 
+def test_bare_config_delegates_to_successful_config_discovery(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    command.main(["config"])
+
+    captured = capsys.readouterr()
+
+    assert captured.err == ""
+    assert "usage: home-ai-cluster config" in captured.out
+    assert "{local,node,external-information,chat,reset,show}" in captured.out
+
+
 @pytest.mark.parametrize("name", tuple(command._COMMANDS))
 def test_every_ordinary_command_help_alias_is_equivalent_and_descriptive(
     name: str, capsys: pytest.CaptureFixture[str]

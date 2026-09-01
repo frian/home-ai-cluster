@@ -422,7 +422,12 @@ def _reset_retained_configuration() -> None:
 def main(argv: Sequence[str] | None = None) -> None:
     """Manage and inspect retained configuration without startup consumption."""
     parser = _create_argument_parser()
-    args = parser.parse_args(argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if not arguments:
+        parser.print_help()
+        return
+
+    args = parser.parse_args(arguments)
     try:
         if args.command == "show":
             sys.stdout.write(

@@ -142,13 +142,13 @@ For development from a checkout, prepare the locked environment:
 
 ```sh
 uv sync --locked
-uv run home-ai-cluster-local
+uv run hac local
 ```
 
 Then, from another terminal, send one request:
 
 ```sh
-uv run home-ai-cluster-chat "Hello"
+uv run hac chat "Hello"
 ```
 
 See [Contributing](https://github.com/frian/home-ai-cluster/blob/main/CONTRIBUTING.md)

@@ -21,6 +21,7 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_transport import RemoteTransportError
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app
 
@@ -249,9 +250,12 @@ def test_collection_wiring_does_not_call_second_remote_after_first_succeeds() ->
     assert transport.attempted_node_ids == ["remote-a"]
 
 
-def test_collection_wiring_does_not_advance_after_non_accepted_remote_error() -> None:
+def test_collection_wiring_contains_transport_error_without_advancing() -> None:
     transport = RecordingRemoteTransport(
-        {"remote-a": ValueError("request failed"), "remote-b": make_result("remote-b")}
+        {
+            "remote-a": RemoteTransportError("request failed"),
+            "remote-b": make_result("remote-b"),
+        }
     )
     wiring = collection_wiring(transport, ["remote-a", "remote-b"])
 
@@ -261,6 +265,7 @@ def test_collection_wiring_does_not_advance_after_non_accepted_remote_error() ->
     )
 
     assert response.status_code == 500
+    assert response.text == "Internal Server Error"
     assert transport.attempted_node_ids == ["remote-a"]
 
 

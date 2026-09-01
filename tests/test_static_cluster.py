@@ -1,9 +1,13 @@
 import asyncio
+import logging
 import socket
+import threading
+import time
 from pathlib import Path
 
 import httpx
 import pytest
+import uvicorn
 from fastapi import FastAPI
 
 from home_ai_cluster.adapters.base import RuntimeConnectionUnavailableBeforeRequestError
@@ -148,6 +152,7 @@ def make_wiring(
     *,
     local_error: Exception | None = None,
     remote_error: Exception | None = None,
+    remote_capabilities: tuple[str, ...] = ("chat", "summarize"),
 ) -> tuple[object, FakeAdapter, FakeRemoteTransport]:
     local = FakeAdapter(local_error)
     remote = FakeRemoteTransport(remote_error)
@@ -156,7 +161,9 @@ def make_wiring(
         node_registry=local_composition.node_registry,
         adapter_registry=local_composition.adapter_registry,
         remote_declaration=create_remote_declaration(
-            "operator-remote", "https://private.example:9443"
+            "operator-remote",
+            "https://private.example:9443",
+            remote_capabilities,
         ),
         remote_transport=remote,
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
@@ -164,15 +171,20 @@ def make_wiring(
     return wiring, local, remote
 
 
-def post(app: FastAPI) -> httpx.Response:
+def post(
+    app: FastAPI,
+    path: str = "/v1/chat",
+    json: dict[str, object] | None = None,
+) -> httpx.Response:
     async def send() -> httpx.Response:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
             base_url="http://testserver",
         ) as client:
             return await client.post(
-                "/v1/chat",
-                json={
+                path,
+                json=json
+                or {
                     "messages": [{"role": "user", "content": "test message"}],
                     "capability": "chat",
                 },
@@ -791,6 +803,114 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
     assert "private.example" not in response.text
     assert len(local.requests) == 1
     assert len(remote.requests) == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        (
+            "/v1/chat",
+            {
+                "messages": [{"role": "user", "content": "private prompt"}],
+                "capability": "chat",
+            },
+        ),
+        ("/v1/summarize", {"text": "private prompt"}),
+        (
+            "/v1/classify",
+            {"text": "private prompt", "labels": ["one", "two"]},
+        ),
+        (
+            "/v1/chat/sources",
+            {
+                "question": "private prompt",
+                "sources": [
+                    {
+                        "title": "source",
+                        "url": "https://documentation.invalid/source",
+                        "content": "private source content",
+                    }
+                ],
+            },
+        ),
+    ],
+)
+def test_static_cluster_contains_remote_transport_failure_for_routed_families(
+    path: str, body: dict[str, object]
+) -> None:
+    error = RemoteTransportError("fake-private-endpoint.invalid:9443 transport failed")
+    error.__cause__ = RuntimeError("fake HTTPX transport detail")
+    wiring, _, remote = make_wiring(
+        local_error=RuntimeConnectionUnavailableBeforeRequestError("not connected"),
+        remote_error=error,
+        remote_capabilities=("chat", "summarize", "classify"),
+    )
+
+    response = post(create_app(static_remote_wiring=wiring), path, body)
+
+    assert response.status_code == 500
+    assert response.headers["content-type"] == "text/plain; charset=utf-8"
+    assert response.text == "Internal Server Error"
+    for sensitive_value in (
+        "fake-private-endpoint.invalid",
+        "fake HTTPX transport detail",
+        "private prompt",
+        "private source content",
+    ):
+        assert sensitive_value not in response.text
+    assert len(remote.requests) == 1
+
+
+def test_static_cluster_remote_transport_failure_does_not_reach_uvicorn_logs(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    error = RemoteTransportError("fake-private-endpoint.invalid:9443 transport failed")
+    error.__cause__ = RuntimeError("fake HTTPX transport detail")
+    wiring, _, remote = make_wiring(
+        local_error=RuntimeConnectionUnavailableBeforeRequestError("not connected"),
+        remote_error=error,
+    )
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        host, port = listener.getsockname()
+
+    server = uvicorn.Server(
+        uvicorn.Config(
+            create_app(static_remote_wiring=wiring),
+            host=host,
+            port=port,
+            log_config=None,
+            access_log=False,
+        )
+    )
+    thread = threading.Thread(target=server.run)
+    caplog.set_level(logging.ERROR, logger="uvicorn.error")
+    thread.start()
+    try:
+        deadline = time.monotonic() + 2
+        while not server.started and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert server.started
+
+        response = httpx.post(
+            f"http://{host}:{port}/v1/chat",
+            json={
+                "messages": [{"role": "user", "content": "private prompt"}],
+                "capability": "chat",
+            },
+            timeout=2,
+            trust_env=False,
+        )
+    finally:
+        server.should_exit = True
+        thread.join(timeout=2)
+
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+    assert len(remote.requests) == 1
+    assert "Exception in ASGI application" not in caplog.text
+    assert "fake-private-endpoint.invalid" not in caplog.text
+    assert "fake HTTPX transport detail" not in caplog.text
 
 
 @pytest.mark.parametrize(

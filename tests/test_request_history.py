@@ -1,5 +1,6 @@
 import json
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -138,6 +139,20 @@ def test_recording_creates_owner_only_compact_jsonl_in_temporary_state(
         == json.dumps(expected, separators=(",", ":")) + "\n"
     )
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+
+
+def test_record_account_has_only_the_explicit_actual_request_production_writer() -> (
+    None
+):
+    source_directory = Path(request_history.__file__).parent
+    writers = [
+        path.name
+        for path in source_directory.rglob("*.py")
+        if path.name != "request_history.py"
+        and "record_account(" in path.read_text(encoding="utf-8")
+    ]
+
+    assert writers == ["actual_request_explanation.py"]
 
 
 def test_recording_keeps_newest_fifty_records_oldest_first(

@@ -512,3 +512,27 @@ def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> Non
     assert "select:focus-visible" in stylesheet
     assert ".header-tools" in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
+
+
+def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert html.count('localStorage.getItem("home-ai-cluster.theme")') == 1
+    assert script.count("localStorage.getItem(themeKey)") == 1
+    assert "function initializeThemePreference()" in script
+    theme_initialization = script.split("function initializeThemePreference()", 1)[
+        1
+    ].split('themeSelect.addEventListener("change"', 1)[0]
+    assert "localStorage.getItem(themeKey)" in theme_initialization
+
+    assert script.count("const messages = [];") == 1
+    assert script.count("const codeMessages = [];") == 1
+    assert "messages = localStorage" not in script
+    assert "codeMessages = localStorage" not in script
+    assert "messages = sessionStorage" not in script
+    assert "codeMessages = sessionStorage" not in script
+    assert "sessionStorage" not in script
+    assert "indexedDB" not in script
+    assert "document.cookie" not in script

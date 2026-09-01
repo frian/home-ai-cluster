@@ -18,6 +18,7 @@ from home_ai_cluster import (
     summarize_command,
 )
 from home_ai_cluster.core.models import ClusterStatusResult
+from home_ai_cluster.retained_configuration import RetainedConfiguration
 
 HELP = """usage: home-ai-cluster <command> [arguments...]
 
@@ -333,6 +334,33 @@ def test_subcommand_system_exit_propagates_unchanged(
         command.main(["chat", "--message", "Hello"])
 
     assert raised.value.code == 17
+
+
+def test_root_preserves_real_chat_input_error_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = _run(capsys, lambda: command.main(["chat", "--message", " "]))
+
+    assert result == (2, "", "error: invalid request input\n")
+
+
+def test_root_preserves_real_chat_operational_error_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def post(*_: object, **__: object) -> httpx.Response:
+        raise httpx.ConnectError("private connection detail")
+
+    monkeypatch.setattr(
+        chat_command, "load_retained_configuration", lambda: RetainedConfiguration()
+    )
+    monkeypatch.setattr(chat_command, "_post_native_request", post)
+
+    result = _run(capsys, lambda: command.main(["chat", "Hello"]))
+
+    assert result == (1, "", "error: ordinary cluster unavailable\n")
+    assert "usage:" not in result[2]
+    assert "private" not in result[2]
 
 
 @pytest.mark.parametrize(

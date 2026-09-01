@@ -21,7 +21,8 @@ the corresponding files under `examples/` can be used directly.
 
 ### One remote node
 
-This retained flat form declares one remote node. The `192.0.2.0/24` address is
+This saved declaration file form declares one remote node. The `192.0.2.0/24`
+address is
 documentation address space; replace it with an operator-owned trusted-LAN
 address.
 
@@ -128,7 +129,14 @@ hac status \
   --runtime-config <RUNTIME_PATH>
 ```
 
-From a repository checkout, the retained files are available directly under
+These are explicit declaration and runtime-composition files: commands use them
+only when their paths are supplied. They are distinct from HAC-managed retained
+configuration created with `hac config`. That retained configuration is an
+ordinary baseline for `hac static-cluster` when applicable, but bare
+`hac preflight` remains local-only and `hac status` requires
+`--declaration <PATH>`.
+
+From a repository checkout, the example files are available directly under
 `examples/`. See the [Command Reference](command-reference.md) for exact command
 contracts and the [Canonical Operator Workflow](operator-workflow.md) for the
 supported operating procedure.

@@ -62,7 +62,7 @@ After preparing the receiving machine according to
 calling machine:
 
 ```sh
-uv run home-ai-cluster-static-cluster \
+uv run hac static-cluster \
   --declaration <operator-owned-declaration-path>
 ```
 
@@ -81,7 +81,7 @@ inline RFC-0038 mode.
 The existing inline form remains valid:
 
 ```sh
-uv run home-ai-cluster-static-cluster \
+uv run hac static-cluster \
   --remote-node-id <remote-node-id> \
   --remote-base-url http://<receiving-lan-address>:25042
 ```

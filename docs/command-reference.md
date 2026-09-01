@@ -39,9 +39,8 @@ hac <subcommand>
 home-ai-cluster <subcommand>
 ```
 
-For checkout use, first run `uv sync`, then use the verified standalone script
-where one exists, for example `uv run home-ai-cluster-local` or `uv run
-home-ai-cluster-preflight`.
+For checkout use, first run `uv sync`, then use the ordinary root form, for
+example `uv run hac local` or `uv run hac preflight`.
 
 ## Ordinary short options
 
@@ -820,11 +819,12 @@ See the relevant command section for its specific boundary.
 
 ## Repository-checkout commands
 
-After `uv sync`, these ordinary root forms have verified standalone checkout
-scripts:
+After `uv sync`, use `uv run hac <subcommand>` for ordinary checkout use. The
+following retained standalone launchers remain available where their direct
+mapping is useful for compatibility or reference:
 
-| Installed root | Repository checkout |
-| -------------- | ------------------- |
+| Ordinary root | Retained standalone launcher |
+| ------------- | ---------------------------- |
 | `hac local` | `uv run home-ai-cluster-local` |
 | `hac static-cluster` | `uv run home-ai-cluster-static-cluster` |
 | `hac compatibility` | `uv run home-ai-cluster-openai-compatibility` |

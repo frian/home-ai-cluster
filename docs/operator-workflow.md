@@ -75,7 +75,7 @@ required model is locally available. Home AI Cluster does not own this process.
 ### 2. Run local-only preflight
 
 ```sh
-uv run home-ai-cluster-preflight
+uv run hac preflight
 ```
 
 This checks only that every adapter declared by an ordinary local node resolves
@@ -86,9 +86,9 @@ Preflight, health, and status results are human-readable by default. Automation
 that needs their structured reports must request them explicitly:
 
 ```sh
-uv run home-ai-cluster-preflight --json
-uv run home-ai-cluster-health --json
-uv run home-ai-cluster-status --declaration <DECLARATION_PATH> --json
+uv run hac preflight --json
+uv run hac health --json
+uv run hac status --declaration <DECLARATION_PATH> --json
 ```
 
 This incremental output change applies to preflight, health, and status. Their
@@ -98,7 +98,7 @@ the compact structured output for automation.
 ### 3. Run local health
 
 ```sh
-uv run home-ai-cluster-health
+uv run hac health
 ```
 
 This observes the configured local runtime adapter. If it is not usable, repair
@@ -107,13 +107,13 @@ or start the external runtime, confirm the required model, then rerun health.
 The default health report keeps declared state separate from adapter
 observations. A completed snapshot may show an `unavailable`, `missing`, or
 `probe-failed` adapter observation while the command itself still completes
-successfully. Use `uv run home-ai-cluster-health --json` when automation needs
+successfully. Use `uv run hac health --json` when automation needs
 the existing compact structured snapshot.
 
 ### 4. Start the ordinary local-only application
 
 ```sh
-uv run home-ai-cluster-local
+uv run hac local
 ```
 
 The native endpoint is:
@@ -150,7 +150,7 @@ displayed order, and no multipart data or filename is submitted. This is not a
 dashboard, operator inspection surface, compatibility interface, or LAN browser
 interface.
 
-The page is attached only when the selected `home-ai-cluster-local --host`
+The page is attached only when the selected `hac local --host`
 value is exactly `127.0.0.1`. Any other value, including the trusted-LAN
 receiver form `0.0.0.0`, remains API-only and has no `/` or `/assets/` browser
 surface.
@@ -161,7 +161,7 @@ Replace `<OPERATOR_SUPPLIED_MESSAGE>` at invocation time. Do not retain the
 supplied prompt or generated response in documentation or proof records.
 
 ```sh
-uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
+uv run hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
 
 This is the ordinary one-shot native client of the already running process. A
@@ -172,7 +172,7 @@ To summarize one bounded supplied text through that same process, use the
 ordinary root client:
 
 ```sh
-uv run home-ai-cluster summarize --text "<OPERATOR_SUPPLIED_TEXT>"
+uv run hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"
 ```
 
 After installation, `hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"` is the
@@ -258,8 +258,8 @@ available. Home AI Cluster does not own that runtime.
 On every receiving machine:
 
 ```sh
-uv run home-ai-cluster-preflight
-uv run home-ai-cluster-health
+uv run hac preflight
+uv run hac health
 ```
 
 Preflight checks local static declaration coherence. Health observes each
@@ -271,7 +271,7 @@ reachability from the calling machine.
 On every receiving machine represented by the declaration:
 
 ```sh
-uv run home-ai-cluster-local --host 0.0.0.0 --port 25042
+uv run hac local --host 0.0.0.0 --port 25042
 ```
 
 This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
@@ -330,7 +330,7 @@ capabilities = ["summarize"]
 For one inline remote, repeat the closed capability option as needed:
 
 ```sh
-uv run home-ai-cluster-static-cluster \
+uv run hac static-cluster \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
   --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
@@ -386,7 +386,7 @@ unavailable before transmission.
 On the calling machine:
 
 ```sh
-uv run home-ai-cluster-preflight --declaration "$DECLARATION"
+uv run hac preflight --declaration "$DECLARATION"
 ```
 
 This validates static declaration coherence and performs no remote network
@@ -399,7 +399,7 @@ capability values to preflight; it projects the caller-local routing capability
 set without network activity:
 
 ```sh
-uv run home-ai-cluster-preflight \
+uv run hac preflight \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
   --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
@@ -411,7 +411,7 @@ uv run home-ai-cluster-preflight \
 Run one finite, read-only inspection from the calling machine:
 
 ```sh
-uv run home-ai-cluster-status --declaration "$DECLARATION"
+uv run hac status --declaration "$DECLARATION"
 ```
 
 The command validates the declaration before local or remote observation.
@@ -422,7 +422,7 @@ observed in declaration order. This operation does not start or stop runtimes,
 repair services, mutate declarations, poll, or watch.
 
 Status is human-readable by default. Use
-`uv run home-ai-cluster-status --declaration "$DECLARATION" --json` when
+`uv run hac status --declaration "$DECLARATION" --json` when
 automation needs the compact structured result. `unreachable`, `request-failed`,
 `invalid-response`, `unavailable`, `observation-failed`, and `unknown` are
 normalized result data in a completed status result, not whole-command failures.
@@ -436,7 +436,7 @@ to repeat the workflow.
 ### 7. Optionally observe the calling machine's local runtime
 
 ```sh
-uv run home-ai-cluster-health
+uv run hac health
 ```
 
 This remains local health only; it does not inspect the remote node. It matters
@@ -447,7 +447,7 @@ because ordinary routing is local-first, so a usable local path normally wins.
 On the calling machine:
 
 ```sh
-uv run home-ai-cluster-static-cluster --declaration "$DECLARATION"
+uv run hac static-cluster --declaration "$DECLARATION"
 ```
 
 It binds the calling machine's native endpoint to:
@@ -466,7 +466,7 @@ start, stop, supervise, repair, or discover the remote machine or runtime.
 ### 9. Send one ordinary request
 
 ```sh
-uv run home-ai-cluster-chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
+uv run hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
 
 The same process also accepts an explicit bounded textual code request through
@@ -515,7 +515,7 @@ ordinary static multi-node operating mode.
 The `home-ai-cluster-static-proof` launcher was retired by accepted RFC-0075.
 The command below is retained as historical evidence, not a current installation
 instruction. Exact reproduction requires the historical repository revision
-that still installed it. Use the ordinary `home-ai-cluster-static-cluster`
+that still installed it. Use the ordinary `hac static-cluster`
 workflow for current operation.
 
 ```sh
@@ -530,7 +530,7 @@ the detailed historical runbook, see `docs/static-two-machine-proof.md`.
 | Mode | Calling process | Selection behavior | Preflight | Intended use |
 | --- | --- | --- | --- | --- |
 | Local-only | ordinary app | local only | local declarations | normal simplest use |
-| Static multi-node | `home-ai-cluster-static-cluster` | local-first, narrow fallback | local + declared remote static declarations | ordinary explicit two-node operation |
+| Static multi-node | `hac static-cluster` | local-first, narrow fallback | local + declared remote static declarations | ordinary explicit two-node operation |
 | Historical proof | retired launcher; historical revision only | declared remote only | ordinary local preflight only unless separately invoked | retained architecture evidence |
 
 ## Failure-layer lookup
@@ -539,9 +539,9 @@ Successful preflight does not imply runtime or network success.
 
 | Layer | Owning surface |
 | --- | --- |
-| Static declaration coherence | `home-ai-cluster-preflight` |
-| Local runtime health | `home-ai-cluster-health` |
-| Declared local and remote live observations | `home-ai-cluster-status --declaration <path>` |
+| Static declaration coherence | `hac preflight` |
+| Local runtime health | `hac health` |
+| Declared local and remote live observations | `hac status --declaration <path>` |
 | Process startup and port conflict | Invoked process and operating system |
 | Trusted-LAN reachability | Explicit trusted-LAN request |
 | Receiving endpoint availability | Receiving application and explicit request |

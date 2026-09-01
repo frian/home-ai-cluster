@@ -85,6 +85,8 @@ The ordinary root surface has fourteen commands.
 
 **Purpose:** Manage the bounded HAC-managed retained configuration baseline.
 
+With no concrete subcommand, `hac config` displays the config command map.
+
 **Common forms:**
 
 ```sh

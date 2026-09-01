@@ -47,9 +47,29 @@ receiver runtime + receiver hac local
   -> stop caller, then receiver
 ```
 
-The second path adds an explicit caller, receiver, and retained declaration;
+The second path adds an explicit caller, receiver, and saved declaration file;
 it does not replace the local-only default. A declared remote does not guarantee
 remote execution because ordinary routing is local-first.
+
+For repeated ordinary static-cluster startup, HAC-managed retained configuration
+can establish a local baseline:
+
+```sh
+hac config local --runtime ollama
+hac config node summary-node --base-url http://192.0.2.10:25042 --capability summarize
+hac config show
+hac static-cluster
+```
+
+`hac config show` reports those retained facts; it does not observe runtime
+health or prove that a cluster is running. HAC-managed retained configuration
+provides the ordinary static-cluster startup baseline. A complete explicit
+topology source replaces retained topology for that invocation; runtime
+composition follows its own retained or explicit source-selection rules.
+Inspection remains separate: bare `hac preflight` is local-only,
+while `hac preflight --declaration <DECLARATION_PATH>` inspects a selected static
+topology and `hac status --declaration <DECLARATION_PATH>` observes the selected
+declared cluster.
 
 Inspection commands are finite observations, not mandatory prerequisites for
 every startup or request:
@@ -277,7 +297,7 @@ uv run hac local --host 0.0.0.0 --port 25042
 This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
 allowance to the trusted LAN and remove it after use.
 
-### 4. Select or create one retained declaration
+### 4. Select or create one saved declaration file
 
 On the calling machine, select or create one explicit, operator-owned
 declaration at a stable local path:
@@ -391,7 +411,7 @@ uv run hac preflight --declaration "$DECLARATION"
 
 This validates static declaration coherence and performs no remote network
 observation. Run it before status or startup. An unknown key is an invalid
-declaration; compare the retained file with the accepted single-remote or
+declaration; compare the saved declaration file with the accepted single-remote or
 multi-remote shape rather than reconstructing its schema from memory.
 
 For the equivalent inline topology, provide the same complete inline pair and
@@ -427,9 +447,9 @@ automation needs the compact structured result. `unreachable`, `request-failed`,
 `invalid-response`, `unavailable`, `observation-failed`, and `unknown` are
 normalized result data in a completed status result, not whole-command failures.
 
-If a receiver is unreachable, first check the retained declaration and receiving
+If a receiver is unreachable, first check the saved declaration file and receiving
 process. Do not interpret that result automatically as a network fault. Correct
-a wrong address or stale operator value in the retained declaration, rerun
+a wrong address or stale operator value in the saved declaration file, rerun
 preflight, then rerun status; do not delete and recreate the declaration merely
 to repeat the workflow.
 
@@ -566,13 +586,13 @@ This table does not imply supervision or automatic lifecycle management.
 
 Use only supported manual actions:
 
-- for an unknown declaration key, compare the retained file with the accepted
+- for an unknown declaration key, compare the saved declaration file with the accepted
   single-remote or multi-remote shape before rerunning preflight;
-- for a wrong address or stale operator value, correct the retained declaration,
+- for a wrong address or stale operator value, correct the saved declaration file,
   rerun preflight, then rerun status;
 - do not delete and recreate a declaration merely to rerun the workflow;
 - do not interpret an unreachable receiver as a network fault before checking
-  the retained declaration and receiving process;
+  the saved declaration file and receiving process;
 - start or repair the external runtime before rerunning health;
 - ensure the required model is locally available;
 - stop a conflicting process when an accepted fixed port is occupied;

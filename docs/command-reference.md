@@ -149,7 +149,7 @@ use the targeted local, node, external-information, or Chat reset/remove forms
 when unrelated retained facts should be preserved. `reset` does not make the
 private retained file a manually editable configuration API.
 
-`show` reports retained facts only. It performs no runtime or node probing,
+`show` reports HAC-managed retained facts only. It performs no runtime or node probing,
 health observation, plugin discovery/import, DNS, HTTP, or mutation. Its
 external-information section reports the retained name only, not credential,
 installation, compatibility, provider, or health status. The retained-state
@@ -162,7 +162,9 @@ compatible runtime options are one-invocation overrides, while parser defaults
 are not overrides. An explicitly different `--runtime` replaces that runtime
 domain, and `--runtime-config` remains a self-contained alternative. Startup
 never mutates retained state; `show` continues to report retained facts rather
-than current runtime or cluster truth.
+than current runtime or cluster truth. It does not show live health or prove a
+currently running cluster, and it does not mean every other command consumes
+retained values.
 
 ## `hac local`
 
@@ -274,7 +276,7 @@ hac static-cluster \
 - Declaration and inline topology modes are mutually exclusive and each replaces
   retained topology for that invocation.
 - Declaration mode supports one or more ordered remote nodes.
-- The retained inline mode supports exactly one remote node.
+- The inline mode supports exactly one remote node.
 - Topology is static and explicit. The process does not discover, start, stop,
   supervise, or repair remote machines or runtimes.
 
@@ -742,13 +744,16 @@ hac preflight \
   --remote-capability summarize
 ```
 
-**Important behavior:** This is static validation only: it does not observe a
-runtime or remote network. Default output is human-readable; `--json` provides
-compact structured output. A coherent result does not prove that a runtime or
-remote application is available. Inline preflight projects the same caller-local
+**Important behavior:** With no topology input, `hac preflight` performs the
+historical local-only static coherence inspection. It does not automatically
+inspect HAC-managed retained remote topology. To inspect a static multi-node
+topology, supply `--declaration <PATH>` or the complete supported inline
+topology form. This is static validation only: it does not observe a runtime or
+remote network. Default output is human-readable; `--json` provides compact
+structured output. A coherent result does not prove that a runtime or remote
+application is available. Inline preflight projects the same caller-local
 routing capability set as inline `hac static-cluster`; declaration and inline
-topology modes remain mutually exclusive. `hac local` and standalone local-only
-preflight remain unchanged.
+topology modes remain mutually exclusive.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -788,14 +793,20 @@ hac status \
   --llama-server-model <MODEL_IDENTIFIER>
 ```
 
-**Important behavior:** The declaration is validated before observations. The
-local node is reported first and remotes follow declaration order. Observation
-is finite and read-only: it does not change routing, topology, lifecycle, or
-the declaration. Default output is human-readable; `--json` is compact
-structured output. Unreachable or unavailable nodes can appear as result data
-without making the command invocation invalid.
-`--runtime-config <PATH>` uses the same explicit closed runtime-composition
-contract as `hac local` and does not change status output.
+**Important behavior:** `status` requires `--declaration <PATH>` because that
+saved declaration file explicitly selects the remote topology it observes.
+Status also observes the fixed local node; its local runtime composition remains
+selected separately by the existing status runtime-selection rules. HAC-managed
+retained topology is not used automatically as a status target. The declaration
+is validated before observations. The local node is reported first and remotes
+follow declaration order. Observation is finite and read-only: it does not
+change routing, topology, lifecycle, or the declaration.
+Default output is human-readable; `--json` is compact structured output.
+Unreachable or unavailable nodes can appear as result data without making the
+command invocation invalid. With no runtime option, status uses the historical
+default Ollama composition. Runtime CLI options and `--runtime-config <PATH>`
+select an explicit local composition; retained local runtime configuration does
+not replace status runtime selection.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

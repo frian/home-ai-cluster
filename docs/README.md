@@ -22,6 +22,11 @@ architecture.
 
 ## Release and distribution
 
+- [1.0 CLI contract candidate investigation](v1.0-cli-contract-candidate-investigation.md)
+  — inventories the current ordinary CLI and retained compatibility surfaces as
+  a 1.0 candidate; it distinguishes candidate stable contracts from private or
+  flexible behaviour and records unresolved compatibility questions without
+  making a policy decision.
 - [v0.9 privacy and authority boundaries investigation](v0.9-privacy-authority-boundaries-investigation.md)
   — inventories current persistence, network, filesystem, process, plugin, and
   observation authority against accepted contracts; it changes no behavior and

@@ -16,21 +16,11 @@ historical proof-only commands retained in the repository.
 
 ## Invocation forms
 
-Install the package for ordinary operator use:
+Install the current published package for ordinary operator use:
 
 ```sh
-uv tool install .
+uv tool install home-ai-cluster
 ```
-
-After changing a checkout, rebuild and refresh that installed snapshot without
-reusing cached build artifacts:
-
-```sh
-uv tool install --force --no-cache .
-```
-
-`--force` replaces the installed tool environment. `--no-cache` ensures the
-refresh does not reuse cached build artifacts from an earlier checkout state.
 
 Use either root form:
 
@@ -39,8 +29,9 @@ hac <subcommand>
 home-ai-cluster <subcommand>
 ```
 
-For checkout use, first run `uv sync`, then use the ordinary root form, for
-example `uv run hac local` or `uv run hac preflight`.
+For repository-checkout development, prepare the locked environment with
+`uv sync --locked`, then use the ordinary root form through that environment,
+for example `uv run hac local` or `uv run hac preflight`.
 
 ## Ordinary short options
 
@@ -871,7 +862,8 @@ See the relevant command section for its specific boundary.
 
 ## Repository-checkout commands
 
-After `uv sync`, use `uv run hac <subcommand>` for ordinary checkout use. The
+After `uv sync --locked`, use `uv run hac <subcommand>` for ordinary checkout
+use. The
 following retained standalone launchers remain available where their direct
 mapping is useful for compatibility or reference:
 

@@ -81,6 +81,11 @@ every startup or request:
 - `hac status --declaration <DECLARATION_PATH>` makes one bounded observation
   of the caller's local node and its declared remotes.
 
+Capability lists shown by preflight and health belong to different scopes and
+need not match: preflight reports static topology routing eligibility, while
+health declares the ordinary local execution composition. Neither list is
+discovered from a runtime; health's live observation concerns adapter health.
+
 None starts, supervises, repairs, or guarantees later request success.
 Historical proof runbooks and retained proof records are supporting evidence,
 not required steps in either ordinary daily path.

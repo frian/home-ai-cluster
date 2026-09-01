@@ -753,9 +753,12 @@ topology, supply `--declaration <PATH>` or the complete supported inline
 topology form. This is static validation only: it does not observe a runtime or
 remote network. Default output is human-readable; `--json` provides compact
 structured output. A coherent result does not prove that a runtime or remote
-application is available. Inline preflight projects the same caller-local
-routing capability set as inline `hac static-cluster`; declaration and inline
-topology modes remain mutually exclusive.
+application is available. In an explicit static topology, each node's
+`Capabilities` are static topology declarations used for routing eligibility,
+not runtime capability discovery, runtime health, adapter enablement, or
+endpoint availability. Inline preflight projects the same caller-local routing
+capability set as inline `hac static-cluster`; declaration and inline topology
+modes remain mutually exclusive.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -776,6 +779,9 @@ invocation. Declared `Availability` and `Healthy` are configuration facts, not
 live runtime observations; adapter `Status` is the direct observation. An
 adapter `unavailable` may therefore coexist with declared `available` and
 `healthy`; this is not contradictory, and HAC does not rewrite the declaration.
+Declared `Capabilities` come from the ordinary local execution composition,
+not a caller-local routing restriction in an explicit static topology; they are
+declared composition facts, not capability probing.
 The command is local-only and does not observe remote nodes, monitor, poll,
 change routing, or predict later request success. Default output is
 human-readable; `--json` is structured output. `unavailable`, `missing`, and

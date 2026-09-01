@@ -113,9 +113,14 @@ hac --help
 `hac` is the short ordinary command. `home-ai-cluster` is the equivalent long
 root command.
 
-To update a previously installed published package later, use the appropriate
-`uv tool` upgrade operation rather than installing a repository checkout over
-it.
+To update an already installed published HAC tool, use:
+
+```sh
+uv tool upgrade home-ai-cluster
+```
+
+This is the normal published-package upgrade path; it does not validate or
+install unreleased checkout work.
 
 ### Optional: retain stable choices
 
@@ -295,6 +300,14 @@ uv tool install --force \
   --with home-ai-cluster-plugin-tavily \
   home-ai-cluster
 ```
+
+`uv tool` gives HAC its own isolated environment. Each `--with` package is an
+additional requirement in that environment. `uv tool install --force ...`
+recreates it, so include every HAC plugin or other additional requirement that
+should remain installed; an omitted earlier `--with` dependency can be absent
+from the recreated environment. Repeat `--with` when installing multiple
+compatible packages. Installed packages and the one retained
+`hac config external-information --plugin NAME` selection are separate.
 
 With SearXNG and `hac local` already running, retain that choice once, then use
 it for explicit external-information requests:

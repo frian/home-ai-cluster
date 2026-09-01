@@ -18,6 +18,10 @@ Cluster architecture. It defines three distinct modes:
 Use the [command reference](command-reference.md) for current syntax and option
 lookup; this document remains the procedural sequence.
 
+The ordinary workflows below assume the published package is installed and use
+`hac`. From a repository checkout, contributors can prepare the locked
+environment with `uv sync --locked` and use `uv run hac ...` for development.
+
 Local-only is the default, shortest, and least operationally complex path.
 All external runtimes remain operator-owned. Home AI Cluster does not start,
 stop, supervise, repair, or discover runtimes or remote machines.
@@ -100,7 +104,7 @@ required model is locally available. Home AI Cluster does not own this process.
 ### 2. Run local-only preflight
 
 ```sh
-uv run hac preflight
+hac preflight
 ```
 
 This checks only that every adapter declared by an ordinary local node resolves
@@ -111,9 +115,9 @@ Preflight, health, and status results are human-readable by default. Automation
 that needs their structured reports must request them explicitly:
 
 ```sh
-uv run hac preflight --json
-uv run hac health --json
-uv run hac status --declaration <DECLARATION_PATH> --json
+hac preflight --json
+hac health --json
+hac status --declaration <DECLARATION_PATH> --json
 ```
 
 This incremental output change applies to preflight, health, and status. Their
@@ -123,7 +127,7 @@ the compact structured output for automation.
 ### 3. Run local health
 
 ```sh
-uv run hac health
+hac health
 ```
 
 This observes the configured local runtime adapter. If it is not usable, repair
@@ -137,13 +141,13 @@ adapter `unavailable`; when diagnosing current runtime usability, use the
 adapter observation rather than treating the declared fields as a live probe.
 A completed snapshot may show an `unavailable`, `missing`, or `probe-failed`
 adapter observation while the command itself still completes successfully. Use
-`uv run hac health --json` when automation needs the existing compact structured
+`hac health --json` when automation needs the existing compact structured
 snapshot.
 
 ### 4. Start the ordinary local-only application
 
 ```sh
-uv run hac local
+hac local
 ```
 
 The native endpoint is:
@@ -191,7 +195,7 @@ Replace `<OPERATOR_SUPPLIED_MESSAGE>` at invocation time. Do not retain the
 supplied prompt or generated response in documentation or proof records.
 
 ```sh
-uv run hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
+hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
 
 This is the ordinary one-shot native client of the already running process. A
@@ -202,11 +206,10 @@ To summarize one bounded supplied text through that same process, use the
 ordinary root client:
 
 ```sh
-uv run hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"
+hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"
 ```
 
-After installation, `hac summarize --text "<OPERATOR_SUPPLIED_TEXT>"` is the
-short equivalent. The client also accepts one bounded UTF-8 source from stdin
+The client also accepts one bounded UTF-8 source from stdin
 when no explicit source is supplied, or one bounded strict-UTF-8 regular file
 through `--file <PATH>`. `--text` and `--file` are mutually exclusive; either
 explicit source ignores stdin. The client does not start or inspect the process.
@@ -267,29 +270,24 @@ Roles:
 - **calling machine**: ordinary static multi-node process with one local node
   and one or more explicitly declared remote nodes.
 
-The calling machine and every receiving machine must use compatible repository
-revisions and remain on the same trusted LAN for the first reproduction. The
+The calling machine and every receiving machine must use compatible published
+HAC versions and remain on the same trusted LAN for the first reproduction. The
 existing one-receiving-machine path remains the simple supported special case.
 
 ### 1. Prepare the calling machine and every receiving machine
 
-On the calling machine and every receiving machine:
-
-```sh
-uv sync
-```
-
-Confirm compatible repository revisions. On every receiving machine, prepare
-and start the external runtime and ensure the required model is locally
-available. Home AI Cluster does not own that runtime.
+Install the current published HAC package on the calling machine and every
+receiving machine. Confirm compatible published versions. On every receiving
+machine, prepare and start the external runtime and ensure the required model is
+locally available. Home AI Cluster does not own that runtime.
 
 ### 2. Run static preflight and health on every receiving machine
 
 On every receiving machine:
 
 ```sh
-uv run hac preflight
-uv run hac health
+hac preflight
+hac health
 ```
 
 Preflight checks local static declaration coherence. Health observes each
@@ -301,7 +299,7 @@ reachability from the calling machine.
 On every receiving machine represented by the declaration:
 
 ```sh
-uv run hac local --host 0.0.0.0 --port 25042
+hac local --host 0.0.0.0 --port 25042
 ```
 
 This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
@@ -360,7 +358,7 @@ capabilities = ["summarize"]
 For one inline remote, repeat the closed capability option as needed:
 
 ```sh
-uv run hac static-cluster \
+hac static-cluster \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
   --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
@@ -416,7 +414,7 @@ unavailable before transmission.
 On the calling machine:
 
 ```sh
-uv run hac preflight --declaration "$DECLARATION"
+hac preflight --declaration "$DECLARATION"
 ```
 
 This validates static declaration coherence and performs no remote network
@@ -429,7 +427,7 @@ capability values to preflight; it projects the caller-local routing capability
 set without network activity:
 
 ```sh
-uv run hac preflight \
+hac preflight \
   --remote-node-id <DECLARED_REMOTE_NODE_ID> \
   --remote-base-url http://<RECEIVER_ADDRESS>:25042 \
   --local-capability chat \
@@ -441,7 +439,7 @@ uv run hac preflight \
 Run one finite, read-only inspection from the calling machine:
 
 ```sh
-uv run hac status --declaration "$DECLARATION"
+hac status --declaration "$DECLARATION"
 ```
 
 The command validates the declaration before local or remote observation.
@@ -452,7 +450,7 @@ observed in declaration order. This operation does not start or stop runtimes,
 repair services, mutate declarations, poll, or watch.
 
 Status is human-readable by default. Use
-`uv run hac status --declaration "$DECLARATION" --json` when
+`hac status --declaration "$DECLARATION" --json` when
 automation needs the compact structured result. `unreachable`, `request-failed`,
 `invalid-response`, `unavailable`, `observation-failed`, and `unknown` are
 normalized result data in a completed status result, not whole-command failures.
@@ -466,7 +464,7 @@ to repeat the workflow.
 ### 7. Optionally observe the calling machine's local runtime
 
 ```sh
-uv run hac health
+hac health
 ```
 
 This remains local health only; it does not inspect the remote node. It matters
@@ -477,7 +475,7 @@ because ordinary routing is local-first, so a usable local path normally wins.
 On the calling machine:
 
 ```sh
-uv run hac static-cluster --declaration "$DECLARATION"
+hac static-cluster --declaration "$DECLARATION"
 ```
 
 It binds the calling machine's native endpoint to:
@@ -496,7 +494,7 @@ start, stop, supervise, repair, or discover the remote machine or runtime.
 ### 9. Send one ordinary request
 
 ```sh
-uv run hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
+hac chat --message "<OPERATOR_SUPPLIED_MESSAGE>"
 ```
 
 The same process also accepts an explicit bounded textual code request through

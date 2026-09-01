@@ -125,10 +125,15 @@ This observes the configured local runtime adapter. If it is not usable, repair
 or start the external runtime, confirm the required model, then rerun health.
 
 The default health report keeps declared state separate from adapter
-observations. A completed snapshot may show an `unavailable`, `missing`, or
-`probe-failed` adapter observation while the command itself still completes
-successfully. Use `uv run hac health --json` when automation needs
-the existing compact structured snapshot.
+observations: `Declared state` is configured node metadata, while `Adapter
+observations` report what the runtime adapter observed during this invocation.
+Declared `available` and `healthy` can therefore truthfully appear beside an
+adapter `unavailable`; when diagnosing current runtime usability, use the
+adapter observation rather than treating the declared fields as a live probe.
+A completed snapshot may show an `unavailable`, `missing`, or `probe-failed`
+adapter observation while the command itself still completes successfully. Use
+`uv run hac health --json` when automation needs the existing compact structured
+snapshot.
 
 ### 4. Start the ordinary local-only application
 

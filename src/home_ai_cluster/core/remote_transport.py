@@ -7,6 +7,7 @@ import httpx
 from pydantic import ValidationError
 
 from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
 from home_ai_cluster.core.models import (
@@ -74,6 +75,8 @@ class HttpRemoteTransport:
                 endpoint,
                 json=internal_cluster_request_body(request),
             )
+            if response.status_code == 503:
+                raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
             response.raise_for_status()
         except httpx.ConnectError as exc:
             message = "Remote connection unavailable before request transmission"

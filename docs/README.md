@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [O-13 remote failure traceback investigation](v1.0-o13-remote-failure-investigation.md)
+  — reproduces the caller-side static-cluster traceback leak with loopback-only
+  receivers, finds it an accepted-boundary implementation defect, and leaves
+  richer remote-failure wording/status decisions out of scope.
 - [1.0 CLI contract candidate investigation](v1.0-cli-contract-candidate-investigation.md)
   — inventories the current ordinary CLI and retained compatibility surfaces as
   a 1.0 candidate; it distinguishes candidate stable contracts from private or

@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [v0.9 privacy and authority boundaries investigation](v0.9-privacy-authority-boundaries-investigation.md)
+  — inventories current persistence, network, filesystem, process, plugin, and
+  observation authority against accepted contracts; it changes no behavior and
+  identifies only focused evidence gaps.
 - [Release direction to 1.0](release-direction-to-1.0.md)
   — records the non-binding product-maturity direction from `0.5` through
   `1.0.0`; it is not a roadmap, backlog, implementation authorization, or

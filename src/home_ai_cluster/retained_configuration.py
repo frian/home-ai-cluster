@@ -164,11 +164,28 @@ def save_retained_configuration(
 
 
 def _parse_configuration(document: Any) -> RetainedConfiguration:
-    _require_exact_keys(document, _TOP_LEVEL_KEYS, "retained configuration")
+    if not isinstance(document, dict):
+        raise RetainedConfigurationError("invalid retained configuration")
+    keys = set(document)
+    if keys == {"local", "remote_nodes"}:
+        external_information_plugin = None
+        chat_external_information_fallback = False
+    elif keys == {
+        "local",
+        "remote_nodes",
+        "external_information_plugin",
+    }:
+        external_information_plugin = document["external_information_plugin"]
+        chat_external_information_fallback = False
+    elif keys == set(_TOP_LEVEL_KEYS):
+        external_information_plugin = document["external_information_plugin"]
+        chat_external_information_fallback = document[
+            "chat_external_information_fallback"
+        ]
+    else:
+        raise RetainedConfigurationError("invalid retained configuration shape")
     local_value = document["local"]
     remote_nodes_value = document["remote_nodes"]
-    external_information_plugin = document["external_information_plugin"]
-    chat_external_information_fallback = document["chat_external_information_fallback"]
     if local_value is not None and not isinstance(local_value, dict):
         raise RetainedConfigurationError("invalid retained local configuration")
     if not isinstance(remote_nodes_value, list):

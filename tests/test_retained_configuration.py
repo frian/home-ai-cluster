@@ -402,6 +402,92 @@ def test_invalid_encoding_or_json_fails_without_echoing_contents(
     assert "not json" not in str(raised.value)
 
 
+def test_rfc_0094_era_document_loads_with_later_defaults_without_rewriting(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    contents = b'{"local":null,"remote_nodes":[]}\n'
+    path.write_bytes(contents)
+
+    assert load_retained_configuration(path) == RetainedConfiguration()
+    assert path.read_bytes() == contents
+
+
+def test_rfc_0095_era_document_loads_with_chat_default_without_rewriting(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    contents = (
+        b'{"local":null,"remote_nodes":[],"external_information_plugin":"searxng"}\n'
+    )
+    path.write_bytes(contents)
+
+    assert load_retained_configuration(path) == RetainedConfiguration(
+        external_information_plugin="searxng"
+    )
+    assert path.read_bytes() == contents
+
+
+def test_current_document_still_round_trips(tmp_path: Path) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        external_information_plugin="searxng",
+        chat_external_information_fallback=True,
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {"remote_nodes": []},
+        {"local": None},
+        {
+            "local": None,
+            "remote_nodes": [],
+            "unexpected": True,
+        },
+    ],
+)
+def test_original_fields_remain_required_and_unknown_top_level_fields_fail(
+    tmp_path: Path, document: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {
+            "local": None,
+            "remote_nodes": [],
+            "external_information_plugin": "",
+        },
+        {
+            "local": None,
+            "remote_nodes": [],
+            "external_information_plugin": None,
+            "chat_external_information_fallback": "false",
+        },
+    ],
+)
+def test_present_optional_fields_remain_strictly_validated(
+    tmp_path: Path, document: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
 @pytest.mark.parametrize(
     "document",
     [

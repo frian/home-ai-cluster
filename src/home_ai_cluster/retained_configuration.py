@@ -95,6 +95,19 @@ def retained_configuration_file() -> Path:
     )
 
 
+def remove_retained_configuration(path: Path | None = None) -> None:
+    """Remove private retained configuration without loading it."""
+    configuration_path = path or retained_configuration_file()
+    try:
+        configuration_path.unlink()
+    except FileNotFoundError:
+        pass
+    except OSError as error:
+        raise RetainedConfigurationError(
+            "unable to remove retained configuration"
+        ) from error
+
+
 def load_retained_configuration(
     path: Path | None = None,
 ) -> RetainedConfiguration:

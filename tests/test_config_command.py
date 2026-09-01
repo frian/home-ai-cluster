@@ -9,6 +9,7 @@ from home_ai_cluster import config_command
 from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
+    RetainedConfigurationError,
     RetainedLocalConfiguration,
     load_retained_configuration,
     retained_configuration_file,
@@ -40,7 +41,7 @@ def test_config_requires_one_of_the_bounded_surfaces(
     code, out, err = _run(capsys, [])
     assert code == 2
     assert out == ""
-    assert "{local,node,external-information,chat,show}" in err
+    assert "{local,node,external-information,chat,reset,show}" in err
 
 
 def test_config_help_shows_exactly_the_bounded_surfaces(
@@ -49,7 +50,8 @@ def test_config_help_shows_exactly_the_bounded_surfaces(
     code, out, err = _run(capsys, ["--help"])
     assert code == 0
     assert err == ""
-    assert "{local,node,external-information,chat,show}" in out
+    assert "{local,node,external-information,chat,reset,show}" in out
+    assert "reset" in out
     assert "edit" not in out
 
 
@@ -68,6 +70,98 @@ def test_show_rejects_unexpected_options(capsys: pytest.CaptureFixture[str]) -> 
     assert code == 2
     assert out == ""
     assert "unrecognized arguments" in err
+
+
+def test_whole_reset_removes_valid_configuration_and_show_is_empty(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["local", "--runtime", "ollama"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    _run(capsys, ["external-information", "--plugin", "tavily"])
+    _run(capsys, ["chat", "--external-information-fallback"])
+
+    assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
+    assert _run(capsys, ["show"]) == (
+        0,
+        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "External information:\n  not configured\n"
+        "Chat external information:\n  automatic fallback: not authorized\n",
+        "",
+    )
+
+
+@pytest.mark.parametrize("contents", [b"not json", b'{"local":null}\n'])
+def test_whole_reset_removes_unloadable_state_without_loading(
+    capsys: pytest.CaptureFixture[str], contents: bytes
+) -> None:
+    path = retained_configuration_file()
+    path.parent.mkdir(parents=True)
+    path.write_bytes(contents)
+
+    assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
+    assert not path.exists()
+
+
+def test_whole_reset_does_not_load_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        config_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load retained state")),
+    )
+
+    assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
+
+
+def test_whole_reset_is_idempotent_without_creating_configuration_directory(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    path = retained_configuration_file()
+
+    assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
+    assert not path.parent.exists()
+
+
+def test_whole_reset_reports_bounded_removal_failure(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        config_command,
+        "remove_retained_configuration",
+        lambda: (_ for _ in ()).throw(
+            RetainedConfigurationError("unable to remove retained configuration")
+        ),
+    )
+
+    assert _run(capsys, ["reset"]) == (
+        1,
+        "",
+        "error: unable to remove retained configuration\n",
+    )
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["local", "--reset"],
+        ["node", "one", "--remove"],
+        ["external-information", "--reset"],
+        ["chat", "--reset"],
+    ],
+)
+def test_selective_operations_keep_failing_on_unloadable_state(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    path = retained_configuration_file()
+    path.parent.mkdir(parents=True)
+    contents = b'{"local":null}\n'
+    path.write_bytes(contents)
+
+    code, out, err = _run(capsys, argv)
+
+    assert (code, out, err) == (1, "", "error: invalid retained configuration shape\n")
+    assert path.read_bytes() == contents
 
 
 def test_show_reports_only_the_retained_external_information_plugin(

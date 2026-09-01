@@ -11,6 +11,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     RetainedLocalConfiguration,
     load_retained_configuration,
+    remove_retained_configuration,
     retained_configuration_file,
     save_retained_configuration,
 )
@@ -149,6 +150,49 @@ def test_missing_file_loads_empty_configuration(tmp_path: Path) -> None:
     assert load_retained_configuration(tmp_path / "missing.json") == (
         RetainedConfiguration()
     )
+
+
+def test_remove_retained_configuration_removes_only_the_configuration_file(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "home-ai-cluster" / "retained-config.json"
+    unrelated = path.parent / "unrelated.txt"
+    path.parent.mkdir()
+    path.write_text("malformed", encoding="utf-8")
+    unrelated.write_text("preserve", encoding="utf-8")
+
+    remove_retained_configuration(path)
+
+    assert not path.exists()
+    assert unrelated.read_text(encoding="utf-8") == "preserve"
+
+
+def test_remove_retained_configuration_is_idempotent_without_creating_parent(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "missing" / "retained-config.json"
+
+    remove_retained_configuration(path)
+
+    assert not path.parent.exists()
+
+
+def test_remove_retained_configuration_bounds_os_errors_without_path_leakage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "private" / "retained-config.json"
+
+    def fail_unlink(_path: Path) -> None:
+        raise OSError("private removal failure")
+
+    monkeypatch.setattr(retained_configuration.Path, "unlink", fail_unlink)
+
+    with pytest.raises(RetainedConfigurationError) as raised:
+        remove_retained_configuration(path)
+
+    assert str(raised.value) == "unable to remove retained configuration"
+    assert str(path) not in str(raised.value)
+    assert "private removal failure" not in str(raised.value)
 
 
 def test_chat_external_information_fallback_defaults_to_not_authorized() -> None:

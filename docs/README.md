@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [O-10/O-12 remote failure wording investigation](v1.0-o10-o12-remote-failure-wording-investigation.md)
+  — separates remote-HAC unreachability (a new category/RFC question) from
+  receiver runtime unavailability (an accepted-contract semantic-preservation
+  correction), while preserving O-13 containment and privacy boundaries.
 - [O-08 retained inspection semantics investigation](v1.0-o08-retained-inspection-semantics-investigation.md)
   — investigates retained configuration against preflight and status separately;
   it finds retained preflight ambiguous and keeps status topology and runtime

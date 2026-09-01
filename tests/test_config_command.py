@@ -1,11 +1,16 @@
 """Tests for the bounded retained-configuration command."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
-from home_ai_cluster import config_command
+from home_ai_cluster import (
+    config_command,
+    external_information_command,
+    local_runtime_composition,
+)
 from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
@@ -63,6 +68,44 @@ def test_show_empty_output_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
         "Chat external information:\n  automatic fallback: not authorized\n",
         "",
     )
+
+
+def test_show_does_not_construct_runtime_or_exercise_plugin_or_credential_authority(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    invoked: list[str] = []
+
+    def forbidden(authority: str):
+        def fail(*args: object, **kwargs: object) -> None:
+            invoked.append(authority)
+            raise AssertionError(f"config show must not use {authority}")
+
+        return fail
+
+    monkeypatch.setattr(
+        local_runtime_composition,
+        "create_local_runtime_composition",
+        forbidden("runtime construction"),
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        forbidden("plugin discovery"),
+    )
+    monkeypatch.setattr(
+        os,
+        "getenv",
+        forbidden("provider credential lookup"),
+    )
+
+    assert _run(capsys, ["show"]) == (
+        0,
+        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "External information:\n  not configured\n"
+        "Chat external information:\n  automatic fallback: not authorized\n",
+        "",
+    )
+    assert invoked == []
 
 
 def test_show_rejects_unexpected_options(capsys: pytest.CaptureFixture[str]) -> None:

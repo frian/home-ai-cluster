@@ -818,6 +818,24 @@ include execution attribution and their `--json` forms return compact structured
 results. Successful `code-file` replacement is silent. Inspection commands are human-readable by default and offer `--json`
 for automation. Individual command support is shown above.
 
+## Ordinary exit codes
+
+This lookup covers ordinary HAC-owned command outcomes, not every external
+process or operating-system outcome.
+
+| Exit | Ordinary meaning |
+| --- | --- |
+| `0` | Successful invocation or operation, including completed `health` and `status` observations that report an unavailable or failed observed state. |
+| `1` | Operational failure, or a completed `preflight` report that found incoherence. |
+| `2` | Invocation, input, or parser error. |
+
+A `preflight` exit 1 with a completed incoherent report is distinct from failure
+to construct the report. `health` and `status` may exit 0 with negative
+observations because the observation itself completed. After HAC completes its
+own pre-start validation and application construction, foreground Uvicorn/OS
+lifecycle failures remain owner-defined non-zero outcomes; HAC does not promise
+specific third-party exit codes for them.
+
 ## Common failure boundaries
 
 Commands use stable project-owned failures and avoid exposing runtime URLs,

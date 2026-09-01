@@ -512,6 +512,32 @@ def test_main_starts_default_ollama_composition(
     }
 
 
+def test_main_does_not_wrap_uvicorn_owned_startup_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    handed_to_uvicorn: dict[str, object] = {}
+    failure = RuntimeError()
+
+    monkeypatch.setattr(local_runtime, "create_local_runtime_app", lambda _: app)
+
+    def run(run_app: FastAPI, *, host: str, port: int) -> None:
+        handed_to_uvicorn.update(app=run_app, host=host, port=port)
+        raise failure
+
+    monkeypatch.setattr(local_runtime.uvicorn, "run", run)
+
+    with pytest.raises(RuntimeError) as raised:
+        local_runtime.main([])
+
+    assert raised.value is failure
+    assert handed_to_uvicorn == {
+        "app": app,
+        "host": "127.0.0.1",
+        "port": 25042,
+    }
+
+
 @pytest.fixture(autouse=True)
 def isolated_retained_configuration(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path

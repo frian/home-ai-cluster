@@ -77,7 +77,7 @@ The ordinary root surface has fourteen commands.
 | [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`classify`](#hac-classify) | Send one native bounded classification request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
-| [`health`](#hac-health) | Observe local runtime health. |
+| [`health`](#hac-health) | Inspect local declared state and runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
 | [`config`](#hac-config) | Manage and inspect retained configuration. |
 
@@ -761,7 +761,7 @@ topology modes remain mutually exclusive.
 
 ## `hac health`
 
-**Purpose:** Take one finite local runtime-health snapshot.
+**Purpose:** Take one finite snapshot of local declared state and runtime health.
 
 **Common forms:**
 
@@ -770,10 +770,17 @@ hac health
 hac health --json
 ```
 
-**Important behavior:** It observes only the local runtime, not remote nodes.
-It does not monitor, poll, or change routing. Default output is human-readable;
-`--json` is structured output. Unavailable observations can be result data
-rather than a whole-command failure.
+**Important behavior:** One completed snapshot deliberately separates static
+declared node metadata from direct runtime-adapter observations made for this
+invocation. Declared `Availability` and `Healthy` are configuration facts, not
+live runtime observations; adapter `Status` is the direct observation. An
+adapter `unavailable` may therefore coexist with declared `available` and
+`healthy`; this is not contradictory, and HAC does not rewrite the declaration.
+The command is local-only and does not observe remote nodes, monitor, poll,
+change routing, or predict later request success. Default output is
+human-readable; `--json` is structured output. `unavailable`, `missing`, and
+`probe-failed` observations remain completed result data rather than a
+whole-command failure.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

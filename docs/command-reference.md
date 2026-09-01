@@ -107,6 +107,8 @@ hac config external-information --reset
 hac config chat --external-information-fallback
 hac config chat --reset
 
+hac config reset
+
 hac config show
 ```
 
@@ -140,6 +142,12 @@ perform external-information acquisition. The retained RFC-0095 plugin name is
 a separate selection fact, and plugin selection alone grants no Chat disclosure
 authority. These Chat configuration forms do not inspect plugins, credentials,
 providers, runtime health, or network state.
+
+`reset` clears all retained HAC configuration. It is an explicit whole-state,
+destructive recovery action for retained state HAC cannot load. For valid state,
+use the targeted local, node, external-information, or Chat reset/remove forms
+when unrelated retained facts should be preserved. `reset` does not make the
+private retained file a manually editable configuration API.
 
 `show` reports retained facts only. It performs no runtime or node probing,
 health observation, plugin discovery/import, DNS, HTTP, or mutation. Its

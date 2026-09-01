@@ -16,6 +16,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     RetainedLocalConfiguration,
     load_retained_configuration,
+    remove_retained_configuration,
     save_retained_configuration,
     validate_external_information_plugin_name,
 )
@@ -131,6 +132,12 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         "--external-information-fallback",
         action="store_true",
         help="Retain operator authorization for eligible one-shot Chat fallback.",
+    )
+
+    commands.add_parser(
+        "reset",
+        help="Clear all retained configuration.",
+        description="Clear all retained configuration.",
     )
 
     commands.add_parser(
@@ -407,6 +414,11 @@ def _mutate_chat(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
     print("chat configuration reset" if args.reset else "chat configuration retained")
 
 
+def _reset_retained_configuration() -> None:
+    remove_retained_configuration()
+    print("retained configuration reset")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Manage and inspect retained configuration without startup consumption."""
     parser = _create_argument_parser()
@@ -416,6 +428,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             sys.stdout.write(
                 format_retained_configuration(load_retained_configuration())
             )
+        elif args.command == "reset":
+            _reset_retained_configuration()
         elif args.command == "local":
             _mutate_local(parser, args)
         elif args.command == "node":

@@ -26,6 +26,9 @@ architecture.
   — investigates retained configuration against preflight and status separately;
   it finds retained preflight ambiguous and keeps status topology and runtime
   selection explicit under accepted contracts.
+- [O-14 bare config discovery investigation](v1.0-o14-config-discovery-investigation.md)
+  — finds that bare config help is a bounded pre-1.0 discovery refinement, not
+  an RFC question; incomplete or invalid concrete config actions remain errors.
 - [O-13 remote failure traceback investigation](v1.0-o13-remote-failure-investigation.md)
   — reproduces the caller-side static-cluster traceback leak with loopback-only
   receivers, finds it an accepted-boundary implementation defect, and leaves

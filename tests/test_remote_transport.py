@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
 from home_ai_cluster.core.models import (
@@ -572,9 +573,14 @@ def test_http_remote_transport_validates_classify_result_by_request_type() -> No
     )
 
 
-def test_http_remote_transport_raises_normalized_error_for_http_failure() -> None:
+def test_http_remote_transport_preserves_runtime_unavailable_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(503, json={"detail": "unavailable"})
+        return httpx.Response(
+            503,
+            json={
+                "detail": "private-host secret-token private-model unavailable",
+            },
+        )
 
     transport = httpx.MockTransport(handler)
 
@@ -584,6 +590,22 @@ def test_http_remote_transport_raises_normalized_error_for_http_failure() -> Non
                 make_request(),
                 make_declaration(),
             )
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "Runtime adapter unavailable"
+    for sensitive_value in ("private-host", "secret-token", "private-model"):
+        assert sensitive_value not in str(raised.value)
+
+
+def test_http_remote_transport_keeps_other_http_failure_as_transport_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="private receiver failure")
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await HttpRemoteTransport(client).send(make_request(), make_declaration())
 
     with pytest.raises(RemoteTransportError) as raised:
         asyncio.run(run())

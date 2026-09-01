@@ -3,6 +3,7 @@ import asyncio
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
 from home_ai_cluster.core.models import (
@@ -409,3 +410,30 @@ def test_summarize_does_not_fallback_after_remote_transport_failure() -> None:
 
     assert transport.attempted_node_ids == ["remote-a"]
     assert "private source" not in str(raised.value)
+
+
+def test_summarize_does_not_fallback_after_remote_runtime_unavailable() -> None:
+    request = SummarizeRequest(
+        text="private source",
+        constraints=RequestConstraints(local_only=False),
+    )
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RuntimeAdapterUnavailableError("Runtime adapter unavailable"),
+            "remote-b": ClusterResult(
+                content="summary", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        run_summarize_fallback(
+            request,
+            transport,
+            [
+                make_summarize_declaration("remote-a"),
+                make_summarize_declaration("remote-b"),
+            ],
+        )
+
+    assert transport.attempted_node_ids == ["remote-a"]

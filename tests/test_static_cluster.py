@@ -30,7 +30,10 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclarationRegistry,
     declared_remote_routing_candidate_for_request,
 )
-from home_ai_cluster.core.remote_transport import RemoteTransportError
+from home_ai_cluster.core.remote_transport import (
+    HttpRemoteTransport,
+    RemoteTransportError,
+)
 from home_ai_cluster.core.routing_candidates import (
     RoutingCandidateSelectionMode,
     routing_candidates_for_request,
@@ -803,6 +806,54 @@ def test_static_cluster_hides_remote_base_url_from_public_transport_failure() ->
     assert "private.example" not in response.text
     assert len(local.requests) == 1
     assert len(remote.requests) == 1
+
+
+def test_static_cluster_preserves_receiver_runtime_unavailable_through_transport() -> (
+    None
+):
+    receiver_requests: list[httpx.Request] = []
+
+    def receiver(request: httpx.Request) -> httpx.Response:
+        receiver_requests.append(request)
+        return httpx.Response(
+            503,
+            json={
+                "detail": "private-host secret-token private-model unavailable",
+            },
+        )
+
+    local_composition = make_local_composition(FakeAdapter())
+    remote_transport_client = httpx.AsyncClient(transport=httpx.MockTransport(receiver))
+    wiring = build_static_remote_wiring(
+        node_registry=local_composition.node_registry,
+        adapter_registry=local_composition.adapter_registry,
+        remote_declaration=create_remote_declaration(
+            "operator-remote",
+            "https://private.example:9443",
+            ("summarize",),
+        ),
+        remote_transport=HttpRemoteTransport(remote_transport_client),
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    async def send() -> httpx.Response:
+        async with remote_transport_client:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(
+                    app=create_app(static_remote_wiring=wiring),
+                    raise_app_exceptions=False,
+                ),
+                base_url="http://testserver",
+            ) as client:
+                return await client.post("/v1/summarize", json={"text": "source"})
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert len(receiver_requests) == 1
+    for sensitive_value in ("private-host", "secret-token", "private-model"):
+        assert sensitive_value not in response.text
 
 
 @pytest.mark.parametrize(

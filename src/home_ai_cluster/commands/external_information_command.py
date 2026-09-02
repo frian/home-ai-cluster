@@ -13,7 +13,7 @@ from typing import Any
 import httpx
 from pydantic import ValidationError
 
-from home_ai_cluster import chat_command
+from home_ai_cluster.commands import chat_command
 from home_ai_cluster.core.models import (
     SourceEvidence,
     SourceGroundedChatRequest,

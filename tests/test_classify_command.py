@@ -4,7 +4,7 @@ from io import BytesIO
 import httpx
 import pytest
 
-from home_ai_cluster import classify_command
+from home_ai_cluster.commands import classify_command
 
 
 def result(label: str = "invoice") -> dict[str, str]:

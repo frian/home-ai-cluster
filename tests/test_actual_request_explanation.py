@@ -3,8 +3,13 @@ import json
 
 import pytest
 
-import home_ai_cluster.actual_request_explanation as request_explanation
-from home_ai_cluster.actual_request_explanation import (
+import home_ai_cluster.commands.actual_request_explanation as request_explanation
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapter,
+    RuntimeAdapterUnavailableError,
+    RuntimeConnectionUnavailableBeforeRequestError,
+)
+from home_ai_cluster.commands.actual_request_explanation import (
     EXECUTION_FAILED_FAILURE,
     HISTORY_RECORDING_WARNING,
     INTERNAL_FAILURE_MESSAGE,
@@ -13,11 +18,6 @@ from home_ai_cluster.actual_request_explanation import (
     create_request,
     evaluate_actual_request,
     main,
-)
-from home_ai_cluster.adapters.base import (
-    RuntimeAdapter,
-    RuntimeAdapterUnavailableError,
-    RuntimeConnectionUnavailableBeforeRequestError,
 )
 from home_ai_cluster.core.models import (
     AdapterHealth,
@@ -256,15 +256,15 @@ def test_evaluate_uses_default_local_registries_and_empty_remote_registry(
     calls: list[str] = []
 
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.create_static_local_node_registry",
+        "home_ai_cluster.commands.actual_request_explanation.create_static_local_node_registry",
         lambda: calls.append("nodes") or nodes,
     )
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.create_static_runtime_adapter_registry",
+        "home_ai_cluster.commands.actual_request_explanation.create_static_runtime_adapter_registry",
         lambda: calls.append("adapters") or adapters,
     )
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.build_remote_node_declaration_registry",
+        "home_ai_cluster.commands.actual_request_explanation.build_remote_node_declaration_registry",
         lambda declarations: (
             calls.append("remotes")
             or build_remote_node_declaration_registry(declarations)
@@ -312,7 +312,7 @@ def test_main_emits_one_compact_account_with_expected_exit(
         return account
 
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        "home_ai_cluster.commands.actual_request_explanation.evaluate_actual_request",
         fake_evaluate,
     )
 
@@ -336,7 +336,7 @@ def test_main_reports_safe_stderr_for_internal_account_failure(
         raise RuntimeError("private prompt content http://private-host token=secret")
 
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        "home_ai_cluster.commands.actual_request_explanation.evaluate_actual_request",
         fail_evaluation,
     )
 
@@ -366,11 +366,11 @@ def test_main_does_not_record_history_without_explicit_flag(
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        "home_ai_cluster.commands.actual_request_explanation.evaluate_actual_request",
         fake_evaluate,
     )
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.record_account",
+        "home_ai_cluster.commands.actual_request_explanation.record_account",
         lambda _: pytest.fail("history recording must be opt-in"),
     )
 
@@ -403,7 +403,7 @@ def test_main_records_unchanged_account_with_explicit_flag(
 
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        "home_ai_cluster.commands.actual_request_explanation.evaluate_actual_request",
         fake_evaluate,
     )
 
@@ -445,11 +445,12 @@ def test_main_preserves_account_and_exit_when_history_recording_fails(
         raise PermissionError("/private/state request-history.jsonl")
 
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.evaluate_actual_request",
+        "home_ai_cluster.commands.actual_request_explanation.evaluate_actual_request",
         fake_evaluate,
     )
     monkeypatch.setattr(
-        "home_ai_cluster.actual_request_explanation.record_account", fail_record
+        "home_ai_cluster.commands.actual_request_explanation.record_account",
+        fail_record,
     )
 
     arguments = ["--capability", "chat", "--message", "Hello", "--record-history"]

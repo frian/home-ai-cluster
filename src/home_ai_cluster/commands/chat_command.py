@@ -313,7 +313,7 @@ def _write_authorized_success(
 def _send_source_grounded(
     request: Any, *, timeout_seconds: float, client_factory: Callable[..., httpx.Client]
 ) -> tuple[SourceGroundedChatResult | None, str | None]:
-    from home_ai_cluster import external_information_command
+    from home_ai_cluster.commands import external_information_command
 
     try:
         response = external_information_command._post_source_grounded_request(
@@ -473,7 +473,7 @@ def main(
             client_factory=_client_factory,
         )
         if decision == "external":
-            from home_ai_cluster import external_information_command
+            from home_ai_cluster.commands import external_information_command
 
             try:
                 source_request = (

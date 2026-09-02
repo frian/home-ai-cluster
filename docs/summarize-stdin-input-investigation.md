@@ -26,7 +26,7 @@ streaming summaries, or a new roadmap phase.
 Observed repository facts:
 
 * Both root names dispatch through `home_ai_cluster.command.main`, whose
-  `summarize` entry delegates to `home_ai_cluster.summarize_command.main`.
+  `summarize` entry delegates to `home_ai_cluster.commands.summarize_command.main`.
 * `summarize_command._parse_input()` owns an `argparse` parser. It records
   `--text` with `action="append"` and requires exactly one resulting value.
   Therefore omitted, repeated, positional, and unknown input forms currently

@@ -46,7 +46,7 @@ validates a complete `ClusterResult`, writes compact JSON on success, writes
 stable safe errors to standard error on failure, and exits after one request. It
 has no retry, client fallback, session, or history. The implementation and its
 focused tests confirm that boundary in
-[`chat_command.py`](../src/home_ai_cluster/chat_command.py) and
+[`chat_command.py`](../src/home_ai_cluster/commands/chat_command.py) and
 [`test_chat_command.py`](../tests/test_chat_command.py).
 
 RFC-0045 explicitly excludes standard input, prompt files, and interactive

@@ -4,7 +4,7 @@ from io import StringIO
 import httpx
 import pytest
 
-from home_ai_cluster.chat_command import (
+from home_ai_cluster.commands.chat_command import (
     _INTERACTIVE_MESSAGE_CONTENT_LIMIT,
     _REQUEST_TIMEOUT_SECONDS,
     main,
@@ -14,7 +14,7 @@ from home_ai_cluster.retained_configuration import RetainedConfiguration
 
 @pytest.fixture(autouse=True)
 def neutral_retained_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     monkeypatch.setattr(
         chat_command, "load_retained_configuration", lambda: RetainedConfiguration()
@@ -115,7 +115,7 @@ def unused_client(**kwargs: object) -> httpx.Client:
 def test_authorized_external_decision_uses_exact_question_and_sources(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
     from home_ai_cluster.core.models import SourceEvidence, SourceGroundedChatRequest
 
     question = "  Unicode \u00e9 question  "
@@ -179,7 +179,7 @@ def test_authorized_external_decision_uses_exact_question_and_sources(
 def test_authorized_decision_failure_falls_back_to_one_ordinary_request(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     monkeypatch.setattr(
         chat_command,
@@ -222,7 +222,7 @@ def test_authorized_ordinary_verbose_preserves_rfc0049_separator(
     content: str,
     separator: str,
 ) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     monkeypatch.setattr(
         chat_command,
@@ -248,7 +248,7 @@ def test_authorized_ordinary_verbose_preserves_rfc0049_separator(
 def test_authorized_ineligible_question_skips_decision_and_plugin_work(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, question: str
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     monkeypatch.setattr(
         chat_command,
@@ -280,7 +280,7 @@ def test_authorized_ineligible_question_skips_decision_and_plugin_work(
 def test_invalid_retained_configuration_does_no_work(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
     from home_ai_cluster.retained_configuration import RetainedConfigurationError
 
     monkeypatch.setattr(
@@ -310,7 +310,7 @@ def test_invalid_retained_configuration_does_no_work(
 def test_disabled_authorization_with_plugin_is_exact_legacy_output(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     monkeypatch.setattr(
         chat_command,
@@ -343,7 +343,7 @@ def test_disabled_authorization_with_plugin_is_exact_legacy_output(
 def test_enabled_without_plugin_skips_decision_and_uses_authorized_ordinary_json(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     monkeypatch.setattr(
         chat_command,
@@ -373,7 +373,7 @@ def test_enabled_without_plugin_skips_decision_and_uses_authorized_ordinary_json
 def test_decision_failures_make_one_authorized_ordinary_request(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, kind: str
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     monkeypatch.setattr(
         chat_command,
@@ -419,7 +419,7 @@ def test_decision_failures_make_one_authorized_ordinary_request(
 def test_exact_4096_bytes_reaches_one_decision_with_exact_body(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     question = "\u00e9" * 2048
     monkeypatch.setattr(
@@ -453,7 +453,7 @@ def test_exact_4096_bytes_reaches_one_decision_with_exact_body(
 def test_external_uses_real_selected_plugin_and_preserves_source_provenance(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     class EntryPoint:
         def __init__(self, name: str, loaded: object) -> None:
@@ -556,7 +556,7 @@ def test_external_uses_real_selected_plugin_and_preserves_source_provenance(
 def test_external_acquisition_failure_never_falls_back(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     monkeypatch.setattr(
         chat_command,
@@ -595,7 +595,7 @@ def test_external_acquisition_failure_never_falls_back(
 def test_source_grounded_failure_never_falls_back(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import chat_command, external_information_command
+    from home_ai_cluster.commands import chat_command, external_information_command
 
     class Acquisition:
         async def __call__(self, query: str) -> list[dict[str, str]]:
@@ -649,7 +649,7 @@ def test_source_grounded_failure_never_falls_back(
 def test_interactive_never_loads_retained_fallback_configuration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import chat_command
+    from home_ai_cluster.commands import chat_command
 
     monkeypatch.setattr(
         chat_command,

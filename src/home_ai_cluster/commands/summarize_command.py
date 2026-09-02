@@ -11,7 +11,7 @@ from typing import Any, BinaryIO
 import httpx
 from pydantic import ValidationError
 
-from home_ai_cluster.chat_command import (
+from home_ai_cluster.commands.chat_command import (
     _CLUSTER_REJECTED,
     _CLUSTER_UNAVAILABLE,
     _INVALID_CLUSTER_RESPONSE,

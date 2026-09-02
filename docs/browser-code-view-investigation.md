@@ -119,7 +119,7 @@ Therefore a same-origin browser body such as the following enters the accepted
 That construction invokes the core model validation above, so the 65,536-byte
 aggregate code bound is authoritatively revalidated at the current native
 boundary. The existing native `code` command independently demonstrates this
-seam: [`code_command.py`](../src/home_ai_cluster/code_command.py) constructs
+seam: [`code_command.py`](../src/home_ai_cluster/commands/code_command.py) constructs
 the explicit `code` request then sends it through the native chat path. The
 same model is also embedded in the accepted internal Chat envelope, where it
 is revalidated at the receiving boundary.

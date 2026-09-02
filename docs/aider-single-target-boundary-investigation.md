@@ -70,10 +70,10 @@ an unselected file.
 ## Current HAC invocation behavior
 
 `_parse_input()` requires exactly one HAC `--file` and one non-blank
-`--message` (`src/home_ai_cluster/aider_command.py:60-81`).  It does not turn
+`--message` (`src/home_ai_cluster/commands/aider_command.py:60-81`).  It does not turn
 that single HAC argument into an Aider path allowlist.
 
-`_aider_argv()` (`src/home_ai_cluster/aider_command.py:294-344`) directly
+`_aider_argv()` (`src/home_ai_cluster/commands/aider_command.py:294-344`) directly
 launches the installed executable with this relevant configuration:
 
 | Current setting | Effect relevant to this investigation |

@@ -22,16 +22,16 @@ Documentation = "https://github.com/frian/home-ai-cluster/blob/main/docs/README.
 home-ai-cluster = "home_ai_cluster.command:main"
 hac = "home_ai_cluster.command:main"
 home-ai-cluster-static-cluster = "home_ai_cluster.static_cluster:main"
-home-ai-cluster-explain-routing = "home_ai_cluster.routing_explanation:main"
-home-ai-cluster-explain-request = "home_ai_cluster.actual_request_explanation:main"
+home-ai-cluster-explain-routing = "home_ai_cluster.commands.routing_explanation:main"
+home-ai-cluster-explain-request = "home_ai_cluster.commands.actual_request_explanation:main"
 home-ai-cluster-openai-compatibility = "home_ai_cluster.openai_compatibility:main"
 home-ai-cluster-health = "home_ai_cluster.local_health_snapshot:main"
-home-ai-cluster-preflight = "home_ai_cluster.static_preflight:main"
-home-ai-cluster-status = "home_ai_cluster.status_command:main"
+home-ai-cluster-preflight = "home_ai_cluster.commands.static_preflight:main"
+home-ai-cluster-status = "home_ai_cluster.commands.status_command:main"
 home-ai-cluster-history = "home_ai_cluster.request_history:history_main"
 home-ai-cluster-clear-history = "home_ai_cluster.request_history:clear_history_main"
 home-ai-cluster-local = "home_ai_cluster.local_runtime:main"
-home-ai-cluster-chat = "home_ai_cluster.chat_command:main"
+home-ai-cluster-chat = "home_ai_cluster.commands.chat_command:main"
 
 [dependency-groups]
 dev = [

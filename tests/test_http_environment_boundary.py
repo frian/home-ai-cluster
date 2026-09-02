@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from home_ai_cluster import chat_command
+from home_ai_cluster.commands import chat_command
 
 _HTTPX_ENVIRONMENT_VARIABLES = (
     "HTTP_PROXY",

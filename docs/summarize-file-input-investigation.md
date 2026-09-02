@@ -27,7 +27,7 @@ Observed repository facts:
 
 * `home_ai_cluster.command.main` owns root dispatch. Its `summarize` entry
   forwards the remaining arguments unchanged to
-  `home_ai_cluster.summarize_command.main`; both `hac` and
+  `home_ai_cluster.commands.summarize_command.main`; both `hac` and
   `home-ai-cluster` use that same root function.
 * `summarize_command._parse_input()` currently accepts repeated `--text`
   syntactically, rejects more than one value locally, and otherwise reads stdin.

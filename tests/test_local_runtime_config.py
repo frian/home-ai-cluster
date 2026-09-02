@@ -321,7 +321,7 @@ def test_static_cluster_declaration_mode_consumes_separate_runtime_config(
 def test_status_command_consumes_runtime_config_before_observation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_runtime_config(
         tmp_path,
@@ -365,7 +365,7 @@ def test_status_command_consumes_runtime_config_before_observation(
 def test_status_runtime_config_passes_thinking_disable_to_composition(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = tmp_path / "cluster.toml"
     declaration.write_text(

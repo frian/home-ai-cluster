@@ -5,6 +5,12 @@ from collections.abc import Callable, Sequence
 from importlib.metadata import version
 
 from home_ai_cluster import (
+    local_health_snapshot,
+    local_runtime,
+    openai_compatibility,
+    static_cluster,
+)
+from home_ai_cluster.commands import (
     aider_command,
     chat_command,
     classify_command,
@@ -12,10 +18,6 @@ from home_ai_cluster import (
     code_file_command,
     config_command,
     external_information_command,
-    local_health_snapshot,
-    local_runtime,
-    openai_compatibility,
-    static_cluster,
     static_preflight,
     status_command,
     summarize_command,

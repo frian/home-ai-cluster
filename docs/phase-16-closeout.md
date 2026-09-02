@@ -66,7 +66,7 @@ behavior.
 
 ### Implementation
 
-[The implementation](../src/home_ai_cluster/chat_command.py) and its focused
+[The implementation](../src/home_ai_cluster/commands/chat_command.py) and its focused
 tests in `tests/test_chat_command.py` added one installed console entry. It
 reuses `httpx` and the authoritative `ClusterRequest` and `ClusterResult`, sends
 exactly one HTTP request, validates successful response data, preserves the

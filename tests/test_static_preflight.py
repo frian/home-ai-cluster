@@ -4,6 +4,17 @@ import socket
 import httpx
 import pytest
 
+from home_ai_cluster.commands.static_preflight import (
+    MISSING_ADAPTER_REASON,
+    PREFLIGHT_FAILURE_MESSAGE,
+    evaluate_static_declarations_preflight,
+    evaluate_static_multi_node_preflight,
+    evaluate_static_preflight,
+    format_static_preflight_report,
+    main,
+    parse_args,
+    project_static_preflight,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -17,17 +28,6 @@ from home_ai_cluster.static_cluster import REMOTE_HTTP_ADAPTER_NAME
 from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclarationError,
     load_static_cluster_declarations,
-)
-from home_ai_cluster.static_preflight import (
-    MISSING_ADAPTER_REASON,
-    PREFLIGHT_FAILURE_MESSAGE,
-    evaluate_static_declarations_preflight,
-    evaluate_static_multi_node_preflight,
-    evaluate_static_preflight,
-    format_static_preflight_report,
-    main,
-    parse_args,
-    project_static_preflight,
 )
 
 
@@ -174,11 +174,11 @@ def test_evaluate_uses_ordinary_static_local_registries(
         return adapter_registry
 
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.create_static_local_node_registry",
+        "home_ai_cluster.commands.static_preflight.create_static_local_node_registry",
         create_nodes,
     )
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.create_static_runtime_adapter_registry",
+        "home_ai_cluster.commands.static_preflight.create_static_runtime_adapter_registry",
         create_adapters,
     )
 
@@ -605,7 +605,7 @@ def test_main_json_emits_compact_coherent_report_and_exits_zero(
         "issues": [],
     }
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_preflight",
         lambda: report,
     )
 
@@ -642,7 +642,7 @@ def test_main_json_emits_static_multi_node_report_without_remote_url(
         return report
 
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_multi_node_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_multi_node_preflight",
         evaluate_multi,
     )
 
@@ -691,7 +691,7 @@ def test_main_json_emits_incoherent_report_and_exits_nonzero(
         ],
     }
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_preflight",
         lambda: report,
     )
 
@@ -722,7 +722,7 @@ def test_main_human_emits_coherent_local_only_report(
         "issues": [],
     }
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_preflight",
         lambda: report,
     )
 
@@ -771,7 +771,7 @@ def test_main_human_emits_incoherent_report_and_exits_nonzero(
         ],
     }
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_preflight",
         lambda: report,
     )
 
@@ -920,7 +920,7 @@ def test_main_reports_safe_construction_failure(
         raise RuntimeError("http://private-host:11434 authorization=secret")
 
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.evaluate_static_preflight",
+        "home_ai_cluster.commands.static_preflight.evaluate_static_preflight",
         fail_report,
     )
 
@@ -944,7 +944,7 @@ def test_main_hides_remote_url_when_multi_node_construction_fails(
         raise RuntimeError(remote_url)
 
     monkeypatch.setattr(
-        "home_ai_cluster.static_preflight.create_remote_declaration",
+        "home_ai_cluster.commands.static_preflight.create_remote_declaration",
         fail_declaration,
     )
 

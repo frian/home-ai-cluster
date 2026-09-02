@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from home_ai_cluster import external_information_command
+from home_ai_cluster.commands import external_information_command
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,

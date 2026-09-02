@@ -10,7 +10,7 @@ from typing import Any
 import httpx
 import pytest
 
-from home_ai_cluster import aider_command
+from home_ai_cluster.commands import aider_command
 
 
 class _NativeClient:

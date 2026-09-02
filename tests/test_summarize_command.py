@@ -7,9 +7,11 @@ from typing import BinaryIO
 import httpx
 import pytest
 
-from home_ai_cluster import summarize_command
-from home_ai_cluster.chat_command import _REQUEST_TIMEOUT_SECONDS as _CHAT_TIMEOUT
-from home_ai_cluster.summarize_command import _REQUEST_TIMEOUT_SECONDS, main
+from home_ai_cluster.commands import summarize_command
+from home_ai_cluster.commands.chat_command import (
+    _REQUEST_TIMEOUT_SECONDS as _CHAT_TIMEOUT,
+)
+from home_ai_cluster.commands.summarize_command import _REQUEST_TIMEOUT_SECONDS, main
 
 
 def client_factory(handler: httpx.MockTransport):

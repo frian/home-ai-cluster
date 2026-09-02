@@ -420,7 +420,7 @@ was selected.
 
 Implementation may affect:
 
-- `src/home_ai_cluster/status_command.py`;
+- `src/home_ai_cluster/commands/status_command.py`;
 - focused status command and local composition tests;
 - ordinary operator documentation;
 - one retained privacy-safe Phase 15 proof; and

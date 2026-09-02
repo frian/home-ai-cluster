@@ -7,12 +7,14 @@ import httpx
 import pytest
 
 from home_ai_cluster import (
+    command,
+    local_health_snapshot,
+)
+from home_ai_cluster.commands import (
     aider_command,
     chat_command,
-    command,
     config_command,
     external_information_command,
-    local_health_snapshot,
     static_preflight,
     status_command,
     summarize_command,
@@ -83,22 +85,24 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         )
     } == {
         "home-ai-cluster-static-cluster": "home_ai_cluster.static_cluster:main",
-        "home-ai-cluster-explain-routing": "home_ai_cluster.routing_explanation:main",
+        "home-ai-cluster-explain-routing": (
+            "home_ai_cluster.commands.routing_explanation:main"
+        ),
         "home-ai-cluster-explain-request": (
-            "home_ai_cluster.actual_request_explanation:main"
+            "home_ai_cluster.commands.actual_request_explanation:main"
         ),
         "home-ai-cluster-openai-compatibility": (
             "home_ai_cluster.openai_compatibility:main"
         ),
         "home-ai-cluster-health": "home_ai_cluster.local_health_snapshot:main",
-        "home-ai-cluster-preflight": "home_ai_cluster.static_preflight:main",
-        "home-ai-cluster-status": "home_ai_cluster.status_command:main",
+        "home-ai-cluster-preflight": "home_ai_cluster.commands.static_preflight:main",
+        "home-ai-cluster-status": "home_ai_cluster.commands.status_command:main",
         "home-ai-cluster-history": "home_ai_cluster.request_history:history_main",
         "home-ai-cluster-clear-history": (
             "home_ai_cluster.request_history:clear_history_main"
         ),
         "home-ai-cluster-local": "home_ai_cluster.local_runtime:main",
-        "home-ai-cluster-chat": "home_ai_cluster.chat_command:main",
+        "home-ai-cluster-chat": "home_ai_cluster.commands.chat_command:main",
     }
     assert {
         "home-ai-cluster-static-proof",

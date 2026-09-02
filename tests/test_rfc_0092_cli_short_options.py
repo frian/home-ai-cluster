@@ -5,16 +5,18 @@ from pathlib import Path
 import pytest
 
 from home_ai_cluster import (
+    command,
+    local_health_snapshot,
+    openai_compatibility,
+    static_cluster,
+)
+from home_ai_cluster.commands import (
     aider_command,
     chat_command,
     classify_command,
     code_command,
     code_file_command,
-    command,
     external_information_command,
-    local_health_snapshot,
-    openai_compatibility,
-    static_cluster,
     static_preflight,
     status_command,
     summarize_command,

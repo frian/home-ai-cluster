@@ -45,34 +45,34 @@
   <path class="connector" d="M720 640 V730" stroke-width="3" marker-end="url(#arrow)"/>
   <path class="connector" d="M720 640 V685 H1200 V730" stroke-width="3" marker-end="url(#arrow)"/>
 
-  <rect class="box" x="70" y="740" width="340" height="250" rx="12" stroke-width="3"/>
+  <rect class="box" x="70" y="740" width="340" height="300" rx="12" stroke-width="3"/>
   <text x="240" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Local node</text>
-  <text x="110" y="845" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="120" y="880" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
-  <text x="120" y="912" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
-  <text x="240" y="865" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M240 885 V928" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="240" y="970" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <text x="110" y="890" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
+  <text x="120" y="925" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
+  <text x="120" y="957" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
+  <text x="310" y="880" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
+  <path class="connector" d="M310 895 V935" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="310" y="965" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
 
-  <rect class="box" x="550" y="740" width="340" height="250" rx="12" stroke-width="3"/>
+  <rect class="box" x="550" y="740" width="340" height="300" rx="12" stroke-width="3"/>
   <text x="720" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Remote node A</text>
-  <text x="590" y="845" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="600" y="880" class="label" font-family="system-ui, sans-serif" font-size="21">• summarize</text>
-  <text x="600" y="912" class="label" font-family="system-ui, sans-serif" font-size="21">• classify</text>
-  <text x="790" y="845" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
-  <path class="connector" d="M790 865 V890" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="790" y="923" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M790 938 V955" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="790" y="980" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <text x="590" y="875" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
+  <text x="600" y="910" class="label" font-family="system-ui, sans-serif" font-size="21">• summarize</text>
+  <text x="600" y="942" class="label" font-family="system-ui, sans-serif" font-size="21">• classify</text>
+  <text x="790" y="850" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
+  <path class="connector" d="M790 865 V900" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="790" y="935" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
+  <path class="connector" d="M790 950 V985" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="790" y="1020" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
 
-  <rect class="box" x="1030" y="740" width="340" height="250" rx="12" stroke-width="3"/>
+  <rect class="box" x="1030" y="740" width="340" height="300" rx="12" stroke-width="3"/>
   <text x="1200" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Remote node B</text>
-  <text x="1070" y="845" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="1080" y="880" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
-  <text x="1080" y="912" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
-  <text x="1270" y="845" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
-  <path class="connector" d="M1270 865 V890" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="1270" y="923" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M1270 938 V955" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="1270" y="980" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <text x="1070" y="875" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
+  <text x="1080" y="910" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
+  <text x="1080" y="942" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
+  <text x="1270" y="850" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
+  <path class="connector" d="M1270 865 V900" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="1270" y="935" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
+  <path class="connector" d="M1270 950 V985" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="1270" y="1020" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
 </svg>

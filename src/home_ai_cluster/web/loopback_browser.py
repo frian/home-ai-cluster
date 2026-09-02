@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-_WEB_DIRECTORY = Path(__file__).with_name("web")
+_WEB_DIRECTORY = Path(__file__).parent
 _CACHE_HEADERS = {"Cache-Control": "no-store"}
 
 

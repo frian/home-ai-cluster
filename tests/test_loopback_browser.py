@@ -6,7 +6,6 @@ import httpx
 from fastapi import FastAPI
 
 from home_ai_cluster.local_runtime_composition import create_local_runtime_composition
-from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import app as module_level_app
 from home_ai_cluster.main import create_app
 from home_ai_cluster.openai_compatibility import (
@@ -14,6 +13,7 @@ from home_ai_cluster.openai_compatibility import (
     create_static_cluster_openai_compatibility_app,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
+from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 
 
 def get(app: FastAPI, path: str) -> httpx.Response:

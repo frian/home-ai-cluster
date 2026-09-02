@@ -24,7 +24,6 @@ from home_ai_cluster.local_runtime_composition import (
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
-from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
@@ -47,6 +46,7 @@ from home_ai_cluster.static_cluster_validation import (
     remote_base_url,
     remote_node_id,
 )
+from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 25042

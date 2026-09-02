@@ -11,6 +11,10 @@ class DisconnectAwareRequest(Protocol):
     async def is_disconnected(self) -> bool: ...
 
 
+class ConfirmedClientDisconnect(Exception):
+    """Private signal that this HTTP boundary has already abandoned its client."""
+
+
 async def _wait_for_confirmed_disconnect(
     request: DisconnectAwareRequest,
     stop: asyncio.Event,
@@ -42,7 +46,7 @@ async def run_routable_execution[Result](
 ) -> Result:
     """Own one routable execution until it or confirmed disconnect wins."""
     if await request.is_disconnected():
-        raise asyncio.CancelledError
+        raise ConfirmedClientDisconnect
 
     execution_task = asyncio.create_task(execution())
     stop_observer = asyncio.Event()
@@ -67,7 +71,7 @@ async def run_routable_execution[Result](
             return await execution_task
 
         await _cancel_and_wait(execution_task)
-        raise asyncio.CancelledError
+        raise ConfirmedClientDisconnect
     finally:
         stop_observer.set()
         await _cancel_and_wait(execution_task)

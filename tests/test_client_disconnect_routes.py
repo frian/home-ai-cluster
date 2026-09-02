@@ -5,6 +5,7 @@ import pytest
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
+from home_ai_cluster.api.client_disconnect import ConfirmedClientDisconnect
 from home_ai_cluster.api.openai_compatibility import compatibility_router
 from home_ai_cluster.api.routes import ChatRequest
 from home_ai_cluster.api.wiring import LocalAppComposition
@@ -112,7 +113,7 @@ def test_registered_chat_cancellation(monkeypatch, initial, parent):
         monkeypatch.setattr(routes, "handle_chat_cluster_request", execute)
         task = asyncio.create_task(endpoint(app)(payload(), request(app, state)))
         if initial:
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert calls == 0
         else:
@@ -121,7 +122,8 @@ def test_registered_chat_cancellation(monkeypatch, initial, parent):
                 task.cancel()
             else:
                 state.disconnected = True
-            with pytest.raises(asyncio.CancelledError):
+            expected = asyncio.CancelledError if parent else ConfirmedClientDisconnect
+            with pytest.raises(expected):
                 await task
             assert cancelled.is_set()
 
@@ -224,7 +226,7 @@ def test_registered_sources_disconnect_cancels_execution(monkeypatch):
         task = asyncio.create_task(sources_endpoint(app)(request(app, state)))
         await asyncio.wait_for(started.wait(), 1)
         state.send_disconnect()
-        with pytest.raises(asyncio.CancelledError):
+        with pytest.raises(ConfirmedClientDisconnect):
             await task
         assert cancelled.is_set()
 
@@ -281,7 +283,7 @@ def test_registered_summarize_disconnect_cancels_execution(monkeypatch):
         try:
             await asyncio.wait_for(started.wait(), 1)
             state.send_disconnect()
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert cancelled.is_set()
         finally:
@@ -290,7 +292,7 @@ def test_registered_summarize_disconnect_cancels_execution(monkeypatch):
             if not task.cancelled():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, ConfirmedClientDisconnect):
                     pass
 
     asyncio.run(run())
@@ -353,7 +355,7 @@ def test_registered_classify_disconnect_cancels_execution(monkeypatch):
         try:
             await asyncio.wait_for(started.wait(), 1)
             state.send_disconnect()
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert cancelled.is_set()
         finally:
@@ -362,7 +364,7 @@ def test_registered_classify_disconnect_cancels_execution(monkeypatch):
             if not task.cancelled():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, ConfirmedClientDisconnect):
                     pass
 
     asyncio.run(run())
@@ -429,7 +431,7 @@ def test_registered_internal_disconnect_cancels_execution(monkeypatch):
         try:
             await asyncio.wait_for(started.wait(), 1)
             state.send_disconnect()
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert cancelled.is_set()
         finally:
@@ -438,7 +440,7 @@ def test_registered_internal_disconnect_cancels_execution(monkeypatch):
             if not task.cancelled():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, ConfirmedClientDisconnect):
                     pass
 
     asyncio.run(run())
@@ -520,7 +522,7 @@ def test_registered_completions_disconnect_cancels_execution(monkeypatch):
         try:
             await asyncio.wait_for(started.wait(), 1)
             state.send_disconnect()
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert calls == 1 and cancelled.is_set() and cleaned.is_set()
         finally:
@@ -529,7 +531,7 @@ def test_registered_completions_disconnect_cancels_execution(monkeypatch):
             if not task.cancelled():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, ConfirmedClientDisconnect):
                     pass
 
     asyncio.run(run())
@@ -582,7 +584,7 @@ def test_registered_chat_local_adapter_cancellation():
         try:
             await asyncio.wait_for(adapter.entered.wait(), 1)
             state.disconnected = True
-            with pytest.raises(asyncio.CancelledError):
+            with pytest.raises(ConfirmedClientDisconnect):
                 await task
             assert (
                 adapter.calls == 1
@@ -599,7 +601,64 @@ def test_registered_chat_local_adapter_cancellation():
             if not task.cancelled():
                 try:
                     await task
-                except asyncio.CancelledError:
+                except (asyncio.CancelledError, ConfirmedClientDisconnect):
                     pass
+
+    asyncio.run(run())
+
+
+def test_confirmed_disconnect_is_contained_by_the_asgi_application(monkeypatch):
+    async def run():
+        from home_ai_cluster.api import routes
+
+        app, state = (
+            create_app(),
+            BodyFirstState(
+                {
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "capability": "chat",
+                }
+            ),
+        )
+        started, cancelled = asyncio.Event(), asyncio.Event()
+        sent: list[dict[str, object]] = []
+
+        async def execute(*_, **__):
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        async def send(message: dict[str, object]) -> None:
+            sent.append(message)
+
+        monkeypatch.setattr(routes, "handle_chat_cluster_request", execute)
+        task = asyncio.create_task(
+            app(
+                {
+                    "type": "http",
+                    "asgi": {"version": "3.0"},
+                    "http_version": "1.1",
+                    "method": "POST",
+                    "scheme": "http",
+                    "path": "/v1/chat",
+                    "raw_path": b"/v1/chat",
+                    "query_string": b"",
+                    "headers": [(b"content-type", b"application/json")],
+                    "client": ("testclient", 1),
+                    "server": ("testserver", 80),
+                },
+                state.receive,
+                send,
+            )
+        )
+        await asyncio.wait_for(started.wait(), 1)
+        state.send_disconnect()
+        await task
+
+        assert cancelled.is_set()
+        assert sent == []
 
     asyncio.run(run())

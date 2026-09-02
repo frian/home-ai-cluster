@@ -13,7 +13,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
-from home_ai_cluster.api.client_disconnect import run_routable_execution
+from home_ai_cluster.api.client_disconnect import (
+    ConfirmedClientDisconnect,
+    run_routable_execution,
+)
 from home_ai_cluster.api.routes import handle_chat_cluster_request
 from home_ai_cluster.core.models import (
     Capability,
@@ -293,6 +296,8 @@ async def chat_completions(request: Request) -> JSONResponse:
                 local_app_composition=local_app_composition,
             ),
         )
+    except ConfirmedClientDisconnect:
+        raise
     except HTTPException as error:
         if error.status_code == 404:
             error_response = compatibility_error(

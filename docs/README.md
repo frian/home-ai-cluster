@@ -22,6 +22,11 @@ architecture.
 
 ## Release and distribution
 
+- [Windows installation path investigation](windows-installation-path-investigation.md)
+  — records real Windows `1.0.0b2` WinGet/uv/PyPI evidence, finds that the
+  upstream-tool path is the smallest credible mechanism, and concludes that a
+  narrow RFC is required before it can become an official supported Windows
+  compatibility promise.
 - [O-10/O-12 remote failure wording investigation](v1.0-o10-o12-remote-failure-wording-investigation.md)
   — separates remote-HAC unreachability (a new category/RFC question) from
   receiver runtime unavailability (an accepted-contract semantic-preservation

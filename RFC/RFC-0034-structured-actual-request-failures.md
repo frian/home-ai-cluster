@@ -554,7 +554,7 @@ request-scoped trust surface without retained state.
 
 Implementation should primarily affect:
 
-- `home_ai_cluster.actual_request_explanation`;
+- `home_ai_cluster.commands.actual_request_explanation`;
 - focused tests for its orchestration and CLI projection.
 
 A small request-scoped internal outcome representation may be added only if needed

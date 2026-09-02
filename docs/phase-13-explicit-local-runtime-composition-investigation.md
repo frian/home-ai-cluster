@@ -50,7 +50,7 @@ arguments describe remote topology only; they do not select the local runtime.
 
 The local health and preflight commands likewise default to these factories in
 `src/home_ai_cluster/local_health_snapshot.py` and
-`src/home_ai_cluster/static_preflight.py`; their optional registry inputs are
+`src/home_ai_cluster/commands/static_preflight.py`; their optional registry inputs are
 testable projection seams, not ordinary process-startup configuration. The
 `[project.scripts]` table in `pyproject.toml` exposes a separate
 `home-ai-cluster-phase-12-heterogeneous-receiver` proof command alongside the

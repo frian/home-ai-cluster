@@ -28,7 +28,7 @@ The retained terminal text has no per-request timestamps or HAC server log. It t
 
 ## Translator status rules
 
-`_AiderTranslator` in `src/home_ai_cluster/aider_command.py` returns 400 for bad ingress/shape, an already failed translator, more than two accepted requests, or accepted/projected mismatch. It returns 502 when a valid accepted request cannot complete its one native request (including an HTTPX timeout), and records `failed=True`. A terminal 400 can therefore be a later valid request rejected because an earlier request produced 502 and failed the translator.
+`_AiderTranslator` in `src/home_ai_cluster/commands/aider_command.py` returns 400 for bad ingress/shape, an already failed translator, more than two accepted requests, or accepted/projected mismatch. It returns 502 when a valid accepted request cannot complete its one native request (including an HTTPX timeout), and records `failed=True`. A terminal 400 can therefore be a later valid request rejected because an earlier request produced 502 and failed the translator.
 
 ## Controlled request evidence
 

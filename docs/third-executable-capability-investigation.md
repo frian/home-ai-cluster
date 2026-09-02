@@ -30,7 +30,7 @@ projects constructed capability lists without network activity; public status
 does not report capability lists. [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md),
 [RFC-0059](../RFC/RFC-0059-caller-local-static-capabilities.md),
 [`static_capabilities.py`](../src/home_ai_cluster/static_capabilities.py),
-[`static_preflight.py`](../src/home_ai_cluster/static_preflight.py),
+[`static_preflight.py`](../src/home_ai_cluster/commands/static_preflight.py),
 [`cluster_status.py`](../src/home_ai_cluster/cluster_status.py)
 
 The current remote transport accepts only the tagged `chat` and `summarize`
@@ -39,7 +39,7 @@ The ordinary summarize command demonstrates the current bounded-source input
 pattern: exactly one of `--text`, `--file`, or standard input, locally bounded
 before a native loopback request. [`remote_transport.py`](../src/home_ai_cluster/core/remote_transport.py),
 [`routes.py`](../src/home_ai_cluster/api/routes.py),
-[`summarize_command.py`](../src/home_ai_cluster/summarize_command.py),
+[`summarize_command.py`](../src/home_ai_cluster/commands/summarize_command.py),
 [Phase 18 two-machine proof](phase-18-two-machine-summarize-proof.md)
 
 ## Candidate A — Rewrite

@@ -8,7 +8,7 @@ from typing import Any, TextIO
 
 import httpx
 
-from home_ai_cluster import chat_command
+from home_ai_cluster.commands import chat_command
 from home_ai_cluster.core.models import Capability, ChatMessage, ClusterRequest
 
 

@@ -72,7 +72,7 @@ generic rendering system.
 ### Preflight implementation
 
 PR [#310](https://github.com/frian/home-ai-cluster/pull/310) updated
-[preflight](../src/home_ai_cluster/static_preflight.py) and its [focused
+[preflight](../src/home_ai_cluster/commands/static_preflight.py) and its [focused
 tests](../tests/test_static_preflight.py). It provides a sectioned human report
 by default and explicit compact JSON; coherent results exit 0, while completed
 incoherent results remain ordered stdout data and exit 1. Nodes and issues stay
@@ -91,7 +91,7 @@ Completed snapshots exit 0, and rendering does not probe adapters again.
 ### Status implementation
 
 PR [#312](https://github.com/frian/home-ai-cluster/pull/312) updated [status
-command](../src/home_ai_cluster/status_command.py) and its [focused
+command](../src/home_ai_cluster/commands/status_command.py) and its [focused
 tests](../tests/test_status_command.py). It provides default human output and
 explicit compact JSON, preserves local-first and declaration/result order, and
 retains existing application and runtime vocabularies. Normalized unavailable

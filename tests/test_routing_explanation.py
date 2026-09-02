@@ -3,14 +3,7 @@ import json
 import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
-from home_ai_cluster.core.models import (
-    AdapterHealth,
-    Capability,
-    ClusterRequest,
-    RuntimeResult,
-)
-from home_ai_cluster.core.routing_candidates import AutomaticCapabilitySelection
-from home_ai_cluster.routing_explanation import (
+from home_ai_cluster.commands.routing_explanation import (
     LOCAL_ADAPTER_NAME,
     create_request,
     discover_and_select,
@@ -18,6 +11,13 @@ from home_ai_cluster.routing_explanation import (
     main,
     project_explanation,
 )
+from home_ai_cluster.core.models import (
+    AdapterHealth,
+    Capability,
+    ClusterRequest,
+    RuntimeResult,
+)
+from home_ai_cluster.core.routing_candidates import AutomaticCapabilitySelection
 
 
 class RecordingAdapter(RuntimeAdapter):

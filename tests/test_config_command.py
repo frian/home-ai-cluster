@@ -6,10 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from home_ai_cluster import (
+from home_ai_cluster import local_runtime_composition
+from home_ai_cluster.commands import (
     config_command,
     external_information_command,
-    local_runtime_composition,
 )
 from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
 from home_ai_cluster.retained_configuration import (

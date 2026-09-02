@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from home_ai_cluster import code_file_command
+from home_ai_cluster.commands import code_file_command
 
 
 def _response(content: str) -> httpx.Response:

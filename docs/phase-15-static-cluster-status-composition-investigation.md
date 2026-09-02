@@ -30,7 +30,7 @@ normalized engine-independent result.
 
 ## Current status command construction
 
-`home_ai_cluster.status_command` currently:
+`home_ai_cluster.commands.status_command` currently:
 
 1. accepts only `--declaration`;
 2. loads and validates the static declaration;

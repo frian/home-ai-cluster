@@ -3,18 +3,18 @@ from pathlib import Path
 
 import pytest
 
+from home_ai_cluster.commands.status_command import (
+    STATUS_FAILURE_MESSAGE,
+    format_cluster_status,
+    main,
+    parse_args,
+)
 from home_ai_cluster.core.models import (
     ApplicationStatus,
     ClusterStatusNode,
     ClusterStatusResult,
     DeclarationStatus,
     RuntimeStatus,
-)
-from home_ai_cluster.status_command import (
-    STATUS_FAILURE_MESSAGE,
-    format_cluster_status,
-    main,
-    parse_args,
 )
 
 
@@ -48,7 +48,10 @@ def status_result(*remote_ids: str) -> ClusterStatusResult:
 def test_console_script_entry_exists() -> None:
     project = Path("pyproject.toml").read_text(encoding="utf-8")
 
-    assert 'home-ai-cluster-status = "home_ai_cluster.status_command:main"' in project
+    assert (
+        'home-ai-cluster-status = "home_ai_cluster.commands.status_command:main"'
+        in project
+    )
 
 
 def test_status_command_requires_declaration() -> None:
@@ -76,7 +79,7 @@ def test_invalid_parser_arguments_do_not_collect_status(
     argv: list[str],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     monkeypatch.setattr(
         status_command,
@@ -98,7 +101,7 @@ def test_status_command_prints_compact_single_remote_result(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -130,7 +133,7 @@ def test_status_command_defaults_to_human_readable_output(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -232,7 +235,7 @@ def test_status_command_preserves_multiple_declaration_order(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -263,7 +266,7 @@ def test_status_command_creates_and_closes_one_http_client(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -302,7 +305,7 @@ def test_default_status_injects_ollama_composition(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -327,7 +330,7 @@ def test_explicit_llama_server_injects_selected_composition(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -364,7 +367,7 @@ def test_explicit_ollama_composes_with_json_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -398,7 +401,7 @@ def test_invalid_declaration_prevents_composition_construction(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(tmp_path, 'remote_node_id = "local"\n')
     monkeypatch.setattr(
@@ -419,7 +422,7 @@ def test_explicit_ollama_model_reaches_status_local_composition(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
     from home_ai_cluster.local_runtime_composition import (
         create_local_runtime_composition,
     )
@@ -461,7 +464,7 @@ def test_invalid_runtime_combination_prevents_construction_and_observation(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -550,7 +553,7 @@ def test_normalized_node_failures_exit_successfully(
     capsys: pytest.CaptureFixture[str],
     result: ClusterStatusResult,
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -576,7 +579,7 @@ def test_status_command_hides_unexpected_failure_details(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,
@@ -603,7 +606,7 @@ def test_status_command_hides_formatter_failure_details(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    from home_ai_cluster import status_command
+    from home_ai_cluster.commands import status_command
 
     declaration = write_declaration(
         tmp_path,

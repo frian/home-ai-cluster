@@ -576,7 +576,7 @@ conscious history proof.
 Implementation should add one small purpose-specific history module and focused
 CLI entry points.
 
-`home_ai_cluster.actual_request_explanation` should only gain the optional
+`home_ai_cluster.commands.actual_request_explanation` should only gain the optional
 recording flag and a call to the history boundary after the account is built.
 
 The history module must not become a generic event store, persistence repository,

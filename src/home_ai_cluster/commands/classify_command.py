@@ -9,7 +9,7 @@ from typing import BinaryIO
 import httpx
 from pydantic import ValidationError
 
-from home_ai_cluster.chat_command import (
+from home_ai_cluster.commands.chat_command import (
     _CLUSTER_REJECTED,
     _CLUSTER_UNAVAILABLE,
     _INVALID_CLUSTER_RESPONSE,
@@ -21,13 +21,13 @@ from home_ai_cluster.chat_command import (
     _exit_with_failure,
     _parse_timeout_seconds,
 )
-from home_ai_cluster.core.models import ClassifyRequest, ClassifyResult
-from home_ai_cluster.summarize_command import (
+from home_ai_cluster.commands.summarize_command import (
     _ArgumentParser,
     _InvalidRequestInput,
     _read_bounded_file,
     _read_bounded_utf8_source,
 )
+from home_ai_cluster.core.models import ClassifyRequest, ClassifyResult
 
 _ORDINARY_CLASSIFY_URL = "http://127.0.0.1:25042/v1/classify"
 _NO_CAPABILITY = "error: no available classify capability"

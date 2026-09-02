@@ -40,7 +40,7 @@ alias for `home-ai-cluster`, and both call the same root `main()` function.
 ### Command path and parsing
 
 The standalone installed command `home-ai-cluster-chat` calls
-`home_ai_cluster.chat_command:main`. The unified root command recognises the
+`home_ai_cluster.commands.chat_command:main`. The unified root command recognises the
 exact `chat` subcommand and passes every remaining argument unchanged to that
 same function. Thus both of these reach the identical chat parser:
 

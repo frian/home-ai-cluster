@@ -59,11 +59,11 @@ ClusterResult content, adapter, model, and node_id fields.
 
 The current code confirms the ownership boundaries.
 
-- [chat_command.py](../src/home_ai_cluster/chat_command.py) is a caller-edge
+- [chat_command.py](../src/home_ai_cluster/commands/chat_command.py) is a caller-edge
   client. A one-shot message creates a chat ClusterRequest and makes one fixed
   loopback request; it does not import acquisition code. Its output helpers
   validate and format only ClusterResult.
-- [external_information_command.py](../src/home_ai_cluster/external_information_command.py)
+- [external_information_command.py](../src/home_ai_cluster/commands/external_information_command.py)
   is separately caller-owned. It loads exactly one selected entry point after
   input parsing, invokes it once with a separately validated QUERY of at most
   4,096 UTF-8 bytes, reconstructs SourceGroundedChatRequest, and posts it once

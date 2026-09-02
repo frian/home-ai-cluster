@@ -206,7 +206,7 @@ does not require a live runtime, network, model, or two-machine run.
 No implementation is authorized, but the current seams are deliberately
 small:
 
-* `src/home_ai_cluster/chat_command.py` supplies the closest parser,
+* `src/home_ai_cluster/commands/chat_command.py` supplies the closest parser,
   one-request `httpx` client construction, finite timeout, response validation,
   safe failure boundary, and three result formatters. A future summarize client
   should reuse or narrowly mirror these client-edge responsibilities, not the

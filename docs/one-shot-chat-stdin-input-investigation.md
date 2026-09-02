@@ -119,7 +119,7 @@ Focused tests currently protect missing, duplicate, empty, whitespace-only, and
 unknown arguments; no HTTP for invalid input; one exact native request with
 preserved message whitespace; all RFC-0049 success modes; output-option
 exclusivity; and stable failure mappings. `pyproject.toml` declares the command
-as the `home_ai_cluster.chat_command:main` console script. README guidance also
+as the `home_ai_cluster.commands.chat_command:main` console script. README guidance also
 shows only `--message`.
 
 ## Candidate input contracts
@@ -270,5 +270,5 @@ dashboard, Docker, or Kubernetes.
   ordinary operator request access investigation, closeout, proof, and runbook;
   the RFC-0049 investigation and proof; and the end-to-end ordinary
   remote-request proof.
-- Current surfaces: `src/home_ai_cluster/chat_command.py`,
+- Current surfaces: `src/home_ai_cluster/commands/chat_command.py`,
   `tests/test_chat_command.py`, `pyproject.toml`, and README one-shot guidance.

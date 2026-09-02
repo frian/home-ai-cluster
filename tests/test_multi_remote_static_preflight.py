@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from home_ai_cluster.static_preflight import main, parse_args
+from home_ai_cluster.commands.static_preflight import main, parse_args
 
 
 def write_declaration(tmp_path: Path) -> Path:

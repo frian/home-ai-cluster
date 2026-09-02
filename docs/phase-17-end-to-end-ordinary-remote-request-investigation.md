@@ -41,7 +41,7 @@ The following accepted components already form the relevant path.
 
 The current code confirms these seams. The chat client posts only to the fixed
 caller loopback target in
-[`chat_command.py`](../src/home_ai_cluster/chat_command.py). The static command
+[`chat_command.py`](../src/home_ai_cluster/commands/chat_command.py). The static command
 builds declared remote wiring and a process-owned HTTP client in
 [`static_cluster.py`](../src/home_ai_cluster/static_cluster.py). The remote
 transport posts normalized requests to the internal request path and validates a

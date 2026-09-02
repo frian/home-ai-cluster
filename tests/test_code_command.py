@@ -6,7 +6,7 @@ from io import StringIO
 import httpx
 import pytest
 
-from home_ai_cluster import code_command
+from home_ai_cluster.commands import code_command
 
 
 class terminal(StringIO):

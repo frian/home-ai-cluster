@@ -59,7 +59,7 @@ Current source confirms all of the following:
 | --- | --- |
 | Compatibility requests become `Capability(name="chat")`. | [`api/openai_compatibility.py`](../src/home_ai_cluster/api/openai_compatibility.py) validates only the fixed `home-ai-cluster` identifier and constructs the explicit `chat` request. |
 | Existing Aider proofs demonstrate Chat access, not explicit `code`. | The retained [Aider access proof](phase-6-aider-access-proof.md) records the RFC-0031 `POST /v1/chat/completions` request; the [static-cluster proof](aider-static-cluster-proof.md) describes the same unchanged Chat-only compatibility response. |
-| `hac code` explicitly requires `code`. | [`code_command.py`](../src/home_ai_cluster/code_command.py) constructs a one-message `ClusterRequest` with `Capability(name="code")`; [`command.py`](../src/home_ai_cluster/command.py) exposes it as `hac code`. |
+| `hac code` explicitly requires `code`. | [`code_command.py`](../src/home_ai_cluster/commands/code_command.py) constructs a one-message `ClusterRequest` with `Capability(name="code")`; [`command.py`](../src/home_ai_cluster/command.py) exposes it as `hac code`. |
 | The initial command needs one explicit message. | The CLI accepts exactly one non-blank `--message`; it reads neither stdin nor a file. |
 | Native ordered-message `/v1/chat` can carry `capability=code`. | [`api/routes.py`](../src/home_ai_cluster/api/routes.py) accepts `messages` and `capability`, then preserves that value in `ClusterRequest`. |
 | No `/v1/code` route exists. | The native public route declarations are `/v1/chat`, `/v1/summarize`, and `/v1/classify`; the route and RFC-0067 provide no `/v1/code`. |

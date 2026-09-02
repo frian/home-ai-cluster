@@ -27,8 +27,8 @@ existing request path produces a validated result.
 The following completed successfully:
 
 ```text
-uv run ruff format --check src/home_ai_cluster/chat_command.py tests/test_chat_command.py
-uv run ruff check src/home_ai_cluster/chat_command.py tests/test_chat_command.py
+uv run ruff format --check src/home_ai_cluster/commands/chat_command.py tests/test_chat_command.py
+uv run ruff check src/home_ai_cluster/commands/chat_command.py tests/test_chat_command.py
 uv run pytest tests/test_chat_command.py
 uv run pytest
 ```

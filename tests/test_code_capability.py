@@ -4,8 +4,8 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from home_ai_cluster import code_command
 from home_ai_cluster.api.wiring import LocalAppComposition
+from home_ai_cluster.commands import code_command
 from home_ai_cluster.core.models import (
     INTERNAL_CLUSTER_REQUEST_ADAPTER,
     AdapterHealth,

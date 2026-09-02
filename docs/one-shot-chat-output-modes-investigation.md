@@ -105,6 +105,6 @@ This investigation does not define a new phase, reopen Phase 17, amend RFC-0045,
 
 - Governing documents: `VISION.md`, `FOUNDATIONS.md`, `PRINCIPLES.md`, `NON_GOALS.md`, `ROADMAP.md`, `QUESTIONS.md`, `CONTRIBUTING.md`, `AGENTS.md`, and `RFC/README.md`.
 - Accepted contracts relevant to this change: RFC-0045, RFC-0048, RFC-0023, RFC-0034, RFC-0036, RFC-0037, and RFC-0044.
-- Current implementation and focused tests: `src/home_ai_cluster/chat_command.py`, `src/home_ai_cluster/core/models.py`, and `tests/test_chat_command.py`.
+- Current implementation and focused tests: `src/home_ai_cluster/commands/chat_command.py`, `src/home_ai_cluster/core/models.py`, and `tests/test_chat_command.py`.
 - Current inspection formatter implementations and tests: `static_preflight.py`, `local_health_snapshot.py`, `status_command.py`, `test_static_preflight.py`, `test_local_health_snapshot.py`, and `test_status_command.py`.
 - Phase 16 and 17 investigations, proofs, results, runbooks, and closeouts, including the ordinary request access, remote-request, and human-readable inspection-output records.

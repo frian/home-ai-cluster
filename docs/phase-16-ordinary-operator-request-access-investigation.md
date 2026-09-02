@@ -62,7 +62,7 @@ to distinguish a missing process from a normalized cluster failure.
 ## Existing operator request commands
 
 `home-ai-cluster-explain-request` is not a thin client of an ordinary running
-cluster process. `src/home_ai_cluster/actual_request_explanation.py` parses
+cluster process. `src/home_ai_cluster/commands/actual_request_explanation.py` parses
 `--capability` and `--message`, constructs its own local node and adapter
 registries, selects a candidate, and calls selected-candidate orchestration in
 its own process. It neither sends HTTP nor reuses `POST /v1/chat`.

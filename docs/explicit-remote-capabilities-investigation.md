@@ -74,7 +74,7 @@ capability lists. Its multi-remote test disables both the HTTP client and name
 resolution while asserting explicit and default remote lists. Status is a
 different contract: after declaration validation it reports coherence plus
 local/remote application and runtime observations, and its public node result
-does not include capabilities. [`static_preflight.py`](../src/home_ai_cluster/static_preflight.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py), [`cluster_status.py`](../src/home_ai_cluster/cluster_status.py), [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md)
+does not include capabilities. [`static_preflight.py`](../src/home_ai_cluster/commands/static_preflight.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py), [`cluster_status.py`](../src/home_ai_cluster/cluster_status.py), [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md)
 
 Accordingly, eligibility is an operator assertion about what the caller may
 route to a remote. It does not verify that the receiver application, adapter,

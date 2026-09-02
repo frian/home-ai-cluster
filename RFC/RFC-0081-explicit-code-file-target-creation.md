@@ -218,7 +218,7 @@ generated content, or concurrent-writer protection.
 ## Impact
 
 If accepted, a later separate implementation PR may remain localized to
-`src/home_ai_cluster/code_file_command.py`,
+`src/home_ai_cluster/commands/code_file_command.py`,
 `tests/test_code_file_command.py`, and current operator documentation. It need
 not change core models, routing, runtime adapters, compatibility, Aider,
 dependencies, or API contracts.

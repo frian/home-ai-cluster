@@ -18,6 +18,10 @@ from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.core.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
+)
 from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
@@ -29,10 +33,6 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     load_retained_configuration,
-)
-from home_ai_cluster.static_capabilities import (
-    DEFAULT_STATIC_CAPABILITY_NAMES,
-    validate_static_capabilities,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,

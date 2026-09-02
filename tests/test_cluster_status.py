@@ -3,7 +3,7 @@ import asyncio
 import httpx
 import pytest
 
-from home_ai_cluster.cluster_status import collect_static_cluster_status
+from home_ai_cluster.core.cluster_status import collect_static_cluster_status
 from home_ai_cluster.core.models import (
     AdapterHealth,
     ApplicationStatus,

@@ -26,7 +26,7 @@ The ordinary static capability vocabulary is closed to `chat` and `summarize`.
 `DEFAULT_STATIC_CAPABILITY_NAMES` is exactly that ordered pair, and one shared
 validator rejects empty lists, non-strings, unknown names, and duplicates while
 preserving supplied order. This is a bounded declaration contract, not a
-general capability registry. [`static_capabilities.py`](../src/home_ai_cluster/static_capabilities.py)
+general capability registry. [`static_capabilities.py`](../src/home_ai_cluster/core/static_capabilities.py)
 
 The caller-local node has the same compatibility default. A top-level TOML
 `local_capabilities` field, or repeated inline `--local-capability`, restricts
@@ -74,7 +74,7 @@ capability lists. Its multi-remote test disables both the HTTP client and name
 resolution while asserting explicit and default remote lists. Status is a
 different contract: after declaration validation it reports coherence plus
 local/remote application and runtime observations, and its public node result
-does not include capabilities. [`static_preflight.py`](../src/home_ai_cluster/commands/static_preflight.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py), [`cluster_status.py`](../src/home_ai_cluster/cluster_status.py), [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md)
+does not include capabilities. [`static_preflight.py`](../src/home_ai_cluster/commands/static_preflight.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py), [`cluster_status.py`](../src/home_ai_cluster/core/cluster_status.py), [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md)
 
 Accordingly, eligibility is an operator assertion about what the caller may
 route to a remote. It does not verify that the receiver application, adapter,
@@ -87,10 +87,10 @@ guarantee. [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md), [
 
 | Question | Current evidence |
 | --- | --- |
-| What does ordinary local declare by default? | `chat`, `summarize`; omission of `local_capabilities` preserves both. [`static_capabilities.py`](../src/home_ai_cluster/static_capabilities.py), [`test_static_cluster_declaration.py`](../tests/test_static_cluster_declaration.py) |
+| What does ordinary local declare by default? | `chat`, `summarize`; omission of `local_capabilities` preserves both. [`static_capabilities.py`](../src/home_ai_cluster/core/static_capabilities.py), [`test_static_cluster_declaration.py`](../tests/test_static_cluster_declaration.py) |
 | What does an omitted remote declaration declare? | `chat`, `summarize` in ordered TOML, flat TOML, and inline construction. [`static_cluster_declaration.py`](../src/home_ai_cluster/static_cluster_declaration.py), [`static_cluster.py`](../src/home_ai_cluster/static_cluster.py), [`test_static_cluster_declaration.py`](../tests/test_static_cluster_declaration.py) |
 | Can an operator express different remote sets? | Yes: `capabilities` per `[[remote_nodes]]`, `remote_capabilities` in flat TOML, and repeated inline `--remote-capability`. [`static_cluster_declaration.py`](../src/home_ai_cluster/static_cluster_declaration.py), [`test_static_cluster_cli.py`](../tests/test_static_cluster_cli.py) |
-| Are invalid declarations rejected locally? | Yes: empty, duplicate, unknown, non-string, and non-array values fail parsing; preflight projects only validated data without network use. [`static_capabilities.py`](../src/home_ai_cluster/static_capabilities.py), [`test_static_cluster_declaration.py`](../tests/test_static_cluster_declaration.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py) |
+| Are invalid declarations rejected locally? | Yes: empty, duplicate, unknown, non-string, and non-array values fail parsing; preflight projects only validated data without network use. [`static_capabilities.py`](../src/home_ai_cluster/core/static_capabilities.py), [`test_static_cluster_declaration.py`](../tests/test_static_cluster_declaration.py), [`test_multi_remote_static_preflight.py`](../tests/test_multi_remote_static_preflight.py) |
 | Does routing honor the declared set? | Yes: the heterogeneous proof records `chat`/`summarize` exclusion, and focused tests cover restricted caller-local plus remote eligibility. [`heterogeneous-static-capabilities-proof.md`](heterogeneous-static-capabilities-proof.md), [`caller-local-static-capabilities-proof.md`](caller-local-static-capabilities-proof.md), [`test_static_cluster.py`](../tests/test_static_cluster.py) |
 | Is remote support verified? | No. The accepted contract explicitly keeps receiver/runtime verification outside static declarations, preflight, and status. [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md) |
 

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from home_ai_cluster.static_capabilities import (
+from home_ai_cluster.core.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
 )

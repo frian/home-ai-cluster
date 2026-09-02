@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0097: Supported Windows Installation Path](RFC-0097-supported-windows-installation-path.md)
+  — accepts one native Windows 11 x86_64 PowerShell installation route for
+  1.0: WinGet to upstream `uv`, then the ordinary HAC PyPI package and `uv`'s
+  supported shell-discovery step; it adds no HAC installer or lifecycle
+  ownership.
 - [RFC-0096: Bounded Operator-Authorized Chat External-Information Fallback](RFC-0096-bounded-operator-authorized-chat-external-information-fallback.md)
   — accepts one separate retained Chat disclosure authorization for native
   one-shot Chat, one caller-local bounded Classify decision, and at most one

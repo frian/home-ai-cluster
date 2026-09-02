@@ -11,6 +11,8 @@ It lets ordinary requests target capabilities instead of runtime brands or
 machines, while keeping topology explicit and runtime ownership with the
 operator.
 
+![Home AI Cluster architecture at a glance](assets/architecture-at-a-glance.svg)
+
 [Get started](getting-started.md) · [View on GitHub](https://github.com/frian/home-ai-cluster)
 
 ## Local first

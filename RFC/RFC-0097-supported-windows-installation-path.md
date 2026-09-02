@@ -1,6 +1,6 @@
 # RFC-0097: Supported Windows Installation Path
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-02
 
@@ -279,4 +279,4 @@ or broader platform promise.
 
 ## Decision
 
-Pending.
+Accepted.

@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.api.chat_external_information_decision import (
+    ChatExternalInformationDecisionRequest,
+)
 from home_ai_cluster.api.client_disconnect import run_routable_execution
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
@@ -9,9 +12,6 @@ from home_ai_cluster.api.wiring import (
     StaticRemoteWiring,
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
-)
-from home_ai_cluster.chat_external_information_decision import (
-    ChatExternalInformationDecisionRequest,
 )
 from home_ai_cluster.core.executor import InvalidClassificationLabelError
 from home_ai_cluster.core.models import (

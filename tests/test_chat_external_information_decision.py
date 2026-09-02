@@ -3,7 +3,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from home_ai_cluster.chat_external_information_decision import (
+from home_ai_cluster.api.chat_external_information_decision import (
     DECISION_LABELS,
     DECISION_POLICY,
     ChatExternalInformationDecisionRequest,

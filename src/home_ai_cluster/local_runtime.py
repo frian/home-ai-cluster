@@ -12,12 +12,12 @@ from home_ai_cluster.local_runtime_composition import (
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
-from home_ai_cluster.loopback_browser import add_loopback_browser_routes
 from home_ai_cluster.main import create_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     load_retained_configuration,
 )
+from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
 LOCAL_RUNTIME_PORT = 25042

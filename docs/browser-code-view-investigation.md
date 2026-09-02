@@ -45,7 +45,7 @@ The current implementation is faithful to that boundary:
 [`web/index.html`](../src/home_ai_cluster/web/index.html) has exactly those
 three tabs and panels. [`web/assets/app.js`](../src/home_ai_cluster/web/assets/app.js)
 contains exactly the three corresponding `post(...)` calls. The fixed asset
-routes in [`loopback_browser.py`](../src/home_ai_cluster/loopback_browser.py)
+routes in [`loopback_browser.py`](../src/home_ai_cluster/web/loopback_browser.py)
 serve that one page and its project-owned assets only. The focused browser
 tests assert the three calls and that API-only compositions remain page-free.
 

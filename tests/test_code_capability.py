@@ -18,11 +18,11 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_transport import internal_cluster_request_body
-from home_ai_cluster.main import create_app
-from home_ai_cluster.static_capabilities import (
+from home_ai_cluster.core.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
 )
+from home_ai_cluster.main import create_app
 
 
 def make_request(messages: list[str], capability: str = "code") -> ClusterRequest:

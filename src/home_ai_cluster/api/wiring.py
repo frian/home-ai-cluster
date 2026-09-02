@@ -13,7 +13,7 @@ from home_ai_cluster.core.remote_node import (
 )
 from home_ai_cluster.core.remote_transport import RemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
-from home_ai_cluster.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
+from home_ai_cluster.core.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
 
 
 class StaticRemoteWiringError(Exception):

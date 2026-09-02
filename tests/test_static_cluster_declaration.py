@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from home_ai_cluster import static_cluster, static_cluster_declaration
-from home_ai_cluster.static_capabilities import validate_static_capabilities
+from home_ai_cluster.core.static_capabilities import validate_static_capabilities
 from home_ai_cluster.static_cluster_declaration import (
     StaticClusterDeclaration,
     StaticClusterDeclarationError,

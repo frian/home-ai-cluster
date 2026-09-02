@@ -4,6 +4,10 @@ import argparse
 import sys
 from collections.abc import Sequence
 
+from home_ai_cluster.core.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
+)
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
@@ -19,10 +23,6 @@ from home_ai_cluster.retained_configuration import (
     remove_retained_configuration,
     save_retained_configuration,
     validate_external_information_plugin_name,
-)
-from home_ai_cluster.static_capabilities import (
-    DEFAULT_STATIC_CAPABILITY_NAMES,
-    validate_static_capabilities,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id

@@ -29,9 +29,9 @@ unique subsets of exactly those two names. Omission retains `chat` plus
 projects constructed capability lists without network activity; public status
 does not report capability lists. [RFC-0058](../RFC/RFC-0058-explicit-static-remote-capabilities.md),
 [RFC-0059](../RFC/RFC-0059-caller-local-static-capabilities.md),
-[`static_capabilities.py`](../src/home_ai_cluster/static_capabilities.py),
+[`static_capabilities.py`](../src/home_ai_cluster/core/static_capabilities.py),
 [`static_preflight.py`](../src/home_ai_cluster/commands/static_preflight.py),
-[`cluster_status.py`](../src/home_ai_cluster/cluster_status.py)
+[`cluster_status.py`](../src/home_ai_cluster/core/cluster_status.py)
 
 The current remote transport accepts only the tagged `chat` and `summarize`
 internal variants and the receiver executes them locally without forwarding.

@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from home_ai_cluster.core.static_capabilities import validate_static_capabilities
 from home_ai_cluster.local_runtime_composition import (
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
     validate_local_runtime_values,
 )
-from home_ai_cluster.static_capabilities import validate_static_capabilities
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 

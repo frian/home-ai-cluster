@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 
 from home_ai_cluster.api.wiring import LocalAppComposition
-from home_ai_cluster.cluster_status import collect_static_cluster_status
+from home_ai_cluster.core.cluster_status import collect_static_cluster_status
 from home_ai_cluster.core.models import ClusterStatusResult
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
 from home_ai_cluster.core.remote_transport import HttpRemoteStatusTransport

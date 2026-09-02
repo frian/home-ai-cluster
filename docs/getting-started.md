@@ -18,7 +18,31 @@ For exact command contracts and advanced options, use the
 sequence and static multi-node operation, use the
 [operator workflow](operator-workflow.md).
 
-## 1. Install `uv`
+## Windows 11 x86_64
+
+The supported native Windows 1.0 installation path uses PowerShell with WinGet
+available. In PowerShell, run:
+
+```powershell
+winget install --id astral-sh.uv -e --source winget
+uv tool install home-ai-cluster
+uv tool update-shell
+```
+
+WinGet installs upstream Astral `uv`; `uv` installs and isolates the ordinary
+HAC PyPI tool, so you do not need to install Python manually. Close PowerShell
+and open a new PowerShell session, then verify that HAC is available:
+
+```powershell
+hac --version
+```
+
+This supported path is limited to native Windows 11 x86_64, PowerShell, and
+WinGet. HAC does not install or manage runtimes, models, plugins, or Windows
+system configuration. Continue with [step 3](#3-install-ollama-and-the-default-model)
+to prepare an operator-managed runtime.
+
+## 1. Install `uv` (Linux and macOS)
 
 Home AI Cluster uses `uv` for Python and package installation.
 
@@ -38,7 +62,7 @@ Open a new terminal if necessary, then verify the installation:
 uv --version
 ```
 
-## 2. Install a supported Python
+## 2. Install a supported Python (Linux and macOS)
 
 Home AI Cluster currently supports Python 3.13 and 3.14.
 
@@ -81,7 +105,7 @@ Home AI Cluster does not manage Ollama or model downloads. If Ollama is stopped
 later, start it using Ollama's normal operating-system procedure before using
 Home AI Cluster.
 
-## 4. Install Home AI Cluster
+## 4. Install Home AI Cluster (Linux and macOS)
 
 Install the current published package as an isolated `uv` tool:
 

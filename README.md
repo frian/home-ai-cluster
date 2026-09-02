@@ -104,6 +104,11 @@ For a complete first-use walkthrough, including `uv`, Python, Ollama, the defaul
 model, browser use, and first commands, see the
 [Getting Started guide](docs/getting-started.md).
 
+Native Windows 11 x86_64 users with WinGet should follow the supported
+[Windows PowerShell path in Getting Started](docs/getting-started.md#windows-11-x86_64).
+It uses WinGet to install `uv`, then installs the ordinary HAC PyPI package;
+no manual Python installation is required.
+
 ### Installed package
 
 The supported installed-package path uses the current published package release:
@@ -116,7 +121,7 @@ A repository checkout may contain unreleased development work. See the
 [PyPI project](https://pypi.org/project/home-ai-cluster/) for published package
 information.
 
-The default path requires Python 3.13 or 3.14, `uv`, and an
+The Linux and macOS default path requires Python 3.13 or 3.14, `uv`, and an
 operator-managed local Ollama runtime with the default `llama3.2` model
 available. Home AI Cluster does not install, download, start, stop, or manage
 the runtime or model.

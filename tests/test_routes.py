@@ -8,13 +8,13 @@ from home_ai_cluster.adapters.base import (
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.api.chat_external_information_decision import DECISION_POLICY
 from home_ai_cluster.api.routes import InternalClusterStatusResponse
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
     build_static_remote_collection_wiring,
     build_static_remote_wiring,
 )
-from home_ai_cluster.chat_external_information_decision import DECISION_POLICY
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,

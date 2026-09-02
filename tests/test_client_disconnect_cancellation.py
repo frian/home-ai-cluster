@@ -4,7 +4,10 @@ import inspect
 import pytest
 from fastapi import HTTPException
 
-from home_ai_cluster.api.client_disconnect import run_routable_execution
+from home_ai_cluster.api.client_disconnect import (
+    ConfirmedClientDisconnect,
+    run_routable_execution,
+)
 
 
 class DisconnectingRequest:
@@ -51,7 +54,7 @@ def test_preexisting_disconnect_does_not_create_execution() -> None:
             calls += 1
             return "unexpected"
 
-        with pytest.raises(asyncio.CancelledError):
+        with pytest.raises(ConfirmedClientDisconnect):
             await run_routable_execution(request, execution)
         assert calls == 0
 
@@ -178,7 +181,7 @@ def test_confirmed_disconnect_cancels_pending_execution_without_a_result() -> No
         await started.wait()
         request.disconnected.set()
 
-        with pytest.raises(asyncio.CancelledError):
+        with pytest.raises(ConfirmedClientDisconnect):
             await task
         assert cancelled.is_set()
         assert calls == 1
@@ -230,7 +233,7 @@ def test_late_result_after_cancellation_is_discarded() -> None:
         await started.wait()
         request.disconnected.set()
 
-        with pytest.raises(asyncio.CancelledError):
+        with pytest.raises(ConfirmedClientDisconnect):
             await task
         assert late_result_produced.is_set()
 

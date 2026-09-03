@@ -1,6 +1,6 @@
 [project]
 name = "home-ai-cluster"
-version = "1.0.0b2"
+version = "1.0.0"
 description = "Local-first orchestration for personal AI runtimes."
 readme = "README.md"
 license = "AGPL-3.0-or-later"

@@ -95,8 +95,11 @@ From another terminal on the same machine, send one request:
 hac chat "Hello"
 ```
 
-The same fixed loopback process serves the browser at
-`http://127.0.0.1:25042/`.
+With `hac local` running, open `http://127.0.0.1:25042/` in a browser on the
+same machine to use the fixed loopback interface for Chat, Summarize, Classify,
+and Code. The same URL is available on the calling machine while the ordinary
+`hac static-cluster` process is running; it is not a dashboard or LAN
+administration interface.
 
 ### Repository checkout
 

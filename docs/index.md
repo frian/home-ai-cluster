@@ -43,7 +43,10 @@ uv tool install home-ai-cluster
 hac local
 ```
 
-Then open `http://127.0.0.1:25042/` or send a request from another terminal:
+Then open the fixed loopback browser at `http://127.0.0.1:25042/` on the same
+machine, or send a request from another terminal:
+
+![Home AI Cluster loopback browser interface](assets/browser-interface.png)
 
 ```sh
 hac chat "Hello"

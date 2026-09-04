@@ -79,7 +79,11 @@ For execution availability, HAC may own this question:
 May HAC begin this new independent execution?
 ```
 
-The answer is a cluster-owned permission or condition concerning whether HAC
+"HAC-owned" describes semantic authority over the execution-start decision; it
+does not select a concrete component that owns or stores future
+execution-availability state.
+
+The answer is a cluster-owned permission concerning whether HAC
 may start a new independent execution through the relevant HAC-controlled
 execution boundary.
 

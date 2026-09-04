@@ -62,6 +62,19 @@ class RecordingRemoteTransport:
         )
 
 
+class BlockingAdapter(RecordingAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_requests.append(request)
+        self.started.set()
+        await self.release.wait()
+        return RuntimeResult(content="local result", adapter=self.name)
+
+
 def make_node(node_id: str, adapter_name: str = "recording") -> NodeDescription:
     return NodeDescription(
         id=node_id,
@@ -169,6 +182,7 @@ def test_local_app_composition_contains_only_local_registries() -> None:
     assert [field.name for field in fields(composition)] == [
         "node_registry",
         "adapter_registry",
+        "execution_intervals",
     ]
     assert composition.node_registry.list_nodes() == [make_node("local", adapter.name)]
     assert composition.adapter_registry.list_adapters() == [adapter]
@@ -207,6 +221,31 @@ def test_internal_request_uses_supplied_local_app_composition() -> None:
     ]
     assert app.state.static_remote_wiring is None
     assert app.state.static_remote_collection_wiring is None
+
+
+def test_internal_request_tracks_receiver_local_execution_interval() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        composition = make_local_app_composition(adapter)
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            request = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request",
+                    json=internal_cluster_request_payload(),
+                )
+            )
+            await adapter.started.wait()
+            assert composition.execution_intervals.value == 1
+            adapter.release.set()
+            response = await request
+        assert response.status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_internal_status_uses_supplied_local_app_composition() -> None:

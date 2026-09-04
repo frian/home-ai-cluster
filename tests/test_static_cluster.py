@@ -786,7 +786,7 @@ def test_static_cluster_routes_call_neutral_static_remote_fallback(
     assert response.status_code == 200
     assert response.json()["node_id"] == "operator-remote"
     assert len(calls) == 1
-    _, node_registry, adapter_registry, remote_registry, remote_transport = calls[0]
+    _, node_registry, adapter_registry, remote_registry, remote_transport, _ = calls[0]
     assert node_registry is wiring.node_registry
     assert adapter_registry is wiring.adapter_registry
     assert remote_registry is wiring.remote_registry

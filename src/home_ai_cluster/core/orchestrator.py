@@ -7,6 +7,7 @@ import httpx
 from home_ai_cluster.adapters.base import (
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
     execute_declared_routing_decision,
@@ -64,9 +65,35 @@ async def orchestrate_request(
     adapter_registry: AdapterRegistry,
 ) -> RoutableResult:
     """Route a request to an adapter and return its normalized result."""
+    return await _orchestrate_request(
+        request, node_registry, adapter_registry, execution_intervals=None
+    )
+
+
+async def orchestrate_composed_request(
+    request: RoutableRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    execution_intervals: ExecutionIntervalCardinality,
+) -> RoutableResult:
+    """Route a request through one ordinary composed application process."""
+    return await _orchestrate_request(
+        request,
+        node_registry,
+        adapter_registry,
+        execution_intervals=execution_intervals,
+    )
+
+
+async def _orchestrate_request(
+    request: RoutableRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    execution_intervals: ExecutionIntervalCardinality | None,
+) -> RoutableResult:
     decision = route_request(request, node_registry, adapter_registry)
 
-    return await execute_routing_decision(request, decision)
+    return await execute_routing_decision(request, decision, execution_intervals)
 
 
 async def orchestrate_request_with_selected_candidate(
@@ -74,6 +101,7 @@ async def orchestrate_request_with_selected_candidate(
     selected: SelectedRoutingCandidate,
     *,
     remote_transport: RemoteTransport | None = None,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> RoutableResult:
     """Execute an already selected routing candidate without routing again."""
     if selected is None:
@@ -90,9 +118,15 @@ async def orchestrate_request_with_selected_candidate(
         )
 
     if selected.local is not None:
+        if execution_intervals is None:
+            return await execute_local_routing_decision(
+                request,
+                selected.local.decision,
+            )
         return await execute_local_routing_decision(
             request,
             selected.local.decision,
+            execution_intervals,
         )
 
     if remote_transport is None:
@@ -161,6 +195,7 @@ async def orchestrate_request_with_static_remote_fallback(
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> RoutableResult:
     """Execute the accepted local-to-declared-remote fallback once."""
     candidates = routing_candidates_for_request(
@@ -179,6 +214,7 @@ async def orchestrate_request_with_static_remote_fallback(
             request,
             selection.selected,
             remote_transport=remote_transport,
+            execution_intervals=execution_intervals,
         )
 
     try:
@@ -186,6 +222,7 @@ async def orchestrate_request_with_static_remote_fallback(
             request,
             selection.selected,
             remote_transport=remote_transport,
+            execution_intervals=execution_intervals,
         )
     except RuntimeConnectionUnavailableBeforeRequestError:
         if request.constraints.local_only or candidates.declared_remote is None:

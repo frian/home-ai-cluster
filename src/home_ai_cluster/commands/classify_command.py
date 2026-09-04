@@ -116,7 +116,7 @@ def _failure_for_status(status: int) -> str | None:
     if status == 404:
         return _NO_CAPABILITY
     if status == 409:
-        return "error: local execution permission denied"
+        return "error: execution permission denied"
     if status == 503:
         return _RUNTIME_UNAVAILABLE
     return _ORDINARY_REQUEST_FAILED

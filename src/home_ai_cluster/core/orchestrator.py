@@ -61,7 +61,7 @@ class ExecutionPermissionDeniedError(Exception):
     def __init__(
         self, explanation: AutomaticCapabilitySelectionExplanation | None = None
     ) -> None:
-        super().__init__("Local execution permission denied")
+        super().__init__("Execution permission denied")
         self.explanation = explanation
 
 

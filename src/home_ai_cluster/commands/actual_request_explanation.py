@@ -50,7 +50,7 @@ EXECUTION_FAILED_FAILURE = {
 }
 EXECUTION_PERMISSION_DENIED_FAILURE = {
     "status": "execution-permission-denied",
-    "reason": "local execution permission denied",
+    "reason": "execution permission denied",
 }
 INTERNAL_FAILURE_MESSAGE = "error: unable to construct actual request account"
 HISTORY_RECORDING_WARNING = "warning: unable to record request history"

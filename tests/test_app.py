@@ -340,7 +340,8 @@ def test_originating_local_permission_denial_maps_to_safe_http_conflict() -> Non
 
         assert response.status_code == 409
         assert response.status_code not in {404, 503}
-        assert response.json() == {"detail": "local execution permission denied"}
+        assert response.json() == {"detail": "execution permission denied"}
+        assert "local execution permission denied" not in response.text
         assert "traceback" not in response.text.lower()
         assert "recording" not in response.text
         assert adapter.chat_requests == []

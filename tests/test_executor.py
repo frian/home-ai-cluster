@@ -259,6 +259,34 @@ def test_execution_interval_cardinality_cleans_up_cancellation() -> None:
     asyncio.run(run())
 
 
+def test_classification_interval_ends_before_invalid_label_validation() -> None:
+    async def run() -> None:
+        adapter = ClassifyRecordingAdapter("unexpected")
+        request = ClassifyRequest(text="Source text", labels=["invoice", "personal"])
+        intervals = ExecutionIntervalCardinality()
+        decision = RoutingDecision(
+            node=NodeDescription(
+                id="selected-local",
+                name="Selected local node",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="classify")],
+                adapters=["adapter"],
+            ),
+            adapter=adapter,
+            capability=Capability(name="classify"),
+            reason="test classify decision",
+        )
+
+        with pytest.raises(InvalidClassificationLabelError):
+            await execute_local_routing_decision(request, decision, intervals)
+
+        assert adapter.classify_requests == [request]
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
 def test_execute_local_routing_decision_attributes_selected_local_node() -> None:
     result = RuntimeResult(content="Hello", adapter="adapter")
     adapter = RecordingAdapter(result=result)

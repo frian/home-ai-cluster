@@ -175,7 +175,7 @@ def test_create_app_without_remote_wiring_stores_none() -> None:
     assert app.state.local_app_composition is None
 
 
-def test_local_app_composition_contains_only_local_registries() -> None:
+def test_local_app_composition_contains_local_registries_and_execution_state() -> None:
     adapter = RecordingAdapter()
     composition = make_local_app_composition(adapter)
 

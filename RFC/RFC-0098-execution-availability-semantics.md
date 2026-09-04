@@ -12,7 +12,7 @@ Home AI Cluster should recognize **execution availability** as a distinct
 cluster concept.
 
 Execution availability is a request-time fact about whether an otherwise
-eligible routing candidate may begin one additional independent execution when
+eligible routing candidate may begin a new independent execution when
 a new request is being considered.
 
 It is separate from static routing eligibility, health and status observation,
@@ -31,7 +31,7 @@ accepted local/remote policy with static remote declaration order.
 The operator-facing surfaces answer different, bounded questions:
 
 ```text
-hac config     -> retained configuration
+hac config show -> retained configuration
 hac preflight  -> static/declaration coherence
 hac health     -> direct bounded local runtime observation
 hac status     -> bounded observation of an explicitly declared static cluster
@@ -47,7 +47,7 @@ and each send work to it. HAC currently owns no execution-admission or
 current-work state. That is not itself a 1.0 defect; it exposes a missing
 architectural term for a different question:
 
-> May this otherwise eligible candidate begin another independent execution
+> May this otherwise eligible candidate begin a new independent execution
 > now?
 
 Without an explicit term, later work could silently overload static
@@ -90,19 +90,11 @@ Home AI Cluster should use the term **execution availability** for this
 separate semantic question:
 
 > At the point a new independent request is considered, may an otherwise
-> eligible routing candidate begin one additional independent execution?
+> eligible routing candidate begin a new independent execution?
 
-The intended conceptual relationship is:
-
-```text
-static eligibility
-    -> execution availability
-    -> selection / execution attempt
-```
-
-This is a conceptual relationship, not a description or authorization of the
-current implementation. It introduces no additional lifecycle states and does
-not alter existing selection.
+Static eligibility and execution availability are distinct concepts. This is
+not a description or authorization of the current implementation. It introduces
+no additional lifecycle states and does not alter existing selection.
 
 ### Static eligibility remains distinct
 
@@ -243,8 +235,8 @@ decisions.
 * What happens when the fact cannot be established?
 * How can future routing consume it while preserving deterministic,
   operator-controlled behavior?
-* How should a future admission mechanism interact with concurrent independent
-  requests?
+* How should future routing behave when multiple independent requests concern
+  the same otherwise eligible candidate?
 * How is the pre-transmission-only fallback invariant preserved?
 * What is the smallest bounded proof that would justify a routing-behavior RFC?
 

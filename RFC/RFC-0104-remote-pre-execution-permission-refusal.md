@@ -21,20 +21,22 @@ response carrying the machine-readable cluster-owned semantic:
 execution-permission-denied
 ```
 
-Caller C may consider the next already eligible, not-yet-contacted declared
-remote candidate only after it validates both the expected internal HTTP
-category and that exact internal semantic. This is a new safe continuation
-category. It is distinct from RFC-0028's affirmative connection unavailability
-before request transmission. A bare `409`, malformed response, timeout,
-generic transport error, `503`, or any other ambiguous post-transmission
-outcome remains terminal and must not cause speculative duplicate execution.
+After it validates both the expected internal HTTP category and that exact
+internal semantic, Caller C continues considering the next statically eligible,
+not-yet-contacted declared remote candidate in the existing deterministic order.
+This is a new safe continuation category. It is distinct from RFC-0028's
+affirmative connection unavailability before request transmission. A bare
+`409`, malformed response, timeout, generic transport error, `503`, or any
+other ambiguous post-transmission outcome remains terminal and must not cause
+speculative duplicate execution.
 
-When every otherwise usable location considered under this permission policy
-refuses before execution and no later attempted candidate produces an
-authoritative terminal failure, the terminal cluster outcome reuses Draft
-RFC-0103's `execution-permission-denied` semantic. This RFC adds no
-pre-transmission availability observation, runtime-capacity claim, scheduler,
-or implementation.
+When exhaustion is attributable entirely to permission denial before execution
+and no later attempted candidate produces an authoritative terminal failure,
+the terminal cluster outcome reuses Draft RFC-0103's
+`execution-permission-denied` semantic. RFC-0028 exhaustion remains
+authoritative when its affirmative pre-transmission condition occurs. This RFC
+adds no pre-transmission availability observation, runtime-capacity claim,
+scheduler, or implementation.
 
 ## Problem
 
@@ -96,8 +98,8 @@ This RFC does not define:
   round robin, weights, randomization, or least-loaded routing;
 * discovery, registration, dynamic membership, persistence, shared state,
   central coordination, or operator status fields;
-* generic HTTP retry, generic retry middleware, an exact Python type, exact
-  internal response field name, or implementation placement; or
+* generic HTTP retry, generic retry middleware, an exact Python type, or
+  implementation placement; or
 * source code, tests, remote-protocol implementation, configuration, runtime
   behavior, user-facing documentation, or a 2.0 feature commitment.
 
@@ -147,10 +149,17 @@ affirmatively means:
 > The receiver received this request and did not begin its HAC-owned adapter
 > execution because execution permission was denied.
 
-The response maps the semantic `execution-permission-denied` to internal HTTP
-`409 Conflict`, consistent with Draft RFC-0103. It does not mean runtime
-unavailable, runtime busy, capacity exhausted, transport failure, or a general
-HTTP conflict.
+The response uses internal HTTP `409 Conflict`, consistent with Draft RFC-0103,
+and exactly this JSON response body:
+
+```json
+{
+  "detail": "execution-permission-denied"
+}
+```
+
+It does not mean runtime unavailable, runtime busy, capacity exhausted,
+transport failure, or a general HTTP conflict.
 
 The response must disclose only the semantic required for routing safety. It
 must not disclose active request identity, interval cardinality, prompt or
@@ -159,34 +168,29 @@ machine utilization, queue depth, or load information.
 
 ### Validated internal refusal contract
 
-Caller C may classify a received response as a remote pre-execution permission
+Caller C classifies a received response as a remote pre-execution permission
 refusal only when both of these facts are established under the internal
 protocol contract:
 
-1. the response has the expected internal HTTP `409 Conflict` category; and
-2. it validly carries the exact machine-readable
-   `execution-permission-denied` semantic.
+1. the response has HTTP `409 Conflict`; and
+2. its JSON `detail` value is exactly `execution-permission-denied`.
 
-HTTP status alone is insufficient. In particular, a bare or unrecognized
-`409` is terminal and ambiguous, as are malformed responses and responses with
-an absent or unrecognized semantic.
+HTTP status alone is insufficient. A bare `409`, malformed JSON, missing
+`detail`, different `detail`, generic error body, or otherwise invalid response
+is non-safe for candidate continuation and remains terminal and ambiguous.
 
-The current internal request protocol returns one of the successful result
-envelopes and current remote transport normalizes HTTP failures without an
-established uniquely authoritative failure-semantic envelope or field. This
-RFC therefore requires a machine-readable internal representation but does not
-invent an exact envelope or field placement. A later implementation RFC or
-implementation review must select the smallest protocol-consistent encoding and
-validate it before permitting continuation.
+This uses the existing FastAPI-style `detail` convention. It defines no generic
+internal error-envelope architecture or broader protocol taxonomy; it is one
+bounded internal representation for this semantic.
 
 ### Candidate continuation
 
 The caller continues to use existing deterministic static candidate order. If
 A is the first statically eligible remote candidate, C sends the request to A;
 it does not pre-screen A. After a validated remote pre-execution permission
-refusal, C may consider only the next statically eligible, not-yet-contacted
-remote candidate in that existing order. It does not re-order, rediscover,
-score, balance, randomize, or retry A.
+refusal, C continues considering the next statically eligible, not-yet-contacted
+remote candidate in that existing deterministic order. It does not re-order,
+rediscover, score, balance, randomize, or retry A.
 
 For example:
 
@@ -224,7 +228,7 @@ The latter must not be represented as
 existing fallback exception. Neither condition permits generic retry after an
 ambiguous execution outcome.
 
-After transmission, C may continue only for the validated refusal defined here.
+After transmission, C continues only for the validated refusal defined here.
 Timeouts, connection loss after transmission may have begun, generic
 `RemoteTransportError`, invalid result, HTTP `500`, generic HTTP `503` or
 runtime unavailability, bare/unrecognized `409`, and every response that does
@@ -233,10 +237,10 @@ another candidate attempt.
 
 ### Terminal outcome and failure authority
 
-When all otherwise usable execution locations considered under this policy deny
-permission before execution and no later attempted candidate produces a
-different authoritative terminal failure, the final request outcome is the
-existing cluster-owned semantic:
+When exhaustion is attributable entirely to caller-local execution-permission
+denial, if present, and/or validated remote pre-execution permission refusals,
+and no later attempted candidate produces a different authoritative terminal
+failure, the final request outcome is the existing cluster-owned semantic:
 
 ```text
 execution-permission-denied
@@ -248,11 +252,36 @@ remains HTTP `409`, CLI exit `1`, and structured failure status
 `execution-permission-denied` where the existing native surfaces apply. It does
 not expose cardinality or create a second public terminal semantic.
 
-An earlier refusal must not mask a later authoritative failure. For example,
-if A validly refuses permission and B then produces an existing remote
-transport or runtime terminal failure, B's failure remains final. Likewise,
-this RFC does not alter RFC-0028 exhaustion behavior merely because an earlier
-candidate refused permission.
+An earlier refusal must not mask a later authoritative failure. For example:
+
+```text
+Remote A:
+  execution-permission-denied
+
+Remote B:
+  existing authoritative runtime/transport failure
+
+=> Remote B failure remains authoritative
+```
+
+Likewise, this RFC does not alter RFC-0028 exhaustion behavior. If the
+candidate sequence includes RFC-0028 affirmative connection unavailability
+before transmission and no later existing authoritative execution/transport
+failure supersedes it, the existing RFC-0028 exhaustion outcome remains
+authoritative; it must not be rewritten as `execution-permission-denied`:
+
+```text
+Remote A:
+  connection unavailable before transmission
+
+Remote B:
+  execution-permission-denied
+
+no candidate remains
+
+=> preserve existing RFC-0028 exhaustion outcome
+=> do not rewrite terminal result as execution-permission-denied
+```
 
 ### Explainability and interval limitation
 
@@ -393,7 +422,6 @@ fallback.
 
 ## Open questions
 
-* What exact internal response envelope or field carries the semantic?
 * What exact internal Python type represents affirmative refusal?
 * Where does receiver permission gating belong in existing orchestration?
 * What minimal transport parsing distinguishes valid refusal from bare `409`?

@@ -14,9 +14,9 @@ execution-interval cardinality is zero. The permission decision and entry to
 that interval must be one coherent transition for simultaneous requests.
 
 When the caller-local candidate is otherwise statically eligible but is not
-permitted to begin, HAC does not attempt it. It may instead continue to the
-next already-known, statically eligible, uncontacted candidate in the existing
-deterministic order. If no such candidate may be considered, the request fails
+permitted to begin, HAC does not attempt it. It continues considering the next
+already-known, statically eligible, uncontacted candidate in the existing
+deterministic order. If no such candidate remains to be considered, the request fails
 immediately with a distinct HAC-owned execution-permission meaning.
 
 This first policy applies only to the originating process considering its own
@@ -128,7 +128,7 @@ This describes no scheduler, planner, queue, or general dynamic-routing layer.
 
 ### Permission-based continuation before an attempt
 
-If the considered caller-local candidate is not permitted, HAC may consider
+If the considered caller-local candidate is not permitted, HAC continues considering
 the next statically eligible, not-yet-contacted candidate in the existing
 deterministic order. The skipped local candidate must not enter its adapter
 invocation, contact its runtime, count as a failed execution attempt, or
@@ -136,7 +136,7 @@ trigger RFC-0028 fallback.
 
 In the ordinary current topology, local retains first consideration. A denied
 local execution may therefore lead to declared remote candidates in their
-existing declaration order. No new selection or balancing algorithm is
+existing declaration order. No new candidate-ordering or balancing algorithm is
 introduced.
 
 This continuation is not fallback. No execution or transport attempt occurred
@@ -283,9 +283,9 @@ and is not needed for this local policy proof.
 
 The first rule intentionally allows at most one originating-process local
 HAC-owned adapter invocation at a time. This HAC policy may shift an
-independent request to an explicit remote candidate, but cannot avoid a busy
-remote receiver because the caller owns no truthful pre-transmission remote
-availability fact. The asymmetry is intentional.
+independent request to an explicit remote candidate, but cannot pre-screen a
+remote receiver by execution availability because the caller has no truthful
+pre-transmission remote execution-availability fact. The asymmetry is intentional.
 
 A request without an allowed alternative fails immediately rather than waits.
 Node choice becomes request-time-state-sensitive, but remains explainable from
@@ -295,9 +295,12 @@ explicit local state and fixed static rules.
 
 This RFC changes no implementation. If accepted, a later implementation may
 coherently consume local cardinality for permission and interval entry, continue
-candidate consideration after denial, emit a distinct permission failure when
-none remains, and explain the decision truthfully. That implementation still
-requires its own review.
+candidate consideration after denial, emit a distinct permission failure only
+when local execution permission is denied and no other statically allowed
+candidate remains to be considered at that decision point, and explain the
+decision truthfully. If a remote candidate is subsequently attempted, existing
+remote transport, fallback, and failure semantics remain authoritative. That
+implementation still requires its own review.
 
 ## Open questions
 

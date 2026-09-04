@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Current Draft RFCs
 
+- [RFC-0103: Local Execution Permission Failure Contract](RFC-0103-local-execution-permission-failure-contract.md)
+  — proposes one distinct cluster-owned no-alternative local execution-permission
+  failure, native HTTP 409 mapping, ordinary CLI exit 1, a later RFC-0034
+  structured-failure extension, and truthful routing explanation without
+  changing fallback or remote protocol behavior.
 - [RFC-0102: Local Execution Permission Policy](RFC-0102-local-execution-permission-policy.md)
   — proposes a fixed originating-process local permission rule: zero active
   RFC-0101 intervals permits local execution; otherwise HAC may continue in

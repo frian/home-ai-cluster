@@ -33,8 +33,10 @@ from home_ai_cluster.core.models import (
     SummarizeRequest,
 )
 from home_ai_cluster.core.orchestrator import (
+    ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
     orchestrate_composed_request,
+    orchestrate_receiver_composed_request,
     orchestrate_request,
     orchestrate_request_with_static_remote_fallback,
 )
@@ -99,12 +101,21 @@ async def handle_static_local_cluster_request(
     | ClassifyRequest
     | SourceGroundedChatRequest,
     local_app_composition: LocalAppComposition | None = None,
+    *,
+    originating: bool = True,
 ) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
 
     try:
-        if local_app_composition is not None:
+        if local_app_composition is not None and originating:
             return await orchestrate_composed_request(
+                cluster_request,
+                node_registry,
+                adapter_registry,
+                local_app_composition.execution_intervals,
+            )
+        if local_app_composition is not None:
+            return await orchestrate_receiver_composed_request(
                 cluster_request,
                 node_registry,
                 adapter_registry,
@@ -117,6 +128,11 @@ async def handle_static_local_cluster_request(
         raise HTTPException(
             status_code=503,
             detail="Runtime adapter unavailable",
+        ) from exc
+    except ExecutionPermissionDeniedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="local execution permission denied",
         ) from exc
     except InvalidClassificationLabelError as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc
@@ -147,7 +163,12 @@ async def handle_chat_cluster_request(
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
         ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="local execution permission denied"
+                ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
                     status_code=404,
@@ -174,7 +195,12 @@ async def handle_chat_cluster_request(
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
         ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="local execution permission denied"
+                ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
                     status_code=404,
@@ -227,7 +253,15 @@ async def handle_summarize_cluster_request(
             cluster_request,
             local_app_composition=local_app_composition,
         )
-    except (RuntimeAdapterUnavailableError, NoSelectableRoutingCandidateError) as exc:
+    except (
+        RuntimeAdapterUnavailableError,
+        NoSelectableRoutingCandidateError,
+        ExecutionPermissionDeniedError,
+    ) as exc:
+        if isinstance(exc, ExecutionPermissionDeniedError):
+            raise HTTPException(
+                status_code=409, detail="local execution permission denied"
+            ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(
                 status_code=404,
@@ -269,7 +303,15 @@ async def handle_classify_cluster_request(
             cluster_request,
             local_app_composition=local_app_composition,
         )
-    except (RuntimeAdapterUnavailableError, NoSelectableRoutingCandidateError) as exc:
+    except (
+        RuntimeAdapterUnavailableError,
+        NoSelectableRoutingCandidateError,
+        ExecutionPermissionDeniedError,
+    ) as exc:
+        if isinstance(exc, ExecutionPermissionDeniedError):
+            raise HTTPException(
+                status_code=409, detail="local execution permission denied"
+            ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(
                 status_code=404,
@@ -497,6 +539,7 @@ async def internal_cluster_request(
         lambda: handle_static_local_cluster_request(
             request,
             local_app_composition=local_app_composition,
+            originating=False,
         ),
     )
 

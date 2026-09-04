@@ -11,6 +11,7 @@ from home_ai_cluster.adapters.base import (
 )
 from home_ai_cluster.commands.actual_request_explanation import (
     EXECUTION_FAILED_FAILURE,
+    EXECUTION_PERMISSION_DENIED_FAILURE,
     HISTORY_RECORDING_WARNING,
     INTERNAL_FAILURE_MESSAGE,
     NO_SELECTABLE_CANDIDATE_FAILURE,
@@ -19,6 +20,7 @@ from home_ai_cluster.commands.actual_request_explanation import (
     evaluate_actual_request,
     main,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -121,6 +123,8 @@ def test_successful_account_has_the_structured_rfc_0034_projection() -> None:
             "selected_node_id": "test-local",
             "outcome_rule": "local-only",
             "failure_reason": None,
+            "local_execution_permission": "granted",
+            "candidate_consideration": "executed",
         },
         "result": {
             "node_id": "test-local",
@@ -167,6 +171,8 @@ def test_no_selectable_candidate_preserves_exception_routing_and_does_not_execut
             "selected_node_id": None,
             "outcome_rule": "no-selectable-candidate",
             "failure_reason": "no-matching-candidate",
+            "local_execution_permission": "not-applicable",
+            "candidate_consideration": "ended",
         },
         "result": None,
         "failure": NO_SELECTABLE_CANDIDATE_FAILURE,
@@ -198,6 +204,34 @@ def test_evaluate_selects_and_executes_at_most_once(
     assert adapter.chat_calls == 1
 
 
+def test_actual_request_reports_local_execution_permission_denial() -> None:
+    async def run() -> tuple[dict[str, object], RecordingAdapter]:
+        nodes, adapters, adapter = create_local_registries(
+            RuntimeResult(content="unused", adapter="recording")
+        )
+        intervals = ExecutionIntervalCardinality()
+        await intervals.enter()
+        account = await evaluate_actual_request(
+            "chat",
+            "private prompt content",
+            node_registry=nodes,
+            adapter_registry=adapters,
+            remote_registry=build_remote_node_declaration_registry([]),
+            execution_intervals=intervals,
+        )
+        assert intervals.value == 1
+        await intervals.exit()
+        return account, adapter
+
+    account, adapter = asyncio.run(run())
+
+    assert account["failure"] == EXECUTION_PERMISSION_DENIED_FAILURE
+    assert account["routing"]["selectable_candidate_families"] == ["local"]
+    assert account["routing"]["local_execution_permission"] == "denied"
+    assert account["routing"]["candidate_consideration"] == "ended"
+    assert adapter.chat_calls == 0
+
+
 @pytest.mark.parametrize(
     "error",
     [
@@ -222,6 +256,8 @@ def test_runtime_unavailable_failures_keep_selection_without_leaking(
         "selected_node_id": "test-local",
         "outcome_rule": "local-only",
         "failure_reason": None,
+        "local_execution_permission": "granted",
+        "candidate_consideration": "executed",
     }
     assert account["result"] is None
     assert account["failure"] == RUNTIME_UNAVAILABLE_FAILURE

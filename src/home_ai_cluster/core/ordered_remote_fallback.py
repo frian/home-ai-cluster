@@ -12,6 +12,7 @@ from home_ai_cluster.core.models import (
     RoutableResult,
 )
 from home_ai_cluster.core.orchestrator import (
+    ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_selected_candidate,
 )
@@ -52,17 +53,25 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
     last_connection_error: RuntimeConnectionUnavailableBeforeRequestError | None = None
 
     if selection.selected.local is not None:
-        try:
-            return await orchestrate_request_with_selected_candidate(
-                request,
-                selection.selected,
-                remote_transport=remote_transport,
-                execution_intervals=execution_intervals,
-            )
-        except RuntimeConnectionUnavailableBeforeRequestError as exc:
-            last_connection_error = exc
-            if request.constraints.local_only:
-                raise
+        local_permitted = (
+            execution_intervals is None or await execution_intervals.enter_if_idle()
+        )
+        if not local_permitted:
+            if request.constraints.local_only or not candidates.declared_remotes:
+                raise ExecutionPermissionDeniedError(selection.explanation)
+        else:
+            try:
+                return await orchestrate_request_with_selected_candidate(
+                    request,
+                    selection.selected,
+                    remote_transport=remote_transport,
+                    execution_intervals=execution_intervals,
+                    local_interval_already_entered=execution_intervals is not None,
+                )
+            except RuntimeConnectionUnavailableBeforeRequestError as exc:
+                last_connection_error = exc
+                if request.constraints.local_only:
+                    raise
 
     for candidate in candidates.declared_remotes:
         try:

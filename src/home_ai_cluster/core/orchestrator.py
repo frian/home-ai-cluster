@@ -51,6 +51,16 @@ class NoSelectableRoutingCandidateError(Exception):
         self.explanation = explanation
 
 
+class ExecutionPermissionDeniedError(Exception):
+    """Raised when HAC does not permit a new originating local execution."""
+
+    def __init__(
+        self, explanation: AutomaticCapabilitySelectionExplanation | None = None
+    ) -> None:
+        super().__init__("Local execution permission denied")
+        self.explanation = explanation
+
+
 @dataclass(frozen=True)
 class AutomaticCapabilityRoutingOutcome:
     """Request-scoped selection explanation and successful normalized result."""
@@ -77,6 +87,21 @@ async def orchestrate_composed_request(
     execution_intervals: ExecutionIntervalCardinality,
 ) -> RoutableResult:
     """Route a request through one ordinary composed application process."""
+    decision = route_request(request, node_registry, adapter_registry)
+    if not await execution_intervals.enter_if_idle():
+        raise ExecutionPermissionDeniedError()
+    return await execute_local_routing_decision(
+        request, decision, execution_intervals, interval_already_entered=True
+    )
+
+
+async def orchestrate_receiver_composed_request(
+    request: RoutableRequest,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    execution_intervals: ExecutionIntervalCardinality,
+) -> RoutableResult:
+    """Execute a received internal request without originating permission policy."""
     return await _orchestrate_request(
         request,
         node_registry,
@@ -102,6 +127,7 @@ async def orchestrate_request_with_selected_candidate(
     *,
     remote_transport: RemoteTransport | None = None,
     execution_intervals: ExecutionIntervalCardinality | None = None,
+    local_interval_already_entered: bool = False,
 ) -> RoutableResult:
     """Execute an already selected routing candidate without routing again."""
     if selected is None:
@@ -127,6 +153,7 @@ async def orchestrate_request_with_selected_candidate(
             request,
             selected.local.decision,
             execution_intervals,
+            interval_already_entered=local_interval_already_entered,
         )
 
     if remote_transport is None:
@@ -217,12 +244,23 @@ async def orchestrate_request_with_static_remote_fallback(
             execution_intervals=execution_intervals,
         )
 
+    local_permitted = (
+        execution_intervals is None or await execution_intervals.enter_if_idle()
+    )
+    if not local_permitted:
+        if request.constraints.local_only or candidates.declared_remote is None:
+            raise ExecutionPermissionDeniedError(selection.explanation)
+        return await execute_declared_remote_routing_candidate(
+            request, candidates.declared_remote, remote_transport
+        )
+
     try:
         return await orchestrate_request_with_selected_candidate(
             request,
             selection.selected,
             remote_transport=remote_transport,
             execution_intervals=execution_intervals,
+            local_interval_already_entered=execution_intervals is not None,
         )
     except RuntimeConnectionUnavailableBeforeRequestError:
         if request.constraints.local_only or candidates.declared_remote is None:

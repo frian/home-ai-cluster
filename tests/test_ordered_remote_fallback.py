@@ -6,6 +6,7 @@ from home_ai_cluster.adapters.base import (
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -193,6 +194,57 @@ def test_local_success_stops_before_remote_candidates() -> None:
     assert result.content == "local"
     assert len(adapter.requests) == 1
     assert transport.attempted_node_ids == []
+
+
+def test_concurrent_originating_request_continues_to_remote_when_local_denied() -> None:
+    class BlockingLocalAdapter(RecordingAdapter):
+        def __init__(self) -> None:
+            super().__init__(RuntimeResult(content="local", adapter="recording"))
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def chat(self, request: ClusterRequest) -> RuntimeResult:
+            self.requests.append(request)
+            self.started.set()
+            await self.release.wait()
+            return self.outcome  # type: ignore[return-value]
+
+    async def run() -> None:
+        adapter = BlockingLocalAdapter()
+        transport = ScriptedRemoteTransport(
+            {"remote-a": ClusterResult(content="remote", adapter="remote", node_id="x")}
+        )
+        intervals = ExecutionIntervalCardinality()
+        nodes = NodeRegistry([make_node("local", "recording")])
+        remotes = RemoteNodeDeclarationRegistry([make_declaration("remote-a")])
+        first = asyncio.create_task(
+            orchestrate_request_with_ordered_static_remote_fallback(
+                make_request(),
+                nodes,
+                AdapterRegistry([adapter]),
+                remotes,
+                transport,
+                intervals,
+            )
+        )
+        await adapter.started.wait()
+        assert intervals.value == 1
+        second = await orchestrate_request_with_ordered_static_remote_fallback(
+            make_request(),
+            nodes,
+            AdapterRegistry([adapter]),
+            remotes,
+            transport,
+            intervals,
+        )
+        assert second.content == "remote"
+        assert len(adapter.requests) == 1
+        assert transport.attempted_node_ids == ["remote-a"]
+        adapter.release.set()
+        await first
+        assert intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_advances_through_connection_unavailable_candidates_in_order() -> None:

@@ -33,10 +33,13 @@ class InvalidClassificationLabelError(Exception):
 async def _await_local_adapter_invocation(
     invocation: Awaitable[object],
     execution_intervals: ExecutionIntervalCardinality | None,
+    *,
+    interval_already_entered: bool = False,
 ) -> object:
     if execution_intervals is None:
         return await invocation
-    await execution_intervals.enter()
+    if not interval_already_entered:
+        await execution_intervals.enter()
     try:
         return await invocation
     finally:
@@ -47,11 +50,15 @@ async def execute_local_routing_decision(
     request: RoutableRequest,
     decision: RoutingDecision,
     execution_intervals: ExecutionIntervalCardinality | None = None,
+    *,
+    interval_already_entered: bool = False,
 ) -> RoutableResult:
     """Execute the selected local adapter for a routing decision."""
     if isinstance(request, ClusterRequest):
         result = await _await_local_adapter_invocation(
-            decision.adapter.chat(request), execution_intervals
+            decision.adapter.chat(request),
+            execution_intervals,
+            interval_already_entered=interval_already_entered,
         )
         return ClusterResult(
             content=result.content,
@@ -63,7 +70,9 @@ async def execute_local_routing_decision(
     if isinstance(request, SourceGroundedChatRequest):
         projected_request = project_source_grounded_chat_request(request)
         result = await _await_local_adapter_invocation(
-            decision.adapter.chat(projected_request), execution_intervals
+            decision.adapter.chat(projected_request),
+            execution_intervals,
+            interval_already_entered=interval_already_entered,
         )
         return SourceGroundedChatResult(
             content=result.content,
@@ -75,7 +84,9 @@ async def execute_local_routing_decision(
 
     if isinstance(request, SummarizeRequest):
         result = await _await_local_adapter_invocation(
-            decision.adapter.summarize(request), execution_intervals
+            decision.adapter.summarize(request),
+            execution_intervals,
+            interval_already_entered=interval_already_entered,
         )
         return ClusterResult(
             content=result.content,
@@ -85,7 +96,9 @@ async def execute_local_routing_decision(
         )
 
     proposal = await _await_local_adapter_invocation(
-        decision.adapter.classify(request), execution_intervals
+        decision.adapter.classify(request),
+        execution_intervals,
+        interval_already_entered=interval_already_entered,
     )
     if proposal not in request.labels:
         raise InvalidClassificationLabelError("Invalid classification label")

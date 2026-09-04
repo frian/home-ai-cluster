@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Current Draft RFCs
 
+- [RFC-0104: Remote Pre-Execution Permission Refusal](RFC-0104-remote-pre-execution-permission-refusal.md)
+  — proposes receiver-side use of the first HAC execution-permission policy,
+  an explicit validated pre-execution refusal for ordered remote continuation,
+  and terminal reuse of `execution-permission-denied`, without availability
+  observation, runtime-capacity claims, or implementation changes.
 - [RFC-0103: Local Execution Permission Failure Contract](RFC-0103-local-execution-permission-failure-contract.md)
   — proposes one distinct cluster-owned no-alternative local execution-permission
   failure, native HTTP 409 mapping, ordinary CLI exit 1, a later RFC-0034

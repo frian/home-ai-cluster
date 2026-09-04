@@ -246,19 +246,20 @@ internal protocol, runtime behavior, or user-facing documentation.
 
 If accepted, it authorizes only the architectural scope for a later bounded
 proof. A further RFC is required before implementation of a representation,
-simultaneous-request accounting, enforcement, unknown or unavailable behavior,
+simultaneous-request behavior, enforcement, unknown or unavailable behavior,
 or any interaction with routing.
 
 ## Open questions
 
 * What minimal representation should express the process-local execution truth?
-* What object should hold any future process-local state?
+* Where, if anywhere, should future process-local execution-availability
+  information be represented?
 * How should simultaneous independent requests interact with that state?
 * What initial execution policy, if any, should a later proof establish?
 * How should cancellation affect later state accounting while preserving the
   distinction from runtime termination?
-* Should all ordinary composed application construction paths use one shared
-  execution state?
+* Should all ordinary composed application construction paths participate in
+  one coherent process-local execution-availability scope?
 * How should unknown state be treated?
 * What is the smallest deterministic test proving a later chosen mechanism?
 * What real multi-node proof should follow?

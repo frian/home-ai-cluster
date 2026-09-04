@@ -18,7 +18,10 @@ from home_ai_cluster.core.orchestrator import (
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
-from home_ai_cluster.core.remote_transport import RemoteTransport
+from home_ai_cluster.core.remote_transport import (
+    RemoteExecutionPermissionDeniedError,
+    RemoteTransport,
+)
 from home_ai_cluster.core.routing_candidates import (
     routing_candidates_for_request,
     select_automatic_capability_routing_candidate,
@@ -51,6 +54,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
         raise NoSelectableRoutingCandidateError(selection.explanation)
 
     last_connection_error: RuntimeConnectionUnavailableBeforeRequestError | None = None
+    remote_permission_denied = False
 
     if selection.selected.local is not None:
         local_permitted = (
@@ -82,8 +86,13 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
             )
         except RuntimeConnectionUnavailableBeforeRequestError as exc:
             last_connection_error = exc
+        except RemoteExecutionPermissionDeniedError:
+            remote_permission_denied = True
 
     if last_connection_error is not None:
         raise last_connection_error
+
+    if remote_permission_denied:
+        raise ExecutionPermissionDeniedError(selection.explanation)
 
     raise NoSelectableRoutingCandidateError(selection.explanation)

@@ -132,7 +132,11 @@ async def handle_static_local_cluster_request(
     except ExecutionPermissionDeniedError as exc:
         raise HTTPException(
             status_code=409,
-            detail="local execution permission denied",
+            detail=(
+                "local execution permission denied"
+                if originating
+                else "execution-permission-denied"
+            ),
         ) from exc
     except InvalidClassificationLabelError as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc

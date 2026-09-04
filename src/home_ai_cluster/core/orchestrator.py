@@ -23,7 +23,11 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
-from home_ai_cluster.core.remote_transport import HttpRemoteTransport, RemoteTransport
+from home_ai_cluster.core.remote_transport import (
+    HttpRemoteTransport,
+    RemoteExecutionPermissionDeniedError,
+    RemoteTransport,
+)
 from home_ai_cluster.core.router import route_request
 from home_ai_cluster.core.routing_candidates import (
     AutomaticCapabilitySelectionExplanation,
@@ -101,12 +105,12 @@ async def orchestrate_receiver_composed_request(
     adapter_registry: AdapterRegistry,
     execution_intervals: ExecutionIntervalCardinality,
 ) -> RoutableResult:
-    """Execute a received internal request without originating permission policy."""
-    return await _orchestrate_request(
-        request,
-        node_registry,
-        adapter_registry,
-        execution_intervals=execution_intervals,
+    """Execute a received internal request after receiver-local permission."""
+    decision = route_request(request, node_registry, adapter_registry)
+    if not await execution_intervals.enter_if_idle():
+        raise ExecutionPermissionDeniedError()
+    return await execute_local_routing_decision(
+        request, decision, execution_intervals, interval_already_entered=True
     )
 
 
@@ -237,12 +241,15 @@ async def orchestrate_request_with_static_remote_fallback(
         raise NoSelectableRoutingCandidateError(selection.explanation)
 
     if selection.selected.local is None:
-        return await orchestrate_request_with_selected_candidate(
-            request,
-            selection.selected,
-            remote_transport=remote_transport,
-            execution_intervals=execution_intervals,
-        )
+        try:
+            return await orchestrate_request_with_selected_candidate(
+                request,
+                selection.selected,
+                remote_transport=remote_transport,
+                execution_intervals=execution_intervals,
+            )
+        except RemoteExecutionPermissionDeniedError as exc:
+            raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
     local_permitted = (
         execution_intervals is None or await execution_intervals.enter_if_idle()
@@ -250,9 +257,12 @@ async def orchestrate_request_with_static_remote_fallback(
     if not local_permitted:
         if request.constraints.local_only or candidates.declared_remote is None:
             raise ExecutionPermissionDeniedError(selection.explanation)
-        return await execute_declared_remote_routing_candidate(
-            request, candidates.declared_remote, remote_transport
-        )
+        try:
+            return await execute_declared_remote_routing_candidate(
+                request, candidates.declared_remote, remote_transport
+            )
+        except RemoteExecutionPermissionDeniedError as exc:
+            raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
     try:
         return await orchestrate_request_with_selected_candidate(
@@ -266,11 +276,14 @@ async def orchestrate_request_with_static_remote_fallback(
         if request.constraints.local_only or candidates.declared_remote is None:
             raise
 
-    return await execute_declared_remote_routing_candidate(
-        request,
-        candidates.declared_remote,
-        remote_transport,
-    )
+    try:
+        return await execute_declared_remote_routing_candidate(
+            request,
+            candidates.declared_remote,
+            remote_transport,
+        )
+    except RemoteExecutionPermissionDeniedError as exc:
+        raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
 
 async def orchestrate_request_with_automatic_capability_fallback(

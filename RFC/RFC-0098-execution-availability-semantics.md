@@ -43,7 +43,7 @@ selection.
 
 The current request path can process independent requests concurrently. Two
 such requests may independently select the same statically eligible candidate
-and each send work to it. HAC currently owns no execution-admission or
+and each send work to it. HAC currently owns no execution-availability or
 current-work state. That is not itself a 1.0 defect; it exposes a missing
 architectural term for a different question:
 
@@ -149,7 +149,7 @@ how its truth applies at an exact request boundary.
 
 In particular, this RFC does not decide whether the relevant authority belongs
 to a node, runtime adapter, runtime, capability, model, receiver process,
-caller, local admission controller, or another component.
+caller, or another component.
 
 ### Existing routing remains unchanged
 

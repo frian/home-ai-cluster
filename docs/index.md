@@ -63,3 +63,9 @@ capability-centered routing and operator-owned runtime lifecycle.
 
 For exact behavior, use the [Command Reference](command-reference.md). For the
 canonical operational sequence, use the [Operator Workflow](operator-workflow.md).
+
+## Draft post-1.0 documentation
+
+[Remote pre-execution permission refusal](remote-pre-execution-permission-refusal.md)
+documents the behavior proposed for Draft PR #659. It is not part of the
+published 1.0 release or current operator guidance.

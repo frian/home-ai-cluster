@@ -343,6 +343,36 @@ def test_permission_refusal_advances_to_next_remote_in_declared_order() -> None:
     assert result.node_id == "remote-b"
 
 
+def test_two_permission_refusals_advance_to_third_remote_success() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-c": ClusterResult(
+                content="remote-c", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    result = run_fallback(
+        request=make_request(),
+        adapter=None,
+        transport=transport,
+        declarations=[
+            make_declaration("remote-a"),
+            make_declaration("remote-b"),
+            make_declaration("remote-c"),
+        ],
+    )
+
+    assert transport.attempted_node_ids == ["remote-a", "remote-b", "remote-c"]
+    assert transport.attempted_node_ids.count("remote-a") == 1
+    assert transport.attempted_node_ids.count("remote-b") == 1
+    assert transport.attempted_node_ids.count("remote-c") == 1
+    assert result.content == "remote-c"
+    assert result.node_id == "remote-c"
+
+
 def test_permission_only_remote_exhaustion_has_permission_terminal_semantic() -> None:
     transport = ScriptedRemoteTransport(
         {
@@ -360,6 +390,34 @@ def test_permission_only_remote_exhaustion_has_permission_terminal_semantic() ->
         )
 
     assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+
+
+def test_three_permission_refusals_exhaust_with_permission_terminal_semantic() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-c": RemoteExecutionPermissionDeniedError("denied"),
+        }
+    )
+
+    with pytest.raises(ExecutionPermissionDeniedError) as raised:
+        run_fallback(
+            request=make_request(),
+            adapter=None,
+            transport=transport,
+            declarations=[
+                make_declaration("remote-a"),
+                make_declaration("remote-b"),
+                make_declaration("remote-c"),
+            ],
+        )
+
+    assert raised.value.explanation is not None
+    assert transport.attempted_node_ids == ["remote-a", "remote-b", "remote-c"]
+    assert transport.attempted_node_ids.count("remote-a") == 1
+    assert transport.attempted_node_ids.count("remote-b") == 1
+    assert transport.attempted_node_ids.count("remote-c") == 1
 
 
 def test_connection_unavailability_remains_authoritative_over_permission_refusal() -> (

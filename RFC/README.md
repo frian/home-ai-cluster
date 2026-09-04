@@ -67,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Current Draft RFCs
 
+- [RFC-0105: Bounded HAC Execution Concurrency Limit](RFC-0105-bounded-hac-execution-concurrency-limit.md)
+  — proposes one finite positive, process-local limit over active HAC-owned
+  execution intervals; it is HAC policy, not runtime capacity, and `1`
+  preserves the current first proof.
 - [RFC-0104: Remote Pre-Execution Permission Refusal](RFC-0104-remote-pre-execution-permission-refusal.md)
   — proposes receiver-side use of the first HAC execution-permission policy,
   an explicit validated pre-execution refusal for ordered remote continuation,

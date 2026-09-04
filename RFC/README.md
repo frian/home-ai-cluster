@@ -67,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Current Draft RFCs
 
+- [RFC-0102: Local Execution Permission Policy](RFC-0102-local-execution-permission-policy.md)
+  — proposes a fixed originating-process local permission rule: zero active
+  RFC-0101 intervals permits local execution; otherwise HAC may continue in
+  existing static order before any attempt, or fails immediately if none remains.
 - [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
   — proposes one process-local quantity for the cardinality of active
   HAC-owned execution intervals in one ordinary composed HAC application

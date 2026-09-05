@@ -125,6 +125,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         ollama_disable_thinking=values.ollama_disable_thinking,
         llama_server_base_url=values.llama_server_base_url,
         llama_server_model=values.llama_server_model,
+        vllm_base_url=values.vllm_base_url,
+        vllm_model=values.vllm_model,
     )
 
     try:

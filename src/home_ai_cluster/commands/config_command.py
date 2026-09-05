@@ -68,6 +68,12 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         type=non_empty_value,
         help="Retained llama-server model identifier.",
     )
+    local.add_argument("--vllm-base-url", help="Retained vLLM base URL.")
+    local.add_argument(
+        "--vllm-model",
+        type=non_empty_value,
+        help="Retained vLLM served-model identity.",
+    )
     local.add_argument(
         "--local-capability",
         action="append",
@@ -196,12 +202,14 @@ def _local_configuration(
     if args.runtime is None:
         parser.error("--runtime is required unless --reset")
     try:
-        base_url = validate_local_runtime_values(
+        llama_base_url, vllm_base_url = validate_local_runtime_values(
             runtime=args.runtime,
             ollama_model=args.ollama_model,
             ollama_disable_thinking=args.ollama_disable_thinking,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
+            vllm_base_url=args.vllm_base_url,
+            vllm_model=args.vllm_model,
         )
     except LocalRuntimeCompositionError as error:
         parser.error(str(error))
@@ -210,8 +218,10 @@ def _local_configuration(
             runtime=args.runtime,
             ollama_model=args.ollama_model,
             ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=base_url,
+            llama_server_base_url=llama_base_url,
             llama_server_model=args.llama_server_model,
+            vllm_base_url=vllm_base_url,
+            vllm_model=args.vllm_model,
         ),
         local_capabilities=_validated_capabilities(
             parser, args.local_capability, subject="local"
@@ -242,6 +252,8 @@ def _validate_reset(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         or args.ollama_disable_thinking
         or args.llama_server_base_url is not None
         or args.llama_server_model is not None
+        or args.vllm_base_url is not None
+        or args.vllm_model is not None
         or args.local_capability is not None
         or args.execution_limit is not None
     ):
@@ -270,11 +282,18 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                     f"{'true' if values.ollama_disable_thinking else 'false'}",
                 ]
             )
-        else:
+        elif values.runtime == "llama-server":
             lines.extend(
                 [
                     f"  llama-server base URL: {values.llama_server_base_url}",
                     f"  llama-server model: {values.llama_server_model}",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    f"  vLLM base URL: {values.vllm_base_url}",
+                    f"  vLLM model: {values.vllm_model}",
                 ]
             )
         lines.append(

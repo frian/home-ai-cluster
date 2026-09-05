@@ -22,6 +22,10 @@ architecture.
 
 ## Release and distribution
 
+- [Retained HAC execution-limit validation](retained-execution-limit-validation.md)
+  — factual record of a real three-machine/process validation of the post-1.0
+  Draft retained local HAC execution-limit rail; it introduces no product or
+  architectural change.
 - [Windows installation path investigation](windows-installation-path-investigation.md)
   — records the Windows `1.0.0b2` WinGet/uv/PyPI evidence that informed the
   accepted [RFC-0097 Windows 11 x86_64 installation path](../RFC/RFC-0097-supported-windows-installation-path.md).

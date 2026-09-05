@@ -57,6 +57,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error(str(error))
         if retained.local is not None:
             retained_values = retained.local.runtime
+            args.retained_execution_limit = retained.local.execution_limit
     validate_local_runtime_arguments(parser, args, retained_values)
     return args
 
@@ -64,13 +65,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     """Construct the ordinary app for the explicitly selected local runtime."""
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
-    composition = create_local_runtime_composition(
+    composition_arguments = dict(
         runtime=values.runtime,
         ollama_model=values.ollama_model,
         ollama_disable_thinking=values.ollama_disable_thinking,
         llama_server_base_url=values.llama_server_base_url,
         llama_server_model=values.llama_server_model,
     )
+    if getattr(args, "retained_execution_limit", None) is not None:
+        composition_arguments["execution_limit"] = args.retained_execution_limit
+    composition = create_local_runtime_composition(**composition_arguments)
     app = create_app(local_app_composition=composition)
     if args.host == LOCAL_RUNTIME_HOST:
         return add_loopback_browser_routes(app)

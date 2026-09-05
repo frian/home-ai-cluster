@@ -34,6 +34,7 @@ _LOCAL_KEYS = (
     "llama_server_model",
     "local_capabilities",
 )
+_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LOCAL_KEYS + ("execution_limit",)
 _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
 
 
@@ -60,6 +61,7 @@ class RetainedLocalConfiguration:
 
     runtime: LocalRuntimeCompositionValues
     local_capabilities: tuple[str, ...] | None = None
+    execution_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -229,7 +231,13 @@ def _parse_external_information_plugin(value: Any) -> str | None:
 
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
-    _require_exact_keys(value, _LOCAL_KEYS, "retained local configuration")
+    keys = set(value)
+    if keys == set(_LOCAL_KEYS):
+        execution_limit = None
+    elif keys == set(_LOCAL_KEYS_WITH_EXECUTION_LIMIT):
+        execution_limit = _parse_execution_limit(value["execution_limit"])
+    else:
+        raise RetainedConfigurationError("invalid retained local configuration shape")
     runtime = value["runtime"]
     ollama_model = value["ollama_model"]
     disable_thinking = value["ollama_disable_thinking"]
@@ -249,7 +257,17 @@ def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
         llama_server_base_url=llama_base_url,
         llama_server_model=llama_model,
     )
-    return RetainedLocalConfiguration(runtime=values, local_capabilities=capabilities)
+    return RetainedLocalConfiguration(
+        runtime=values,
+        local_capabilities=capabilities,
+        execution_limit=execution_limit,
+    )
+
+
+def _parse_execution_limit(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RetainedConfigurationError("invalid retained local execution limit")
+    return value
 
 
 def _parse_remote_node(value: Any) -> RemoteNodeDeclaration:
@@ -310,7 +328,7 @@ def _serialize_local(
     values = local.runtime
     if not isinstance(values, LocalRuntimeCompositionValues):
         raise RetainedConfigurationError("invalid retained local configuration")
-    return {
+    document: dict[str, object] = {
         "runtime": values.runtime,
         "ollama_model": values.ollama_model,
         "ollama_disable_thinking": values.ollama_disable_thinking,
@@ -320,6 +338,9 @@ def _serialize_local(
             None if local.local_capabilities is None else list(local.local_capabilities)
         ),
     }
+    if local.execution_limit is not None:
+        document["execution_limit"] = local.execution_limit
+    return document
 
 
 def _serialize_remote_node(remote: RemoteNodeDeclaration) -> dict[str, object]:

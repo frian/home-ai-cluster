@@ -10,6 +10,7 @@ from typing import Any
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.api.wiring import LocalAppComposition
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
@@ -384,6 +385,7 @@ def create_ollama_local_app_composition(
     model: str | None = None,
     disable_thinking: bool = False,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
     adapter = (
@@ -394,6 +396,7 @@ def create_ollama_local_app_composition(
     return LocalAppComposition(
         node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
     )
 
 
@@ -402,12 +405,14 @@ def create_llama_server_local_app_composition(
     base_url: str,
     model: str,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
     adapter = LlamaServerAdapter(base_url=base_url, model=model)
     return LocalAppComposition(
         node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
     )
 
 
@@ -419,6 +424,7 @@ def create_local_runtime_composition(
     llama_server_base_url: str | None = None,
     llama_server_model: str | None = None,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Validate and construct one supported ordinary local composition."""
     base_url = validate_local_runtime_values(
@@ -434,6 +440,7 @@ def create_local_runtime_composition(
             model=ollama_model,
             disable_thinking=ollama_disable_thinking,
             capabilities=capabilities,
+            execution_limit=execution_limit,
         )
 
     assert base_url is not None
@@ -442,4 +449,5 @@ def create_local_runtime_composition(
         base_url=base_url,
         model=llama_server_model,
         capabilities=capabilities,
+        execution_limit=execution_limit,
     )

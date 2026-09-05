@@ -6,6 +6,7 @@ from home_ai_cluster.adapters.base import (
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -18,6 +19,7 @@ from home_ai_cluster.core.models import (
     RuntimeResult,
     SummarizeRequest,
 )
+from home_ai_cluster.core.orchestrator import ExecutionPermissionDeniedError
 from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
 )
@@ -26,7 +28,10 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
 )
-from home_ai_cluster.core.remote_transport import RemoteTransportError
+from home_ai_cluster.core.remote_transport import (
+    RemoteExecutionPermissionDeniedError,
+    RemoteTransportError,
+)
 
 
 class RecordingAdapter:
@@ -195,6 +200,57 @@ def test_local_success_stops_before_remote_candidates() -> None:
     assert transport.attempted_node_ids == []
 
 
+def test_concurrent_originating_request_continues_to_remote_when_local_denied() -> None:
+    class BlockingLocalAdapter(RecordingAdapter):
+        def __init__(self) -> None:
+            super().__init__(RuntimeResult(content="local", adapter="recording"))
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def chat(self, request: ClusterRequest) -> RuntimeResult:
+            self.requests.append(request)
+            self.started.set()
+            await self.release.wait()
+            return self.outcome  # type: ignore[return-value]
+
+    async def run() -> None:
+        adapter = BlockingLocalAdapter()
+        transport = ScriptedRemoteTransport(
+            {"remote-a": ClusterResult(content="remote", adapter="remote", node_id="x")}
+        )
+        intervals = ExecutionIntervalCardinality()
+        nodes = NodeRegistry([make_node("local", "recording")])
+        remotes = RemoteNodeDeclarationRegistry([make_declaration("remote-a")])
+        first = asyncio.create_task(
+            orchestrate_request_with_ordered_static_remote_fallback(
+                make_request(),
+                nodes,
+                AdapterRegistry([adapter]),
+                remotes,
+                transport,
+                intervals,
+            )
+        )
+        await adapter.started.wait()
+        assert intervals.value == 1
+        second = await orchestrate_request_with_ordered_static_remote_fallback(
+            make_request(),
+            nodes,
+            AdapterRegistry([adapter]),
+            remotes,
+            transport,
+            intervals,
+        )
+        assert second.content == "remote"
+        assert len(adapter.requests) == 1
+        assert transport.attempted_node_ids == ["remote-a"]
+        adapter.release.set()
+        await first
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
 def test_advances_through_connection_unavailable_candidates_in_order() -> None:
     unavailable = RuntimeConnectionUnavailableBeforeRequestError("unavailable")
     adapter = RecordingAdapter(unavailable)
@@ -264,6 +320,148 @@ def test_non_connection_failure_stops_without_advancing() -> None:
         )
 
     assert transport.attempted_node_ids == ["remote-a"]
+
+
+def test_permission_refusal_advances_to_next_remote_in_declared_order() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": ClusterResult(
+                content="remote-b", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    result = run_fallback(
+        request=make_request(),
+        adapter=None,
+        transport=transport,
+        declarations=[make_declaration("remote-a"), make_declaration("remote-b")],
+    )
+
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+    assert result.node_id == "remote-b"
+
+
+def test_two_permission_refusals_advance_to_third_remote_success() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-c": ClusterResult(
+                content="remote-c", adapter="remote", node_id="wrong"
+            ),
+        }
+    )
+
+    result = run_fallback(
+        request=make_request(),
+        adapter=None,
+        transport=transport,
+        declarations=[
+            make_declaration("remote-a"),
+            make_declaration("remote-b"),
+            make_declaration("remote-c"),
+        ],
+    )
+
+    assert transport.attempted_node_ids == ["remote-a", "remote-b", "remote-c"]
+    assert transport.attempted_node_ids.count("remote-a") == 1
+    assert transport.attempted_node_ids.count("remote-b") == 1
+    assert transport.attempted_node_ids.count("remote-c") == 1
+    assert result.content == "remote-c"
+    assert result.node_id == "remote-c"
+
+
+def test_permission_only_remote_exhaustion_has_permission_terminal_semantic() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+        }
+    )
+
+    with pytest.raises(ExecutionPermissionDeniedError):
+        run_fallback(
+            request=make_request(),
+            adapter=None,
+            transport=transport,
+            declarations=[make_declaration("remote-a"), make_declaration("remote-b")],
+        )
+
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+
+
+def test_three_permission_refusals_exhaust_with_permission_terminal_semantic() -> None:
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-c": RemoteExecutionPermissionDeniedError("denied"),
+        }
+    )
+
+    with pytest.raises(ExecutionPermissionDeniedError) as raised:
+        run_fallback(
+            request=make_request(),
+            adapter=None,
+            transport=transport,
+            declarations=[
+                make_declaration("remote-a"),
+                make_declaration("remote-b"),
+                make_declaration("remote-c"),
+            ],
+        )
+
+    assert raised.value.explanation is not None
+    assert transport.attempted_node_ids == ["remote-a", "remote-b", "remote-c"]
+    assert transport.attempted_node_ids.count("remote-a") == 1
+    assert transport.attempted_node_ids.count("remote-b") == 1
+    assert transport.attempted_node_ids.count("remote-c") == 1
+
+
+def test_connection_unavailability_remains_authoritative_over_permission_refusal() -> (
+    None
+):
+    unavailable = RuntimeConnectionUnavailableBeforeRequestError("unavailable")
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": unavailable,
+            "remote-b": RemoteExecutionPermissionDeniedError("denied"),
+        }
+    )
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as raised:
+        run_fallback(
+            request=make_request(),
+            adapter=None,
+            transport=transport,
+            declarations=[make_declaration("remote-a"), make_declaration("remote-b")],
+        )
+
+    assert raised.value is unavailable
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
+
+
+def test_later_terminal_remote_failure_remains_authoritative() -> None:
+    failure = RemoteTransportError("ambiguous failure")
+    transport = ScriptedRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": failure,
+        }
+    )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        run_fallback(
+            request=make_request(),
+            adapter=None,
+            transport=transport,
+            declarations=[make_declaration("remote-a"), make_declaration("remote-b")],
+        )
+
+    assert raised.value is failure
+    assert transport.attempted_node_ids == ["remote-a", "remote-b"]
 
 
 def test_local_only_request_never_attempts_declared_remotes() -> None:

@@ -369,6 +369,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
+    local_composition = create_local_runtime_composition(runtime="ollama")
     app = create_static_cluster_openai_compatibility_app(
         [
             RemoteNodeDeclaration(
@@ -376,7 +377,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
                 base_url="https://remote.example:8000",
             )
         ],
-        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+        local_app_composition=local_composition,
     )
     collections: list[object] = []
 
@@ -390,7 +391,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
         assert request.capability == Capability(name="chat")
         assert request.constraints.local_only is False
         assert static_remote_wiring is None
-        assert local_app_composition is None
+        assert local_app_composition is local_composition
         collections.append(static_remote_collection_wiring)
         return ClusterResult(
             content="Cluster response",

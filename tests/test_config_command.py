@@ -293,6 +293,23 @@ def test_local_runtime_validation_and_reset_conflicts(
         == 2
     )
     assert _run(capsys, ["local", "--reset", "--runtime", "ollama"])[0] == 2
+    assert _run(capsys, ["local", "--reset", "--execution-limit", "2"])[0] == 2
+
+
+def test_local_execution_limit_is_retained_and_shown_as_retained_state(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(
+        capsys,
+        ["local", "--runtime", "ollama", "--execution-limit", "2"],
+    ) == (0, "local configuration retained\n", "")
+    assert load_retained_configuration().local is not None
+    assert load_retained_configuration().local.execution_limit == 2
+    assert "HAC execution limit: 2" in _run(capsys, ["show"])[1]
+
+    _run(capsys, ["local", "--runtime", "ollama"])
+
+    assert "HAC execution limit: not retained" in _run(capsys, ["show"])[1]
 
 
 def test_llama_server_uses_existing_normalization(
@@ -603,6 +620,7 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "  llama-server base URL: http://127.0.0.1:8080\n"
         "  llama-server model: model\n"
         "  caller-local capabilities: not retained\n"
+        "  HAC execution limit: not retained\n"
         "Remote nodes:\n"
         "  none\n"
         "External information:\n"

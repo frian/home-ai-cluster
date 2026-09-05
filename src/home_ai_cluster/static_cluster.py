@@ -229,6 +229,7 @@ def create_static_cluster_app(
         remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
         static_remote_wiring=wiring,
@@ -260,6 +261,7 @@ def create_static_cluster_collection_app(
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
         static_remote_collection_wiring=wiring,

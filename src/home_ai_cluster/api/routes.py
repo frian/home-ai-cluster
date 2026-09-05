@@ -34,6 +34,7 @@ from home_ai_cluster.core.models import (
 )
 from home_ai_cluster.core.orchestrator import (
     NoSelectableRoutingCandidateError,
+    orchestrate_composed_request,
     orchestrate_request,
     orchestrate_request_with_static_remote_fallback,
 )
@@ -102,10 +103,15 @@ async def handle_static_local_cluster_request(
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
 
     try:
+        if local_app_composition is not None:
+            return await orchestrate_composed_request(
+                cluster_request,
+                node_registry,
+                adapter_registry,
+                local_app_composition.execution_intervals,
+            )
         return await orchestrate_request(
-            cluster_request,
-            node_registry,
-            adapter_registry,
+            cluster_request, node_registry, adapter_registry
         )
     except RuntimeAdapterUnavailableError as exc:
         raise HTTPException(
@@ -136,6 +142,7 @@ async def handle_chat_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         except (
             RuntimeAdapterUnavailableError,
@@ -162,6 +169,7 @@ async def handle_chat_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         except (
             RuntimeAdapterUnavailableError,
@@ -204,6 +212,7 @@ async def handle_summarize_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         if static_remote_collection_wiring is not None:
             return await orchestrate_request_with_ordered_static_remote_fallback(
@@ -212,6 +221,7 @@ async def handle_summarize_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         return await handle_static_local_cluster_request(
             cluster_request,
@@ -244,6 +254,7 @@ async def handle_classify_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         if static_remote_collection_wiring is not None:
             return await orchestrate_request_with_ordered_static_remote_fallback(
@@ -252,6 +263,7 @@ async def handle_classify_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         return await handle_static_local_cluster_request(
             cluster_request,

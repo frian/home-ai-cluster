@@ -3,6 +3,7 @@
 from home_ai_cluster.adapters.base import (
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
 )
@@ -29,6 +30,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> RoutableResult:
     """Try local once, then eligible declared remotes once in declaration order.
 
@@ -55,6 +57,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
                 request,
                 selection.selected,
                 remote_transport=remote_transport,
+                execution_intervals=execution_intervals,
             )
         except RuntimeConnectionUnavailableBeforeRequestError as exc:
             last_connection_error = exc

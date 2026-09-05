@@ -72,6 +72,8 @@ unambiguous and permits a same-runtime proof.
 - Preserve one HAC process as one cluster-visible local node.
 - Require every local binding to map a non-empty, disjoint capability set to
   exactly one concrete adapter instance.
+- Require a binding capability set to be a truthful explicit subset of that
+  adapter instance's executable capabilities.
 - Permit multiple capabilities to share one binding and therefore one adapter
   instance.
 - Explicitly support multiple instances of the same runtime type in one local
@@ -103,7 +105,7 @@ This RFC does not add or decide:
   receiver advertisement;
 - a real-machine, cross-process, cross-host, or remote execution proof;
 - a vLLM-specific rule, implementation, or proof; or any dependency on the
-  Draft execution-availability work and its vLLM rails; or
+  Draft execution-availability rail or the separate Draft vLLM rail; or
 - implementation other than the bounded in-memory core proof explicitly
   authorized on acceptance.
 
@@ -149,15 +151,68 @@ overlap is invalid composition and must fail locally before a request is
 executed. This first scope deliberately introduces no local adapter-selection,
 priority, fallback, or conflict-resolution rule.
 
-The proposal does not infer bindings from adapter method names, runtime health,
-models, endpoint addresses, or `RuntimeAdapter.name`. Binding ownership is
-explicit local composition data.
+Every capability assigned to a binding must be truthfully supported by that
+binding's concrete adapter instance:
+
+```text
+binding.capabilities ⊆ binding.adapter.capabilities()
+```
+
+This is a subset rule, not an equality rule. A concrete adapter may truthfully
+support more capabilities than one binding deliberately assigns to it. For
+example, an adapter supporting `chat`, `summarize`, `classify`, and `code` may
+validly have a binding for `chat` alone. Conversely, a binding that assigns
+`classify` to an adapter whose `capabilities()` does not contain `classify` is
+invalid and must fail local composition validation before routing or execution.
+
+`RuntimeAdapter.capabilities()` remains runtime/adapter execution truth. Local
+binding capabilities remain the explicit subset assigned to that concrete
+instance. The proposal does not infer binding assignments from
+`adapter.capabilities()`, adapter method names, runtime health, models,
+endpoint addresses, or `RuntimeAdapter.name`. Binding ownership is explicit
+local composition data.
+
+### Local execution-capability truth
+
+For the composed local execution boundary, the execution-capable set is exactly
+the union of the capability sets of its valid local bindings:
+
+```text
+local execution capabilities = union(binding.capabilities)
+```
+
+The composed local binding set must not present a capability as executable when
+no binding owns it. When an already selected local capability reaches execution,
+the binding relation determines its concrete adapter instance; adapter-name
+lookup, binding registration order, and declaration order do not supply a
+second selection rule.
+
+This execution ownership truth is distinct from RFC-0059's caller-local static
+capability declaration:
+
+```text
+local binding capabilities
+  -> receiver/process-local execution ownership truth
+
+RFC-0059 caller-local capabilities
+  -> caller-side static routing permission
+```
+
+RFC-0059 may restrict what an ordinary `hac static-cluster` caller considers
+locally to a strict subset of the composed process's execution-capable set. For
+example, local bindings may own `chat`, `summarize`, and `code`, while a
+caller-local RFC-0059 permission allows only `chat`. That restriction neither
+deletes nor rewrites the `summarize` or `code` bindings, and it does not make
+RFC-0059 runtime configuration. Receiver-side execution composition remains
+governed by its own local binding set. This RFC decides no integration mechanics
+for a future multi-binding static-cluster composition.
 
 ### Runtime type is not adapter instance identity
 
 `RuntimeAdapter.name` continues to mean runtime type identity only. Its value
-may identify `ollama`, `llama-server`, `vllm`, or another adapter family, but it
-must not be used as a unique key for a concrete adapter instance.
+may identify an accepted runtime family such as `ollama` or `llama-server`; a
+future accepted adapter family follows the same rule. It must not be used as a
+unique key for a concrete adapter instance.
 
 Multiple distinct adapter instances with equal `name` values are valid binding
 targets. In particular, a process may contain two distinct Ollama adapter
@@ -205,15 +260,22 @@ The proof must establish all of the following:
    node;
 2. a non-empty binding maps each of its capabilities to its exact concrete
    adapter instance;
-3. several capabilities may share a single binding and reach that binding's
+3. binding capabilities are a valid subset of the concrete adapter instance's
+   truthful `capabilities()`;
+4. assigning an unsupported capability is rejected before execution, without
+   creating a new public failure contract;
+5. several capabilities may share a single binding and reach that binding's
    adapter instance;
-4. overlapping capability bindings are rejected before execution and no
+6. overlapping binding capability sets are rejected before execution and no
    selection policy is silently introduced;
-5. the existing one-adapter local composition continues to execute through its
-   existing adapter behavior; and
-6. two distinct Ollama adapter instances with the same `RuntimeAdapter.name`
-   can be bound to disjoint local capabilities in one HAC process, and each
-   bound capability reaches its designated instance.
+7. the local execution-capable set contains no capability without a binding;
+8. the existing one-adapter local composition continues to execute through its
+   existing adapter behavior;
+9. two distinct Ollama adapter instances with identical `name == "ollama"` can
+   own different disjoint capabilities in one HAC process, and each bound
+   capability reaches its designated instance; and
+10. local execution selection follows the binding relation, not adapter-name
+    lookup, binding registration order, or declaration order.
 
 The mandatory Ollama proof may use in-memory or test-double transport beneath
 the concrete Ollama adapter instances. It must prove distinct adapter-instance

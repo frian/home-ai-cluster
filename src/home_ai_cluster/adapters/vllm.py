@@ -11,8 +11,10 @@ from home_ai_cluster.adapters.base import (
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 
 
@@ -35,7 +37,12 @@ class VllmAdapter:
         return "vllm"
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat")]
+        return [
+            Capability(name="chat"),
+            Capability(name="summarize"),
+            Capability(name="classify"),
+            Capability(name="code"),
+        ]
 
     def health(self) -> AdapterHealth:
         try:
@@ -57,6 +64,51 @@ class VllmAdapter:
             for message in request.messages
         ]
 
+        return await self._post_chat_completion({"messages": messages})
+
+    async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
+        """Map bounded source text to vLLM's chat transport."""
+        return await self._post_chat_completion(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Summarize the following source text concisely.\n\n"
+                            f"<source>\n{request.text}\n</source>"
+                        ),
+                    }
+                ]
+            }
+        )
+
+    async def classify(self, request: ClassifyRequest) -> str:
+        """Propose one label through vLLM's private structured output form."""
+        result = await self._post_chat_completion(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": (
+                            "Choose the single best matching label for the source "
+                            "text.\n\n"
+                            f"Source text:\n{request.text}"
+                        ),
+                    }
+                ],
+                "structured_outputs": {"choice": list(request.labels)},
+            }
+        )
+
+        return result.content
+
+    async def _post_chat_completion(self, payload: dict[str, object]) -> RuntimeResult:
+        payload = {
+            "model": self.model,
+            **payload,
+            "stream": False,
+        }
+
         try:
             async with httpx.AsyncClient(
                 base_url=self.base_url,
@@ -66,11 +118,7 @@ class VllmAdapter:
             ) as client:
                 response = await client.post(
                     "/v1/chat/completions",
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "stream": False,
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:

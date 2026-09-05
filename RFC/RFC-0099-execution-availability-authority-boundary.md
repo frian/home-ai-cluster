@@ -1,6 +1,6 @@
 # RFC-0099: Execution Availability Authority Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -17,9 +17,9 @@ internal capacity. In particular, it does not mean that a runtime has spare
 capacity, that a model is idle, that a machine has resources available, or
 that a runtime will execute work immediately or successfully.
 
-This Draft RFC narrows the semantic concept introduced by Draft RFC-0098. It
-does not choose an owner component, representation, mechanism, or routing
-effect, and it authorizes no implementation or behavior change.
+This RFC narrows the semantic concept introduced by RFC-0098. It does not
+choose an owner component, representation, mechanism, or routing effect, and it
+authorizes no implementation or behavior change.
 
 ## Problem
 
@@ -148,13 +148,12 @@ configuration, model scheduling, or hardware allocation.
 
 ## Relationship to RFC-0098
 
-RFC-0098 is Draft and Pending. It defines execution availability as a distinct
-semantic concept; this RFC depends conceptually on that Draft and narrows the
-authority boundary for its meaning.
+RFC-0098 is Accepted. It defines execution availability as a distinct semantic
+concept; this RFC depends conceptually on that accepted architecture and narrows
+the authority boundary for its meaning.
 
-This RFC cannot become Accepted before RFC-0098 is accepted. If RFC-0098
-materially changes, this RFC must be reviewed again. Nothing here treats
-RFC-0098 as settled accepted architecture.
+If RFC-0098 is later superseded or materially changed, this RFC must be reviewed
+again.
 
 ## Rationale
 
@@ -209,7 +208,7 @@ outside the core unless separately accepted.
 
 ## Impact
 
-This Draft RFC changes no source code, tests, requests, responses, protocols,
+This RFC changes no source code, tests, requests, responses, protocols,
 configuration, routing, fallback, health, status, or runtime behavior.
 
 If accepted, it supplies an authority reference for later execution-availability
@@ -234,4 +233,4 @@ concurrency accounting, freshness, and any routing effect before implementation.
 
 ## Decision
 
-Pending.
+Accepted.

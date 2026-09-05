@@ -554,6 +554,8 @@ def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> Non
     )
 
     wiring = app.state.static_remote_wiring
+    assert app.state.local_app_composition is local_composition
+    assert wiring.execution_intervals is local_composition.execution_intervals
     declarations = wiring.remote_registry.list_declarations()
     assert wiring.node_registry is local_composition.node_registry
     assert wiring.adapter_registry is local_composition.adapter_registry
@@ -619,6 +621,8 @@ def test_ordered_declaration_reaches_remote_http_fallback(
         client=remote_client,
     )
     wiring = app.state.static_remote_collection_wiring
+    assert app.state.local_app_composition is local_composition
+    assert wiring.execution_intervals is local_composition.execution_intervals
 
     assert wiring.node_registry is local_composition.node_registry
     assert wiring.adapter_registry is local_composition.adapter_registry

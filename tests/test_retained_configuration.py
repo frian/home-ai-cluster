@@ -365,6 +365,77 @@ def test_none_local_capabilities_round_trips_without_inventing_a_default(
     assert load_retained_configuration(path).local.local_capabilities is None
 
 
+def test_legacy_local_shape_loads_without_execution_limit_or_rewrite(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained.json"
+    document = {
+        "local": {
+            "runtime": "ollama",
+            "ollama_model": None,
+            "ollama_disable_thinking": False,
+            "llama_server_base_url": None,
+            "llama_server_model": None,
+            "local_capabilities": None,
+        },
+        "remote_nodes": [],
+        "external_information_plugin": None,
+        "chat_external_information_fallback": False,
+    }
+    path.write_text(json.dumps(document), encoding="utf-8")
+    before = path.read_bytes()
+
+    configuration = load_retained_configuration(path)
+
+    assert configuration.local is not None
+    assert configuration.local.execution_limit is None
+    assert path.read_bytes() == before
+
+
+def test_local_execution_limit_round_trips(tmp_path: Path) -> None:
+    path = tmp_path / "retained.json"
+    configuration = RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(runtime="ollama"),
+            execution_limit=2,
+        )
+    )
+
+    save_retained_configuration(configuration, path)
+
+    assert load_retained_configuration(path) == configuration
+    assert json.loads(path.read_text(encoding="utf-8"))["local"]["execution_limit"] == 2
+
+
+@pytest.mark.parametrize("value", [0, -1, "2", True, None])
+def test_invalid_retained_local_execution_limit_is_rejected(
+    tmp_path: Path, value: object
+) -> None:
+    path = tmp_path / "retained.json"
+    path.write_text(
+        json.dumps(
+            {
+                "local": {
+                    "runtime": "ollama",
+                    "ollama_model": None,
+                    "ollama_disable_thinking": False,
+                    "llama_server_base_url": None,
+                    "llama_server_model": None,
+                    "local_capabilities": None,
+                    "execution_limit": value,
+                },
+                "remote_nodes": [],
+                "external_information_plugin": None,
+                "chat_external_information_fallback": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
+
+
 def test_llama_server_round_trip_preserves_existing_url_normalization(
     tmp_path: Path,
 ) -> None:

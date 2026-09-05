@@ -73,6 +73,11 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         action="append",
         help="Retained caller-local routing capability; repeat as needed.",
     )
+    local.add_argument(
+        "--execution-limit",
+        type=_execution_limit,
+        help="Retained HAC execution limit.",
+    )
 
     node = commands.add_parser(
         "node",
@@ -159,6 +164,18 @@ def _external_information_plugin_name(value: str) -> str:
         raise argparse.ArgumentTypeError(str(error)) from error
 
 
+def _execution_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "execution limit must be a positive integer"
+        ) from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("execution limit must be a positive integer")
+    return parsed
+
+
 def _validated_capabilities(
     parser: argparse.ArgumentParser,
     values: list[str] | None,
@@ -199,6 +216,7 @@ def _local_configuration(
         local_capabilities=_validated_capabilities(
             parser, args.local_capability, subject="local"
         ),
+        execution_limit=args.execution_limit,
     )
 
 
@@ -225,6 +243,7 @@ def _validate_reset(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         or args.llama_server_base_url is not None
         or args.llama_server_model is not None
         or args.local_capability is not None
+        or args.execution_limit is not None
     ):
         parser.error("--reset cannot be combined with local configuration options")
 
@@ -264,6 +283,14 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                 "not retained"
                 if local.local_capabilities is None
                 else ", ".join(local.local_capabilities)
+            )
+        )
+        lines.append(
+            "  HAC execution limit: "
+            + (
+                "not retained"
+                if local.execution_limit is None
+                else str(local.execution_limit)
             )
         )
 

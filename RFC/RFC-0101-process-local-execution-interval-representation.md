@@ -1,6 +1,6 @@
 # RFC-0101: Process-Local Execution Interval Representation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -9,7 +9,7 @@ Author: frian
 ## Summary
 
 The first shared representation for the bounded execution-availability proof
-defined by Draft RFC-0100 should be one non-negative, process-local quantity.
+defined by Accepted RFC-0100 should be one non-negative, process-local quantity.
 It represents the number of active HAC-owned execution intervals in one
 ordinary composed HAC application process.
 
@@ -20,15 +20,15 @@ an exception, or was cancelled. Concurrent transitions must be coherent.
 
 This is descriptive information about HAC-owned intervals only. It is not
 runtime capacity, an admission decision, a concurrency limit, or a routing or
-fallback policy. This Draft chooses neither a concrete state container nor a
+fallback policy. This RFC chooses neither a concrete state container nor a
 synchronization primitive.
 
 ## Problem
 
-Draft RFC-0098 identifies execution availability as distinct from static
-eligibility, health, status, reachability, and fallback safety. Draft RFC-0099
-limits its semantic authority to whether HAC begins a new independent
-execution, rather than claiming knowledge of runtime-internal capacity. Draft
+Accepted RFC-0098 identifies execution availability as distinct from static
+eligibility, health, status, reachability, and fallback safety. Accepted
+RFC-0099 limits its semantic authority to whether HAC begins a new independent
+execution, rather than claiming knowledge of runtime-internal capacity. Accepted
 RFC-0100 identifies the existing local adapter-dispatch seam and one ordinary
 composed HAC application process as the first bounded scope in which HAC can
 truthfully describe its own invocation intervals.
@@ -103,12 +103,12 @@ the runtime as a whole, or the cluster as a whole.
 ### Shared composition lifetime and granularity
 
 The quantity belongs to the lifetime of the ordinary shared HAC application
-composition/process scope established by Draft RFC-0100. All in-scope
+composition/process scope established by Accepted RFC-0100. All in-scope
 executions in that composition must share the same representation.
 
 For this first proof, the quantity is process-global. It is not partitioned by
 capability, node, adapter, model, or request type. Fallback and uncomposed
-application paths excluded by Draft RFC-0100 remain outside this proof.
+application paths excluded by Accepted RFC-0100 remain outside this proof.
 
 This RFC decides the shared lifetime and granularity, not the concrete object
 that later implementation may use to carry the information.
@@ -126,7 +126,7 @@ successful return, normalized failure, unexpected exception, and cancellation.
 The quantity must not remain elevated because an invocation exited
 exceptionally, and it must never become negative.
 
-As defined by Draft RFC-0100, the interval ends when the adapter await ends.
+As defined by Accepted RFC-0100, the interval ends when the adapter await ends.
 For classification, subsequent HAC-side validation of the returned label does
 not keep the adapter-invocation interval active. An exit transition likewise
 does not prove that runtime inference, runtime HTTP processing, downstream
@@ -167,15 +167,15 @@ that receiver enters and exits its own RFC-0100 local adapter invocation
 interval. The caller does not share or mirror the receiver's quantity. This
 RFC introduces neither protocol synchronization nor a cluster-wide count.
 
-## Relationship to Draft RFC-0098, RFC-0099, and RFC-0100
+## Relationship to RFC-0098, RFC-0099, and RFC-0100
 
-This RFC depends conceptually on Draft RFC-0098 for the execution-availability
-semantic distinction, Draft RFC-0099 for HAC's authority boundary, and Draft
-RFC-0100 for the existing execution seam and bounded process-local scope.
+This RFC depends conceptually on Accepted RFC-0098 for the execution-availability
+semantic distinction, Accepted RFC-0099 for HAC's authority boundary, and
+Accepted RFC-0100 for the existing execution seam and bounded process-local
+scope.
 
-This RFC cannot become Accepted before all three prerequisites are accepted.
-If any prerequisite materially changes, this RFC must be reviewed again.
-Nothing in this Draft treats a prerequisite Draft as accepted architecture.
+If any prerequisite is later superseded or materially changed, this RFC must be
+reviewed again.
 
 ## Rationale
 
@@ -228,13 +228,13 @@ not prescribe how.
 
 ### Runtime-provided capacity or load
 
-Rejected. Draft RFC-0099 limits execution availability to HAC-owned truth and
+Rejected. Accepted RFC-0099 limits execution availability to HAC-owned truth and
 preserves engine independence; runtime capacity or load would exceed that
 authority boundary.
 
 ### Capability-, adapter-, or model-scoped quantity from the first proof
 
-Rejected for the first proof. Draft RFC-0100 deliberately establishes one
+Rejected for the first proof. Accepted RFC-0100 deliberately establishes one
 bounded process-local scope, and this RFC chooses process-global granularity
 first. Finer granularity is not declared permanently wrong.
 
@@ -251,14 +251,21 @@ justify them.
 
 ## Impact
 
-This Draft RFC changes no implementation. It changes no source code, tests,
+This RFC changes no implementation by itself. It changes no source code, tests,
 routing, fallback, request behavior, protocol, health, status, configuration,
-runtime behavior, or application construction.
+runtime behavior, or application construction merely by being accepted.
 
-If accepted, it authorizes only a later implementation proof of this
-process-local representation. A further implementation RFC or explicit
-implementation authorization is required before source changes. Any policy
-that consumes the quantity requires a separate architectural decision.
+Acceptance authorizes one bounded implementation proof of the process-local
+representation defined here: one shared non-negative quantity for active
+RFC-0100 HAC-owned execution intervals in one ordinary composed HAC application
+process, with coherent entry and exit transitions across success, normalized
+failure, unexpected exception, and cancellation.
+
+That proof does not authorize execution policy, admission limits, waiting or
+rejection, routing or fallback effects, protocol changes, operator
+configuration, persistence, cross-process coordination, or runtime-specific
+capacity semantics. Any such behavior requires a separate architectural
+decision.
 
 ## Open questions
 
@@ -277,4 +284,11 @@ that consumes the quantity requires a separate architectural decision.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster will represent the bounded RFC-0100 execution truth
+with one shared non-negative process-local quantity equal to the number of
+active HAC-owned execution intervals in one ordinary composed HAC application
+process. Acceptance authorizes one bounded implementation proof of that
+representation and its coherent entry and exit transitions only. It does not
+authorize execution policy, limits, routing effects, protocol changes, operator
+configuration, persistence, cross-process coordination, or runtime-specific
+capacity semantics.

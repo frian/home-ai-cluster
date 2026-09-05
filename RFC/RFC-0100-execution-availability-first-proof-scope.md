@@ -30,18 +30,19 @@ implementation change.
 
 ## Problem
 
-Draft RFC-0098 names execution availability as distinct from static routing
-eligibility, health, status, reachability, and fallback safety. Draft RFC-0099
-establishes that HAC may own the decision about whether it begins a new
+Accepted RFC-0098 names execution availability as distinct from static routing
+eligibility, health, status, reachability, and fallback safety. Accepted
+RFC-0099 establishes that HAC may own the decision about whether it begins a new
 independent execution without claiming runtime-internal capacity.
 
-Those Draft RFCs do not yet establish where a first truthful proof can exist or
-how broadly its truth applies. Current HAC execution has a narrow,
+Those accepted RFCs do not yet establish where a first truthful proof can exist
+or how broadly its truth applies. Current HAC execution has a narrow,
 engine-independent seam: `execute_local_routing_decision()` dispatches an
-already selected local decision to the selected adapter's normalized `chat`,
-`summarize`, or `classify` invocation. Source-grounded Chat is projected through
-the same existing capability execution. A local selected request reaches that
-seam directly; a remote request reaches it in the receiver process only after
+already selected local decision to the selected adapter's normalized `chat`
+(including the existing `code` capability path through Chat), `summarize`, or
+`classify` invocation. Source-grounded Chat is projected through the same
+existing capability execution. A local selected request reaches that seam
+directly; a remote request reaches it in the receiver process only after
 internal transport and independent receiver routing.
 
 Ordinary supported application construction supplies shared process-local
@@ -166,13 +167,13 @@ elsewhere. This RFC creates no new fallback interpretation.
 
 ## Relationship to RFC-0098 and RFC-0099
 
-This RFC depends conceptually on Draft RFC-0098, which defines the semantic
-concept, and Draft RFC-0099, which defines HAC's authority boundary. It further
-narrows where and over what bounded scope the first proof may truthfully exist.
+This RFC depends conceptually on Accepted RFC-0098, which defines the semantic
+concept, and Accepted RFC-0099, which defines HAC's authority boundary. It
+further narrows where and over what bounded scope the first proof may truthfully
+exist.
 
-This RFC cannot become Accepted before both RFC-0098 and RFC-0099 are accepted.
-If either materially changes, this RFC must be reviewed again. Neither Draft is
-treated here as accepted architecture.
+If either prerequisite is later superseded or materially changed, this RFC must
+be reviewed again.
 
 ## Rationale
 

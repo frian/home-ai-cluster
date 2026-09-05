@@ -1,6 +1,6 @@
 # RFC-0100: Execution Availability First-Proof Scope
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -24,7 +24,7 @@ receiver HAC process that reaches its own local adapter dispatch after transport
 and receiver routing. The remote caller does not own the receiver's
 process-local execution truth.
 
-This Draft RFC defines scope and boundaries only. It introduces no
+This RFC defines scope and boundaries only. It introduces no
 representation, enforcement mechanism, routing effect, protocol behavior, or
 implementation change.
 
@@ -241,7 +241,7 @@ and any future policy to later RFCs rather than silently deciding them here.
 
 ## Impact
 
-This Draft RFC changes no implementation. It changes no source code, tests,
+This RFC changes no implementation. It changes no source code, tests,
 routing, fallback, health, status, configuration, request or response contract,
 internal protocol, runtime behavior, or user-facing documentation.
 
@@ -268,4 +268,4 @@ or any interaction with routing.
 
 ## Decision
 
-Pending.
+Accepted.

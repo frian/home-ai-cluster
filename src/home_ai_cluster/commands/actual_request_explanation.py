@@ -219,7 +219,7 @@ async def evaluate_actual_request(
 
     intervals = execution_intervals or ExecutionIntervalCardinality()
     try:
-        if selection.selected.local is not None and not await intervals.enter_if_idle():
+        if selection.selected.local is not None and not await intervals.try_enter():
             raise ExecutionPermissionDeniedError(selection.explanation)
         result = await orchestrate_request_with_selected_candidate(
             request,

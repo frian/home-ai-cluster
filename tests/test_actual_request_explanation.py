@@ -210,7 +210,7 @@ def test_actual_request_reports_local_execution_permission_denial() -> None:
             RuntimeResult(content="unused", adapter="recording")
         )
         intervals = ExecutionIntervalCardinality()
-        await intervals.enter()
+        assert await intervals.try_enter()
         account = await evaluate_actual_request(
             "chat",
             "private prompt content",

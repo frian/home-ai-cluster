@@ -3,7 +3,10 @@ import asyncio
 import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
-from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
+from home_ai_cluster.core.execution_intervals import (
+    ExecutionIntervalCardinality,
+    ExecutionPermissionDeniedError,
+)
 from home_ai_cluster.core.executor import (
     InvalidClassificationLabelError,
     execute_declared_routing_decision,
@@ -184,11 +187,12 @@ def test_execute_local_routing_decision_passes_exact_request() -> None:
     assert adapter.chat_requests[0] is request
 
 
-def test_execution_interval_cardinality_tracks_overlapping_invocations() -> None:
+def test_execution_interval_cardinality_bounds_unadmitted_local_invocations() -> None:
     async def run() -> None:
         first = BlockingAdapter()
         second = BlockingAdapter()
-        intervals = ExecutionIntervalCardinality()
+        third = BlockingAdapter()
+        intervals = ExecutionIntervalCardinality(limit=2)
         assert intervals.value == 0
 
         first_task = asyncio.create_task(
@@ -201,9 +205,18 @@ def test_execution_interval_cardinality_tracks_overlapping_invocations() -> None
                 make_request(), make_decision(second), intervals
             )
         )
+        third_task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(third), intervals
+            )
+        )
         await first.started.wait()
         await second.started.wait()
         assert intervals.value == 2
+        with pytest.raises(ExecutionPermissionDeniedError):
+            await third_task
+        assert intervals.value == 2
+        assert third.chat_requests == []
 
         first.release.set()
         await first_task

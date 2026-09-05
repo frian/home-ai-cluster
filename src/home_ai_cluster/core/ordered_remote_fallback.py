@@ -58,7 +58,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
 
     if selection.selected.local is not None:
         local_permitted = (
-            execution_intervals is None or await execution_intervals.enter_if_idle()
+            execution_intervals is None or await execution_intervals.try_enter()
         )
         if not local_permitted:
             if request.constraints.local_only or not candidates.declared_remotes:

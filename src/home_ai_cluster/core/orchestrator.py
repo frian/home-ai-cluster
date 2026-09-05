@@ -92,7 +92,7 @@ async def orchestrate_composed_request(
 ) -> RoutableResult:
     """Route a request through one ordinary composed application process."""
     decision = route_request(request, node_registry, adapter_registry)
-    if not await execution_intervals.enter_if_idle():
+    if not await execution_intervals.try_enter():
         raise ExecutionPermissionDeniedError()
     return await execute_local_routing_decision(
         request, decision, execution_intervals, interval_already_entered=True
@@ -107,7 +107,7 @@ async def orchestrate_receiver_composed_request(
 ) -> RoutableResult:
     """Execute a received internal request after receiver-local permission."""
     decision = route_request(request, node_registry, adapter_registry)
-    if not await execution_intervals.enter_if_idle():
+    if not await execution_intervals.try_enter():
         raise ExecutionPermissionDeniedError()
     return await execute_local_routing_decision(
         request, decision, execution_intervals, interval_already_entered=True
@@ -252,7 +252,7 @@ async def orchestrate_request_with_static_remote_fallback(
             raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
     local_permitted = (
-        execution_intervals is None or await execution_intervals.enter_if_idle()
+        execution_intervals is None or await execution_intervals.try_enter()
     )
     if not local_permitted:
         if request.constraints.local_only or candidates.declared_remote is None:

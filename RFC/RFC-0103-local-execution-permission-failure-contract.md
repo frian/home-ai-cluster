@@ -1,6 +1,6 @@
 # RFC-0103: Local Execution Permission Failure Contract
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -306,9 +306,9 @@ protocol or runtime semantics are added.
 
 ## Impact
 
-This Draft RFC changes no implementation.
+This RFC changes no implementation by itself.
 
-If accepted, a later implementation may add a distinct internal
+Acceptance authorizes a later implementation to add a distinct internal
 execution-permission failure representation, map it to native HTTP `409`, keep
 native CLI handling as exit `1`, extend structured actual-request failure status
 with `execution-permission-denied`, and minimally extend routing explanation so
@@ -329,4 +329,11 @@ preserve existing behavior for every other failure.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster defines `execution-permission-denied` as the distinct
+cluster-owned no-alternative outcome for Accepted RFC-0102 local execution
+permission denial. Native HTTP maps it to `409 Conflict`; native CLI handling
+remains exit code `1`; RFC-0034 structured actual-request failures gain the
+matching status; and routing explanation must preserve static eligibility as
+distinct from execution-permission denial. This semantic is not an RFC-0028
+fallback condition, adds no receiver-side remote protocol behavior, and makes
+no runtime-capacity or runtime-unavailability claim.

@@ -58,6 +58,14 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Current Drafts
+
+- [RFC-0108: Local Capability-Binding Semantics](RFC-0108-local-capability-binding-semantics.md)
+  — proposes engine-independent, disjoint local capability-to-adapter-instance
+  bindings while preserving one local node and capability-only remote
+  declarations; if accepted, it authorizes only an in-memory proof including
+  two distinct Ollama instances.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

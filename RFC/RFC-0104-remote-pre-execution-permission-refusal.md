@@ -1,6 +1,6 @@
 # RFC-0104: Remote Pre-Execution Permission Refusal
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -441,7 +441,7 @@ changing that observability architecture in the same RFC.
 
 ### Receiver pre-execution permission refusal
 
-Proposed. The receiver owns the relevant HAC permission truth at the exact local
+Accepted. The receiver owns the relevant HAC permission truth at the exact local
 execution boundary and can affirmatively refuse before adapter invocation
 without distributing mutable availability state.
 
@@ -460,9 +460,9 @@ does not optimize for minimum latency, fairness, utilization, or throughput.
 
 ## Impact
 
-This Draft RFC changes no implementation by itself.
+This RFC changes no implementation by itself.
 
-If accepted, it authorizes one bounded implementation that:
+Acceptance authorizes one bounded implementation that:
 
 * applies HAC execution permission to receiver-side internal requests before
   adapter invocation;
@@ -494,4 +494,17 @@ multi-candidate explanation.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster extends the fixed HAC-owned execution-permission rule
+to ordinary receiver-side `/internal/cluster/request` handling before adapter
+invocation. A receiver denied permission must refuse before adapter or runtime
+contact and return exactly HTTP `409 Conflict` with
+`{"detail":"execution-permission-denied"}`. A caller may continue only after
+validating both that status and that exact semantic, and only to the next
+statically eligible, not-yet-contacted remote candidate in deterministic order.
+This safe-continuation condition remains distinct from RFC-0028 pre-transmission
+connection unavailability. Ambiguous post-transmission outcomes remain terminal;
+later authoritative runtime or transport failures remain authoritative; and
+RFC-0028 exhaustion authority is preserved. RFC-0032/RFC-0034 actual-request
+explanation remains bounded and is not extended to multi-candidate timelines.
+No polling, cache, shared remote availability state, runtime-capacity claim,
+scheduler, queue, balancing, or generic HTTP retry is introduced.

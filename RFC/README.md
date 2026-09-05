@@ -67,6 +67,10 @@ does not invalidate or supersede an RFC.
 
 ## Current Draft RFCs
 
+- [RFC-0106: Retained Local HAC Execution Limit](RFC-0106-retained-local-hac-execution-limit.md)
+  — proposes one optional retained local HAC execution limit through `config
+  local`; it remains receiver-owned HAC policy rather than caller-side remote
+  topology or runtime capacity, and absence preserves effective limit `1`.
 - [RFC-0105: Bounded HAC Execution Concurrency Limit](RFC-0105-bounded-hac-execution-concurrency-limit.md)
   — proposes one finite positive, process-local limit over active HAC-owned
   execution intervals; it is HAC policy, not runtime capacity, and `1`

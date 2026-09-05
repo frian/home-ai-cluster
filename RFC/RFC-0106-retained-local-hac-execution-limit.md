@@ -1,6 +1,6 @@
 # RFC-0106: Retained Local HAC Execution Limit
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-05
 
@@ -305,4 +305,4 @@ None of these questions blocks the bounded retained-local decision.
 
 ## Decision
 
-Pending.
+Accepted. RFC-0106 adds one optional retained local HAC execution limit to Accepted RFC-0094's `config local` ownership domain, preserves effective limit `1` on absence, keeps the value independent from runtime-composition source selection, and authorizes only the bounded implementation described above.

@@ -71,16 +71,6 @@ does not invalidate or supersede an RFC.
   — proposes one process-local quantity for the cardinality of active
   HAC-owned execution intervals in one ordinary composed HAC application
   process; it defines neither capacity nor execution policy.
-- [RFC-0100: Execution Availability First-Proof Scope](RFC-0100-execution-availability-first-proof-scope.md)
-  — proposes the existing local adapter-dispatch seam and one ordinary composed
-  HAC application process as the first bounded execution-availability proof
-  scope, without a representation or policy.
-- [RFC-0099: Execution Availability Authority Boundary](RFC-0099-execution-availability-authority-boundary.md)
-  — proposes HAC-owned authority over whether HAC begins a new independent
-  execution, without claiming runtime-internal capacity.
-- [RFC-0098: Execution Availability Semantics](RFC-0098-execution-availability-semantics.md)
-  — proposes execution availability as distinct from static eligibility,
-  health, status, reachability, and fallback safety.
 
 ## Selected accepted RFCs
 

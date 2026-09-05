@@ -223,6 +223,8 @@ def _failure_for_status(status_code: int) -> str | None:
         return _CLUSTER_REJECTED
     if status_code == 404:
         return _NO_CAPABILITY
+    if status_code == 409:
+        return "error: execution permission denied"
     if status_code == 503:
         return _RUNTIME_UNAVAILABLE
     return _ORDINARY_REQUEST_FAILED

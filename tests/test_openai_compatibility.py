@@ -369,6 +369,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
+    local_composition = create_local_runtime_composition(runtime="ollama")
     app = create_static_cluster_openai_compatibility_app(
         [
             RemoteNodeDeclaration(
@@ -376,7 +377,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
                 base_url="https://remote.example:8000",
             )
         ],
-        local_app_composition=create_local_runtime_composition(runtime="ollama"),
+        local_app_composition=local_composition,
     )
     collections: list[object] = []
 
@@ -390,7 +391,7 @@ def test_static_compatibility_route_uses_existing_collection_wiring(
         assert request.capability == Capability(name="chat")
         assert request.constraints.local_only is False
         assert static_remote_wiring is None
-        assert local_app_composition is None
+        assert local_app_composition is local_composition
         collections.append(static_remote_collection_wiring)
         return ClusterResult(
             content="Cluster response",
@@ -986,21 +987,23 @@ def test_runtime_unavailability_does_not_leak_runtime_details(
 
 
 @pytest.mark.parametrize(
-    ("status_code", "message"),
+    ("native_status_code", "compatibility_status_code", "message"),
     [
-        (404, "No available chat capability"),
-        (503, "Runtime adapter unavailable"),
+        (404, 503, "No available chat capability"),
+        (409, 500, "Internal server error"),
+        (503, 503, "Runtime adapter unavailable"),
     ],
 )
 def test_cluster_seam_http_errors_are_translated_without_details(
     monkeypatch: pytest.MonkeyPatch,
-    status_code: int,
+    native_status_code: int,
+    compatibility_status_code: int,
     message: str,
 ) -> None:
     from home_ai_cluster.api import openai_compatibility
 
     async def handle(_, **__) -> ClusterResult:
-        raise HTTPException(status_code, detail="private runtime detail")
+        raise HTTPException(native_status_code, detail="private runtime detail")
 
     monkeypatch.setattr(openai_compatibility, "handle_chat_cluster_request", handle)
 
@@ -1008,7 +1011,7 @@ def test_cluster_seam_http_errors_are_translated_without_details(
 
     assert_error(
         response,
-        status_code=503,
+        status_code=compatibility_status_code,
         message=message,
         error_type="server_error",
     )

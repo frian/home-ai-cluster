@@ -927,6 +927,7 @@ def test_conflicting_output_options_fail_before_client_construction(
     [
         (422, "error: cluster rejected request"),
         (404, "error: no available chat capability"),
+        (409, "error: execution permission denied"),
         (503, "error: runtime adapter unavailable"),
         (500, "error: ordinary request failed"),
     ],
@@ -949,6 +950,8 @@ def test_http_failures_are_safely_mapped(
     assert exit_code == 1
     assert stdout == ""
     assert stderr == f"{expected_error}\n"
+    assert "local execution permission denied" not in stderr
+    assert "traceback" not in stderr.lower()
     assert "private" not in stderr
     assert "response body" not in stderr
 

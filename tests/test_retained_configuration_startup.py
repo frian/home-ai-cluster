@@ -1,5 +1,6 @@
 """Startup consumption tests for accepted RFC-0094 retained configuration."""
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -88,6 +89,45 @@ def test_local_uses_all_retained_ollama_facts_without_runtime_options() -> None:
     assert isinstance(adapter, OllamaAdapter)
     assert (adapter.model, adapter.disable_thinking) == ("retained-model", True)
     assert retained_configuration_file().read_bytes() == before
+
+
+def test_local_retained_execution_limit_reaches_the_composed_interval_policy() -> None:
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama"),
+                execution_limit=2,
+            )
+        )
+    )
+
+    app = local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
+    intervals = app.state.local_app_composition.execution_intervals
+
+    assert asyncio.run(intervals.try_enter()) is True
+    assert asyncio.run(intervals.try_enter()) is True
+    assert asyncio.run(intervals.try_enter()) is False
+    assert intervals.value == 2
+    asyncio.run(intervals.exit())
+    asyncio.run(intervals.exit())
+    assert intervals.value == 0
+
+
+def test_local_legacy_retained_configuration_uses_default_execution_limit() -> None:
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama")
+            )
+        )
+    )
+
+    app = local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
+    intervals = app.state.local_app_composition.execution_intervals
+
+    assert asyncio.run(intervals.try_enter()) is True
+    assert asyncio.run(intervals.try_enter()) is False
+    asyncio.run(intervals.exit())
 
 
 @pytest.mark.parametrize(
@@ -292,6 +332,36 @@ def test_static_cluster_uses_retained_ordered_topology_without_requests(
         0
     ].state.static_remote_collection_wiring.remote_registry.list_declarations()
     assert [node.node.id for node in nodes] == ["node-a", "node-b"]
+
+
+def test_retained_static_cluster_uses_the_same_retained_execution_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama"),
+                execution_limit=2,
+            ),
+            remote_nodes=(
+                RemoteNodeDeclaration("remote", "http://192.0.2.10:25042", ("chat",)),
+            ),
+        )
+    )
+    captured = []
+    monkeypatch.setattr(
+        static_cluster.uvicorn, "run", lambda app, **_: captured.append(app)
+    )
+
+    static_cluster.main([])
+
+    intervals = captured[0].state.static_remote_collection_wiring.execution_intervals
+    assert intervals is not None
+    assert asyncio.run(intervals.try_enter()) is True
+    assert asyncio.run(intervals.try_enter()) is True
+    assert asyncio.run(intervals.try_enter()) is False
+    asyncio.run(intervals.exit())
+    asyncio.run(intervals.exit())
 
 
 def test_explicit_inline_topology_replaces_retained_topology(

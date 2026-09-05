@@ -16,6 +16,7 @@ from home_ai_cluster.main import create_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     load_retained_configuration,
+    retained_configuration_file,
 )
 from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 
@@ -50,13 +51,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.prog = "home-ai-cluster local"
     args = parser.parse_args(argv)
     retained_values = None
-    if args.runtime_config is None:
+    needs_retained_runtime = args.runtime_config is None
+    if needs_retained_runtime or retained_configuration_file().exists():
         try:
             retained = load_retained_configuration()
         except RetainedConfigurationError as error:
             parser.error(str(error))
         if retained.local is not None:
-            retained_values = retained.local.runtime
+            if needs_retained_runtime:
+                retained_values = retained.local.runtime
             args.retained_execution_limit = retained.local.execution_limit
     validate_local_runtime_arguments(parser, args, retained_values)
     return args

@@ -33,6 +33,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     load_retained_configuration,
+    retained_configuration_file,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -148,14 +149,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     needs_retained_runtime = args.runtime_config is None
     needs_retained_topology = not has_declaration and not has_remote_node_id
     retained = RetainedConfiguration()
-    if needs_retained_runtime or needs_retained_topology:
+    if (
+        needs_retained_runtime
+        or needs_retained_topology
+        or retained_configuration_file().exists()
+    ):
         try:
             retained = load_retained_configuration()
         except RetainedConfigurationError as error:
             parser.error(str(error))
 
     retained_values = retained.local.runtime if retained.local is not None else None
-    if needs_retained_runtime and retained.local is not None:
+    if retained.local is not None:
         args.retained_execution_limit = retained.local.execution_limit
     validate_local_runtime_arguments(
         parser,

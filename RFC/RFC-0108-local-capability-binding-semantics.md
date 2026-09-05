@@ -1,6 +1,6 @@
 # RFC-0108: Local Capability-Binding Semantics
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-05
 
@@ -16,16 +16,17 @@ concrete adapter instance. A capability therefore has one local adapter owner
 within a process, while a binding may assign several capabilities to that same
 instance.
 
-`RuntimeAdapter.name` remains a runtime-type identity such as `ollama`; it is
-not an adapter-instance identifier. Consequently, two distinct Ollama adapter
-instances are architecturally valid local binding targets even though both have
-the name `ollama`.
+`RuntimeAdapter.name` remains the stable internal adapter name already defined
+by the adapter boundary. It is not an adapter-instance identifier, and this RFC
+does not further define it as runtime-type identity. Consequently, two distinct
+Ollama adapter instances are architecturally valid local binding targets even
+though both have the name `ollama`.
 
-This Draft deliberately decides no operator-facing input, retained
-configuration, runtime-config shape, status, health, preflight, routing
-explanation, remote protocol, or real-machine workflow. If accepted, it
-authorizes only a bounded in-memory core proof, including a mandatory proof
-using two distinct Ollama adapter instances in the same HAC process.
+This RFC deliberately decides no operator-facing input, retained configuration,
+runtime-config shape, status, health, preflight, routing explanation, remote
+protocol, or real-machine workflow. Acceptance authorizes only a bounded
+in-memory core proof, including a mandatory proof using two distinct Ollama
+adapter instances in the same HAC process.
 
 ## Context
 
@@ -44,9 +45,9 @@ inside the existing local process.
 
 The same-runtime case is essential. Two Ollama instances can differ by their
 operator-managed endpoint or other adapter construction values while retaining
-the same runtime type. Treating `RuntimeAdapter.name` as an instance key would
-make that valid arrangement impossible and would incorrectly turn runtime type
-into cluster-facing instance identity.
+the same stable internal adapter name. Treating `RuntimeAdapter.name` as an
+instance key would make that valid arrangement impossible and would incorrectly
+turn a stable internal adapter name into concrete adapter-instance identity.
 
 ## Problem
 
@@ -55,7 +56,8 @@ adapter instance owns each capability when more than one instance exists. A
 naive extension risks one of several architectural errors:
 
 - presenting one HAC process as multiple local cluster nodes;
-- using the runtime type name as if it uniquely identified an adapter instance;
+- using the stable internal adapter name as if it uniquely identified an
+  adapter instance;
 - allowing two local instances to claim the same capability without a defined
   selection rule; or
 - leaking runtime or adapter-instance facts into remote declarations or a
@@ -76,13 +78,13 @@ unambiguous and permits a same-runtime proof.
   adapter instance's executable capabilities.
 - Permit multiple capabilities to share one binding and therefore one adapter
   instance.
-- Explicitly support multiple instances of the same runtime type in one local
-  process.
-- Preserve `RuntimeAdapter.name` as runtime-type identity, not adapter-instance
-  identity.
+- Explicitly support multiple instances with the same stable internal adapter
+  name in one local process.
+- Preserve `RuntimeAdapter.name` as a stable internal adapter name that is not
+  adapter-instance identity, without assigning it new runtime-type semantics.
 - Keep remote declarations and any remote protocol capability-only.
 - Preserve the current single-runtime local behavior as a compatibility case.
-- Authorize only a bounded in-memory core proof after acceptance, including two
+- Limit authorization to a bounded in-memory core proof, including two
   distinct Ollama instances.
 
 ## Non-goals
@@ -104,10 +106,10 @@ This RFC does not add or decide:
   local composition facts; or a remote protocol change, negotiation, or
   receiver advertisement;
 - a real-machine, cross-process, cross-host, or remote execution proof;
-- a vLLM-specific rule, implementation, or proof; or any dependency on the
-  Draft execution-availability rail or the separate Draft vLLM rail; or
+- a vLLM-specific rule, implementation, or proof; or any change to the accepted
+  execution-availability rail or Accepted RFC-0107 vLLM adapter boundary; or
 - implementation other than the bounded in-memory core proof explicitly
-  authorized on acceptance.
+  authorized by this RFC.
 
 ## Proposal
 
@@ -165,6 +167,13 @@ validly have a binding for `chat` alone. Conversely, a binding that assigns
 `classify` to an adapter whose `capabilities()` does not contain `classify` is
 invalid and must fail local composition validation before routing or execution.
 
+The subset check is structural local-composition validation performed when the
+in-memory composition is constructed. It is not a health check, execution
+availability, readiness probe, runtime discovery, model discovery, or a new
+request-time admission mechanism. It validates only that the explicit binding
+does not claim a capability outside the concrete adapter instance's declared
+execution capabilities.
+
 `RuntimeAdapter.capabilities()` remains runtime/adapter execution truth. Local
 binding capabilities remain the explicit subset assigned to that concrete
 instance. The proposal does not infer binding assignments from
@@ -207,18 +216,19 @@ RFC-0059 runtime configuration. Receiver-side execution composition remains
 governed by its own local binding set. This RFC decides no integration mechanics
 for a future multi-binding static-cluster composition.
 
-### Runtime type is not adapter instance identity
+### Stable internal adapter name is not adapter-instance identity
 
-`RuntimeAdapter.name` continues to mean runtime type identity only. Its value
-may identify an accepted runtime family such as `ollama` or `llama-server`; a
-future accepted adapter family follows the same rule. It must not be used as a
-unique key for a concrete adapter instance.
+`RuntimeAdapter.name` remains the stable internal adapter name already defined
+by the adapter boundary. This RFC does not redefine that property as a unique
+runtime-type identifier, binding identifier, or concrete adapter-instance
+identifier. In particular, it must not be used as the unique key for a concrete
+adapter instance in a local binding composition.
 
 Multiple distinct adapter instances with equal `name` values are valid binding
 targets. In particular, a process may contain two distinct Ollama adapter
-instances. Their distinction is local object/construction identity; this RFC
-does not introduce a serialized, operator-visible, request-visible,
-cluster-visible, or remote-visible adapter-instance ID.
+instances with `name == "ollama"`. Their distinction is local object/construction
+identity; this RFC does not introduce a serialized, operator-visible,
+request-visible, cluster-visible, or remote-visible adapter-instance ID.
 
 This rule is engine-independent. Ollama is required only as the first
 same-runtime proof target, not as a core binding concept.
@@ -230,6 +240,12 @@ selected local capability execution. Cluster-facing eligibility and routing
 continue to reason in capabilities, according to their existing accepted
 boundaries. A request does not select an adapter, runtime, model, binding, or
 instance.
+
+Existing adapter-name declarations in node descriptions are not promoted to a
+concrete adapter-instance addressing mechanism by this RFC. For the bounded
+multi-binding proof, once an already selected local capability reaches the
+local execution composition, the binding relation itself is authoritative for
+which concrete adapter instance receives that execution.
 
 Remote declarations remain capability-only caller-owned topology data. They
 must not contain runtime type, adapter name, adapter-instance identity, local
@@ -306,9 +322,10 @@ architectural identity rule.
 
 ### Use `RuntimeAdapter.name` as the binding key
 
-Rejected. A runtime type is not an adapter-instance identity. This would forbid
-two Ollama instances and couple core binding semantics to a runtime-name
-uniqueness rule that adapters do not promise.
+Rejected. A stable internal adapter name is not an adapter-instance identity.
+Using it as a unique binding key would forbid two Ollama instances and couple
+core binding semantics to a uniqueness rule the adapter boundary does not
+promise.
 
 ### Create one local node per adapter instance
 
@@ -365,5 +382,7 @@ not imply acceptance of any configuration, observation, or real-machine design.
 
 ## Decision
 
-Draft. No implementation is authorized until this RFC is accepted. If accepted,
-authorization is limited to the bounded in-memory core proof defined above.
+Accepted. Acceptance authorizes only the bounded in-memory core proof defined
+above. It does not authorize operator or retained configuration, observation or
+status changes, routing-policy changes, remote-protocol changes, or real-machine
+work.

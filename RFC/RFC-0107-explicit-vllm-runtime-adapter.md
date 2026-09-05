@@ -1,6 +1,6 @@
 # RFC-0107: Explicit vLLM Runtime Adapter
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-05
 
@@ -22,8 +22,8 @@ and one non-empty served-model API identity.
 This proposal adds no generic OpenAI-compatible runtime boundary, SDK, vLLM
 library dependency, lifecycle management, model discovery, credentials,
 arbitrary-network runtime transport, capacity observation, or scheduler
-integration. Acceptance would authorize a later bounded implementation; it
-would not by itself make vLLM a supported release behavior.
+integration. Acceptance authorizes a later bounded implementation; it does not
+by itself make vLLM a supported release behavior.
 
 ## Problem
 
@@ -315,9 +315,9 @@ provider/options map.
 Implementation should use existing `httpx` only. This RFC authorizes no new
 Python dependency merely to communicate with an operator-managed HTTP runtime.
 
-This RFC is architecturally independent of Draft RFC-0098 through RFC-0106.
-If that Draft execution-availability rail is later accepted, its HAC execution
-limit remains runtime-independent:
+This RFC is architecturally independent of Accepted RFC-0098 through RFC-0106.
+That accepted execution-availability rail's HAC execution limit remains
+runtime-independent:
 
 ```text
 HAC execution limit
@@ -404,18 +404,17 @@ operator responsibilities in HAC.
 
 ## Impact
 
-If accepted, a separate implementation PR may add `VllmAdapter`, explicit
-`vllm` ordinary local composition, the two minimal CLI/runtime-config facts,
-the matching retained-local representation and factual `config show` display,
-focused tests, real-local evidence, and then appropriate operator
+Acceptance authorizes a separate implementation PR to add `VllmAdapter`,
+explicit `vllm` ordinary local composition, the two minimal CLI/runtime-config
+facts, the matching retained-local representation and factual `config show`
+display, focused tests, real-local evidence, and then appropriate operator
 documentation. It must preserve the existing request, result, routing,
 topology, capability, and protocol boundaries.
 
-Accepting this RFC would authorize implementation only. vLLM becomes ordinary
-supported release behavior only after implementation, focused tests, full
-regression validation, truthful all-four-capability proof, real
-operator-managed vLLM evidence, documentation, and later integration and
-release decisions.
+This RFC authorizes implementation only. vLLM becomes ordinary supported
+release behavior only after implementation, focused tests, full regression
+validation, truthful all-four-capability proof, real operator-managed vLLM
+evidence, documentation, and later integration and release decisions.
 
 ## Proof expectations
 
@@ -465,4 +464,13 @@ facts above.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster will add vLLM as one explicit third ordinary local
+runtime through a concrete `VllmAdapter` implementing the existing
+`RuntimeAdapter` contract unchanged. vLLM-specific HTTP transport, structured
+output, health, failure translation, and served-model attribution remain
+adapter-private. The first supported runtime topology is operator-managed and
+loopback-only with exactly a configured base URL and served-model identity.
+Acceptance authorizes the bounded implementation and proof stages defined here,
+without a generic OpenAI-compatible abstraction, runtime lifecycle ownership,
+model discovery, credentials, arbitrary-network transport, runtime-capacity
+claims, scheduler behavior, or distributed state.

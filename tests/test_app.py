@@ -248,6 +248,47 @@ def test_internal_request_tracks_receiver_local_execution_interval() -> None:
     asyncio.run(run())
 
 
+def test_internal_requests_allow_receiver_execution_interval_overlap() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        both_started = asyncio.Event()
+        original_chat = adapter.chat
+
+        async def record_overlap(request: ClusterRequest) -> RuntimeResult:
+            if len(adapter.chat_requests) == 1:
+                both_started.set()
+            return await original_chat(request)
+
+        adapter.chat = record_overlap  # type: ignore[method-assign]
+        composition = make_local_app_composition(adapter)
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            first = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            await adapter.started.wait()
+            second = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            await both_started.wait()
+            assert composition.execution_intervals.value == 2
+            adapter.release.set()
+            first_response, second_response = await asyncio.gather(first, second)
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
+
+
 def test_internal_status_uses_supplied_local_app_composition() -> None:
     adapter = RecordingAdapter()
     app = create_app(local_app_composition=make_local_app_composition(adapter))
@@ -289,6 +330,30 @@ def test_chat_without_remote_wiring_remains_local_only(
     assert len(adapter.chat_requests) == 1
     assert transport.requests == []
     assert transport.declarations == []
+
+
+def test_originating_local_permission_denial_maps_to_safe_http_conflict() -> None:
+    async def run() -> None:
+        adapter = RecordingAdapter()
+        composition = make_local_app_composition(adapter)
+        await composition.execution_intervals.enter()
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            response = await client.post("/v1/chat", json=chat_payload())
+        await composition.execution_intervals.exit()
+
+        assert response.status_code == 409
+        assert response.status_code not in {404, 503}
+        assert response.json() == {"detail": "local execution permission denied"}
+        assert "traceback" not in response.text.lower()
+        assert "recording" not in response.text
+        assert adapter.chat_requests == []
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_chat_uses_supplied_local_app_composition() -> None:

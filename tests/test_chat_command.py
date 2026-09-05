@@ -927,6 +927,7 @@ def test_conflicting_output_options_fail_before_client_construction(
     [
         (422, "error: cluster rejected request"),
         (404, "error: no available chat capability"),
+        (409, "error: local execution permission denied"),
         (503, "error: runtime adapter unavailable"),
         (500, "error: ordinary request failed"),
     ],

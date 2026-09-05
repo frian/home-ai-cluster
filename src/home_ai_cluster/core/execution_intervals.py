@@ -20,6 +20,14 @@ class ExecutionIntervalCardinality:
         async with self._lock:
             self._value += 1
 
+    async def enter_if_idle(self) -> bool:
+        """Enter one interval only when none is active at this transition."""
+        async with self._lock:
+            if self._value != 0:
+                return False
+            self._value += 1
+            return True
+
     async def exit(self) -> None:
         """Record exit from one local adapter invocation interval."""
         async with self._lock:

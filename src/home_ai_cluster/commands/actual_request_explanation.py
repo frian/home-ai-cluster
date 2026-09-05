@@ -12,6 +12,7 @@ from home_ai_cluster.api.wiring import (
     create_static_local_node_registry,
     create_static_runtime_adapter_registry,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -19,6 +20,7 @@ from home_ai_cluster.core.models import (
     RequestConstraints,
 )
 from home_ai_cluster.core.orchestrator import (
+    ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_selected_candidate,
 )
@@ -45,6 +47,10 @@ RUNTIME_UNAVAILABLE_FAILURE = {
 EXECUTION_FAILED_FAILURE = {
     "status": "execution-failed",
     "reason": "selected candidate execution failed",
+}
+EXECUTION_PERMISSION_DENIED_FAILURE = {
+    "status": "execution-permission-denied",
+    "reason": "local execution permission denied",
 }
 INTERNAL_FAILURE_MESSAGE = "error: unable to construct actual request account"
 HISTORY_RECORDING_WARNING = "warning: unable to record request history"
@@ -85,6 +91,9 @@ def _candidate_families(*, local: bool, declared_remote: bool) -> list[str]:
 
 def project_routing(
     explanation: AutomaticCapabilitySelectionExplanation,
+    *,
+    local_execution_permission: str = "not-applicable",
+    candidate_consideration: str = "not-started",
 ) -> dict[str, Any]:
     """Project the existing eight-field automatic selection explanation."""
     outcome_rule = str(explanation.outcome_rule)
@@ -116,6 +125,8 @@ def project_routing(
             if explanation.no_selectable_candidate_reason is not None
             else None
         ),
+        "local_execution_permission": local_execution_permission,
+        "candidate_consideration": candidate_consideration,
     }
 
 
@@ -126,11 +137,17 @@ def project_succeeded_account(
     adapter: str,
     model: str | None,
     content: str,
+    local_execution_permission: str = "granted",
+    candidate_consideration: str = "executed",
 ) -> dict[str, Any]:
     """Project one successful RFC-0034 account."""
     return {
         "status": "succeeded",
-        "routing": project_routing(explanation),
+        "routing": project_routing(
+            explanation,
+            local_execution_permission=local_execution_permission,
+            candidate_consideration=candidate_consideration,
+        ),
         "result": {
             "node_id": node_id,
             "adapter": adapter,
@@ -144,11 +161,18 @@ def project_succeeded_account(
 def project_failed_account(
     explanation: AutomaticCapabilitySelectionExplanation,
     failure: dict[str, str],
+    *,
+    local_execution_permission: str = "not-applicable",
+    candidate_consideration: str = "ended",
 ) -> dict[str, Any]:
     """Project one safely classified RFC-0034 failed account."""
     return {
         "status": "failed",
-        "routing": project_routing(explanation),
+        "routing": project_routing(
+            explanation,
+            local_execution_permission=local_execution_permission,
+            candidate_consideration=candidate_consideration,
+        ),
         "result": None,
         "failure": failure,
     }
@@ -161,6 +185,7 @@ async def evaluate_actual_request(
     node_registry: NodeRegistry | None = None,
     adapter_registry: AdapterRegistry | None = None,
     remote_registry: RemoteNodeDeclarationRegistry | None = None,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> dict[str, Any]:
     """Select once and execute at most one selected candidate for one account."""
     request = create_request(capability, message)
@@ -192,17 +217,37 @@ async def evaluate_actual_request(
             selection.explanation, NO_SELECTABLE_CANDIDATE_FAILURE
         )
 
+    intervals = execution_intervals or ExecutionIntervalCardinality()
     try:
+        if selection.selected.local is not None and not await intervals.enter_if_idle():
+            raise ExecutionPermissionDeniedError(selection.explanation)
         result = await orchestrate_request_with_selected_candidate(
             request,
             selection.selected,
+            execution_intervals=intervals,
+            local_interval_already_entered=selection.selected.local is not None,
+        )
+    except ExecutionPermissionDeniedError:
+        return project_failed_account(
+            selection.explanation,
+            EXECUTION_PERMISSION_DENIED_FAILURE,
+            local_execution_permission="denied",
+            candidate_consideration="ended",
         )
     except RuntimeAdapterUnavailableError:
         return project_failed_account(
-            selection.explanation, RUNTIME_UNAVAILABLE_FAILURE
+            selection.explanation,
+            RUNTIME_UNAVAILABLE_FAILURE,
+            local_execution_permission="granted",
+            candidate_consideration="executed",
         )
     except Exception:
-        return project_failed_account(selection.explanation, EXECUTION_FAILED_FAILURE)
+        return project_failed_account(
+            selection.explanation,
+            EXECUTION_FAILED_FAILURE,
+            local_execution_permission="granted",
+            candidate_consideration="executed",
+        )
 
     return project_succeeded_account(
         selection.explanation,

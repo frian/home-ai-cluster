@@ -59,7 +59,7 @@ For repeated ordinary static-cluster startup, HAC-managed retained configuration
 can establish a local baseline:
 
 ```sh
-hac config local --runtime ollama
+hac config local --runtime ollama --execution-limit 2
 hac config node summary-node --base-url http://192.0.2.10:25042 --capability summarize
 hac config show
 hac static-cluster
@@ -70,6 +70,10 @@ health or prove that a cluster is running. HAC-managed retained configuration
 provides the ordinary static-cluster startup baseline. A complete explicit
 topology source replaces retained topology for that invocation; runtime
 composition follows its own retained or explicit source-selection rules.
+The retained local HAC execution limit is also consumed by ordinary
+retained-baseline `hac local` and `hac static-cluster`. It limits overlapping
+HAC-owned execution intervals, not runtime concurrency, and one process shares
+the same limit for originating local work and receiver-side work.
 Inspection remains separate: bare `hac preflight` is local-only,
 while `hac preflight --declaration <DECLARATION_PATH>` inspects a selected static
 topology and `hac status --declaration <DECLARATION_PATH>` observes the selected
@@ -93,6 +97,26 @@ discovered from a runtime; health's live observation concerns adapter health.
 None starts, supervises, repairs, or guarantees later request success.
 Historical proof runbooks and retained proof records are supporting evidence,
 not required steps in either ordinary daily path.
+
+### Static order and local HAC execution limits
+
+Each machine's operator configures its own limit locally. For example:
+
+```text
+Node A: local HAC execution limit = 1
+Node B: local HAC execution limit = 1
+Caller static order: A -> B
+```
+
+If A is already executing one HAC-owned interval, the caller still contacts A
+in normal static order. A may refuse before adapter invocation; after that exact
+safe refusal, the caller may consider B. The caller does not pre-query or know
+A's current work, limit, active interval count, or remaining allowance.
+
+With `Node A execution limit = 2`, `Node B execution limit = 1`, and static
+order `A -> B`, A can accept two overlapping HAC executions before a later
+request is refused to the next candidate. This remains deterministic static
+ordering, not least-loaded routing; it makes no fairness promise.
 
 ## Mode 1: Ordinary local-only operation
 

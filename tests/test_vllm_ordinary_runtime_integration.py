@@ -2,8 +2,9 @@ import json
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 
-from home_ai_cluster import local_runtime
+from home_ai_cluster import local_runtime, static_cluster
 from home_ai_cluster.commands import config_command
 from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
 from home_ai_cluster.retained_configuration import (
@@ -135,3 +136,61 @@ def test_vllm_runtime_config_keeps_independent_retained_execution_limit(
     args = local_runtime.parse_args(["--runtime-config", str(runtime_config)])
 
     assert args.retained_execution_limit == 2
+
+
+def test_static_cluster_inline_vllm_passes_selected_runtime_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: dict[str, object] = {}
+    selected_composition = object()
+
+    def create_local_composition(**kwargs: object) -> object:
+        recorded["composition_arguments"] = kwargs
+        return selected_composition
+
+    def create_static_app(
+        *_: object,
+        capabilities: tuple[str, ...],
+        local_app_composition: object,
+    ) -> FastAPI:
+        recorded["remote_capabilities"] = capabilities
+        recorded["local_app_composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(
+        static_cluster,
+        "create_local_runtime_composition",
+        create_local_composition,
+    )
+    monkeypatch.setattr(static_cluster, "create_static_cluster_app", create_static_app)
+    monkeypatch.setattr(static_cluster.uvicorn, "run", lambda *_args, **_kwargs: None)
+
+    static_cluster.main(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.test",
+            "--runtime",
+            "vllm",
+            "--vllm-base-url",
+            "http://127.0.0.1:8000",
+            "--vllm-model",
+            "served-name",
+        ]
+    )
+
+    assert recorded == {
+        "composition_arguments": {
+            "runtime": "vllm",
+            "ollama_model": None,
+            "ollama_disable_thinking": False,
+            "llama_server_base_url": None,
+            "llama_server_model": None,
+            "vllm_base_url": "http://127.0.0.1:8000",
+            "vllm_model": "served-name",
+            "capabilities": ("chat", "summarize"),
+        },
+        "remote_capabilities": ("chat", "summarize"),
+        "local_app_composition": selected_composition,
+    }

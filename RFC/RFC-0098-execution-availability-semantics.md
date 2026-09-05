@@ -1,6 +1,6 @@
 # RFC-0098: Execution Availability Semantics
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -217,7 +217,7 @@ authority or correctness that the current architecture does not possess.
 
 ## Impact
 
-This Draft RFC changes no source code, tests, commands, configuration, request
+This RFC changes no source code, tests, commands, configuration, request
 or response contract, routing behavior, fallback behavior, or runtime behavior.
 
 If accepted, it becomes a semantic reference for later architectural proposals.
@@ -242,4 +242,4 @@ decisions.
 
 ## Decision
 
-Pending.
+Accepted.

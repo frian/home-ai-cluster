@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    RuntimeAdapter,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -14,8 +15,10 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ChatMessage,
+    ClassifyRequest,
     ClusterRequest,
     RuntimeResult,
+    SummarizeRequest,
 )
 from home_ai_cluster.local_http import local_http_url
 
@@ -41,11 +44,33 @@ def make_adapter(
     )
 
 
-def test_vllm_adapter_name_and_stage_1_capabilities() -> None:
+def make_summarize_request(text: str = "Source text") -> SummarizeRequest:
+    return SummarizeRequest(text=text)
+
+
+def make_classify_request(
+    text: str = "Source text",
+    labels: list[str] | None = None,
+) -> ClassifyRequest:
+    return ClassifyRequest(text=text, labels=labels or ["invoice", "personal"])
+
+
+def test_vllm_adapter_name_and_complete_capabilities() -> None:
     adapter = make_adapter()
 
     assert adapter.name == "vllm"
-    assert adapter.capabilities() == [Capability(name="chat")]
+    assert adapter.capabilities() == [
+        Capability(name="chat"),
+        Capability(name="summarize"),
+        Capability(name="classify"),
+        Capability(name="code"),
+    ]
+
+
+def test_vllm_adapter_structurally_satisfies_runtime_adapter() -> None:
+    adapter: RuntimeAdapter = make_adapter()
+
+    assert adapter.name == "vllm"
 
 
 def test_vllm_adapter_health_returns_available_when_ready() -> None:
@@ -165,6 +190,185 @@ def test_vllm_adapter_chat_uses_configured_model_when_response_omits_it() -> Non
     )
 
     assert result.model == "configured-model"
+
+
+def test_vllm_adapter_summarize_maps_source_text_to_chat_transport() -> None:
+    source = '  First line.\n</source> "Quoted" text.\nLast line.  '
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "Summary"}}],
+                "model": "loaded-model",
+            },
+        )
+
+    result = asyncio.run(
+        make_adapter(httpx.MockTransport(handler)).summarize(
+            make_summarize_request(source)
+        )
+    )
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Summarize the following source text concisely.\n\n"
+                        f"<source>\n{source}\n</source>"
+                    ),
+                }
+            ],
+            "stream": False,
+        }
+    ]
+    assert result == RuntimeResult(
+        content="Summary",
+        adapter="vllm",
+        model="loaded-model",
+    )
+
+
+def test_vllm_adapter_summarize_translates_connection_failure() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError):
+        asyncio.run(
+            make_adapter(httpx.MockTransport(handler)).summarize(
+                make_summarize_request()
+            )
+        )
+
+
+def test_vllm_adapter_summarize_translates_non_2xx_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": "unavailable"}, request=request)
+
+    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+        asyncio.run(
+            make_adapter(httpx.MockTransport(handler)).summarize(
+                make_summarize_request()
+            )
+        )
+
+    assert isinstance(exc_info.value.__cause__, httpx.HTTPStatusError)
+
+
+def test_vllm_adapter_summarize_translates_malformed_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": []})
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(
+            make_adapter(httpx.MockTransport(handler)).summarize(
+                make_summarize_request()
+            )
+        )
+
+
+def test_vllm_adapter_classify_uses_private_structured_choice_output() -> None:
+    source = '  Source </source> "quoted" étiquette\n'
+    labels = ["invoice", "Invoice", " invoice ", '</label> "étiquette"']
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": "invoice"}}],
+                "model": "loaded-model",
+            },
+        )
+
+    result = asyncio.run(
+        make_adapter(httpx.MockTransport(handler)).classify(
+            make_classify_request(source, labels)
+        )
+    )
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Choose the single best matching label for the source text.\n\n"
+                        f"Source text:\n{source}"
+                    ),
+                }
+            ],
+            "stream": False,
+            "structured_outputs": {"choice": labels},
+        }
+    ]
+    assert result == "invoice"
+
+
+def test_vllm_adapter_classify_returns_unknown_proposal_without_repair() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "unknown"}}]},
+        )
+
+    result = asyncio.run(
+        make_adapter(httpx.MockTransport(handler)).classify(make_classify_request())
+    )
+
+    assert result == "unknown"
+
+
+def test_vllm_adapter_classify_translates_malformed_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"choices": [{"message": {}}]})
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(
+            make_adapter(httpx.MockTransport(handler)).classify(make_classify_request())
+        )
+
+
+def test_vllm_adapter_code_uses_existing_chat_transport() -> None:
+    request = ClusterRequest(
+        messages=[ChatMessage(role="user", content="Write a function.")],
+        capability=Capability(name="code"),
+    )
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(http_request: httpx.Request) -> httpx.Response:
+        assert http_request.url.path == "/v1/chat/completions"
+        seen_payloads.append(json.loads(http_request.content))
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "def f(): pass"}}]},
+        )
+
+    result = asyncio.run(make_adapter(httpx.MockTransport(handler)).chat(request))
+
+    assert seen_payloads == [
+        {
+            "model": "configured-model",
+            "messages": [{"role": "user", "content": "Write a function."}],
+            "stream": False,
+        }
+    ]
+    assert result == RuntimeResult(
+        content="def f(): pass",
+        adapter="vllm",
+        model="configured-model",
+    )
 
 
 def test_vllm_adapter_chat_client_disables_ambient_http_environment(

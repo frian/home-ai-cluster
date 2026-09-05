@@ -92,4 +92,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if arguments[0] == "chat" and arguments[1:] in (["-h"], ["--help"]):
         chat_command._parse_input(arguments[1:], facade_help=True)
 
-    delegated_main(arguments[1:])
+    try:
+        delegated_main(arguments[1:])
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None

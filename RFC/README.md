@@ -58,6 +58,13 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Draft RFCs
+
+- [RFC-0109: Explicit LAN Receiver Route Boundary](RFC-0109-explicit-lan-receiver-route-boundary.md)
+  — proposes one closed remote-receiver route set containing only the existing
+  internal cluster request and status routes, while preserving one HAC
+  composition/node and deferring authentication, TLS, and listener/port shape.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

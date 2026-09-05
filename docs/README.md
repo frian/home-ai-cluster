@@ -29,6 +29,10 @@ architecture.
 
 ## Release and distribution
 
+- [1.0 five-node cluster validation](v1.0-five-node-cluster-validation.md)
+  — factual record of a manual validation of published `1.0.0` behavior across
+  one caller/orchestrator and four explicit remote nodes; it introduces no
+  product or architectural change.
 - [Windows installation path investigation](windows-installation-path-investigation.md)
   — records the Windows `1.0.0b2` WinGet/uv/PyPI evidence that informed the
   accepted [RFC-0097 Windows 11 x86_64 installation path](../RFC/RFC-0097-supported-windows-installation-path.md).

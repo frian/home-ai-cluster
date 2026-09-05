@@ -68,6 +68,37 @@ base_url = "http://192.0.2.10:25042"
 
 ## Local runtime composition
 
+### Retained local HAC execution limit
+
+Use `hac config local` to retain an HAC execution limit for this machine's
+ordinary HAC process:
+
+```sh
+hac config local \
+  --runtime ollama \
+  --ollama-model llama3.2:1b \
+  --execution-limit 2
+```
+
+This means this HAC process may engage up to two overlapping HAC-owned
+execution intervals. The value limits overlapping HAC-owned execution
+intervals. It does not describe or guarantee runtime concurrency. It belongs
+only to this machine's local HAC configuration; do not add it to `config node`
+or a remote declaration.
+
+Inspect retained configuration with:
+
+```sh
+hac config show
+```
+
+The output displays an explicitly retained local value, or `HAC execution
+limit: not retained`. `not retained` preserves the ordinary effective limit of
+`1`. This command reports retained configuration only: it does not inspect
+current work or runtime load. `hac config local --reset` clears the retained
+local record. Configuring a complete local record without `--execution-limit`
+also leaves the limit not retained, with effective limit `1`.
+
 ### Ollama
 
 `runtime = "ollama"` selects Ollama, and `[ollama]` contains local adapter
@@ -134,7 +165,8 @@ only when their paths are supplied. They are distinct from HAC-managed retained
 configuration created with `hac config`. That retained configuration is an
 ordinary baseline for `hac static-cluster` when applicable, but bare
 `hac preflight` remains local-only and `hac status` requires
-`--declaration <PATH>`.
+`--declaration <PATH>`. `--runtime-config` remains a self-contained alternate
+runtime-composition source and does not carry an HAC execution limit.
 
 From a repository checkout, the example files are available directly under
 `examples/`. See the [Command Reference](command-reference.md) for exact command

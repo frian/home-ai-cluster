@@ -1,6 +1,6 @@
 # RFC-0102: Local Execution Permission Policy
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -296,14 +296,14 @@ explicit local state and fixed static rules.
 
 ## Impact
 
-This RFC changes no implementation. If accepted, a later implementation may
-coherently consume local cardinality for permission and interval entry, continue
-candidate consideration after denial, emit a distinct permission failure only
-when local execution permission is denied and no other statically allowed
-candidate remains to be considered at that decision point, and explain the
-decision truthfully. If a remote candidate is subsequently attempted, existing
-remote transport, fallback, and failure semantics remain authoritative. That
-implementation still requires its own review.
+This RFC changes no implementation by itself. Acceptance permits a later
+implementation to coherently consume local cardinality for permission and
+interval entry, continue candidate consideration after denial, emit a distinct
+permission failure only when local execution permission is denied and no other
+statically allowed candidate remains to be considered at that decision point,
+and explain the decision truthfully. If a remote candidate is subsequently
+attempted, existing remote transport, fallback, and failure semantics remain
+authoritative. That implementation still requires its own review.
 
 ## Open questions
 
@@ -322,4 +322,12 @@ implementation still requires its own review.
 
 ## Decision
 
-Pending.
+Accepted. For an ordinary originating request, HAC permits its caller-local
+execution only when the RFC-0101 process-local active-interval cardinality is
+zero, and permission plus interval entry must be one coherent transition. A
+denied local candidate remains statically eligible and is skipped before any
+attempt; HAC may then consider the next already-known statically eligible
+candidate in the existing deterministic order. If no such candidate remains,
+HAC fails immediately with a distinct execution-permission meaning. This is not
+fallback and introduces no waiting, scheduling, remote availability knowledge,
+runtime-capacity claim, or receiver-side refusal.

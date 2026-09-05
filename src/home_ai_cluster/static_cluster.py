@@ -291,10 +291,9 @@ def main(argv: Sequence[str] | None = None) -> None:
         ollama_disable_thinking=values.ollama_disable_thinking,
         llama_server_base_url=values.llama_server_base_url,
         llama_server_model=values.llama_server_model,
+        vllm_base_url=values.vllm_base_url,
+        vllm_model=values.vllm_model,
     )
-    if values.runtime == "vllm":
-        composition_arguments["vllm_base_url"] = values.vllm_base_url
-        composition_arguments["vllm_model"] = values.vllm_model
     if getattr(args, "retained_execution_limit", None) is not None:
         composition_arguments["execution_limit"] = args.retained_execution_limit
 

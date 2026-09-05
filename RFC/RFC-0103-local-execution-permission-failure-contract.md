@@ -22,10 +22,15 @@ code `1`. The structured actual-request failure vocabulary established by
 RFC-0034 gains `failure.status = "execution-permission-denied"` with a concise
 safe cluster-owned reason equivalent to `local execution permission denied`.
 
-Actual-request routing explanation must preserve that the local candidate was
-statically eligible and separately represent the local execution-permission
-denial. The semantic is not an RFC-0028 fallback condition, does not change
-remote protocol behavior, and does not imply runtime capacity or unavailability.
+The existing RFC-0032/RFC-0034 actual-request explanation surface remains
+select-once, local-only, and execute-at-most-one selected candidate. For its
+new no-alternative local denial outcome, the explanation must preserve that the
+local candidate was statically eligible and separately represent the local
+execution-permission denial. This RFC does not add multi-candidate explanation,
+reselection, fallback attribution, or a request timeline.
+
+The semantic is not an RFC-0028 fallback condition, does not change remote
+protocol behavior, and does not imply runtime capacity or unavailability.
 
 ## Problem
 
@@ -55,8 +60,9 @@ This RFC should:
   capacity exhaustion;
 * preserve ordinary native CLI failure behavior with exit code `1`;
 * extend RFC-0034's structured failure vocabulary by one status;
-* require truthful actual-request routing explanation across static eligibility,
-  permission denial, and final outcome or continued consideration;
+* require truthful actual-request explanation of static eligibility and local
+  permission denial for the existing no-alternative local-only surface, without
+  adding reselection, fallback attribution, or multi-candidate explanation;
 * preserve RFC-0028 fallback semantics exactly; and
 * leave the receiver-side remote protocol and OpenAI-compatible containment
   unchanged.
@@ -70,6 +76,9 @@ This RFC does not define:
 * retry-after behavior, automatic client retry, waiting, queues, scheduling,
   fairness, runtime capacity, runtime load, or process-local cardinality
   exposure;
+* multi-candidate actual-request explanation, reselection, fallback attribution,
+  or a request-attempt timeline for the explicit RFC-0032/RFC-0034 operator
+  surface;
 * operator status or health fields, configuration keys, persistence, discovery,
   dynamic membership, cross-process coordination, routing algorithms,
   balancing, or a 2.0 feature commitment;
@@ -137,41 +146,49 @@ The exact safe internal wording may follow repository conventions, but it must
 describe a cluster-owned execution-permission outcome and must not say no
 selectable candidate, runtime unavailable, runtime busy, capacity exhausted,
 or transport unavailable. This RFC does not rewrite or otherwise modify
-RFC-0034.
+RFC-0034's other failure meanings.
 
 ### Routing explanation
 
-The actual-request routing explanation established by RFC-0032 must preserve
-three separate facts:
+The explicit actual-request explanation established by RFC-0032 and extended
+by RFC-0034 remains a bounded local operator surface with one automatic
+selection and at most one selected-candidate execution attempt. This RFC does
+not expand that surface into a multi-candidate explanation mechanism.
+
+For the no-alternative outcome covered by this RFC, its routing projection must
+be able to preserve these separate facts:
 
 ```text
-static eligibility/selectability
-    -> local execution-permission decision
-    -> final failure or continued candidate consideration
+local candidate statically eligible/selectable
+    -> local execution permission denied
+    -> request ends with execution-permission-denied
 ```
-
-For the no-alternative outcome, it must be possible to represent that the local
-candidate matched and remained statically eligible, execution permission was
-denied at the local execution-permission stage, and no other statically allowed
-candidate remained. For the alternative case, it must be possible to represent
-that same eligibility and denial followed by consideration of the next
-statically eligible candidate.
 
 The denied local candidate must not be relabeled statically ineligible, assigned
 an existing static exclusion reason, or converted into `no-selectable-candidate`.
-This RFC defines the semantic distinction only, not an explanation schema,
-field names, or presentation layout.
+This RFC defines the semantic distinction only, not exact explanation field
+names or presentation layout.
+
+When ordinary cluster routing has another statically allowed candidate,
+Accepted RFC-0102's continuation behavior remains authoritative. Representing
+that complete sequence in `home-ai-cluster-explain-request` would require an
+explicit later architectural decision because RFC-0032/RFC-0034 deliberately do
+not provide reselection, fallback attribution, or a multi-attempt timeline.
 
 ### Candidate continuation and final authority
 
 The new failure is produced only when local execution permission is denied and
 no other statically allowed candidate remains at that decision point.
 
-If a remote candidate remains, HAC continues candidate consideration according
-to Accepted RFC-0102. The local denial is not the final request failure. If the
-subsequently attempted remote candidate fails, the existing remote
-transport/runtime/fallback outcome remains authoritative; the earlier local
-permission denial must not mask it.
+If a remote candidate remains, ordinary HAC routing continues candidate
+consideration according to Accepted RFC-0102. The local denial is not the final
+request failure. If the subsequently attempted remote candidate fails, the
+existing remote transport/runtime/fallback outcome remains authoritative; the
+earlier local permission denial must not mask it.
+
+This ordinary routing rule does not authorize the separate RFC-0032/RFC-0034
+actual-request explanation command to reconstruct or execute a multi-candidate
+sequence.
 
 ### No fallback and no remote protocol semantics
 
@@ -207,7 +224,7 @@ no other statically allowed candidate remains
 => CLI exit 1
 ```
 
-In contrast:
+In contrast, for ordinary cluster routing:
 
 ```text
 local execution permission denied
@@ -218,6 +235,10 @@ remote attempt fails
 => final failure is the existing remote failure
 => not execution-permission-denied
 ```
+
+The second example describes ordinary request behavior only. This RFC does not
+require the bounded RFC-0032/RFC-0034 explanation command to represent that
+multi-candidate sequence.
 
 ## Distinction from current failures
 
@@ -233,10 +254,11 @@ candidate.
 ## Relationship to existing RFCs
 
 RFC-0034 establishes structured actual-request failures around prior accepted
-distinctions. This RFC adds one later extension because HAC now owns a distinct
-request-time execution-permission semantic. RFC-0032 remains the authority for
-truthful actual-request routing explanation; this RFC requires only the minimum
-additional semantic distinction.
+distinctions. This RFC adds one later failure status and the minimum explanation
+distinction needed for the bounded no-alternative local denial case. RFC-0032
+and RFC-0034 remain authoritative for the explicit operator surface's
+select-once, local-only, execute-at-most-one boundary; this RFC does not add
+reselection, fallback attribution, or multi-candidate explanation.
 
 RFC-0028 remains unchanged. This failure is neither connection unavailability
 nor a retry trigger, does not broaden candidate retry after an attempted
@@ -285,6 +307,13 @@ Accepted as the native HTTP category because the valid request conflicts with
 current HAC execution-permission state without implying static absence or
 runtime failure. It does not claim runtime capacity exhaustion.
 
+### Extend actual-request explanation to multiple candidates now
+
+Rejected for this RFC. RFC-0032/RFC-0034 deliberately bound the explicit
+operator surface to one automatic selection and at most one selected-candidate
+execution attempt. Ordinary RFC-0102 continuation does not require broadening
+that observability surface in the same architectural step.
+
 ### Add remote protocol semantics now
 
 Rejected and deferred. Accepted RFC-0102's first policy does not apply
@@ -301,8 +330,9 @@ Adding a failure semantic slightly expands the public contract. That expansion
 is justified because each existing semantic would communicate a false cause.
 HTTP `409` introduces one native status for a cluster-owned request-time policy
 conflict, while the CLI remains simple with exit code `1`. Structured
-explanation becomes more truthful but gains one semantic distinction. No remote
-protocol or runtime semantics are added.
+explanation becomes more truthful for the bounded local denial case without
+turning the existing operator surface into a request-attempt timeline. No
+remote protocol or runtime semantics are added.
 
 ## Impact
 
@@ -311,9 +341,11 @@ This RFC changes no implementation by itself.
 Acceptance authorizes a later implementation to add a distinct internal
 execution-permission failure representation, map it to native HTTP `409`, keep
 native CLI handling as exit `1`, extend structured actual-request failure status
-with `execution-permission-denied`, and minimally extend routing explanation so
-static eligibility and permission denial remain distinguishable. It must
-preserve existing behavior for every other failure.
+with `execution-permission-denied`, and minimally extend the existing bounded
+routing explanation so static eligibility and local permission denial remain
+distinguishable for the no-alternative case. It must preserve existing behavior
+for every other failure and must not add reselection, fallback attribution, or
+multi-candidate explanation to the RFC-0032/RFC-0034 operator surface.
 
 ## Open questions
 
@@ -322,9 +354,12 @@ preserve existing behavior for every other failure.
 * What concise privacy-safe native CLI text should be used?
 * What minimal explanation-structure extension is sufficient?
 * What tests prove local-only HTTP 409 behavior?
-* What tests prove local-denied then remote-fails preserves the remote failure?
+* What tests prove local-denied then remote-fails preserves the remote failure
+  on ordinary cluster routing?
 * What OpenAI-compatible generic error response results from the ordinary
   failure path?
+* Should a later RFC extend actual-request explanation to multi-candidate
+  request sequences?
 * Should a later operator surface expose execution permission or cardinality?
 
 ## Decision
@@ -333,7 +368,10 @@ Accepted. Home AI Cluster defines `execution-permission-denied` as the distinct
 cluster-owned no-alternative outcome for Accepted RFC-0102 local execution
 permission denial. Native HTTP maps it to `409 Conflict`; native CLI handling
 remains exit code `1`; RFC-0034 structured actual-request failures gain the
-matching status; and routing explanation must preserve static eligibility as
-distinct from execution-permission denial. This semantic is not an RFC-0028
-fallback condition, adds no receiver-side remote protocol behavior, and makes
-no runtime-capacity or runtime-unavailability claim.
+matching status; and the existing bounded actual-request explanation may
+represent static local eligibility separately from local permission denial for
+that no-alternative case. RFC-0032/RFC-0034 remain select-once, local-only, and
+execute-at-most-one; this RFC adds no reselection, fallback attribution, or
+multi-candidate explanation. The failure semantic is not an RFC-0028 fallback
+condition, adds no receiver-side remote protocol behavior, and makes no
+runtime-capacity or runtime-unavailability claim.

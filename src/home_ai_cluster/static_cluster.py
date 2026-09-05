@@ -291,9 +291,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         ollama_disable_thinking=values.ollama_disable_thinking,
         llama_server_base_url=values.llama_server_base_url,
         llama_server_model=values.llama_server_model,
-        vllm_base_url=values.vllm_base_url,
-        vllm_model=values.vllm_model,
     )
+    if values.runtime == "vllm":
+        composition_arguments["vllm_base_url"] = values.vllm_base_url
+        composition_arguments["vllm_model"] = values.vllm_model
     if getattr(args, "retained_execution_limit", None) is not None:
         composition_arguments["execution_limit"] = args.retained_execution_limit
 
@@ -302,8 +303,13 @@ def main(argv: Sequence[str] | None = None) -> None:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        local_app_composition = create_local_runtime_composition(
+        declaration_composition_arguments = {
             **composition_arguments,
+            "vllm_base_url": values.vllm_base_url,
+            "vllm_model": values.vllm_model,
+        }
+        local_app_composition = create_local_runtime_composition(
+            **declaration_composition_arguments,
             capabilities=declarations.local_capabilities,
         )
         app = create_static_cluster_collection_app(

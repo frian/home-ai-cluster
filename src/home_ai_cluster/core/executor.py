@@ -1,8 +1,11 @@
 """Execution helper for selected routing decisions."""
 
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 
-from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
+from home_ai_cluster.core.execution_intervals import (
+    ExecutionIntervalCardinality,
+    ExecutionPermissionDeniedError,
+)
 from home_ai_cluster.core.execution_target import (
     remote_declaration_for_routing_decision,
 )
@@ -31,17 +34,18 @@ class InvalidClassificationLabelError(Exception):
 
 
 async def _await_local_adapter_invocation(
-    invocation: Awaitable[object],
+    invocation: Callable[[], Awaitable[object]],
     execution_intervals: ExecutionIntervalCardinality | None,
     *,
     interval_already_entered: bool = False,
 ) -> object:
     if execution_intervals is None:
-        return await invocation
+        return await invocation()
     if not interval_already_entered:
-        await execution_intervals.enter()
+        if not await execution_intervals.try_enter():
+            raise ExecutionPermissionDeniedError()
     try:
-        return await invocation
+        return await invocation()
     finally:
         await execution_intervals.exit()
 
@@ -56,7 +60,7 @@ async def execute_local_routing_decision(
     """Execute the selected local adapter for a routing decision."""
     if isinstance(request, ClusterRequest):
         result = await _await_local_adapter_invocation(
-            decision.adapter.chat(request),
+            lambda: decision.adapter.chat(request),
             execution_intervals,
             interval_already_entered=interval_already_entered,
         )
@@ -70,7 +74,7 @@ async def execute_local_routing_decision(
     if isinstance(request, SourceGroundedChatRequest):
         projected_request = project_source_grounded_chat_request(request)
         result = await _await_local_adapter_invocation(
-            decision.adapter.chat(projected_request),
+            lambda: decision.adapter.chat(projected_request),
             execution_intervals,
             interval_already_entered=interval_already_entered,
         )
@@ -84,7 +88,7 @@ async def execute_local_routing_decision(
 
     if isinstance(request, SummarizeRequest):
         result = await _await_local_adapter_invocation(
-            decision.adapter.summarize(request),
+            lambda: decision.adapter.summarize(request),
             execution_intervals,
             interval_already_entered=interval_already_entered,
         )
@@ -96,7 +100,7 @@ async def execute_local_routing_decision(
         )
 
     proposal = await _await_local_adapter_invocation(
-        decision.adapter.classify(request),
+        lambda: decision.adapter.classify(request),
         execution_intervals,
         interval_already_entered=interval_already_entered,
     )

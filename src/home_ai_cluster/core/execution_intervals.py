@@ -3,6 +3,14 @@
 import asyncio
 
 
+class ExecutionPermissionDeniedError(Exception):
+    """Raised when HAC does not permit a new local execution."""
+
+    def __init__(self, explanation: object | None = None) -> None:
+        super().__init__("Execution permission denied")
+        self.explanation = explanation
+
+
 class ExecutionIntervalCardinality:
     """Track active local adapter invocations for one composed HAC process."""
 
@@ -17,11 +25,6 @@ class ExecutionIntervalCardinality:
     def value(self) -> int:
         """Return the current number of HAC-owned invocation intervals."""
         return self._value
-
-    async def enter(self) -> None:
-        """Record entry to one local adapter invocation interval."""
-        async with self._lock:
-            self._value += 1
 
     async def try_enter(self) -> bool:
         """Enter one interval only when it remains within the fixed limit."""

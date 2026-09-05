@@ -7,7 +7,10 @@ import httpx
 from home_ai_cluster.adapters.base import (
     RuntimeConnectionUnavailableBeforeRequestError,
 )
-from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
+from home_ai_cluster.core.execution_intervals import (
+    ExecutionIntervalCardinality,
+    ExecutionPermissionDeniedError,
+)
 from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
     execute_declared_routing_decision,
@@ -52,16 +55,6 @@ class NoSelectableRoutingCandidateError(Exception):
         super().__init__(
             "Automatic capability selection produced no selectable candidate"
         )
-        self.explanation = explanation
-
-
-class ExecutionPermissionDeniedError(Exception):
-    """Raised when HAC does not permit a new originating local execution."""
-
-    def __init__(
-        self, explanation: AutomaticCapabilitySelectionExplanation | None = None
-    ) -> None:
-        super().__init__("Execution permission denied")
         self.explanation = explanation
 
 

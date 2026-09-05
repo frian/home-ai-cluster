@@ -408,7 +408,7 @@ def test_originating_local_permission_denial_maps_to_safe_http_conflict() -> Non
     async def run() -> None:
         adapter = RecordingAdapter()
         composition = make_local_app_composition(adapter)
-        await composition.execution_intervals.enter()
+        assert await composition.execution_intervals.try_enter()
         app = create_app(local_app_composition=composition)
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(

@@ -458,6 +458,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         ollama_disable_thinking: bool,
         llama_server_base_url: str | None,
         llama_server_model: str | None,
+        vllm_base_url: str | None,
+        vllm_model: str | None,
         capabilities: tuple[str, ...],
     ) -> object:
         recorded["composition_arguments"] = {
@@ -466,6 +468,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
             "ollama_disable_thinking": ollama_disable_thinking,
             "llama_server_base_url": llama_server_base_url,
             "llama_server_model": llama_server_model,
+            "vllm_base_url": vllm_base_url,
+            "vllm_model": vllm_model,
             "capabilities": capabilities,
         }
         return local_composition
@@ -505,6 +509,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         "ollama_disable_thinking": True,
         "llama_server_base_url": None,
         "llama_server_model": None,
+        "vllm_base_url": None,
+        "vllm_model": None,
         "capabilities": ("chat", "summarize"),
     }
     assert recorded["local_app_composition"] is local_composition
@@ -581,6 +587,8 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         "ollama_disable_thinking": False,
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
+        "vllm_base_url": None,
+        "vllm_model": None,
         "capabilities": ("chat", "summarize"),
     }
     assert recorded["local_app_composition"] is selected_composition

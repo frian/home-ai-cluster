@@ -5,6 +5,7 @@ import pytest
 from home_ai_cluster import local_runtime_composition
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.vllm import VllmAdapter
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -177,6 +178,141 @@ def test_shared_composition_constructs_one_ordinary_llama_server_node_and_adapte
     assert adapters[0].name == "llama-server"
     assert adapters[0].base_url == "http://127.0.0.1:8080"
     assert adapters[0].model == "local-model"
+
+
+def test_shared_composition_constructs_one_ordinary_vllm_node_and_adapter() -> None:
+    composition = local_runtime_composition.create_local_runtime_composition(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000/",
+        vllm_model="served-name",
+    )
+
+    assert local_runtime_composition.LOCAL_RUNTIMES == (
+        "ollama",
+        "llama-server",
+        "vllm",
+    )
+    assert_ordinary_local_node(composition, "vllm")
+    adapter = composition.adapter_registry.list_adapters()[0]
+    assert isinstance(adapter, VllmAdapter)
+    assert adapter.base_url == "http://127.0.0.1:8000"
+    assert adapter.model == "served-name"
+
+
+@pytest.mark.parametrize(
+    ("runtime", "kwargs"),
+    [
+        ("vllm", {}),
+        ("vllm", {"vllm_base_url": "http://127.0.0.1:8000"}),
+        ("vllm", {"vllm_model": "served-name"}),
+        (
+            "vllm",
+            {
+                "vllm_base_url": "http://runtime.example:8000",
+                "vllm_model": "served-name",
+            },
+        ),
+        (
+            "vllm",
+            {
+                "vllm_base_url": "http://127.0.0.1:8000",
+                "vllm_model": "",
+            },
+        ),
+        (
+            "vllm",
+            {
+                "vllm_base_url": "http://127.0.0.1:8000",
+                "vllm_model": "served-name",
+                "ollama_model": "configured-model",
+            },
+        ),
+        (
+            "vllm",
+            {
+                "vllm_base_url": "http://127.0.0.1:8000",
+                "vllm_model": "served-name",
+                "llama_server_model": "local-model",
+            },
+        ),
+        (
+            "ollama",
+            {
+                "vllm_base_url": "http://127.0.0.1:8000",
+                "vllm_model": "served-name",
+            },
+        ),
+        (
+            "llama-server",
+            {
+                "llama_server_base_url": "http://127.0.0.1:8080",
+                "llama_server_model": "local-model",
+                "vllm_base_url": "http://127.0.0.1:8000",
+                "vllm_model": "served-name",
+            },
+        ),
+    ],
+)
+def test_shared_composition_rejects_invalid_vllm_runtime_values(
+    runtime: str, kwargs: dict[str, str]
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.create_local_runtime_composition(
+            runtime=runtime,
+            **kwargs,
+        )
+
+
+def test_retained_vllm_values_allow_compatible_explicit_temporary_override() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+    args = parser.parse_args(["--vllm-model", "temporary-name"])
+    retained = local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000",
+        vllm_model="retained-name",
+    )
+
+    values = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, args, retained
+    )
+
+    assert values == local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000",
+        vllm_model="temporary-name",
+    )
+    assert retained.vllm_model == "retained-name"
+
+
+def test_explicit_vllm_runtime_replaces_retained_ollama_domain() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+    args = parser.parse_args(
+        [
+            "--runtime",
+            "vllm",
+            "--vllm-base-url",
+            "http://127.0.0.1:8000",
+            "--vllm-model",
+            "served-name",
+        ]
+    )
+    retained = local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="ollama",
+        ollama_model="retained-model",
+        ollama_disable_thinking=True,
+    )
+
+    values = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, args, retained
+    )
+
+    assert values == local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000",
+        vllm_model="served-name",
+    )
 
 
 @pytest.mark.parametrize(

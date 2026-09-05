@@ -26,7 +26,7 @@ _TOP_LEVEL_KEYS = (
     "external_information_plugin",
     "chat_external_information_fallback",
 )
-_LOCAL_KEYS = (
+_LEGACY_LOCAL_KEYS = (
     "runtime",
     "ollama_model",
     "ollama_disable_thinking",
@@ -34,6 +34,17 @@ _LOCAL_KEYS = (
     "llama_server_model",
     "local_capabilities",
 )
+_LOCAL_KEYS = (
+    "runtime",
+    "ollama_model",
+    "ollama_disable_thinking",
+    "llama_server_base_url",
+    "llama_server_model",
+    "vllm_base_url",
+    "vllm_model",
+    "local_capabilities",
+)
+_LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LEGACY_LOCAL_KEYS + ("execution_limit",)
 _LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LOCAL_KEYS + ("execution_limit",)
 _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
 
@@ -232,23 +243,34 @@ def _parse_external_information_plugin(value: Any) -> str | None:
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
     keys = set(value)
-    if keys == set(_LOCAL_KEYS):
+    no_limit_shapes = {frozenset(_LEGACY_LOCAL_KEYS), frozenset(_LOCAL_KEYS)}
+    limit_shapes = {
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+        frozenset(_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+    }
+    frozen_keys = frozenset(keys)
+    if frozen_keys in no_limit_shapes:
         execution_limit = None
-    elif keys == set(_LOCAL_KEYS_WITH_EXECUTION_LIMIT):
+    elif frozen_keys in limit_shapes:
         execution_limit = _parse_execution_limit(value["execution_limit"])
     else:
         raise RetainedConfigurationError("invalid retained local configuration shape")
+
     runtime = value["runtime"]
     ollama_model = value["ollama_model"]
     disable_thinking = value["ollama_disable_thinking"]
     llama_base_url = value["llama_server_base_url"]
     llama_model = value["llama_server_model"]
+    vllm_base_url = value.get("vllm_base_url")
+    vllm_model = value.get("vllm_model")
     local_capabilities = value["local_capabilities"]
     if not isinstance(runtime, str) or not isinstance(disable_thinking, bool):
         raise RetainedConfigurationError("invalid retained local configuration")
     _require_nullable_string(ollama_model, "retained local configuration")
     _require_nullable_string(llama_base_url, "retained local configuration")
     _require_nullable_string(llama_model, "retained local configuration")
+    _require_nullable_string(vllm_base_url, "retained local configuration")
+    _require_nullable_string(vllm_model, "retained local configuration")
     capabilities = _parse_capabilities(local_capabilities, "local", allow_none=True)
     values = _validated_runtime_values(
         runtime=runtime,
@@ -256,6 +278,8 @@ def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
         ollama_disable_thinking=disable_thinking,
         llama_server_base_url=llama_base_url,
         llama_server_model=llama_model,
+        vllm_base_url=vllm_base_url,
+        vllm_model=vllm_model,
     )
     return RetainedLocalConfiguration(
         runtime=values,
@@ -338,6 +362,9 @@ def _serialize_local(
             None if local.local_capabilities is None else list(local.local_capabilities)
         ),
     }
+    if values.runtime == "vllm":
+        document["vllm_base_url"] = values.vllm_base_url
+        document["vllm_model"] = values.vllm_model
     if local.execution_limit is not None:
         document["execution_limit"] = local.execution_limit
     return document
@@ -360,14 +387,18 @@ def _validated_runtime_values(
     ollama_disable_thinking: bool,
     llama_server_base_url: str | None,
     llama_server_model: str | None,
+    vllm_base_url: str | None,
+    vllm_model: str | None,
 ) -> LocalRuntimeCompositionValues:
     try:
-        normalized_base_url = validate_local_runtime_values(
+        llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
             runtime=runtime,
             ollama_model=ollama_model,
             ollama_disable_thinking=ollama_disable_thinking,
             llama_server_base_url=llama_server_base_url,
             llama_server_model=llama_server_model,
+            vllm_base_url=vllm_base_url,
+            vllm_model=vllm_model,
         )
     except LocalRuntimeCompositionError as error:
         raise RetainedConfigurationError(
@@ -377,8 +408,10 @@ def _validated_runtime_values(
         runtime=runtime,
         ollama_model=ollama_model,
         ollama_disable_thinking=ollama_disable_thinking,
-        llama_server_base_url=normalized_base_url,
+        llama_server_base_url=llama_base_url,
         llama_server_model=llama_server_model,
+        vllm_base_url=normalized_vllm_base_url,
+        vllm_model=vllm_model,
     )
 
 

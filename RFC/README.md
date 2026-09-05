@@ -58,14 +58,6 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
-## Current Drafts
-
-- [RFC-0108: Local Capability-Binding Semantics](RFC-0108-local-capability-binding-semantics.md)
-  — proposes engine-independent, disjoint local capability-to-adapter-instance
-  bindings while preserving one local node and capability-only remote
-  declarations; if accepted, it authorizes only an in-memory proof including
-  two distinct Ollama instances.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -75,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
+  — accepts one shared non-negative process-local quantity for active HAC-owned
+  execution intervals in one ordinary composed HAC application process, and
+  authorizes one bounded representation proof without execution policy,
+  routing effects, protocol changes, or runtime-capacity claims.
 - [RFC-0097: Supported Windows Installation Path](RFC-0097-supported-windows-installation-path.md)
   — accepts one native Windows 11 x86_64 PowerShell installation route for
   1.0: WinGet to upstream `uv`, then the ordinary HAC PyPI package and `uv`'s

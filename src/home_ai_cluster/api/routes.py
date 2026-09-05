@@ -132,7 +132,11 @@ async def handle_static_local_cluster_request(
     except ExecutionPermissionDeniedError as exc:
         raise HTTPException(
             status_code=409,
-            detail="local execution permission denied",
+            detail=(
+                "execution permission denied"
+                if originating
+                else "execution-permission-denied"
+            ),
         ) from exc
     except InvalidClassificationLabelError as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc
@@ -167,7 +171,7 @@ async def handle_chat_cluster_request(
         ) as exc:
             if isinstance(exc, ExecutionPermissionDeniedError):
                 raise HTTPException(
-                    status_code=409, detail="local execution permission denied"
+                    status_code=409, detail="execution permission denied"
                 ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
@@ -199,7 +203,7 @@ async def handle_chat_cluster_request(
         ) as exc:
             if isinstance(exc, ExecutionPermissionDeniedError):
                 raise HTTPException(
-                    status_code=409, detail="local execution permission denied"
+                    status_code=409, detail="execution permission denied"
                 ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
@@ -260,7 +264,7 @@ async def handle_summarize_cluster_request(
     ) as exc:
         if isinstance(exc, ExecutionPermissionDeniedError):
             raise HTTPException(
-                status_code=409, detail="local execution permission denied"
+                status_code=409, detail="execution permission denied"
             ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(
@@ -310,7 +314,7 @@ async def handle_classify_cluster_request(
     ) as exc:
         if isinstance(exc, ExecutionPermissionDeniedError):
             raise HTTPException(
-                status_code=409, detail="local execution permission denied"
+                status_code=409, detail="execution permission denied"
             ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(

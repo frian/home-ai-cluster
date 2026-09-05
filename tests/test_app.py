@@ -248,18 +248,9 @@ def test_internal_request_tracks_receiver_local_execution_interval() -> None:
     asyncio.run(run())
 
 
-def test_internal_requests_allow_receiver_execution_interval_overlap() -> None:
+def test_internal_request_denies_receiver_execution_while_another_executes() -> None:
     async def run() -> None:
         adapter = BlockingAdapter()
-        both_started = asyncio.Event()
-        original_chat = adapter.chat
-
-        async def record_overlap(request: ClusterRequest) -> RuntimeResult:
-            if len(adapter.chat_requests) == 1:
-                both_started.set()
-            return await original_chat(request)
-
-        adapter.chat = record_overlap  # type: ignore[method-assign]
         composition = make_local_app_composition(adapter)
         app = create_app(local_app_composition=composition)
         transport = httpx.ASGITransport(app=app)
@@ -277,13 +268,15 @@ def test_internal_requests_allow_receiver_execution_interval_overlap() -> None:
                     "/internal/cluster/request", json=internal_cluster_request_payload()
                 )
             )
-            await both_started.wait()
-            assert composition.execution_intervals.value == 2
+            second_response = await second
+            assert second_response.status_code == 409
+            assert second_response.json() == {"detail": "execution-permission-denied"}
+            assert len(adapter.chat_requests) == 1
+            assert composition.execution_intervals.value == 1
             adapter.release.set()
-            first_response, second_response = await asyncio.gather(first, second)
+            first_response = await first
 
         assert first_response.status_code == 200
-        assert second_response.status_code == 200
         assert composition.execution_intervals.value == 0
 
     asyncio.run(run())
@@ -347,7 +340,8 @@ def test_originating_local_permission_denial_maps_to_safe_http_conflict() -> Non
 
         assert response.status_code == 409
         assert response.status_code not in {404, 503}
-        assert response.json() == {"detail": "local execution permission denied"}
+        assert response.json() == {"detail": "execution permission denied"}
+        assert "local execution permission denied" not in response.text
         assert "traceback" not in response.text.lower()
         assert "recording" not in response.text
         assert adapter.chat_requests == []

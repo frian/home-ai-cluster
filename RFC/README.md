@@ -65,15 +65,13 @@ does not invalidate or supersede an RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
-## Current Draft RFCs
-
-- [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
-  — proposes one process-local quantity for the cardinality of active
-  HAC-owned execution intervals in one ordinary composed HAC application
-  process; it defines neither capacity nor execution policy.
-
 ## Selected accepted RFCs
 
+- [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
+  — accepts one shared non-negative process-local quantity for active HAC-owned
+  execution intervals in one ordinary composed HAC application process, and
+  authorizes one bounded representation proof without execution policy,
+  routing effects, protocol changes, or runtime-capacity claims.
 - [RFC-0097: Supported Windows Installation Path](RFC-0097-supported-windows-installation-path.md)
   — accepts one native Windows 11 x86_64 PowerShell installation route for
   1.0: WinGet to upstream `uv`, then the ordinary HAC PyPI package and `uv`'s

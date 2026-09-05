@@ -23,7 +23,8 @@ advance whether a remote node will permit a new HAC-owned execution interval,
 and it does not poll, cache, or otherwise infer remote execution permission.
 
 For a received internal request, the remote receiver decides whether HAC may
-begin its own new execution interval:
+begin its own new execution interval. The RFC-0104 first proof used the
+effective HAC execution limit of `1`:
 
 ```text
 0 active HAC-owned execution intervals
@@ -32,6 +33,20 @@ begin its own new execution interval:
 more than 0
 -> deny
 ```
+
+Later Draft RFC-0105 generalizes that first-proof threshold to one finite,
+positive effective HAC execution limit:
+
+```text
+active HAC-owned execution intervals < effective HAC execution limit
+-> permit
+
+active HAC-owned execution intervals >= effective HAC execution limit
+-> deny before adapter invocation
+```
+
+Draft RFC-0106 later defines retained local selection of that limit. An
+effective limit of `1` is exactly the RFC-0104 first-proof case.
 
 This is HAC policy, not a statement about runtime capacity, model capacity,
 GPU slots, queue depth, host load, or actual runtime idleness. Its current
@@ -46,7 +61,7 @@ Request 1:
 node-a permits execution
 -> node-a executes
 
-Request 2 while node-a has an active HAC-owned execution interval:
+Request 2 while node-a is already at its effective HAC execution limit:
 node-a receives the request
 -> node-a refuses before adapter invocation
 -> HAC continues to node-b
@@ -74,6 +89,9 @@ before adapter execution began. A bare `409`, malformed body, different
 post-transmission uncertainty is not safe continuation. HAC must not send the
 same independent request to another candidate when it cannot prove execution
 did not begin.
+
+Draft RFC-0105 and Draft RFC-0106 change only the local HAC permission
+threshold. They do not change this exact pre-execution refusal contract.
 
 The two safe continuation categories remain distinct:
 
@@ -104,16 +122,17 @@ The corresponding machine semantic is `execution-permission-denied`.
 
 ## Draft proof record
 
-Draft PR #659 includes a real three-node manual proof performed on 2026-09-04:
+Draft PR #659 includes a real three-node manual proof of the RFC-0104
+effective-limit-`1` policy, performed on 2026-09-04:
 `rasp` was the caller; `debian-1` was the first explicit remote Code candidate
 using Ollama with `llama3.2:1b`; and `sat` was the second explicit remote Code
 candidate using Ollama with `qwen2.5-coder:7b`.
 
-With `debian-1` permitted, it executed the request. While it had an active
-HAC-owned execution interval, `rasp` contacted it first, it refused before
-adapter execution, and `sat` executed successfully. With both remotes denied,
-the CLI reported `error: execution permission denied` and exited with code
-`1`. When `debian-1` became permitted again, static precedence returned to it.
+With `debian-1` permitted, it executed the request. Once it had reached the
+effective limit of `1`, `rasp` contacted it first, it refused before adapter
+execution, and `sat` executed successfully. With both remotes denied, the CLI
+reported `error: execution permission denied` and exited with code `1`. When
+`debian-1` became permitted again, static precedence returned to it.
 
 Automated hardening also covers ordered N-candidate sequences in which A and B
 refuse before C succeeds, and one in which all candidates refuse and the result
@@ -140,7 +159,13 @@ required before such an explanation is presented as a supported feature.
 - Draft RFC-0103: Local Execution Permission Failure Contract
 - Draft RFC-0104: Remote Pre-Execution Permission Refusal
 
-The last three Draft RFCs are intentionally not linked here because they are
-not present on this implementation branch. Their acceptance, and integration
-of the implementation rail, remain prerequisites for this documentation to
-become current operator guidance.
+Draft RFC-0105 later generalizes the fixed effective-limit-`1` permission
+policy to one finite positive HAC execution limit. Draft RFC-0106 later defines
+retained local selection of that limit. Neither changes the exact RFC-0104
+pre-execution refusal contract. These later Draft RFCs are not linked here
+because they are not present on this implementation branch; see Draft PR #662
+and Draft PR #664 respectively.
+
+The Draft RFC chain's acceptance, and integration of the implementation rail,
+remain prerequisites for this documentation to become current operator
+guidance.

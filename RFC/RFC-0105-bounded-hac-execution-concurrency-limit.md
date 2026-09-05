@@ -1,6 +1,6 @@
 # RFC-0105: Bounded HAC Execution Concurrency Limit
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -12,7 +12,8 @@ Home AI Cluster should generalize the first fixed execution-permission policy of
 
 The limit applies only to the Accepted RFC-0101 cardinality of active HAC-owned execution intervals in one ordinary composed HAC application process. It answers only this HAC-owned policy question:
 
-> How many simultaneous HAC-owned execution intervals does this composed HAC application process permit itself to engage?
+> How many simultaneous HAC-owned execution intervals does this composed HAC
+> application process permit itself to engage?
 
 It does not answer, observe, or imply how much concurrent work an underlying runtime can actually perform. It is not runtime capacity, runtime concurrency, GPU capacity, model capacity, worker count, queue depth, available runtime slots, machine utilization, or a success guarantee.
 
@@ -239,13 +240,13 @@ Ordinary behavior remains conservative at limit `1` until a separate accepted op
 
 ## Impact
 
-This Draft RFC changes no implementation by itself. It changes no operator configuration, status, protocol, routing order, scheduler, queue, polling, or runtime-capacity semantics.
+This RFC changes no implementation by itself. It changes no operator configuration, status, protocol, routing order, scheduler, queue, polling, or runtime-capacity semantics merely by being accepted.
 
 Its architectural prerequisites, RFC-0098 through RFC-0104, are Accepted.
 
-If accepted, this RFC would authorize one bounded implementation proof of the finite-positive process-local permission threshold while preserving ordinary effective limit `1` by default. A non-`1` value may be used only in internal tests or explicit proof composition under this authorization.
+Acceptance authorizes one bounded implementation proof of the finite-positive process-local permission threshold while preserving ordinary effective limit `1` by default. A non-`1` value may be used only in internal tests or explicit proof composition under this authorization.
 
-Acceptance would not authorize an operator configuration surface, retained selection, remote declaration field, status disclosure, protocol advertisement, or ordinary non-`1` product behavior. Those require a separate accepted architectural decision.
+Acceptance does not authorize an operator configuration surface, retained selection, remote declaration field, status disclosure, protocol advertisement, or ordinary non-`1` product behavior. Those require a separate accepted architectural decision.
 
 ## Open / follow-up questions
 
@@ -258,4 +259,4 @@ Acceptance would not authorize an operator configuration surface, retained selec
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster defines one finite positive process-local HAC execution concurrency limit over the existing RFC-0101 active-interval cardinality. Permission and interval entry remain one coherent transition; `limit = 1` preserves the already accepted first policy; and the limit is strictly HAC-owned policy rather than runtime-capacity truth. Acceptance authorizes one bounded internal implementation proof of a non-`1` threshold while ordinary effective behavior remains `1`. Operator selection, retained configuration, remote declaration fields, status or protocol disclosure, and ordinary non-`1` product behavior remain outside this decision and require separate accepted architecture.

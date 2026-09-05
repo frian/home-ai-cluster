@@ -310,12 +310,55 @@ def test_static_cluster_declaration_mode_consumes_separate_runtime_config(
         "ollama_disable_thinking": False,
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
+        "vllm_base_url": None,
+        "vllm_model": None,
         "capabilities": ("chat", "summarize"),
     }
+
     remote_nodes = recorded["remote_nodes"]
     assert [(node.node_id, node.base_url) for node in remote_nodes] == [
         ("remote-a", "http://remote-a.test:8000")
     ]
+
+
+def test_load_runtime_config_accepts_closed_vllm_shape(tmp_path: Path) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            'runtime = "vllm"\n[vllm]\nbase_url = "http://127.0.0.1:8000"\n'
+            'model = "served-name"\n',
+        )
+    )
+
+    assert values == local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000",
+        vllm_model="served-name",
+    )
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        'runtime = "vllm"\n',
+        'runtime = "vllm"\n[vllm]\nmodel = "served-name"\n',
+        'runtime = "vllm"\n[vllm]\nbase_url = "http://127.0.0.1:8000"\n',
+        'runtime = "vllm"\n[vllm]\nbase_url = "http://127.0.0.1:8000"\n'
+        'model = "served-name"\nextra = true\n',
+        'runtime = "vllm"\n[vllm]\nbase_url = "http://runtime.example:8000"\n'
+        'model = "served-name"\n',
+        'runtime = "vllm"\n[vllm]\nbase_url = "http://127.0.0.1:8000"\nmodel = " "\n',
+        'runtime = "vllm"\n[llama_server]\nbase_url = "http://127.0.0.1:8080"\n'
+        'model = "local-model"\n',
+    ],
+)
+def test_load_runtime_config_rejects_invalid_vllm_shapes(
+    tmp_path: Path, document: str
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.load_local_runtime_config(
+            write_runtime_config(tmp_path, document)
+        )
 
 
 def test_status_command_consumes_runtime_config_before_observation(

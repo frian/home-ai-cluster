@@ -9,12 +9,14 @@ from typing import Any
 
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.vllm import VllmAdapter
 from home_ai_cluster.api.wiring import LocalAppComposition
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
 
-LOCAL_RUNTIMES = ("ollama", "llama-server")
+LOCAL_RUNTIMES = ("ollama", "llama-server", "vllm")
 LOCAL_RUNTIME_CAPABILITY_NAMES = ("chat", "summarize", "classify", "code")
 
 
@@ -31,11 +33,14 @@ class LocalRuntimeCompositionValues:
     ollama_disable_thinking: bool = False
     llama_server_base_url: str | None = None
     llama_server_model: str | None = None
+    vllm_base_url: str | None = None
+    vllm_model: str | None = None
 
 
-_RUNTIME_CONFIG_KEYS = frozenset({"runtime", "ollama", "llama_server"})
+_RUNTIME_CONFIG_KEYS = frozenset({"runtime", "ollama", "llama_server", "vllm"})
 _OLLAMA_CONFIG_KEYS = frozenset({"model", "disable_thinking"})
 _LLAMA_SERVER_CONFIG_KEYS = frozenset({"base_url", "model"})
+_VLLM_CONFIG_KEYS = frozenset({"base_url", "model"})
 _EXPLICIT_RUNTIME_ARGUMENTS = "_explicit_runtime_composition_arguments"
 _RESOLVED_RUNTIME_VALUES = "_resolved_runtime_composition_values"
 
@@ -123,6 +128,18 @@ def add_local_runtime_arguments(parser: argparse.ArgumentParser) -> None:
         action=_ExplicitRuntimeValueAction,
         help="llama-server model identifier for this process.",
     )
+    parser.add_argument(
+        "--vllm-base-url",
+        type=local_http_url,
+        action=_ExplicitRuntimeValueAction,
+        help="Loopback base URL for an operator-managed vLLM server.",
+    )
+    parser.add_argument(
+        "--vllm-model",
+        type=non_empty_value,
+        action=_ExplicitRuntimeValueAction,
+        help="vLLM served-model identity for this process.",
+    )
 
 
 def _non_blank_config_string(value: Any, key: str) -> str:
@@ -168,16 +185,19 @@ def load_local_runtime_config(path: Path) -> LocalRuntimeCompositionValues:
     runtime = document["runtime"]
     if not isinstance(runtime, str) or runtime not in LOCAL_RUNTIMES:
         raise LocalRuntimeCompositionError(
-            "runtime config runtime must be ollama or llama-server"
+            "runtime config runtime must be ollama, llama-server, or vllm"
         )
 
     ollama = _config_table(document, "ollama")
     llama_server = _config_table(document, "llama_server")
+    vllm = _config_table(document, "vllm")
     if runtime == "ollama":
         if llama_server is not None:
             raise LocalRuntimeCompositionError(
                 "llama_server table requires runtime llama-server"
             )
+        if vllm is not None:
+            raise LocalRuntimeCompositionError("vllm table requires runtime vllm")
         if ollama is None:
             return LocalRuntimeCompositionValues(runtime="ollama")
         if ollama.keys() - _OLLAMA_CONFIG_KEYS:
@@ -198,34 +218,71 @@ def load_local_runtime_config(path: Path) -> LocalRuntimeCompositionValues:
             ollama_disable_thinking=disable_thinking,
         )
 
+    if runtime == "llama-server":
+        if ollama is not None:
+            raise LocalRuntimeCompositionError("ollama table requires runtime ollama")
+        if vllm is not None:
+            raise LocalRuntimeCompositionError("vllm table requires runtime vllm")
+        if llama_server is None:
+            raise LocalRuntimeCompositionError(
+                "missing runtime config table: llama_server"
+            )
+        if llama_server.keys() - _LLAMA_SERVER_CONFIG_KEYS:
+            raise LocalRuntimeCompositionError(
+                "unknown llama_server runtime config key"
+            )
+        if "base_url" not in llama_server:
+            raise LocalRuntimeCompositionError(
+                "missing runtime config key: llama_server.base_url"
+            )
+        if "model" not in llama_server:
+            raise LocalRuntimeCompositionError(
+                "missing runtime config key: llama_server.model"
+            )
+        base_url = _non_blank_config_string(
+            llama_server["base_url"], "llama_server.base_url"
+        )
+        model = _non_blank_config_string(llama_server["model"], "llama_server.model")
+        normalized_base_url, _ = validate_local_runtime_values(
+            runtime="llama-server",
+            llama_server_base_url=base_url,
+            llama_server_model=model,
+        )
+        assert normalized_base_url is not None
+        return LocalRuntimeCompositionValues(
+            runtime="llama-server",
+            llama_server_base_url=normalized_base_url,
+            llama_server_model=model,
+        )
+
     if ollama is not None:
         raise LocalRuntimeCompositionError("ollama table requires runtime ollama")
-    if llama_server is None:
-        raise LocalRuntimeCompositionError("missing runtime config table: llama_server")
-    if llama_server.keys() - _LLAMA_SERVER_CONFIG_KEYS:
-        raise LocalRuntimeCompositionError("unknown llama_server runtime config key")
-    if "base_url" not in llama_server:
+    if llama_server is not None:
         raise LocalRuntimeCompositionError(
-            "missing runtime config key: llama_server.base_url"
+            "llama_server table requires runtime llama-server"
         )
-    if "model" not in llama_server:
-        raise LocalRuntimeCompositionError(
-            "missing runtime config key: llama_server.model"
-        )
-    base_url = _non_blank_config_string(
-        llama_server["base_url"], "llama_server.base_url"
-    )
-    model = _non_blank_config_string(llama_server["model"], "llama_server.model")
-    normalized_base_url = validate_local_runtime_values(
-        runtime="llama-server",
-        llama_server_base_url=base_url,
-        llama_server_model=model,
+    if vllm is None:
+        raise LocalRuntimeCompositionError("missing runtime config table: vllm")
+    if vllm.keys() - _VLLM_CONFIG_KEYS:
+        raise LocalRuntimeCompositionError("unknown vllm runtime config key")
+    if "base_url" not in vllm:
+        raise LocalRuntimeCompositionError("missing runtime config key: vllm.base_url")
+    if "model" not in vllm:
+        raise LocalRuntimeCompositionError("missing runtime config key: vllm.model")
+    base_url = _non_blank_config_string(vllm["base_url"], "vllm.base_url")
+    model = _non_blank_config_string(vllm["model"], "vllm.model")
+    _, normalized_base_url = validate_local_runtime_values(
+        runtime="vllm",
+        llama_server_base_url=None,
+        llama_server_model=None,
+        vllm_base_url=base_url,
+        vllm_model=model,
     )
     assert normalized_base_url is not None
     return LocalRuntimeCompositionValues(
-        runtime="llama-server",
-        llama_server_base_url=normalized_base_url,
-        llama_server_model=model,
+        runtime="vllm",
+        vllm_base_url=normalized_base_url,
+        vllm_model=model,
     )
 
 
@@ -252,12 +309,14 @@ def resolve_local_runtime_composition_values(
             parser.error(str(error))
     elif retained_values is None:
         try:
-            base_url = validate_local_runtime_values(
+            llama_base_url, vllm_base_url = validate_local_runtime_values(
                 runtime=args.runtime,
                 ollama_model=args.ollama_model,
                 ollama_disable_thinking=args.ollama_disable_thinking,
                 llama_server_base_url=args.llama_server_base_url,
                 llama_server_model=args.llama_server_model,
+                vllm_base_url=args.vllm_base_url,
+                vllm_model=args.vllm_model,
             )
         except LocalRuntimeCompositionError as error:
             parser.error(str(error))
@@ -265,8 +324,10 @@ def resolve_local_runtime_composition_values(
             runtime=args.runtime,
             ollama_model=args.ollama_model,
             ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=base_url,
+            llama_server_base_url=llama_base_url,
             llama_server_model=args.llama_server_model,
+            vllm_base_url=vllm_base_url,
+            vllm_model=args.vllm_model,
         )
     else:
         explicit_arguments = getattr(args, _EXPLICIT_RUNTIME_ARGUMENTS, frozenset())
@@ -280,12 +341,16 @@ def resolve_local_runtime_composition_values(
             disable_thinking = args.ollama_disable_thinking
             llama_server_base_url = args.llama_server_base_url
             llama_server_model = args.llama_server_model
+            vllm_base_url = args.vllm_base_url
+            vllm_model = args.vllm_model
         else:
             runtime = retained_values.runtime
             ollama_model = retained_values.ollama_model
             disable_thinking = retained_values.ollama_disable_thinking
             llama_server_base_url = retained_values.llama_server_base_url
             llama_server_model = retained_values.llama_server_model
+            vllm_base_url = retained_values.vllm_base_url
+            vllm_model = retained_values.vllm_model
             if "--ollama-model" in explicit_arguments:
                 ollama_model = args.ollama_model
             if "--ollama-disable-thinking" in explicit_arguments:
@@ -294,13 +359,19 @@ def resolve_local_runtime_composition_values(
                 llama_server_base_url = args.llama_server_base_url
             if "--llama-server-model" in explicit_arguments:
                 llama_server_model = args.llama_server_model
+            if "--vllm-base-url" in explicit_arguments:
+                vllm_base_url = args.vllm_base_url
+            if "--vllm-model" in explicit_arguments:
+                vllm_model = args.vllm_model
         try:
-            base_url = validate_local_runtime_values(
+            llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
                 runtime=runtime,
                 ollama_model=ollama_model,
                 ollama_disable_thinking=disable_thinking,
                 llama_server_base_url=llama_server_base_url,
                 llama_server_model=llama_server_model,
+                vllm_base_url=vllm_base_url,
+                vllm_model=vllm_model,
             )
         except LocalRuntimeCompositionError as error:
             parser.error(str(error))
@@ -308,8 +379,10 @@ def resolve_local_runtime_composition_values(
             runtime=runtime,
             ollama_model=ollama_model,
             ollama_disable_thinking=disable_thinking,
-            llama_server_base_url=base_url,
+            llama_server_base_url=llama_base_url,
             llama_server_model=llama_server_model,
+            vllm_base_url=normalized_vllm_base_url,
+            vllm_model=vllm_model,
         )
     setattr(args, _RESOLVED_RUNTIME_VALUES, values)
     return values
@@ -320,12 +393,16 @@ def validate_local_runtime_values(
     runtime: str,
     llama_server_base_url: str | None,
     llama_server_model: str | None,
+    vllm_base_url: str | None = None,
+    vllm_model: str | None = None,
     ollama_model: str | None = None,
     ollama_disable_thinking: bool = False,
-) -> str | None:
-    """Validate local runtime values and normalize a llama-server base URL."""
+) -> tuple[str | None, str | None]:
+    """Validate local runtime values and normalize one runtime base URL."""
     if runtime not in LOCAL_RUNTIMES:
-        raise LocalRuntimeCompositionError("runtime must be ollama or llama-server")
+        raise LocalRuntimeCompositionError(
+            "runtime must be ollama, llama-server, or vllm"
+        )
 
     if runtime == "ollama":
         if ollama_model is not None and not ollama_model:
@@ -334,24 +411,46 @@ def validate_local_runtime_values(
             raise LocalRuntimeCompositionError(
                 "llama-server arguments require --runtime llama-server"
             )
-        return None
+        if vllm_base_url is not None or vllm_model is not None:
+            raise LocalRuntimeCompositionError("vllm arguments require --runtime vllm")
+        return None, None
+
+    if runtime == "llama-server":
+        if ollama_model is not None or ollama_disable_thinking:
+            raise LocalRuntimeCompositionError(
+                "ollama arguments require --runtime ollama"
+            )
+        if vllm_base_url is not None or vllm_model is not None:
+            raise LocalRuntimeCompositionError("vllm arguments require --runtime vllm")
+        if llama_server_base_url is None:
+            raise LocalRuntimeCompositionError(
+                "--llama-server-base-url is required for llama-server"
+            )
+        if llama_server_model is None:
+            raise LocalRuntimeCompositionError(
+                "--llama-server-model is required for llama-server"
+            )
+        if not llama_server_model:
+            raise LocalRuntimeCompositionError("value must not be empty")
+        try:
+            return local_http_url(llama_server_base_url), None
+        except argparse.ArgumentTypeError as error:
+            raise LocalRuntimeCompositionError(str(error)) from error
 
     if ollama_model is not None or ollama_disable_thinking:
         raise LocalRuntimeCompositionError("ollama arguments require --runtime ollama")
-
-    if llama_server_base_url is None:
+    if llama_server_base_url is not None or llama_server_model is not None:
         raise LocalRuntimeCompositionError(
-            "--llama-server-base-url is required for llama-server"
+            "llama-server arguments require --runtime llama-server"
         )
-    if llama_server_model is None:
-        raise LocalRuntimeCompositionError(
-            "--llama-server-model is required for llama-server"
-        )
-    if not llama_server_model:
+    if vllm_base_url is None:
+        raise LocalRuntimeCompositionError("--vllm-base-url is required for vllm")
+    if vllm_model is None:
+        raise LocalRuntimeCompositionError("--vllm-model is required for vllm")
+    if not vllm_model:
         raise LocalRuntimeCompositionError("value must not be empty")
-
     try:
-        return local_http_url(llama_server_base_url)
+        return None, local_http_url(vllm_base_url)
     except argparse.ArgumentTypeError as error:
         raise LocalRuntimeCompositionError(str(error)) from error
 
@@ -384,6 +483,7 @@ def create_ollama_local_app_composition(
     model: str | None = None,
     disable_thinking: bool = False,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
     adapter = (
@@ -394,6 +494,7 @@ def create_ollama_local_app_composition(
     return LocalAppComposition(
         node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
     )
 
 
@@ -402,12 +503,30 @@ def create_llama_server_local_app_composition(
     base_url: str,
     model: str,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
     adapter = LlamaServerAdapter(base_url=base_url, model=model)
     return LocalAppComposition(
         node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
         adapter_registry=AdapterRegistry([adapter]),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
+    )
+
+
+def create_vllm_local_app_composition(
+    *,
+    base_url: str,
+    model: str,
+    capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
+) -> LocalAppComposition:
+    """Construct one ordinary local vLLM composition."""
+    adapter = VllmAdapter(base_url=base_url, model=model)
+    return LocalAppComposition(
+        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
+        adapter_registry=AdapterRegistry([adapter]),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
     )
 
 
@@ -418,15 +537,20 @@ def create_local_runtime_composition(
     ollama_disable_thinking: bool = False,
     llama_server_base_url: str | None = None,
     llama_server_model: str | None = None,
+    vllm_base_url: str | None = None,
+    vllm_model: str | None = None,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
+    execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Validate and construct one supported ordinary local composition."""
-    base_url = validate_local_runtime_values(
+    llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
         runtime=runtime,
         ollama_model=ollama_model,
         ollama_disable_thinking=ollama_disable_thinking,
         llama_server_base_url=llama_server_base_url,
         llama_server_model=llama_server_model,
+        vllm_base_url=vllm_base_url,
+        vllm_model=vllm_model,
     )
 
     if runtime == "ollama":
@@ -434,12 +558,24 @@ def create_local_runtime_composition(
             model=ollama_model,
             disable_thinking=ollama_disable_thinking,
             capabilities=capabilities,
+            execution_limit=execution_limit,
         )
 
-    assert base_url is not None
-    assert llama_server_model is not None
-    return create_llama_server_local_app_composition(
-        base_url=base_url,
-        model=llama_server_model,
+    if runtime == "llama-server":
+        assert llama_base_url is not None
+        assert llama_server_model is not None
+        return create_llama_server_local_app_composition(
+            base_url=llama_base_url,
+            model=llama_server_model,
+            capabilities=capabilities,
+            execution_limit=execution_limit,
+        )
+
+    assert normalized_vllm_base_url is not None
+    assert vllm_model is not None
+    return create_vllm_local_app_composition(
+        base_url=normalized_vllm_base_url,
+        model=vllm_model,
         capabilities=capabilities,
+        execution_limit=execution_limit,
     )

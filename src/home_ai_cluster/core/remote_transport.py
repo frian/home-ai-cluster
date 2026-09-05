@@ -40,6 +40,20 @@ class RemoteTransportError(Exception):
     """Raised when a remote transport cannot carry a cluster request."""
 
 
+class RemoteExecutionPermissionDeniedError(Exception):
+    """A receiver refused before beginning adapter execution."""
+
+
+def _is_remote_execution_permission_denial(response: httpx.Response) -> bool:
+    """Recognize only the exact RFC-0104 receiver refusal contract."""
+    if response.status_code != 409:
+        return False
+    try:
+        return response.json() == {"detail": "execution-permission-denied"}
+    except ValueError:
+        return False
+
+
 class RemoteTransport(Protocol):
     """Boundary for carrying a normalized request to a declared remote node."""
 
@@ -77,6 +91,10 @@ class HttpRemoteTransport:
             )
             if response.status_code == 503:
                 raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+            if _is_remote_execution_permission_denial(response):
+                raise RemoteExecutionPermissionDeniedError(
+                    "Remote execution permission denied before adapter invocation"
+                )
             response.raise_for_status()
         except httpx.ConnectError as exc:
             message = "Remote connection unavailable before request transmission"

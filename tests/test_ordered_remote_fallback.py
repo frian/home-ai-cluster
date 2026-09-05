@@ -258,7 +258,7 @@ def test_local_permission_denial_does_not_mask_remote_failure() -> None:
             {"remote-a": RemoteTransportError("remote request failed")}
         )
         intervals = ExecutionIntervalCardinality()
-        await intervals.enter()
+        assert await intervals.try_enter()
 
         with pytest.raises(RemoteTransportError, match="remote request failed"):
             await orchestrate_request_with_ordered_static_remote_fallback(

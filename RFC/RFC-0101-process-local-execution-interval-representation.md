@@ -1,6 +1,6 @@
 # RFC-0101: Process-Local Execution Interval Representation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-04
 
@@ -20,7 +20,7 @@ an exception, or was cancelled. Concurrent transitions must be coherent.
 
 This is descriptive information about HAC-owned intervals only. It is not
 runtime capacity, an admission decision, a concurrency limit, or a routing or
-fallback policy. This Draft chooses neither a concrete state container nor a
+fallback policy. This RFC chooses neither a concrete state container nor a
 synchronization primitive.
 
 ## Problem
@@ -251,14 +251,21 @@ justify them.
 
 ## Impact
 
-This Draft RFC changes no implementation. It changes no source code, tests,
+This RFC changes no implementation by itself. It changes no source code, tests,
 routing, fallback, request behavior, protocol, health, status, configuration,
-runtime behavior, or application construction.
+runtime behavior, or application construction merely by being accepted.
 
-If accepted, it authorizes only a later implementation proof of this
-process-local representation. A further implementation RFC or explicit
-implementation authorization is required before source changes. Any policy
-that consumes the quantity requires a separate architectural decision.
+Acceptance authorizes one bounded implementation proof of the process-local
+representation defined here: one shared non-negative quantity for active
+RFC-0100 HAC-owned execution intervals in one ordinary composed HAC application
+process, with coherent entry and exit transitions across success, normalized
+failure, unexpected exception, and cancellation.
+
+That proof does not authorize execution policy, admission limits, waiting or
+rejection, routing or fallback effects, protocol changes, operator
+configuration, persistence, cross-process coordination, or runtime-specific
+capacity semantics. Any such behavior requires a separate architectural
+decision.
 
 ## Open questions
 
@@ -277,4 +284,11 @@ that consumes the quantity requires a separate architectural decision.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster will represent the bounded RFC-0100 execution truth
+with one shared non-negative process-local quantity equal to the number of
+active HAC-owned execution intervals in one ordinary composed HAC application
+process. Acceptance authorizes one bounded implementation proof of that
+representation and its coherent entry and exit transitions only. It does not
+authorize execution policy, limits, routing effects, protocol changes, operator
+configuration, persistence, cross-process coordination, or runtime-specific
+capacity semantics.

@@ -33,6 +33,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     load_retained_configuration,
+    retained_configuration_file,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -148,13 +149,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     needs_retained_runtime = args.runtime_config is None
     needs_retained_topology = not has_declaration and not has_remote_node_id
     retained = RetainedConfiguration()
-    if needs_retained_runtime or needs_retained_topology:
+    if (
+        needs_retained_runtime
+        or needs_retained_topology
+        or retained_configuration_file().exists()
+    ):
         try:
             retained = load_retained_configuration()
         except RetainedConfigurationError as error:
             parser.error(str(error))
 
     retained_values = retained.local.runtime if retained.local is not None else None
+    if retained.local is not None:
+        args.retained_execution_limit = retained.local.execution_limit
     validate_local_runtime_arguments(
         parser,
         args,
@@ -229,8 +236,10 @@ def create_static_cluster_app(
         remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
+        local_app_composition=local_app_composition,
         static_remote_wiring=wiring,
         lifespan=_create_lifespan(process_client),
     )
@@ -260,8 +269,10 @@ def create_static_cluster_collection_app(
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
+        local_app_composition=local_app_composition,
         static_remote_collection_wiring=wiring,
         lifespan=_create_lifespan(process_client),
     )
@@ -274,17 +285,23 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
 
+    composition_arguments = dict(
+        runtime=values.runtime,
+        ollama_model=values.ollama_model,
+        ollama_disable_thinking=values.ollama_disable_thinking,
+        llama_server_base_url=values.llama_server_base_url,
+        llama_server_model=values.llama_server_model,
+    )
+    if getattr(args, "retained_execution_limit", None) is not None:
+        composition_arguments["execution_limit"] = args.retained_execution_limit
+
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
         local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
+            **composition_arguments,
             capabilities=declarations.local_capabilities,
         )
         app = create_static_cluster_collection_app(
@@ -293,11 +310,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     elif args.remote_node_id is not None:
         local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
+            **composition_arguments,
             capabilities=args.local_capability,
         )
         app = create_static_cluster_app(
@@ -308,11 +321,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     else:
         local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
+            **composition_arguments,
             capabilities=args.local_capability,
         )
         app = create_static_cluster_collection_app(

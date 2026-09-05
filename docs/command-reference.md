@@ -84,6 +84,7 @@ With no concrete subcommand, `hac config` displays the config command map.
 hac config local --runtime ollama
 hac config local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac config local --runtime ollama --ollama-disable-thinking
+hac config local --runtime ollama --execution-limit 2
 hac config local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -110,7 +111,12 @@ caller-local-capability replacement. Non-reset local mutation requires explicit
 `--runtime`; supported runtimes and their validation remain the same as `hac
 local`. Repeat `--local-capability <NAME>` to retain an explicit caller-local
 capability set. Omission retains no explicit local capability restriction.
-`--reset` removes only the retained local facts and is mutually exclusive with
+`--execution-limit <N>` retains one positive integer HAC execution limit for
+this machine's ordinary HAC process. It limits overlapping HAC-owned execution
+intervals: it does not describe or guarantee runtime concurrency. Omitting the
+option while configuring a complete local record leaves the limit `not retained`,
+so the effective limit remains `1`. There is no invocation-time execution-limit
+override. `--reset` removes only the retained local facts and is mutually exclusive with
 all local mutation options.
 
 `node` adds a retained remote declaration or completely replaces the existing
@@ -147,7 +153,9 @@ health observation, plugin discovery/import, DNS, HTTP, or mutation. Its
 external-information section reports the retained name only, not credential,
 installation, compatibility, provider, or health status. The retained-state
 physical path and file representation are internal implementation details, not
-a manual-edit API or output schema.
+a manual-edit API or output schema. It displays a retained local HAC execution
+limit when one exists, otherwise `HAC execution limit: not retained`; this is
+not current work, runtime load, active interval count, or remaining allowance.
 
 Retained configuration is the optional normal startup baseline. `hac local`
 uses retained local runtime composition when present; explicitly supplied
@@ -196,6 +204,8 @@ It has a closed `ollama` or `llama-server` schema: Ollama accepts optional
 discovery. File mode is mutually exclusive with equivalent runtime-composition
 options explicitly supplied by the operator; parser defaults do not conflict.
 The file and CLI options are not merged.
+It remains a self-contained alternate runtime-composition source; it does not
+carry an HAC execution limit.
 
 An Ollama runtime-composition file can be:
 
@@ -317,6 +327,11 @@ static-cluster routing eligibility. Omission retains the existing `chat` plus
   node, or create scheduling or preference.
 - Remote declaration order remains the only remote priority rule.
 - Declarations do not probe remotes or schedule requests.
+- `config node` and remote declarations contain no HAC execution-limit
+  information. A remote caller does not learn a receiver's limit, active
+  interval count, or remaining allowance. When a receiver refuses before its
+  adapter is invoked, the existing exact `execution-permission-denied` response
+  remains the safe refusal that can permit ordinary next-candidate handling.
 
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.

@@ -10,13 +10,6 @@ Architectural decisions remain indexed separately in
 [the RFC index](../RFC/README.md). Accepted RFCs, not this index, define the
 architecture.
 
-## Draft post-1.0 documentation
-
-- [Remote pre-execution permission refusal](remote-pre-execution-permission-refusal.md)
-  — Draft-only documentation for the proposed same-capability remote
-  continuation behavior on Draft PR #659; it is not part of the published 1.0
-  release or accepted architecture.
-
 ## Start here
 
 - [Project README](../README.md) — current project shape and basic commands.

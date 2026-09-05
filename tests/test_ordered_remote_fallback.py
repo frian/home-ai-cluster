@@ -251,6 +251,34 @@ def test_concurrent_originating_request_continues_to_remote_when_local_denied() 
     asyncio.run(run())
 
 
+def test_local_permission_denial_does_not_mask_remote_failure() -> None:
+    async def run() -> None:
+        adapter = RecordingAdapter(RuntimeResult(content="unused", adapter="recording"))
+        transport = ScriptedRemoteTransport(
+            {"remote-a": RemoteTransportError("remote request failed")}
+        )
+        intervals = ExecutionIntervalCardinality()
+        await intervals.enter()
+
+        with pytest.raises(RemoteTransportError, match="remote request failed"):
+            await orchestrate_request_with_ordered_static_remote_fallback(
+                make_request(),
+                NodeRegistry([make_node("local", "recording")]),
+                AdapterRegistry([adapter]),
+                RemoteNodeDeclarationRegistry([make_declaration("remote-a")]),
+                transport,
+                intervals,
+            )
+
+        assert adapter.requests == []
+        assert transport.attempted_node_ids == ["remote-a"]
+        assert intervals.value == 1
+        await intervals.exit()
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
 def test_advances_through_connection_unavailable_candidates_in_order() -> None:
     unavailable = RuntimeConnectionUnavailableBeforeRequestError("unavailable")
     adapter = RecordingAdapter(unavailable)

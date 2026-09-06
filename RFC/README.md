@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0109: Explicit LAN Receiver Route Boundary](RFC-0109-explicit-lan-receiver-route-boundary.md)
+  — accepts one closed remote-receiver route set containing only the existing
+  internal cluster request and status routes, while preserving one HAC
+  composition/node, RFC-0110's fail-closed multi-adapter status boundary, and
+  separate future authentication, TLS, and listener/port decisions.
+
 - [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
   — accepts one shared non-negative process-local quantity for active HAC-owned
   execution intervals in one ordinary composed HAC application process, and

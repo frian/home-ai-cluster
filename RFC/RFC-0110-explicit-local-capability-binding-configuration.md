@@ -1,6 +1,6 @@
 # RFC-0110: Explicit Local Capability-Binding Configuration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-06
 
@@ -457,4 +457,10 @@ None of these questions is answered or authorized by this RFC.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster accepts one alternative, closed multi-binding TOML
+document selected only through `--runtime-config PATH`, while preserving the
+existing RFC-0074 single-runtime document unchanged. Acceptance authorizes
+only the bounded request-capable `local` and `static-cluster` composition path,
+with fail-closed multi-binding `status`; it does not authorize retained
+multi-binding configuration, observation/health changes, remote protocol
+changes, or the other deferred work defined by this RFC.

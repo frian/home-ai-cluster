@@ -642,21 +642,31 @@ def test_receiver_enabled_startup_uses_one_shared_composition(
 def test_receiver_enabled_lifecycle_stops_both_servers() -> None:
     created: list[object] = []
     served: list[object] = []
+    completed: list[object] = []
 
     class Server:
         def __init__(self, config: object) -> None:
             self.config = config
             self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
             created.append(self)
 
         async def serve(self) -> None:
             served.append(self)
-            while not self.should_exit:
-                await asyncio.sleep(0)
+            try:
+                while not self.should_exit:
+                    await asyncio.sleep(0)
+            except asyncio.CancelledError as error:
+                raise AssertionError(
+                    "server must complete without cancellation"
+                ) from error
+            completed.append(self)
 
     original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
     original_receiver_server = local_runtime._ReceiverServer
     local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
     local_runtime._ReceiverServer = Server
     try:
 
@@ -683,10 +693,12 @@ def test_receiver_enabled_lifecycle_stops_both_servers() -> None:
         asyncio.run(run())
     finally:
         local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
         local_runtime._ReceiverServer = original_receiver_server
 
     assert len(created) == 2
     assert served == created
+    assert completed == created
     assert all(server.should_exit for server in created)
     assert created[0].config.host == "127.0.0.1"
     assert created[0].config.port == 25042
@@ -701,6 +713,7 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
         def __init__(self, config: object) -> None:
             self.config = config
             self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
             created.append(self)
 
         async def serve(self) -> None:
@@ -710,8 +723,10 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
                 await asyncio.sleep(0)
 
     original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
     original_receiver_server = local_runtime._ReceiverServer
     local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
     local_runtime._ReceiverServer = Server
     try:
         with pytest.raises(ExceptionGroup):
@@ -728,13 +743,14 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
             )
     finally:
         local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
         local_runtime._ReceiverServer = original_receiver_server
 
     assert len(created) == 2
     assert created[1].should_exit is True
 
 
-def test_receiver_enabled_lifecycle_uses_one_signal_owning_server(
+def test_receiver_enabled_lifecycle_uses_one_signal_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorded: list[tuple[object, object]] = []
@@ -757,8 +773,83 @@ def test_receiver_enabled_lifecycle_uses_one_signal_owning_server(
     )
 
     native_server, receiver_server = recorded[0]
-    assert type(native_server) is local_runtime.uvicorn.Server
+    assert isinstance(native_server, local_runtime._NativeServer)
     assert isinstance(receiver_server, local_runtime._ReceiverServer)
+
+
+def test_native_server_delays_uvicorn_signal_reraise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    signal_calls: list[tuple[int, object]] = []
+    raised_signals: list[int] = []
+    previous_handlers: dict[int, object] = {}
+
+    def install_signal_handler(signal_number: int, handler: object) -> object | None:
+        signal_calls.append((signal_number, handler))
+        return previous_handlers.setdefault(signal_number, None)
+
+    monkeypatch.setattr(signal, "signal", install_signal_handler)
+    monkeypatch.setattr(signal, "raise_signal", raised_signals.append)
+    server = local_runtime._NativeServer(local_runtime.uvicorn.Config(FastAPI()))
+
+    with server.capture_signals():
+        server.handle_exit(signal.SIGINT, None)
+
+    assert server.should_exit is True
+    assert any(handler == server.handle_exit for _, handler in signal_calls)
+    signal_numbers = {signal_number for signal_number, _ in signal_calls}
+    assert len(signal_calls) == 2 * len(signal_numbers)
+    assert all(
+        sum(1 for seen_signal, _ in signal_calls if seen_signal == signal_number) == 2
+        for signal_number in signal_numbers
+    )
+    assert server.pending_signals == (signal.SIGINT,)
+    assert raised_signals == []
+
+
+def test_receiver_enabled_lifecycle_reraises_signal_after_both_servers_complete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class NativeServer:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals = (signal.SIGINT,)
+
+        async def serve(self) -> None:
+            events.append("native-complete")
+
+    class ReceiverServer:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+
+        async def serve(self) -> None:
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            events.append("receiver-complete")
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", NativeServer)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", ReceiverServer)
+    monkeypatch.setattr(
+        local_runtime.signal,
+        "raise_signal",
+        lambda captured_signal: events.append(f"signal-{captured_signal}"),
+    )
+
+    asyncio.run(
+        local_runtime._run_receiver_enabled_servers(
+            FastAPI(),
+            FastAPI(),
+            argparse.Namespace(
+                port=25042,
+                receiver_host="192.0.2.10",
+                receiver_port=25042,
+            ),
+        )
+    )
+
+    assert events == ["native-complete", "receiver-complete", f"signal-{signal.SIGINT}"]
 
 
 def test_receiver_server_signal_capture_is_inert(

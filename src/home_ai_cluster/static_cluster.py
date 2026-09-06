@@ -15,6 +15,7 @@ from home_ai_cluster.api.wiring import (
     build_static_remote_wiring,
 )
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
+from home_ai_cluster.core.registry import NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
@@ -228,12 +229,17 @@ def create_static_cluster_app(
     *,
     capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
     wiring = build_static_remote_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
@@ -253,6 +259,7 @@ def create_static_cluster_collection_app(
     remote_nodes: Sequence[ParsedRemoteNodeDeclaration],
     *,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
@@ -266,7 +273,11 @@ def create_static_cluster_collection_app(
         for remote in remote_nodes
     ]
     wiring = build_static_remote_collection_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
@@ -280,6 +291,34 @@ def create_static_cluster_collection_app(
     )
     app.state.static_cluster_http_client = process_client
     return app
+
+
+def _create_multi_binding_routing_node_registry(
+    local_app_composition: LocalAppComposition,
+    caller_local_capabilities: Sequence[str],
+) -> NodeRegistry:
+    """Project caller-side eligibility without changing local execution ownership."""
+    local_node = local_app_composition.node_registry.list_nodes()[0]
+    caller_capability_names = set(caller_local_capabilities)
+    capabilities = [
+        capability
+        for capability in local_node.capabilities
+        if capability.name in caller_capability_names
+    ]
+    if not capabilities:
+        return NodeRegistry()
+    return NodeRegistry(
+        [
+            NodeDescription(
+                id=local_node.id,
+                name=local_node.name,
+                availability=local_node.availability,
+                health=local_node.health,
+                capabilities=capabilities,
+                adapters=local_node.adapters,
+            )
+        ]
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -319,19 +358,8 @@ def main(argv: Sequence[str] | None = None) -> None:
                 **arguments,
                 capabilities=caller_local_capabilities,
             )
-        binding_capabilities = {
-            capability
-            for binding in values.bindings
-            for capability in binding.capabilities
-        }
-        eligible_local_capabilities = tuple(
-            capability
-            for capability in caller_local_capabilities
-            if capability in binding_capabilities
-        )
         return create_multi_binding_local_app_composition(
             values,
-            node_capabilities=eligible_local_capabilities,
             execution_limit=getattr(args, "retained_execution_limit", None) or 1,
         )
 
@@ -344,23 +372,53 @@ def main(argv: Sequence[str] | None = None) -> None:
             declarations.local_capabilities,
             declaration_mode=True,
         )
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, declarations.local_capabilities
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
+        )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
     elif args.remote_node_id is not None:
         local_app_composition = create_local_composition(args.local_capability)
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, args.local_capability
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
+        )
+        inline_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            inline_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,
             capabilities=args.remote_capability,
-            local_app_composition=local_app_composition,
+            **inline_arguments,
         )
     else:
         local_app_composition = create_local_composition(args.local_capability)
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, args.local_capability
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
+        )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             args.retained_remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
 
     uvicorn.run(

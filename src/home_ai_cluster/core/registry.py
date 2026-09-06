@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 
 from home_ai_cluster.adapters.base import RuntimeAdapter
+from home_ai_cluster.core.local_capability_binding import LocalCapabilityBindings
 from home_ai_cluster.core.models import Capability, NodeDescription
 from home_ai_cluster.core.node import node_supports_capability
 
@@ -10,8 +11,14 @@ from home_ai_cluster.core.node import node_supports_capability
 class AdapterRegistry:
     """In-memory registry for already-created runtime adapters."""
 
-    def __init__(self, adapters: Iterable[RuntimeAdapter] | None = None) -> None:
+    def __init__(
+        self,
+        adapters: Iterable[RuntimeAdapter] | None = None,
+        *,
+        local_capability_bindings: LocalCapabilityBindings | None = None,
+    ) -> None:
         self._adapters: list[RuntimeAdapter] = []
+        self._local_capability_bindings = local_capability_bindings
 
         for adapter in adapters or ():
             self.register(adapter)
@@ -39,6 +46,17 @@ class AdapterRegistry:
                 return adapter
 
         return None
+
+    def bound_adapter_for(self, capability: Capability) -> RuntimeAdapter | None:
+        """Return the explicitly bound local adapter, when this is composed."""
+        if self._local_capability_bindings is None:
+            return None
+        return self._local_capability_bindings.adapter_for(capability)
+
+    @property
+    def has_local_capability_bindings(self) -> bool:
+        """Return whether local execution uses explicit capability bindings."""
+        return self._local_capability_bindings is not None
 
 
 class NodeRegistry:

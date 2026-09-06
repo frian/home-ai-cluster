@@ -34,6 +34,20 @@ def route_request(
     """Select the first available node and adapter for the requested capability."""
     nodes = node_registry.nodes_for(request.capability)
 
+    bound_adapter = adapter_registry.bound_adapter_for(request.capability)
+    if bound_adapter is not None and nodes:
+        return RoutingDecision(
+            node=nodes[0],
+            adapter=bound_adapter,
+            capability=request.capability,
+            reason="Selected local adapter bound to requested capability.",
+        )
+
+    if adapter_registry.has_local_capability_bindings:
+        raise NoMatchingAdapterError(
+            f"No bound adapter provides capability: {request.capability.name}"
+        )
+
     for node in nodes:
         for adapter_name in node_declared_adapter_names(node):
             adapter = adapter_registry.adapter_named(adapter_name)

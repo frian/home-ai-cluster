@@ -373,7 +373,12 @@ class RecordingLlamaServerAdapter:
         return AdapterHealth(available=True)
 
     def capabilities(self) -> list[Capability]:
-        return [Capability(name="chat")]
+        return [
+            Capability(name="chat"),
+            Capability(name="summarize"),
+            Capability(name="classify"),
+            Capability(name="code"),
+        ]
 
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_calls += 1
@@ -419,6 +424,14 @@ def test_explicit_ollama_model_construction_does_not_probe_runtime(
             self.model = model
             self.disable_thinking = disable_thinking
             created.append(self)
+
+        def capabilities(self) -> list[Capability]:
+            return [
+                Capability(name="chat"),
+                Capability(name="summarize"),
+                Capability(name="classify"),
+                Capability(name="code"),
+            ]
 
     monkeypatch.setattr(
         local_runtime_composition,

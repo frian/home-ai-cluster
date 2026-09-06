@@ -1144,7 +1144,12 @@ def test_static_cluster_constructors_accept_llama_server_composition_without_pro
             return AdapterHealth(available=True)
 
         def capabilities(self) -> list[Capability]:
-            return [Capability(name="chat")]
+            return [
+                Capability(name="chat"),
+                Capability(name="summarize"),
+                Capability(name="classify"),
+                Capability(name="code"),
+            ]
 
         async def chat(self, request: ClusterRequest) -> RuntimeResult:
             self.chat_calls += 1

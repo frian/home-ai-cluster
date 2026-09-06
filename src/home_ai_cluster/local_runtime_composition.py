@@ -12,6 +12,10 @@ from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.adapters.vllm import VllmAdapter
 from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
+from home_ai_cluster.core.local_capability_binding import (
+    LocalCapabilityBinding,
+    LocalCapabilityBindings,
+)
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.local_http import local_http_url
@@ -478,6 +482,26 @@ def _create_local_node(
     )
 
 
+def _create_single_adapter_local_app_composition(
+    adapter: OllamaAdapter | LlamaServerAdapter | VllmAdapter,
+    capabilities: Sequence[str],
+    execution_limit: int,
+) -> LocalAppComposition:
+    bindings = LocalCapabilityBindings(
+        [
+            LocalCapabilityBinding(
+                capabilities=frozenset(capabilities),
+                adapter=adapter,
+            )
+        ]
+    )
+    return LocalAppComposition(
+        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
+        adapter_registry=AdapterRegistry([adapter], local_capability_bindings=bindings),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
+    )
+
+
 def create_ollama_local_app_composition(
     *,
     model: str | None = None,
@@ -491,10 +515,8 @@ def create_ollama_local_app_composition(
         if model is None
         else OllamaAdapter(model=model, disable_thinking=disable_thinking)
     )
-    return LocalAppComposition(
-        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
-        adapter_registry=AdapterRegistry([adapter]),
-        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
+    return _create_single_adapter_local_app_composition(
+        adapter, capabilities, execution_limit
     )
 
 
@@ -507,10 +529,8 @@ def create_llama_server_local_app_composition(
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
     adapter = LlamaServerAdapter(base_url=base_url, model=model)
-    return LocalAppComposition(
-        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
-        adapter_registry=AdapterRegistry([adapter]),
-        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
+    return _create_single_adapter_local_app_composition(
+        adapter, capabilities, execution_limit
     )
 
 
@@ -523,10 +543,8 @@ def create_vllm_local_app_composition(
 ) -> LocalAppComposition:
     """Construct one ordinary local vLLM composition."""
     adapter = VllmAdapter(base_url=base_url, model=model)
-    return LocalAppComposition(
-        node_registry=NodeRegistry([_create_local_node(adapter.name, capabilities)]),
-        adapter_registry=AdapterRegistry([adapter]),
-        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
+    return _create_single_adapter_local_app_composition(
+        adapter, capabilities, execution_limit
     )
 
 

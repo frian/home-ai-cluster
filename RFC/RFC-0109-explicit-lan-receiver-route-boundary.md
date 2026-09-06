@@ -1,6 +1,6 @@
 # RFC-0109: Explicit LAN Receiver Route Boundary
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-05
 
@@ -8,7 +8,7 @@ Author: frian
 
 ## Summary
 
-Home AI Cluster should define an explicit route-ownership boundary for an ordinary HAC composition that is deliberately exposed beyond loopback in order to receive requests from another HAC machine.
+Home AI Cluster defines an explicit route-ownership boundary for an ordinary HAC composition that is deliberately exposed beyond loopback in order to receive requests from another HAC machine.
 
 The accepted remote-cluster surface should remain exactly:
 
@@ -160,9 +160,9 @@ Runtime processes remain operator-owned.
 
 This RFC does not expose runtime endpoints or runtime-specific payloads to remote callers.
 
-## Decision
+## Accepted Route-Ownership Decision
 
-Home AI Cluster should distinguish between:
+Home AI Cluster distinguishes between:
 
 ```text
 ordinary local/native route ownership
@@ -540,53 +540,66 @@ This RFC does not integrate with or depend on any VPN, overlay network, reverse 
 
 Those remain outside HAC ownership.
 
-## Relationship to Draft Execution Availability
+## Relationship to Execution-Permission Admission
 
-This RFC is independent of the Draft execution-availability rail.
+This RFC is independent of the accepted execution-availability and
+execution-permission rail, including RFC-0098 through RFC-0106. Route
+ownership decides neither execution availability nor execution permission.
 
-If that work is later accepted:
+For a request that reaches the receiver route, the existing conceptual order
+remains:
 
 ```text
 remote request
    -> receiver route
-   -> future authentication/admission
+   -> future authentication/admission if later accepted
    -> HAC execution-permission admission
    -> local execution
 ```
 
-Receiver route ownership remains outside and before execution availability.
+Receiver route ownership remains outside and before those existing admission
+boundaries. It creates no execution slot, capacity, scheduling, polling,
+availability advertisement, load sharing, or per-route capacity semantics.
 
-No execution slot is created by this RFC.
+## Relationship to RFC-0108 and RFC-0110 Binding Ownership
 
-No per-route capacity semantics are introduced.
+RFC-0108 and RFC-0110 are accepted. Their binding ownership is
+receiver/process-local execution truth; this RFC's receiver route ownership
+decides which HAC routes may be reachable through remote receiver authority.
+The two decisions remain independent.
 
-## Relationship to Draft RFC-0108
-
-This RFC is independent of Draft RFC-0108.
-
-If multiple explicit local capability bindings are later accepted, the receiver still receives one normalized capability request through:
+The receiver still receives one normalized capability request through:
 
 ```text
 POST /internal/cluster/request
 ```
 
-and privately resolves that capability through the receiver's local composition.
+and privately resolves that capability through its current local HAC
+composition.
 
 No local binding identity, runtime identity, model identity, or adapter identity becomes remotely visible.
 
-## Relationship to Draft vLLM Work
+## Relationship to the Accepted vLLM Adapter Boundary
 
 This RFC is runtime-independent.
 
-A receiver may use any accepted concrete runtime composition behind its local HAC boundary.
+A receiver may use any accepted concrete runtime composition, including the
+accepted vLLM adapter boundary, behind its local HAC boundary.
 
-No runtime-specific route becomes remote-cluster authority.
+No vLLM-native or other runtime-specific route becomes remote HAC receiver
+authority.
 
 ## Status Route
 
 `GET /internal/cluster/status` remains part of the receiver route set because it is already the accepted cluster-owned remote observation surface.
 
-This RFC does not broaden its response.
+Route membership does not mean every local composition has a successful status
+representation. This RFC does not change the existing observation semantics.
+In particular, RFC-0110 deliberately fails closed when a multi-adapter
+composition reaches the unsupported internal status surface; RFC-0109 preserves
+that boundary rather than aggregating or selecting an adapter.
+
+This RFC does not broaden the status response.
 
 It does not add:
 
@@ -715,7 +728,8 @@ POST /internal/chat/external-information-decision
 The proof should additionally demonstrate:
 
 1. a valid remote internal cluster request still executes normally;
-2. remote status still works normally;
+2. remote status still works normally for an already status-supported
+   single-adapter composition;
 3. the receiver uses the same local HAC composition intended for local execution;
 4. the same cluster-visible local node identity is preserved;
 5. no second runtime composition is introduced;
@@ -725,6 +739,10 @@ The proof should additionally demonstrate:
 9. remote request and status schemas remain unchanged;
 10. caller-side remote transport remains unchanged;
 11. adding or mounting another native route does not automatically expand the receiver route set.
+
+The proof must not require successful multi-binding status or introduce adapter
+aggregation, binding aggregation, adapter selection, binding status, or
+multi-adapter status response fields.
 
 The first proof may use in-process FastAPI/ASGI test construction.
 
@@ -902,7 +920,6 @@ It does not change released HAC 1.0 behavior until a separate implementation is 
 
 It does intentionally establish that accidental LAN availability of native routes through a LAN-bound receiver is not a compatibility contract that future implementations must preserve.
 
-It does not require the current frozen `main` to move before the Show HN launch.
 
 ## Open Questions
 
@@ -921,18 +938,16 @@ Authentication, credential ownership, TLS, secret transport, failure contracts, 
 
 ## Decision
 
-Draft.
-
-Home AI Cluster proposes an explicit remote receiver route boundary.
-
-A HAC composition deliberately exposed for remote HAC receiving should make remotely reachable only the fixed cluster-owned routes:
+Accepted. A HAC composition deliberately exposed for remote HAC receiving may
+make remotely reachable only the fixed cluster-owned routes:
 
 ```text
 POST /internal/cluster/request
 GET  /internal/cluster/status
 ```
 
-Unrelated native, caller-local, browser, compatibility, framework-generated, and runtime surfaces remain outside that remote authority.
+Unrelated native, caller-local, browser, compatibility, framework-generated,
+and runtime surfaces remain outside that remote authority.
 
 One HAC composition remains one HAC composition.
 
@@ -940,8 +955,8 @@ One local node remains one local node.
 
 The local runtime composition remains unchanged.
 
-The remote protocol remains unchanged.
+Protocol schemas and capability-centered routing remain unchanged.
 
-The concrete ASGI/listener/port representation remains an implementation decision.
-
-Authentication and transport security remain separate future decisions.
+Authentication and transport security remain separate future architectural
+decisions. The concrete bounded ASGI/listener/port representation remains an
+implementation choice subject to the exposure invariant.

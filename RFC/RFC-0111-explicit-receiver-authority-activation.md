@@ -189,22 +189,45 @@ It must not expose native `/v1/*`, browser, caller-local internal,
 compatibility, runtime-native, FastAPI documentation/schema, or other routes.
 Receiver activation never alters native/local route ownership.
 
-The receiver default port is `25042`. This reuses the ordinary HAC convention
-without creating another arbitrary service number. The native and receiver
-authorities are separate listeners on distinct concrete addresses and may use
-the same default port. A later implementation may provide the additive:
+The receiver port contract is:
 
 ```text
+--receiver-host <ADDRESS>
+    required to activate receiver authority
+
 --receiver-port <PORT>
+    optional
+    default: 25042
 ```
 
-when needed by the ordinary server contract. It is independent of the existing
-native/local `--port`: changing one must not silently change the other. HAC
-adds no discovery or port propagation; remote declarations remain explicit
-operator-owned URLs. If supported-platform evidence shows that two
-concrete-address listeners using the same port cannot work coherently,
-implementation must stop and report rather than inventing a new port or
-changing this RFC.
+The authority-specific bind contract is therefore:
+
+```text
+native/local authority:
+    host: 127.0.0.1
+    port: existing --port
+    default port: 25042
+
+receiver authority:
+    host: explicit --receiver-host
+    port: --receiver-port
+    default port: 25042
+```
+
+The receiver default reuses the ordinary HAC convention without creating
+another arbitrary service number. The native and receiver authorities are
+separate listeners on distinct concrete addresses and may use the same numeric
+port. `--receiver-port` follows the existing ordinary server-port validation
+style; this RFC creates no new port-policy abstraction.
+
+The two port options are independent: changing `--port` must not change the
+receiver port, and changing `--receiver-port` must not change the native/local
+port. Neither option adds discovery, propagation, dynamic port selection,
+fallback, retained configuration, availability probing, free-port selection, or
+network checks. Remote declarations remain explicit operator-owned URLs. If
+supported-platform evidence shows that two concrete-address listeners using the
+same port cannot work coherently, implementation must stop and report rather
+than inventing a new port or changing this RFC.
 
 ### Foreground lifecycle
 
@@ -341,10 +364,8 @@ practice warrants it. Drafting this RFC does not perform one.
 
 ## Open questions
 
-Whether a later implementation needs `--receiver-port` for the ordinary server
-contract remains implementation-level. Authentication, confidential transport,
-and any general multi-process coordination require separate architectural
-decisions.
+Authentication, confidential transport, and any general multi-process
+coordination require separate architectural decisions.
 
 ## Decision
 

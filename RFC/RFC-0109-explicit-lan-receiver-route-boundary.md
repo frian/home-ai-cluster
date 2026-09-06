@@ -693,7 +693,7 @@ Therefore documentation and later work must not describe this route boundary as 
 
 ## First Implementation Proof
 
-If accepted, this RFC should authorize one bounded implementation proof.
+This acceptance authorizes one bounded implementation proof.
 
 The proof should establish both local compatibility and remote receiver isolation.
 

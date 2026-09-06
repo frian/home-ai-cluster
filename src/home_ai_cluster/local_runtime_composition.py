@@ -705,7 +705,6 @@ def _create_adapter_for_binding(
 def create_multi_binding_local_app_composition(
     values: MultiBindingRuntimeCompositionValues,
     *,
-    node_capabilities: Sequence[str] | None = None,
     execution_limit: int = 1,
 ) -> LocalAppComposition:
     """Construct one local node with RFC-0110's explicit adapter bindings."""
@@ -721,9 +720,6 @@ def create_multi_binding_local_app_composition(
     owned_capabilities = tuple(
         capability for binding in values.bindings for capability in binding.capabilities
     )
-    visible_capabilities = (
-        owned_capabilities if node_capabilities is None else tuple(node_capabilities)
-    )
     return LocalAppComposition(
         node_registry=NodeRegistry(
             [
@@ -732,9 +728,7 @@ def create_multi_binding_local_app_composition(
                     name="Local node",
                     availability="available",
                     health=NodeHealth(healthy=True),
-                    capabilities=[
-                        Capability(name=name) for name in visible_capabilities
-                    ],
+                    capabilities=[Capability(name=name) for name in owned_capabilities],
                     adapters=[adapter.name for _, adapter in constructed],
                 )
             ]

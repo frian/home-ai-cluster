@@ -41,10 +41,31 @@ class LocalRuntimeCompositionValues:
     vllm_model: str | None = None
 
 
+@dataclass(frozen=True)
+class LocalCapabilityBindingValues:
+    """Closed operator inputs for one RFC-0110 local capability binding."""
+
+    capabilities: tuple[str, ...]
+    runtime: str
+    model: str | None = None
+    base_url: str | None = None
+    disable_thinking: bool = False
+
+
+@dataclass(frozen=True)
+class MultiBindingRuntimeCompositionValues:
+    """One explicit RFC-0110 multi-binding runtime-config document."""
+
+    bindings: tuple[LocalCapabilityBindingValues, ...]
+
+
 _RUNTIME_CONFIG_KEYS = frozenset({"runtime", "ollama", "llama_server", "vllm"})
 _OLLAMA_CONFIG_KEYS = frozenset({"model", "disable_thinking"})
 _LLAMA_SERVER_CONFIG_KEYS = frozenset({"base_url", "model"})
 _VLLM_CONFIG_KEYS = frozenset({"base_url", "model"})
+_BINDING_CONFIG_KEYS = frozenset(
+    {"capabilities", "runtime", "model", "base_url", "disable_thinking"}
+)
 _EXPLICIT_RUNTIME_ARGUMENTS = "_explicit_runtime_composition_arguments"
 _RESOLVED_RUNTIME_VALUES = "_resolved_runtime_composition_values"
 
@@ -163,8 +184,7 @@ def _config_table(document: dict[str, Any], key: str) -> dict[str, Any] | None:
     return table
 
 
-def load_local_runtime_config(path: Path) -> LocalRuntimeCompositionValues:
-    """Load one explicit RFC-0074 runtime-composition TOML document."""
+def _load_runtime_config_document(path: Path) -> dict[str, Any]:
     try:
         with path.open("rb") as config_file:
             document = tomllib.load(config_file)
@@ -180,6 +200,121 @@ def load_local_runtime_config(path: Path) -> LocalRuntimeCompositionValues:
         raise LocalRuntimeCompositionError(
             f"invalid TOML runtime config: {path}"
         ) from error
+
+    return document
+
+
+def _load_multi_binding_runtime_config(
+    document: dict[str, Any],
+) -> MultiBindingRuntimeCompositionValues:
+    if set(document) != {"bindings"}:
+        raise LocalRuntimeCompositionError(
+            "multi-binding runtime config has invalid keys"
+        )
+    raw_bindings = document["bindings"]
+    if not isinstance(raw_bindings, list) or not raw_bindings:
+        raise LocalRuntimeCompositionError("runtime config bindings must be non-empty")
+
+    bindings: list[LocalCapabilityBindingValues] = []
+    claimed: set[str] = set()
+    for raw_binding in raw_bindings:
+        if not isinstance(raw_binding, dict):
+            raise LocalRuntimeCompositionError("runtime config binding must be a table")
+        if raw_binding.keys() - _BINDING_CONFIG_KEYS:
+            raise LocalRuntimeCompositionError("unknown runtime config binding key")
+        capabilities = raw_binding.get("capabilities")
+        if not isinstance(capabilities, list) or not capabilities:
+            raise LocalRuntimeCompositionError(
+                "runtime config binding capabilities must be non-empty"
+            )
+        if not all(isinstance(capability, str) for capability in capabilities):
+            raise LocalRuntimeCompositionError(
+                "runtime config binding capabilities must be strings"
+            )
+        if len(set(capabilities)) != len(capabilities):
+            raise LocalRuntimeCompositionError(
+                "runtime config binding capabilities must not duplicate"
+            )
+        if any(
+            capability not in LOCAL_RUNTIME_CAPABILITY_NAMES
+            for capability in capabilities
+        ):
+            raise LocalRuntimeCompositionError(
+                "unknown runtime config binding capability"
+            )
+        if claimed.intersection(capabilities):
+            raise LocalRuntimeCompositionError(
+                "runtime config binding capabilities overlap"
+            )
+        claimed.update(capabilities)
+
+        runtime = raw_binding.get("runtime")
+        if runtime not in LOCAL_RUNTIMES:
+            raise LocalRuntimeCompositionError(
+                "runtime config binding runtime must be ollama, llama-server, or vllm"
+            )
+        allowed_keys = {"capabilities", "runtime"}
+        if runtime == "ollama":
+            allowed_keys.update({"model", "disable_thinking"})
+        else:
+            allowed_keys.update({"base_url", "model"})
+        if raw_binding.keys() - allowed_keys:
+            raise LocalRuntimeCompositionError(
+                "runtime config binding has keys for another runtime"
+            )
+
+        if runtime == "ollama":
+            model = (
+                _non_blank_config_string(raw_binding["model"], "binding.model")
+                if "model" in raw_binding
+                else None
+            )
+            disable_thinking = raw_binding.get("disable_thinking", False)
+            if not isinstance(disable_thinking, bool):
+                raise LocalRuntimeCompositionError(
+                    "runtime config binding disable_thinking must be a boolean"
+                )
+            bindings.append(
+                LocalCapabilityBindingValues(
+                    capabilities=tuple(capabilities),
+                    runtime=runtime,
+                    model=model,
+                    disable_thinking=disable_thinking,
+                )
+            )
+            continue
+
+        if "base_url" not in raw_binding or "model" not in raw_binding:
+            raise LocalRuntimeCompositionError(
+                "runtime config binding requires base_url and model"
+            )
+        base_url = _non_blank_config_string(raw_binding["base_url"], "binding.base_url")
+        model = _non_blank_config_string(raw_binding["model"], "binding.model")
+        llama_base_url, vllm_base_url = validate_local_runtime_values(
+            runtime=runtime,
+            llama_server_base_url=base_url if runtime == "llama-server" else None,
+            llama_server_model=model if runtime == "llama-server" else None,
+            vllm_base_url=base_url if runtime == "vllm" else None,
+            vllm_model=model if runtime == "vllm" else None,
+        )
+        bindings.append(
+            LocalCapabilityBindingValues(
+                capabilities=tuple(capabilities),
+                runtime=runtime,
+                base_url=llama_base_url if runtime == "llama-server" else vllm_base_url,
+                model=model,
+            )
+        )
+    return MultiBindingRuntimeCompositionValues(bindings=tuple(bindings))
+
+
+def load_local_runtime_config(
+    path: Path,
+) -> LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues:
+    """Load one explicit RFC-0074 or RFC-0110 runtime-config document."""
+    document = _load_runtime_config_document(path)
+    if "bindings" in document:
+        return _load_multi_binding_runtime_config(document)
 
     unknown_keys = document.keys() - _RUNTIME_CONFIG_KEYS
     if unknown_keys:
@@ -294,7 +429,7 @@ def resolve_local_runtime_composition_values(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
     retained_values: LocalRuntimeCompositionValues | None = None,
-) -> LocalRuntimeCompositionValues:
+) -> LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues:
     """Resolve one explicit file, retained baseline, or CLI composition source."""
     cached = getattr(args, _RESOLVED_RUNTIME_VALUES, None)
     if cached is not None:
@@ -545,6 +680,70 @@ def create_vllm_local_app_composition(
     adapter = VllmAdapter(base_url=base_url, model=model)
     return _create_single_adapter_local_app_composition(
         adapter, capabilities, execution_limit
+    )
+
+
+def _create_adapter_for_binding(
+    binding: LocalCapabilityBindingValues,
+) -> OllamaAdapter | LlamaServerAdapter | VllmAdapter:
+    if binding.runtime == "ollama":
+        return (
+            OllamaAdapter(disable_thinking=binding.disable_thinking)
+            if binding.model is None
+            else OllamaAdapter(
+                model=binding.model,
+                disable_thinking=binding.disable_thinking,
+            )
+        )
+    assert binding.base_url is not None
+    assert binding.model is not None
+    if binding.runtime == "llama-server":
+        return LlamaServerAdapter(base_url=binding.base_url, model=binding.model)
+    return VllmAdapter(base_url=binding.base_url, model=binding.model)
+
+
+def create_multi_binding_local_app_composition(
+    values: MultiBindingRuntimeCompositionValues,
+    *,
+    node_capabilities: Sequence[str] | None = None,
+    execution_limit: int = 1,
+) -> LocalAppComposition:
+    """Construct one local node with RFC-0110's explicit adapter bindings."""
+    constructed = [
+        (binding, _create_adapter_for_binding(binding)) for binding in values.bindings
+    ]
+    bindings = LocalCapabilityBindings(
+        LocalCapabilityBinding(
+            capabilities=frozenset(binding.capabilities), adapter=adapter
+        )
+        for binding, adapter in constructed
+    )
+    owned_capabilities = tuple(
+        capability for binding in values.bindings for capability in binding.capabilities
+    )
+    visible_capabilities = (
+        owned_capabilities if node_capabilities is None else tuple(node_capabilities)
+    )
+    return LocalAppComposition(
+        node_registry=NodeRegistry(
+            [
+                NodeDescription(
+                    id="local",
+                    name="Local node",
+                    availability="available",
+                    health=NodeHealth(healthy=True),
+                    capabilities=[
+                        Capability(name=name) for name in visible_capabilities
+                    ],
+                    adapters=[adapter.name for _, adapter in constructed],
+                )
+            ]
+        ),
+        adapter_registry=AdapterRegistry(
+            [adapter for _, adapter in constructed],
+            local_capability_bindings=bindings,
+        ),
+        execution_intervals=ExecutionIntervalCardinality(limit=execution_limit),
     )
 
 

@@ -23,8 +23,10 @@ from home_ai_cluster.core.static_capabilities import (
     validate_static_capabilities,
 )
 from home_ai_cluster.local_runtime_composition import (
+    MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
+    create_multi_binding_local_app_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -285,42 +287,69 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
 
-    composition_arguments = dict(
-        runtime=values.runtime,
-        ollama_model=values.ollama_model,
-        ollama_disable_thinking=values.ollama_disable_thinking,
-        llama_server_base_url=values.llama_server_base_url,
-        llama_server_model=values.llama_server_model,
-    )
-    if values.runtime == "vllm":
-        composition_arguments["vllm_base_url"] = values.vllm_base_url
-        composition_arguments["vllm_model"] = values.vllm_model
-    if getattr(args, "retained_execution_limit", None) is not None:
-        composition_arguments["execution_limit"] = args.retained_execution_limit
+    composition_arguments: dict[str, object] = {}
+    if not isinstance(values, MultiBindingRuntimeCompositionValues):
+        composition_arguments = dict(
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
+        )
+        if values.runtime == "vllm":
+            composition_arguments["vllm_base_url"] = values.vllm_base_url
+            composition_arguments["vllm_model"] = values.vllm_model
+        if getattr(args, "retained_execution_limit", None) is not None:
+            composition_arguments["execution_limit"] = args.retained_execution_limit
+
+    def create_local_composition(
+        caller_local_capabilities: Sequence[str],
+        *,
+        declaration_mode: bool = False,
+    ) -> LocalAppComposition:
+        if not isinstance(values, MultiBindingRuntimeCompositionValues):
+            arguments = composition_arguments
+            if declaration_mode:
+                arguments = {
+                    **arguments,
+                    "vllm_base_url": values.vllm_base_url,
+                    "vllm_model": values.vllm_model,
+                }
+            return create_local_runtime_composition(
+                **arguments,
+                capabilities=caller_local_capabilities,
+            )
+        binding_capabilities = {
+            capability
+            for binding in values.bindings
+            for capability in binding.capabilities
+        }
+        eligible_local_capabilities = tuple(
+            capability
+            for capability in caller_local_capabilities
+            if capability in binding_capabilities
+        )
+        return create_multi_binding_local_app_composition(
+            values,
+            node_capabilities=eligible_local_capabilities,
+            execution_limit=getattr(args, "retained_execution_limit", None) or 1,
+        )
 
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        declaration_composition_arguments = {
-            **composition_arguments,
-            "vllm_base_url": values.vllm_base_url,
-            "vllm_model": values.vllm_model,
-        }
-        local_app_composition = create_local_runtime_composition(
-            **declaration_composition_arguments,
-            capabilities=declarations.local_capabilities,
+        local_app_composition = create_local_composition(
+            declarations.local_capabilities,
+            declaration_mode=True,
         )
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
             local_app_composition=local_app_composition,
         )
     elif args.remote_node_id is not None:
-        local_app_composition = create_local_runtime_composition(
-            **composition_arguments,
-            capabilities=args.local_capability,
-        )
+        local_app_composition = create_local_composition(args.local_capability)
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,
@@ -328,10 +357,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             local_app_composition=local_app_composition,
         )
     else:
-        local_app_composition = create_local_runtime_composition(
-            **composition_arguments,
-            capabilities=args.local_capability,
-        )
+        local_app_composition = create_local_composition(args.local_capability)
         app = create_static_cluster_collection_app(
             args.retained_remote_nodes,
             local_app_composition=local_app_composition,

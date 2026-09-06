@@ -7,8 +7,10 @@ import uvicorn
 from fastapi import FastAPI
 
 from home_ai_cluster.local_runtime_composition import (
+    MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
+    create_multi_binding_local_app_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -68,6 +70,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     """Construct the ordinary app for the explicitly selected local runtime."""
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
+    execution_limit = getattr(args, "retained_execution_limit", 1) or 1
+    if isinstance(values, MultiBindingRuntimeCompositionValues):
+        composition = create_multi_binding_local_app_composition(
+            values, execution_limit=execution_limit
+        )
+        app = create_app(local_app_composition=composition)
+        if args.host == LOCAL_RUNTIME_HOST:
+            return add_loopback_browser_routes(app)
+        return app
     composition_arguments = dict(
         runtime=values.runtime,
         ollama_model=values.ollama_model,

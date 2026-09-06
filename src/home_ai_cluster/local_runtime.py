@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import ipaddress
+import signal
 from collections.abc import Sequence
 from contextlib import contextmanager
 
@@ -40,14 +41,23 @@ class _ReceiverServer(uvicorn.Server):
 class _NativeServer(uvicorn.Server):
     """Native signal owner for one combined receiver-enabled foreground run."""
 
+    def __init__(self, config: uvicorn.Config) -> None:
+        super().__init__(config)
+        self._pending_signals: list[int] = []
+
+    @property
+    def pending_signals(self) -> tuple[int, ...]:
+        return tuple(self._pending_signals)
+
     @contextmanager
     def capture_signals(self):
         with super().capture_signals():
             try:
                 yield
             finally:
-                # Uvicorn re-raises captured signals after graceful shutdown.
-                # Let the receiver sibling finish before returning to the shell.
+                # Uvicorn 0.52.4 re-raises these after graceful shutdown. Delay
+                # that until the receiver sibling has completed its lifespan.
+                self._pending_signals.extend(self._captured_signals)
                 self._captured_signals.clear()
 
 
@@ -167,6 +177,8 @@ async def _run_receiver_enabled_servers(
         task_group.create_task(
             _serve_until_sibling_stops(receiver_server, native_server)
         )
+    for captured_signal in reversed(native_server.pending_signals):
+        signal.raise_signal(captured_signal)
 
 
 def main(argv: Sequence[str] | None = None) -> None:

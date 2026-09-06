@@ -54,16 +54,21 @@ class BodyFirstState(State):
         self.disconnected = True
 
 
-def endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    route = next(
-        route
-        for route in routes
+def _endpoint(app, path):
+    return next(
+        route.endpoint
+        for included_router in app.routes
+        for route in getattr(
+            getattr(included_router, "original_router", None), "routes", ()
+        )
         if isinstance(route, APIRoute)
-        and route.path == "/v1/chat"
+        and route.path == path
         and "POST" in route.methods
     )
-    return route.endpoint
+
+
+def endpoint(app):
+    return _endpoint(app, "/v1/chat")
 
 
 def request(app, state):
@@ -165,14 +170,7 @@ def sources_payload():
 
 
 def sources_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/chat/sources"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/chat/sources")
 
 
 def test_registered_sources_returns_terminal_result(monkeypatch):
@@ -234,14 +232,7 @@ def test_registered_sources_disconnect_cancels_execution(monkeypatch):
 
 
 def summarize_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/summarize"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/summarize")
 
 
 def test_registered_summarize_returns_terminal_result(monkeypatch):
@@ -299,14 +290,7 @@ def test_registered_summarize_disconnect_cancels_execution(monkeypatch):
 
 
 def classify_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/classify"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/classify")
 
 
 def test_registered_classify_returns_terminal_result(monkeypatch):
@@ -371,14 +355,7 @@ def test_registered_classify_disconnect_cancels_execution(monkeypatch):
 
 
 def internal_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/internal/cluster/request"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/internal/cluster/request")
 
 
 def internal_body():

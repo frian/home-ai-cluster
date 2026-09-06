@@ -51,6 +51,7 @@ from home_ai_cluster.local_health_snapshot import (
 )
 
 router = APIRouter()
+receiver_router = APIRouter()
 
 
 class ChatRequest(BaseModel):
@@ -506,7 +507,7 @@ async def chat_external_information_decision(
     )
 
 
-@router.post(
+@receiver_router.post(
     "/internal/cluster/request",
     response_model=ClusterResult | ClassifyResult | SourceGroundedChatResult,
 )
@@ -548,7 +549,7 @@ async def internal_cluster_request(
     )
 
 
-@router.get(
+@receiver_router.get(
     "/internal/cluster/status",
     response_model=InternalClusterStatusResponse,
 )

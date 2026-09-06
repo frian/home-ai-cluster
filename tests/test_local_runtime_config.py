@@ -18,7 +18,7 @@ from home_ai_cluster.core.routing_candidates import (
     routing_candidates_for_request,
     select_automatic_capability_routing_candidate,
 )
-from home_ai_cluster.main import create_app
+from home_ai_cluster.main import create_receiver_app
 
 
 def write_runtime_config(tmp_path: Path, content: str) -> Path:
@@ -719,7 +719,7 @@ def test_internal_status_rejects_multiple_adapters_before_health_observation(
             "health",
             lambda: pytest.fail("multi-adapter status must not observe health"),
         )
-    app = create_app(local_app_composition=composition)
+    app = create_receiver_app(local_app_composition=composition)
 
     async def observe() -> httpx.Response:
         async with httpx.AsyncClient(

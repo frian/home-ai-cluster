@@ -27,6 +27,10 @@ preflight, routing-explanation, inspection, remote declaration, or protocol
 semantics. In particular, a multi-binding document is not accepted by the
 existing `status` surface until a separate observation decision exists.
 
+A valid multi-binding document is an ordinary request-capable local-composition
+source for both `local` and `static-cluster`. Its binding union remains separate
+from RFC-0059's caller-side local routing permission in static-cluster mode.
+
 ## Context
 
 RFC-0074 establishes one optional explicitly selected, closed TOML source for
@@ -70,6 +74,9 @@ needed.
 - Preserve one HAC process as one cluster-visible local node.
 - Keep caller-local RFC-0059 routing permission separate from local execution
   ownership.
+- Accept a valid multi-binding document for ordinary request-capable `local`
+  and `static-cluster` composition, including static-cluster's accepted
+  explicit topology input modes.
 - Preserve remote declarations and the HAC-to-HAC protocol as capability-only.
 - Define focused later implementation proof criteria and compatibility rules.
 
@@ -206,19 +213,50 @@ process still presents exactly one cluster-visible local node; bindings do not
 create nodes, endpoints, topology members, or request fields.
 
 RFC-0059 caller-local static capabilities remain caller-side routing permission.
-They are not inferred from the multi-binding union and do not configure an
-adapter. A caller-local permission may be narrower than local execution truth
-without changing binding ownership:
+They are not inferred from the multi-binding union and do not configure, alter,
+narrow, expand, or otherwise mutate the binding collection. A caller-local
+permission may be narrower than local execution truth without changing binding
+ownership:
 
 ```text
 binding union             -> receiver/process-local execution ownership
 RFC-0059 local capability -> caller-side routing permission
 ```
 
+A valid multi-binding `--runtime-config PATH` is accepted by ordinary
+request-capable `local`. It is also accepted by ordinary request-capable
+`static-cluster`, including its accepted explicit declaration and complete
+inline topology input modes. In static-cluster local-candidate use, a requested
+capability is locally usable only when both independent truths hold:
+
+```text
+requested capability is in the RFC-0108 binding union
+    AND
+RFC-0059 caller-local permission allows that capability locally
+    -> local static-cluster candidate may be eligible
+```
+
+Caller permission narrower than the binding union may prevent local selection,
+but it does not remove or reassign any binding. Conversely, a caller-local
+permission containing a capability that has no local binding does not create
+local execution capability, infer a binding, or select an adapter. Binding
+ownership remains determined only by the explicit binding relation.
+
+This RFC does not collapse RFC-0108 and RFC-0059 by treating one fact as the
+other. A later implementation must preserve their separation even where the
+current single-adapter static-cluster construction carries its caller-local
+capability restriction into local composition construction. That existing
+construction is implementation evidence, not an authorization to make caller routing
+permission binding ownership in the multi-binding path.
+
 Remote declarations remain caller-owned capability-only topology facts. They
 must not contain a runtime, model, binding, adapter, or instance fact. HAC does
 not advertise local binding information, and this RFC changes neither the
 HAC-to-HAC request nor status protocol.
+
+Existing remote candidate behavior remains governed by its accepted routing
+rules. This RFC adds no fallback, priority, scheduling, or adapter-selection
+policy.
 
 ### Existing configuration and execution-policy boundaries
 
@@ -251,7 +289,8 @@ This is the smallest fail-closed boundary: it neither silently chooses one
 adapter nor invents aggregate multi-adapter status semantics.
 
 No preflight output or behavior is changed, and no multi-binding inspection
-surface is introduced.
+surface is introduced. `health` is not expanded: its current surface gains
+neither `--runtime-config` nor multi-adapter semantics.
 
 ## Compatibility
 
@@ -269,8 +308,11 @@ routing, and remote protocol remain unchanged.
 The only intentional compatibility restriction is observational: an existing
 single-runtime file remains accepted by `status`, while the new multi-binding
 shape is rejected there until a separate RFC decides truthful multiple-adapter
-observation. Ordinary request-capable local composition may use the new shape
-after its bounded implementation proof.
+observation. `health` remains unchanged and does not accept a runtime-config
+source. After its bounded implementation proof, ordinary request-capable
+`local` and `static-cluster` composition may use the new shape; static-cluster
+retains the independent RFC-0108 execution-ownership and RFC-0059 caller-
+permission requirements for local candidate use.
 
 ## Rationale
 
@@ -348,7 +390,10 @@ If accepted, implementation is authorized only to:
 
 - parse and validate the alternative closed multi-binding runtime-config shape;
 - construct its concrete local adapter instances and RFC-0108 binding relation
-  for ordinary local execution composition;
+  for ordinary request-capable `local` and `static-cluster` execution
+  composition, including static-cluster's accepted explicit topology inputs;
+- preserve the distinction between the binding union as local execution truth
+  and RFC-0059 caller-local permission as static-cluster routing permission;
 - retain the existing RFC-0074 single-runtime path unchanged;
 - reject a multi-binding file on the existing status surface before observation;
 - add focused tests and accurate operator documentation.
@@ -380,18 +425,23 @@ A later implementation must prove all of the following:
    capability-to-adapter ownership;
 10. RFC-0059 caller-local routing permission remains separate from binding
     ownership;
-11. legacy runtime CLI and explicit runtime-config mutual exclusion remains
+11. in an in-memory static-cluster case with deliberately different binding
+    union and RFC-0059 caller-local permission, caller permission does not
+    mutate bindings and a local capability is usable only when both execution
+    ownership and caller permission allow it;
+12. legacy runtime CLI and explicit runtime-config mutual exclusion remains
     intact;
-12. retained process-level `execution_limit` remains separate and is not
+13. retained process-level `execution_limit` remains separate and is not
     replaced by runtime-config binding data;
-13. remote declarations and protocol shapes do not change; and
-14. no new observation or status semantics are introduced, including local
+14. remote declarations and protocol shapes do not change; and
+15. no new observation or status semantics are introduced, including local
     rejection of a multi-binding file by `status`.
 
 The same-runtime Ollama proof may use distinct models, which are already
 accepted Ollama configuration facts, to demonstrate two separately constructed
 adapters. It must not add an Ollama endpoint configuration decision or contact
-a real Ollama service.
+a real Ollama service. The static-cluster proof may remain in memory and must
+not require a real remote machine or new protocol behavior.
 
 ## Open questions
 

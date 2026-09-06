@@ -208,10 +208,8 @@ displayed order, and no multipart data or filename is submitted. This is not a
 dashboard, operator inspection surface, compatibility interface, or LAN browser
 interface.
 
-The page is attached only when the selected `hac local --host`
-value is exactly `127.0.0.1`. Any other value, including the trusted-LAN
-receiver form `0.0.0.0`, remains API-only and has no `/` or `/assets/` browser
-surface.
+The page is attached to the loopback-only native authority. Receiver activation
+does not add browser routes to its trusted-LAN receiver authority.
 
 ### 5. Send one native request
 
@@ -323,11 +321,19 @@ reachability from the calling machine.
 On every receiving machine represented by the declaration:
 
 ```sh
-hac local --host 0.0.0.0 --port 25042
+hac local --receiver-host <RECEIVER_ADDRESS>
 ```
 
-This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
-allowance to the trusted LAN and remove it after use.
+This starts one foreground HAC process: its ordinary native/local authority
+remains on `127.0.0.1:25042`, and the explicit receiver authority binds
+`<RECEIVER_ADDRESS>:25042`. Use `--receiver-port <PORT>` only when the receiver
+needs a different port; `--port` controls only the native/local listener.
+`<RECEIVER_ADDRESS>` must be a concrete non-loopback, non-wildcard IP address;
+there is no `0.0.0.0` default or hostname resolution. The receiver exposes only
+RFC-0109's internal request and status routes, remains unauthenticated plain
+HTTP under the trusted-LAN assumption, and does not provide authentication or
+confidential transport. Restrict any firewall allowance to the trusted LAN and
+remove it after use.
 
 ### 4. Select or create one saved declaration file
 

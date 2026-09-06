@@ -560,6 +560,39 @@ def test_local_command_accepts_multi_binding_runtime_config(tmp_path: Path) -> N
     ]
 
 
+def test_receiver_enabled_local_command_shares_multi_binding_composition(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+        '[[bindings]]\ncapabilities = ["summarize"]\nruntime = "llama-server"\n'
+        'base_url = "http://127.0.0.1:8080"\nmodel = "summary-model"\n',
+    )
+    recorded: dict[str, object] = {}
+
+    async def run_servers(native: object, receiver: object, _: object) -> None:
+        recorded.update(native=native, receiver=receiver)
+
+    monkeypatch.setattr(local_runtime, "_run_receiver_enabled_servers", run_servers)
+
+    local_runtime.main(
+        ["--runtime-config", str(config), "--receiver-host", "192.0.2.10"]
+    )
+
+    native = recorded["native"]
+    receiver = recorded["receiver"]
+    composition = native.state.local_app_composition
+    assert receiver.state.local_app_composition is composition
+    assert len(composition.node_registry.list_nodes()) == 1
+    assert [
+        adapter.name for adapter in composition.adapter_registry.list_adapters()
+    ] == [
+        "ollama",
+        "llama-server",
+    ]
+
+
 def test_static_cluster_keeps_caller_permission_separate_from_bindings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

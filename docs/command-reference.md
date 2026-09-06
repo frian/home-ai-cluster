@@ -176,6 +176,8 @@ retained values.
 ```sh
 hac local
 hac local --host 127.0.0.1 --port 25042
+hac local --receiver-host <LAN_IP>
+hac local --receiver-host <LAN_IP> --receiver-port <PORT>
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
 hac local --runtime-config <PATH>
@@ -192,6 +194,16 @@ arguments. The application runs in the foreground. Home AI Cluster does not
 install, start, stop, download models for, or supervise the external runtime.
 Ordinary local compositions advertise and execute `chat`, `summarize`,
 `classify`, and `code`.
+
+Native/local authority is always exactly `127.0.0.1`; `--host` accepts no other
+value. `--receiver-host <LAN_IP>` additively enables one receiver listener in
+the same foreground process. It requires one concrete non-loopback,
+non-wildcard IP address; HAC does not resolve names, choose an address, or bind
+`0.0.0.0`. Its receiver port defaults independently to `25042`; `--port` and
+`--receiver-port` control only their respective authorities. The receiver
+serves only RFC-0109's internal request and status routes. It is unauthenticated
+plain HTTP for a trusted LAN: route isolation is neither authentication nor
+confidential transport.
 `--ollama-disable-thinking` is Ollama-only and configures the process-local
 Ollama adapter: it requests native `think: false` for every adapter inference.
 Omission preserves the existing request shape (no `think` field). It is not a

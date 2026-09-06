@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import ClusterStatusResult
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
 from home_ai_cluster.core.remote_transport import HttpRemoteStatusTransport
 from home_ai_cluster.local_runtime_composition import (
+    MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
     resolve_local_runtime_composition_values,
@@ -119,12 +120,16 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     validate_local_runtime_arguments(parser, args)
     values = resolve_local_runtime_composition_values(parser, args)
+    if isinstance(values, MultiBindingRuntimeCompositionValues):
+        parser.error("multi-binding runtime config is not supported by status")
     local_app_composition = create_local_runtime_composition(
         runtime=values.runtime,
         ollama_model=values.ollama_model,
         ollama_disable_thinking=values.ollama_disable_thinking,
         llama_server_base_url=values.llama_server_base_url,
         llama_server_model=values.llama_server_model,
+        vllm_base_url=values.vllm_base_url,
+        vllm_model=values.vllm_model,
     )
 
     try:

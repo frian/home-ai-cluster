@@ -19,6 +19,7 @@ from home_ai_cluster.core.models import (
     RuntimeResult,
 )
 from home_ai_cluster.core.orchestrator import (
+    ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_automatic_capability_fallback,
     orchestrate_request_with_static_remote_fallback,
@@ -28,7 +29,10 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
 )
-from home_ai_cluster.core.remote_transport import RemoteTransportError
+from home_ai_cluster.core.remote_transport import (
+    RemoteExecutionPermissionDeniedError,
+    RemoteTransportError,
+)
 
 
 class RecordingAdapter:
@@ -276,6 +280,18 @@ def test_initially_selected_remote_uses_existing_single_execution_path() -> None
 
     assert result.node_id == "declared-remote"
     assert dependencies[3].requests == []
+    assert len(dependencies[4].requests) == 1
+
+
+def test_single_remote_permission_refusal_uses_permission_terminal_semantic() -> None:
+    dependencies = make_dependencies(
+        local=False,
+        transport_error=RemoteExecutionPermissionDeniedError("denied"),
+    )
+
+    with pytest.raises(ExecutionPermissionDeniedError):
+        run_static_remote_fallback(dependencies, make_request())
+
     assert len(dependencies[4].requests) == 1
 
 

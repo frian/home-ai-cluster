@@ -1,6 +1,6 @@
 # RFC-0111: Explicit Receiver Authority Activation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-06
 
@@ -369,4 +369,17 @@ coordination require separate architectural decisions.
 
 ## Decision
 
-Pending.
+Accepted. `hac local` remains the canonical foreground HAC process launcher.
+Its ordinary native/local authority is bounded to `127.0.0.1`; non-loopback
+generic `--host` values fail explicitly before binding. Receiver authority is
+added only through `--receiver-host <ADDRESS>`, where the host is one concrete,
+non-loopback, non-wildcard IP address. `--receiver-port <PORT>` is optional and
+defaults to `25042`; it is independent of the native `--port`.
+
+Both authorities belong to one foreground process and consume the exact same
+`LocalAppComposition`, preserving one cluster-visible local node and one
+process-local execution state. The receiver listener exposes only RFC-0109's
+closed route set; RFC-0109 route ownership and RFC-0098 through RFC-0106
+execution semantics remain unchanged. This decision introduces no
+authentication, TLS, discovery, retained listener configuration, daemonization,
+capacity, scheduling, or multi-process coordination.

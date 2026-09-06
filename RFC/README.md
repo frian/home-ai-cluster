@@ -65,14 +65,13 @@ does not invalidate or supersede an RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
-## Draft RFCs
+## Selected accepted RFCs
 
 - [RFC-0111: Explicit Receiver Authority Activation](RFC-0111-explicit-receiver-authority-activation.md)
-  — proposes an explicit `hac local --receiver-host` activation for RFC-0109's
-  bounded receiver authority while preserving one foreground process, one local
-  composition, one cluster-visible node, and one process-local execution scope.
-
-## Selected accepted RFCs
+  — accepts additive `hac local --receiver-host` receiver activation with one
+  foreground process, one local composition/node/execution scope, loopback-only
+  native authority, explicit concrete receiver binds, and independent receiver
+  port semantics, while preserving RFC-0109's closed route set.
 
 - [RFC-0109: Explicit LAN Receiver Route Boundary](RFC-0109-explicit-lan-receiver-route-boundary.md)
   — accepts one closed remote-receiver route set containing only the existing

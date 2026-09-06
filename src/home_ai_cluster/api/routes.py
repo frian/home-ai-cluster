@@ -560,6 +560,8 @@ async def internal_cluster_status(
         node_registry, adapter_registry = _resolve_local_registries(
             http_request.app.state.local_app_composition
         )
+        if len(adapter_registry.list_adapters()) != 1:
+            raise ValueError("local runtime status requires exactly one adapter")
         snapshot = project_health_snapshot(node_registry, adapter_registry)
         local_status = project_local_cluster_status(snapshot)
     except Exception as error:

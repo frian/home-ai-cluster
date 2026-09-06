@@ -198,12 +198,15 @@ Omission preserves the existing request shape (no `think` field). It is not a
 per-request or per-capability setting.
 
 `--runtime-config <PATH>` selects one explicit TOML runtime-composition file.
-It has a closed `ollama` or `llama-server` schema: Ollama accepts optional
-`model` and `disable_thinking` values in `[ollama]`; llama-server requires
-`base_url` and `model` in `[llama_server]`. There is no implicit config-file
-discovery. File mode is mutually exclusive with equivalent runtime-composition
-options explicitly supplied by the operator; parser defaults do not conflict.
-The file and CLI options are not merged.
+It accepts either the existing closed single-runtime schema or a closed
+multi-binding schema. A multi-binding file contains only one or more
+`[[bindings]]` entries; each entry explicitly assigns a non-empty, disjoint
+capability set to one `ollama`, `llama-server`, or `vllm` adapter construction.
+Ollama accepts optional `model` and `disable_thinking`; llama-server and vLLM
+require `base_url` and `model`. There is no implicit config-file discovery.
+File mode is mutually exclusive with equivalent runtime-composition options
+explicitly supplied by the operator; parser defaults do not conflict. The file
+and CLI options are not merged.
 It remains a self-contained alternate runtime-composition source; it does not
 carry an HAC execution limit.
 
@@ -232,6 +235,21 @@ model = "model-name"
 
 Both llama-server values are required. Runtime-composition files configure only
 the caller-local runtime and remain separate from static topology declarations.
+
+A multi-binding file is request-capable only and keeps one local HAC node:
+
+```toml
+[[bindings]]
+capabilities = ["chat", "summarize"]
+runtime = "ollama"
+model = "llama3.2"
+
+[[bindings]]
+capabilities = ["classify", "code"]
+runtime = "vllm"
+base_url = "http://127.0.0.1:8000"
+model = "served-model"
+```
 
 When the selected host is exactly `127.0.0.1`, open
 `http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
@@ -294,7 +312,10 @@ hac static-cluster \
   neither per-request nor per-capability. Omission preserves the existing
   native request shape, and remote declarations carry no such setting.
 - `--runtime-config <PATH>` uses the same explicit closed runtime-composition
-  contract as `hac local`; topology declarations remain separate.
+  contract as `hac local`; multi-binding files are accepted and topology
+  declarations remain separate. The binding union is local execution ownership;
+  caller-local capabilities remain independent routing permission, so local
+  eligibility requires both.
 
 **Capabilities**
 
@@ -827,7 +848,9 @@ Unreachable or unavailable nodes can appear as result data without making the
 command invocation invalid. With no runtime option, status uses the historical
 default Ollama composition. Runtime CLI options and `--runtime-config <PATH>`
 select an explicit local composition; retained local runtime configuration does
-not replace status runtime selection.
+not replace status runtime selection. `status --runtime-config <PATH>` accepts
+the existing single-runtime shape only; multi-binding files fail locally before
+status observation. `health` remains unchanged and accepts no runtime-config.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

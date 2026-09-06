@@ -1,10 +1,24 @@
 import argparse
+import asyncio
 from pathlib import Path
 
+import httpx
 import pytest
 
 from home_ai_cluster import local_runtime, local_runtime_composition, static_cluster
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
+from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.core.models import (
+    Capability,
+    ChatMessage,
+    ClusterRequest,
+    RequestConstraints,
+)
+from home_ai_cluster.core.routing_candidates import (
+    routing_candidates_for_request,
+    select_automatic_capability_routing_candidate,
+)
+from home_ai_cluster.main import create_app
 
 
 def write_runtime_config(tmp_path: Path, content: str) -> Path:
@@ -447,3 +461,273 @@ def test_status_runtime_config_passes_thinking_disable_to_composition(
         )
 
     assert recorded["ollama_disable_thinking"] is True
+
+
+def test_multi_binding_runtime_config_constructs_one_node_and_exact_bindings(
+    tmp_path: Path,
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n'
+            'model = "chat-model"\n\n[[bindings]]\ncapabilities = ["code"]\n'
+            'runtime = "ollama"\nmodel = "code-model"\n',
+        )
+    )
+
+    assert isinstance(
+        values, local_runtime_composition.MultiBindingRuntimeCompositionValues
+    )
+    composition = local_runtime_composition.create_multi_binding_local_app_composition(
+        values
+    )
+    adapters = composition.adapter_registry.list_adapters()
+
+    assert len(composition.node_registry.list_nodes()) == 1
+    assert [
+        capability.name
+        for capability in composition.node_registry.list_nodes()[0].capabilities
+    ] == [
+        "chat",
+        "code",
+    ]
+    assert len(adapters) == 2
+    assert all(isinstance(adapter, OllamaAdapter) for adapter in adapters)
+    assert adapters[0] is not adapters[1]
+    assert adapters[0].name == adapters[1].name == "ollama"
+    assert adapters[0].model == "chat-model"
+    assert adapters[1].model == "code-model"
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="chat"))
+        is adapters[0]
+    )
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="code"))
+        is adapters[1]
+    )
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "bindings = []\n",
+        '[[bindings]]\ncapabilities = []\nruntime = "ollama"\n',
+        '[[bindings]]\ncapabilities = ["chat", "chat"]\nruntime = "ollama"\n',
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "vllm"\n'
+        'base_url = "http://127.0.0.1:8000"\nmodel = "served"\n',
+        '[[bindings]]\ncapabilities = ["unknown"]\nruntime = "ollama"\n',
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n'
+        'base_url = "http://127.0.0.1:8000"\n',
+        'runtime = "ollama"\n[[bindings]]\ncapabilities = ["chat"]\n'
+        'runtime = "ollama"\n',
+    ],
+)
+def test_multi_binding_runtime_config_rejects_invalid_shapes(
+    tmp_path: Path, content: str
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.load_local_runtime_config(
+            write_runtime_config(tmp_path, content)
+        )
+
+
+def test_local_command_accepts_multi_binding_runtime_config(tmp_path: Path) -> None:
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+        '[[bindings]]\ncapabilities = ["summarize"]\nruntime = "llama-server"\n'
+        'base_url = "http://127.0.0.1:8080"\nmodel = "summary-model"\n',
+    )
+
+    app = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(["--runtime-config", str(config)])
+    )
+    composition = app.state.local_app_composition
+
+    assert [
+        adapter.name for adapter in composition.adapter_registry.list_adapters()
+    ] == [
+        "ollama",
+        "llama-server",
+    ]
+    assert [
+        capability.name
+        for capability in composition.node_registry.list_nodes()[0].capabilities
+    ] == [
+        "chat",
+        "summarize",
+    ]
+
+
+def test_static_cluster_keeps_caller_permission_separate_from_bindings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'local_capabilities = ["chat", "classify"]\n\n[[remote_nodes]]\n'
+        'node_id = "remote-a"\nbase_url = "http://remote-a.test:8000"\n'
+        'capabilities = ["summarize"]\n',
+        encoding="utf-8",
+    )
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+        '[[bindings]]\ncapabilities = ["summarize"]\nruntime = "ollama"\n'
+        'model = "summary-model"\n',
+    )
+    recorded: dict[str, object] = {}
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda app, **_kwargs: recorded.update(app=app),
+    )
+
+    static_cluster.main(
+        ["--declaration", str(declaration), "--runtime-config", str(config)]
+    )
+
+    app = recorded["app"]
+    composition = app.state.local_app_composition
+    local_node = composition.node_registry.list_nodes()[0]
+    assert [capability.name for capability in local_node.capabilities] == [
+        "chat",
+        "summarize",
+    ]
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="summarize"))
+        is not None
+    )
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="classify"))
+        is None
+    )
+    routing_nodes = app.state.static_remote_collection_wiring.node_registry.list_nodes()
+    assert [capability.name for capability in routing_nodes[0].capabilities] == ["chat"]
+
+    asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+def test_static_cluster_represents_disjoint_permission_as_no_local_candidate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'local_capabilities = ["chat"]\n\n[[remote_nodes]]\n'
+        'node_id = "remote-a"\nbase_url = "http://remote-a.test:8000"\n'
+        'capabilities = ["chat"]\n',
+        encoding="utf-8",
+    )
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["summarize"]\nruntime = "ollama"\n',
+    )
+    recorded: dict[str, object] = {}
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda app, **_kwargs: recorded.update(app=app),
+    )
+
+    static_cluster.main(
+        ["--declaration", str(declaration), "--runtime-config", str(config)]
+    )
+
+    app = recorded["app"]
+    composition = app.state.local_app_composition
+    assert [
+        capability.name
+        for capability in composition.node_registry.list_nodes()[0].capabilities
+    ] == ["summarize"]
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="chat")) is None
+    )
+    wiring = app.state.static_remote_collection_wiring
+    assert wiring.node_registry.list_nodes() == []
+    candidates = routing_candidates_for_request(
+        ClusterRequest(
+            messages=[ChatMessage(role="user", content="hello")],
+            capability=Capability(name="chat"),
+            constraints=RequestConstraints(local_only=False),
+        ),
+        wiring.node_registry,
+        wiring.adapter_registry,
+        wiring.remote_registry,
+    )
+    assert candidates.local is None
+    assert candidates.declared_remote is not None
+    assert candidates.declared_remote.declaration.node.id == "remote-a"
+    selection = select_automatic_capability_routing_candidate(
+        ClusterRequest(
+            messages=[ChatMessage(role="user", content="hello")],
+            capability=Capability(name="chat"),
+            constraints=RequestConstraints(local_only=False),
+        ),
+        candidates,
+    )
+    assert selection.selected is not None
+    assert selection.selected.declared_remote is not None
+
+    asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
+def test_status_rejects_multi_binding_runtime_config_before_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster.commands import status_command
+
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'remote_node_id = "remote-a"\nremote_base_url = "http://remote-a.test:8000"\n',
+        encoding="utf-8",
+    )
+    config = write_runtime_config(
+        tmp_path, '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n'
+    )
+
+    async def fail_observation(*_: object) -> object:
+        raise AssertionError("status observation must not run")
+
+    monkeypatch.setattr(
+        status_command, "evaluate_static_cluster_status", fail_observation
+    )
+    with pytest.raises(SystemExit, match="2"):
+        status_command.main(
+            ["--declaration", str(declaration), "--runtime-config", str(config)]
+        )
+
+
+def test_internal_status_rejects_multiple_adapters_before_health_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+            '[[bindings]]\ncapabilities = ["summarize"]\nruntime = "ollama"\n',
+        )
+    )
+    assert isinstance(
+        values, local_runtime_composition.MultiBindingRuntimeCompositionValues
+    )
+    composition = local_runtime_composition.create_multi_binding_local_app_composition(
+        values
+    )
+    for adapter in composition.adapter_registry.list_adapters():
+        monkeypatch.setattr(
+            adapter,
+            "health",
+            lambda: pytest.fail("multi-adapter status must not observe health"),
+        )
+    app = create_app(local_app_composition=composition)
+
+    async def observe() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.get("/internal/cluster/status")
+
+    response = asyncio.run(observe())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Unable to inspect local runtime status"}

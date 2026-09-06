@@ -15,6 +15,7 @@ from home_ai_cluster.api.wiring import (
     build_static_remote_wiring,
 )
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
+from home_ai_cluster.core.registry import NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
@@ -23,8 +24,10 @@ from home_ai_cluster.core.static_capabilities import (
     validate_static_capabilities,
 )
 from home_ai_cluster.local_runtime_composition import (
+    MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
+    create_multi_binding_local_app_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -226,12 +229,17 @@ def create_static_cluster_app(
     *,
     capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
     wiring = build_static_remote_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
@@ -251,6 +259,7 @@ def create_static_cluster_collection_app(
     remote_nodes: Sequence[ParsedRemoteNodeDeclaration],
     *,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
@@ -264,7 +273,11 @@ def create_static_cluster_collection_app(
         for remote in remote_nodes
     ]
     wiring = build_static_remote_collection_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
@@ -280,61 +293,132 @@ def create_static_cluster_collection_app(
     return app
 
 
+def _create_multi_binding_routing_node_registry(
+    local_app_composition: LocalAppComposition,
+    caller_local_capabilities: Sequence[str],
+) -> NodeRegistry:
+    """Project caller-side eligibility without changing local execution ownership."""
+    local_node = local_app_composition.node_registry.list_nodes()[0]
+    caller_capability_names = set(caller_local_capabilities)
+    capabilities = [
+        capability
+        for capability in local_node.capabilities
+        if capability.name in caller_capability_names
+    ]
+    if not capabilities:
+        return NodeRegistry()
+    return NodeRegistry(
+        [
+            NodeDescription(
+                id=local_node.id,
+                name=local_node.name,
+                availability=local_node.availability,
+                health=local_node.health,
+                capabilities=capabilities,
+                adapters=local_node.adapters,
+            )
+        ]
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary loopback-only static multi-node application process."""
     args = parse_args(argv)
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
 
-    composition_arguments = dict(
-        runtime=values.runtime,
-        ollama_model=values.ollama_model,
-        ollama_disable_thinking=values.ollama_disable_thinking,
-        llama_server_base_url=values.llama_server_base_url,
-        llama_server_model=values.llama_server_model,
-    )
-    if values.runtime == "vllm":
-        composition_arguments["vllm_base_url"] = values.vllm_base_url
-        composition_arguments["vllm_model"] = values.vllm_model
-    if getattr(args, "retained_execution_limit", None) is not None:
-        composition_arguments["execution_limit"] = args.retained_execution_limit
+    composition_arguments: dict[str, object] = {}
+    if not isinstance(values, MultiBindingRuntimeCompositionValues):
+        composition_arguments = dict(
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
+        )
+        if values.runtime == "vllm":
+            composition_arguments["vllm_base_url"] = values.vllm_base_url
+            composition_arguments["vllm_model"] = values.vllm_model
+        if getattr(args, "retained_execution_limit", None) is not None:
+            composition_arguments["execution_limit"] = args.retained_execution_limit
+
+    def create_local_composition(
+        caller_local_capabilities: Sequence[str],
+        *,
+        declaration_mode: bool = False,
+    ) -> LocalAppComposition:
+        if not isinstance(values, MultiBindingRuntimeCompositionValues):
+            arguments = composition_arguments
+            if declaration_mode:
+                arguments = {
+                    **arguments,
+                    "vllm_base_url": values.vllm_base_url,
+                    "vllm_model": values.vllm_model,
+                }
+            return create_local_runtime_composition(
+                **arguments,
+                capabilities=caller_local_capabilities,
+            )
+        return create_multi_binding_local_app_composition(
+            values,
+            execution_limit=getattr(args, "retained_execution_limit", None) or 1,
+        )
 
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        declaration_composition_arguments = {
-            **composition_arguments,
-            "vllm_base_url": values.vllm_base_url,
-            "vllm_model": values.vllm_model,
-        }
-        local_app_composition = create_local_runtime_composition(
-            **declaration_composition_arguments,
-            capabilities=declarations.local_capabilities,
+        local_app_composition = create_local_composition(
+            declarations.local_capabilities,
+            declaration_mode=True,
         )
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, declarations.local_capabilities
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
+        )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
     elif args.remote_node_id is not None:
-        local_app_composition = create_local_runtime_composition(
-            **composition_arguments,
-            capabilities=args.local_capability,
+        local_app_composition = create_local_composition(args.local_capability)
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, args.local_capability
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
         )
+        inline_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            inline_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,
             capabilities=args.remote_capability,
-            local_app_composition=local_app_composition,
+            **inline_arguments,
         )
     else:
-        local_app_composition = create_local_runtime_composition(
-            **composition_arguments,
-            capabilities=args.local_capability,
+        local_app_composition = create_local_composition(args.local_capability)
+        routing_node_registry = (
+            _create_multi_binding_routing_node_registry(
+                local_app_composition, args.local_capability
+            )
+            if isinstance(values, MultiBindingRuntimeCompositionValues)
+            else None
         )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             args.retained_remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
 
     uvicorn.run(

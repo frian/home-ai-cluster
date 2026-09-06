@@ -160,6 +160,11 @@ hac status \
   --runtime-config <RUNTIME_PATH>
 ```
 
+The existing single-runtime file shape works with all three commands. An
+RFC-0110 multi-binding file uses only `[[bindings]]` entries and is accepted by
+request-capable `hac local` and `hac static-cluster`; `hac status` rejects it
+locally before observation, and `hac health` remains unchanged.
+
 These are explicit declaration and runtime-composition files: commands use them
 only when their paths are supplied. They are distinct from HAC-managed retained
 configuration created with `hac config`. That retained configuration is an

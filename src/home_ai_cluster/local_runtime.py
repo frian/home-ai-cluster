@@ -37,6 +37,20 @@ class _ReceiverServer(uvicorn.Server):
         yield
 
 
+class _NativeServer(uvicorn.Server):
+    """Native signal owner for one combined receiver-enabled foreground run."""
+
+    @contextmanager
+    def capture_signals(self):
+        with super().capture_signals():
+            try:
+                yield
+            finally:
+                # Uvicorn re-raises captured signals after graceful shutdown.
+                # Let the receiver sibling finish before returning to the shell.
+                self._captured_signals.clear()
+
+
 def _create_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="home-ai-cluster-local",
@@ -140,7 +154,7 @@ async def _run_receiver_enabled_servers(
     native_app: FastAPI, receiver_app: FastAPI, args: argparse.Namespace
 ) -> None:
     """Run the two explicit authorities over one shared composition."""
-    native_server = uvicorn.Server(
+    native_server = _NativeServer(
         uvicorn.Config(native_app, host=LOCAL_RUNTIME_HOST, port=args.port)
     )
     receiver_server = _ReceiverServer(

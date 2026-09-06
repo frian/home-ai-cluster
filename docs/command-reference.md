@@ -263,7 +263,7 @@ base_url = "http://127.0.0.1:8000"
 model = "served-model"
 ```
 
-When the selected host is exactly `127.0.0.1`, open
+The native authority is fixed to exact `127.0.0.1`; open
 `http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
 Chat, Summarize, Classify, and Code. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
@@ -272,10 +272,10 @@ views may have independent in-flight requests; the selected node or runtime may
 still queue their execution. One explicitly selected Summarize or Classify file is read
 locally with strict UTF-8 decoding and populates that view's editable text area;
 the current textarea value is submitted through the existing JSON text request.
-Classify preserves ordered labels and sends no multipart data or filename. Every
-other `--host` value remains API-only, including `0.0.0.0`, `localhost`, and
-`::1`; the page is not a LAN browser interface, dashboard, operator console, or
-compatibility interface.
+Classify preserves ordered labels and sends no multipart data or filename.
+Non-`127.0.0.1` generic `--host` values are rejected. LAN receiver activation
+uses `--receiver-host` and has no browser surface; the page is not a LAN browser
+interface, dashboard, operator console, or compatibility interface.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

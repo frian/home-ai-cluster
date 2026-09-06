@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import signal
 from pathlib import Path
 
 import pytest
@@ -654,7 +655,9 @@ def test_receiver_enabled_lifecycle_stops_both_servers() -> None:
                 await asyncio.sleep(0)
 
     original_server = local_runtime.uvicorn.Server
+    original_receiver_server = local_runtime._ReceiverServer
     local_runtime.uvicorn.Server = Server
+    local_runtime._ReceiverServer = Server
     try:
 
         async def stop_native() -> None:
@@ -680,6 +683,7 @@ def test_receiver_enabled_lifecycle_stops_both_servers() -> None:
         asyncio.run(run())
     finally:
         local_runtime.uvicorn.Server = original_server
+        local_runtime._ReceiverServer = original_receiver_server
 
     assert len(created) == 2
     assert served == created
@@ -706,7 +710,9 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
                 await asyncio.sleep(0)
 
     original_server = local_runtime.uvicorn.Server
+    original_receiver_server = local_runtime._ReceiverServer
     local_runtime.uvicorn.Server = Server
+    local_runtime._ReceiverServer = Server
     try:
         with pytest.raises(ExceptionGroup):
             asyncio.run(
@@ -722,9 +728,50 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
             )
     finally:
         local_runtime.uvicorn.Server = original_server
+        local_runtime._ReceiverServer = original_receiver_server
 
     assert len(created) == 2
     assert created[1].should_exit is True
+
+
+def test_receiver_enabled_lifecycle_uses_one_signal_owning_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: list[tuple[object, object]] = []
+
+    async def serve_until(server: object, sibling: object) -> None:
+        recorded.append((server, sibling))
+
+    monkeypatch.setattr(local_runtime, "_serve_until_sibling_stops", serve_until)
+
+    asyncio.run(
+        local_runtime._run_receiver_enabled_servers(
+            FastAPI(),
+            FastAPI(),
+            argparse.Namespace(
+                port=25042,
+                receiver_host="192.0.2.10",
+                receiver_port=25042,
+            ),
+        )
+    )
+
+    native_server, receiver_server = recorded[0]
+    assert type(native_server) is local_runtime.uvicorn.Server
+    assert isinstance(receiver_server, local_runtime._ReceiverServer)
+
+
+def test_receiver_server_signal_capture_is_inert(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    signal_calls: list[object] = []
+    monkeypatch.setattr(signal, "signal", lambda *args: signal_calls.append(args))
+    server = local_runtime._ReceiverServer(local_runtime.uvicorn.Config(FastAPI()))
+
+    with server.capture_signals():
+        pass
+
+    assert signal_calls == []
 
 
 @pytest.fixture(autouse=True)

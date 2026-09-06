@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import ipaddress
 from collections.abc import Sequence
+from contextlib import contextmanager
 
 import uvicorn
 from fastapi import FastAPI
@@ -26,6 +27,14 @@ from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
 LOCAL_RUNTIME_PORT = 25042
+
+
+class _ReceiverServer(uvicorn.Server):
+    """Receiver server that leaves foreground process signals to native HAC."""
+
+    @contextmanager
+    def capture_signals(self):
+        yield
 
 
 def _create_argument_parser() -> argparse.ArgumentParser:
@@ -134,7 +143,7 @@ async def _run_receiver_enabled_servers(
     native_server = uvicorn.Server(
         uvicorn.Config(native_app, host=LOCAL_RUNTIME_HOST, port=args.port)
     )
-    receiver_server = uvicorn.Server(
+    receiver_server = _ReceiverServer(
         uvicorn.Config(receiver_app, host=args.receiver_host, port=args.receiver_port)
     )
     async with asyncio.TaskGroup() as task_group:

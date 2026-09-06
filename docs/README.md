@@ -78,6 +78,11 @@ architecture.
 - [Canonical operator workflow](operator-workflow.md) — current ordinary
   local-only and explicit static-cluster operation, including human-readable
   inspection defaults and explicit structured `--json` forms.
+- [Explicit receiver authority proof](explicit-receiver-authority-proof.md)
+  — retains privacy-safe real two-machine evidence that one HAC foreground
+  process kept native authority on loopback, exposed only the bounded RFC-0109
+  receiver routes on an explicit LAN address, routed one real remote request,
+  and shut both authorities down cleanly with one interruption.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.

@@ -526,6 +526,13 @@ def test_configuration_view_is_retained_future_launch_configuration_only() -> No
     assert "currently running process is not reconfigured" in html
     assert "Caller-local routing capabilities" in html
     assert "HAC execution-permission policy" in html
+    execution_limit_input = html.split('id="configuration-execution-limit"', 1)[
+        1
+    ].split(">", 1)[0]
+    assert 'type="number"' in execution_limit_input
+    assert 'min="1"' in execution_limit_input
+    assert 'placeholder="Positive integer"' in execution_limit_input
+    assert "value=" not in execution_limit_input
     assert "ollama" in html
     assert "llama-server" in html
     assert "vLLM" in html

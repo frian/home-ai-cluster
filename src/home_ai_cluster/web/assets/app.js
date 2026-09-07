@@ -15,6 +15,7 @@
     summarize: createRequestContext("#summarize-form", "#summarize-error", "#summarize-status"),
     classify: createRequestContext("#classify-form", "#classify-error", "#classify-status"),
     code: createRequestContext("#code-form", "#code-error", "#code-status"),
+    configuration: createRequestContext("#configuration-form", "#configuration-error", "#configuration-status"),
   };
 
   function createRequestContext(formSelector, errorSelector, statusSelector) {
@@ -128,6 +129,106 @@
       setRequestActive(context, false);
     }
   }
+
+  const configurationRuntime = document.querySelector("#configuration-runtime");
+  const configurationCapabilitiesAbsent = document.querySelector("#configuration-capabilities-absent");
+  let configurationLoaded = false;
+
+  function updateConfigurationRuntimeFields() {
+    document.querySelectorAll("[data-runtime]").forEach((fieldset) => {
+      fieldset.hidden = fieldset.dataset.runtime !== configurationRuntime.value;
+    });
+  }
+
+  function updateConfigurationCapabilities() {
+    const disabled = configurationCapabilitiesAbsent.checked;
+    document.querySelectorAll("#configuration-capabilities input").forEach((input) => {
+      input.disabled = disabled;
+    });
+  }
+
+  function setConfigurationLocal(local) {
+    document.querySelector("#configuration-absence").textContent = local === null
+      ? "No retained local configuration exists. Enter one complete configuration to retain it."
+      : "Editing retained local configuration for future HAC launches.";
+    if (local === null) return;
+    configurationRuntime.value = local.runtime;
+    document.querySelector("#configuration-ollama-model").value = local.ollama_model || "";
+    document.querySelector("#configuration-ollama-disable-thinking").checked = local.ollama_disable_thinking;
+    document.querySelector("#configuration-llama-server-base-url").value = local.llama_server_base_url || "";
+    document.querySelector("#configuration-llama-server-model").value = local.llama_server_model || "";
+    document.querySelector("#configuration-vllm-base-url").value = local.vllm_base_url || "";
+    document.querySelector("#configuration-vllm-model").value = local.vllm_model || "";
+    configurationCapabilitiesAbsent.checked = local.local_capabilities === null;
+    document.querySelectorAll("#configuration-capabilities input").forEach((input) => {
+      input.checked = local.local_capabilities !== null && local.local_capabilities.includes(input.value);
+    });
+    document.querySelector("#configuration-execution-limit").value = local.execution_limit === null ? "" : String(local.execution_limit);
+    updateConfigurationRuntimeFields();
+    updateConfigurationCapabilities();
+  }
+
+  async function loadConfiguration() {
+    if (configurationLoaded) return;
+    const context = requestContexts.configuration;
+    setRequestActive(context, true, "Loading retained configuration…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-local-configuration");
+      if (!response.ok) return showError(context, await safeFailure(response));
+      const responseBody = await response.json();
+      if (!Object.hasOwn(responseBody, "local")) return showError(context, "Request failed");
+      setConfigurationLocal(responseBody.local);
+      configurationLoaded = true;
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  }
+
+  configurationRuntime.addEventListener("change", updateConfigurationRuntimeFields);
+  configurationCapabilitiesAbsent.addEventListener("change", updateConfigurationCapabilities);
+  updateConfigurationRuntimeFields();
+  updateConfigurationCapabilities();
+
+  document.querySelector("#configuration-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.configuration;
+    if (context.active) return;
+    const limit = document.querySelector("#configuration-execution-limit").value;
+    const local = {
+      runtime: configurationRuntime.value,
+      ollama_model: document.querySelector("#configuration-ollama-model").value || null,
+      ollama_disable_thinking: document.querySelector("#configuration-ollama-disable-thinking").checked,
+      llama_server_base_url: document.querySelector("#configuration-llama-server-base-url").value || null,
+      llama_server_model: document.querySelector("#configuration-llama-server-model").value || null,
+      vllm_base_url: document.querySelector("#configuration-vllm-base-url").value || null,
+      vllm_model: document.querySelector("#configuration-vllm-model").value || null,
+      local_capabilities: configurationCapabilitiesAbsent.checked ? null : Array.from(document.querySelectorAll("#configuration-capabilities input:checked"), (input) => input.value),
+      execution_limit: limit === "" ? null : Number(limit),
+    };
+    setRequestActive(context, true, "Saving retained configuration…");
+    clearError(context);
+    let saved = false;
+    try {
+      const response = await fetch("/retained-local-configuration", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(local),
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      const responseBody = await response.json();
+      setConfigurationLocal(responseBody.local);
+      configurationLoaded = true;
+      saved = true;
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+    if (saved) context.status.textContent = "Retained configuration saved for future HAC launches.";
+  });
 
   function renderChat() {
     const container = document.querySelector("#chat-conversation");
@@ -427,6 +528,7 @@
       other.tabIndex = selected ? 0 : -1;
       document.querySelector(`#${other.getAttribute("aria-controls")}`).hidden = !selected;
     });
+    if (tab.id === "configuration-tab") loadConfiguration();
     if (focus) tab.focus();
   }
 

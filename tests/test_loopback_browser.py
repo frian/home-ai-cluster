@@ -238,7 +238,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "FormData" not in script
     assert "multipart/form-data" not in script
     assert ".name" not in script
-    for view in ("chat", "summarize", "classify", "code"):
+    for view in ("chat", "summarize", "classify", "code", "configuration"):
         assert (
             f'aria-live="polite" class="error" id="{view}-error" role="status"' in html
         )
@@ -260,7 +260,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'input[type="file"]::file-selector-button' in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
     assert 'tabindex="0"' in html
-    assert html.count('tabindex="-1"') == 3
+    assert html.count('tabindex="-1"') == 4
     assert "function activateTab(tab, focus = false)" in script
     assert 'event.key === "ArrowRight"' in script
     assert 'event.key === "ArrowLeft"' in script
@@ -379,8 +379,8 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert html.count('role="tab"') == 4
-    assert html.count('role="tabpanel"') == 4
+    assert html.count('role="tab"') == 5
+    assert html.count('role="tabpanel"') == 5
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html
@@ -512,6 +512,29 @@ def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> Non
     assert "select:focus-visible" in stylesheet
     assert ".header-tools" in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
+
+
+def test_configuration_view_is_retained_future_launch_configuration_only() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert 'id="configuration-tab"' in html
+    assert 'id="configuration-view"' in html
+    assert "Retained local configuration" in html
+    assert "Changes affect future HAC launches." in html
+    assert "currently running process is not reconfigured" in html
+    assert "Caller-local routing capabilities" in html
+    assert "HAC execution-permission policy" in html
+    assert "ollama" in html
+    assert "llama-server" in html
+    assert "vLLM" in html
+    assert 'fetch("/retained-local-configuration")' in script
+    assert 'method: "PUT"' in script
+    assert "Apply" not in html
+    assert "Reload" not in html
+    assert "Restart" not in html
+    assert "remote" not in html.lower().split('id="configuration-view"', 1)[1]
 
 
 def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> None:

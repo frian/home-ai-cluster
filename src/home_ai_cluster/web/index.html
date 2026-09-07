@@ -36,6 +36,7 @@
         <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" tabindex="-1" type="button">Summarize</button>
         <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" tabindex="-1" type="button">Classify</button>
         <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
+        <button aria-controls="configuration-view" aria-selected="false" id="configuration-tab" role="tab" tabindex="-1" type="button">Configuration</button>
       </nav>
 
       <section aria-labelledby="chat-tab" class="capability-panel" id="chat-view" role="tabpanel">
@@ -100,6 +101,23 @@
         </form>
         <p aria-live="polite" class="error" id="code-error" role="status"></p>
         <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
+      </section>
+
+      <section aria-labelledby="configuration-tab" class="capability-panel" hidden id="configuration-view" role="tabpanel">
+        <header class="panel-heading"><h2>Retained local configuration</h2><p>Changes affect future HAC launches. The currently running process is not reconfigured.</p></header>
+        <p id="configuration-absence">Loading retained local configuration…</p>
+        <form id="configuration-form">
+          <label for="configuration-runtime">Runtime</label>
+          <select id="configuration-runtime" required><option value="">Choose a retained runtime</option><option value="ollama">ollama</option><option value="llama-server">llama-server</option><option value="vllm">vLLM</option></select>
+          <fieldset data-runtime="ollama"><legend>Ollama retained values</legend><label for="configuration-ollama-model">Model (not retained when blank)</label><input id="configuration-ollama-model"><label><input id="configuration-ollama-disable-thinking" type="checkbox"> Retain disabled Ollama thinking</label></fieldset>
+          <fieldset data-runtime="llama-server"><legend>llama-server retained values</legend><label for="configuration-llama-server-base-url">Loopback base URL</label><input id="configuration-llama-server-base-url"><label for="configuration-llama-server-model">Model</label><input id="configuration-llama-server-model"></fieldset>
+          <fieldset data-runtime="vllm"><legend>vLLM retained values</legend><label for="configuration-vllm-base-url">Loopback base URL</label><input id="configuration-vllm-base-url"><label for="configuration-vllm-model">Served-model identity</label><input id="configuration-vllm-model"></fieldset>
+          <fieldset><legend>Caller-local routing capabilities</legend><label><input id="configuration-capabilities-absent" type="checkbox" checked> Not retained</label><div id="configuration-capabilities"><label><input type="checkbox" value="chat"> chat</label><label><input type="checkbox" value="summarize"> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label></div></fieldset>
+          <label for="configuration-execution-limit">HAC execution-permission policy (not retained when blank)</label><input id="configuration-execution-limit" inputmode="numeric" type="number" min="1">
+          <div class="form-actions"><button data-submit type="submit">Save retained configuration</button></div>
+        </form>
+        <p aria-live="polite" class="error" id="configuration-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="configuration-status" role="status"></p>
       </section>
     </main>
     <script src="/assets/app.js"></script>

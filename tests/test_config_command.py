@@ -133,6 +133,36 @@ def test_show_rejects_unexpected_options(capsys: pytest.CaptureFixture[str]) -> 
     assert "unrecognized arguments" in err
 
 
+def test_local_command_uses_shared_retained_local_semantic_authority(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[str] = []
+    build = config_command.build_retained_local_configuration
+    replace = config_command.replace_retained_local_configuration
+
+    def recording_build(**kwargs: object) -> RetainedLocalConfiguration:
+        calls.append("build")
+        return build(**kwargs)
+
+    def recording_replace(local: RetainedLocalConfiguration) -> None:
+        calls.append("replace")
+        replace(local)
+
+    monkeypatch.setattr(
+        config_command, "build_retained_local_configuration", recording_build
+    )
+    monkeypatch.setattr(
+        config_command, "replace_retained_local_configuration", recording_replace
+    )
+
+    assert _run(capsys, ["local", "--runtime", "ollama"]) == (
+        0,
+        "local configuration retained\n",
+        "",
+    )
+    assert calls == ["build", "replace"]
+
+
 def test_whole_reset_removes_valid_configuration_and_show_is_empty(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

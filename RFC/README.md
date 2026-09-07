@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0113: Bounded Loopback Retained Remote-Node Configuration Browser Facade](RFC-0113-bounded-loopback-retained-remote-node-configuration-browser-facade.md)
+  — accepts one native-loopback browser facade over caller-owned retained `hac
+  config node` declarations with shared add/update/remove validation and order
+  semantics, future-invocation-only effects, inert configured values,
+  RFC-0112 same-origin mutation authority, exact receiver isolation, and no
+  remote administration, observation, discovery, or control-plane authority.
+
 - [RFC-0112: Bounded Loopback Retained Local Configuration Browser Facade](RFC-0112-bounded-loopback-retained-local-configuration-browser-facade.md)
   — accepts one native-loopback browser facade over retained local configuration
   with shared CLI/browser validation and complete replacement, retained state

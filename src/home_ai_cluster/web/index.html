@@ -104,7 +104,8 @@
       </section>
 
       <section aria-labelledby="configuration-tab" class="capability-panel" hidden id="configuration-view" role="tabpanel">
-        <header class="panel-heading"><h2>Retained local configuration</h2><p>Changes affect future HAC launches. The currently running process is not reconfigured.</p></header>
+        <header class="panel-heading"><h2>Retained configuration</h2><p>Changes affect future HAC launches. The currently running process is not reconfigured.</p></header>
+        <h3>Local configuration</h3>
         <p id="configuration-absence">Loading retained local configuration…</p>
         <form id="configuration-form">
           <label for="configuration-runtime">Runtime</label>
@@ -118,6 +119,20 @@
         </form>
         <p aria-live="polite" class="error" id="configuration-error" role="status"></p>
         <p aria-live="polite" class="request-status" id="configuration-status" role="status"></p>
+        <section class="remote-nodes" aria-labelledby="remote-nodes-heading">
+          <h3 id="remote-nodes-heading">Remote nodes</h3>
+          <p>Caller-owned retained declarations. Saving does not contact the configured node.</p>
+          <div id="remote-nodes-list"></div>
+          <form id="remote-node-form">
+            <h4 id="remote-node-form-heading">Add remote node</h4>
+            <label for="remote-node-id">Node ID</label><input id="remote-node-id" required>
+            <label for="remote-node-base-url">Configured base URL</label><input id="remote-node-base-url" required>
+            <fieldset><legend>Caller-declared allowed capabilities</legend><div id="remote-node-capabilities"><label><input type="checkbox" value="chat" checked> chat</label><label><input type="checkbox" value="summarize" checked> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label></div></fieldset>
+            <div class="form-actions"><button id="remote-node-cancel" hidden type="button">Cancel edit</button><button data-submit type="submit">Save remote node</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="remote-node-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="remote-node-status" role="status"></p>
+        </section>
       </section>
     </main>
     <script src="/assets/app.js"></script>

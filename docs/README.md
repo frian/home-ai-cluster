@@ -86,6 +86,10 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [RFC-0113 retained remote-node proof](rfc-0113-retained-remote-node-proof.md)
+  — retains the completed real `sat` + `rasp` operator proof that browser
+  remote-node mutation changes caller-owned retained future state immediately,
+  leaves the running process unchanged, and is consumed by the next launch.
 - [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
   — documents the adapter-owned, capability-centered seam for a possible
   per-node Ollama model argument; it authorizes no implementation or RFC.

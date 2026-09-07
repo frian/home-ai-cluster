@@ -16,6 +16,7 @@
     classify: createRequestContext("#classify-form", "#classify-error", "#classify-status"),
     code: createRequestContext("#code-form", "#code-error", "#code-status"),
     configuration: createRequestContext("#configuration-form", "#configuration-error", "#configuration-status"),
+    remoteNodes: createRequestContext("#remote-node-form", "#remote-node-error", "#remote-node-status"),
   };
 
   function createRequestContext(formSelector, errorSelector, statusSelector) {
@@ -132,7 +133,13 @@
 
   const configurationRuntime = document.querySelector("#configuration-runtime");
   const configurationCapabilitiesAbsent = document.querySelector("#configuration-capabilities-absent");
+  const remoteNodeForm = document.querySelector("#remote-node-form");
+  const remoteNodeId = document.querySelector("#remote-node-id");
+  const remoteNodeBaseUrl = document.querySelector("#remote-node-base-url");
+  const remoteNodeCancel = document.querySelector("#remote-node-cancel");
+  const remoteNodesList = document.querySelector("#remote-nodes-list");
   let configurationLoaded = false;
+  let editingRemoteNodeId = null;
 
   function updateConfigurationRuntimeFields() {
     document.querySelectorAll("[data-runtime]").forEach((fieldset) => {
@@ -168,15 +175,81 @@
     updateConfigurationCapabilities();
   }
 
+  function resetRemoteNodeForm() {
+    editingRemoteNodeId = null;
+    remoteNodeForm.reset();
+    remoteNodeId.readOnly = false;
+    remoteNodeId.value = "";
+    document.querySelector("#remote-node-form-heading").textContent = "Add remote node";
+    remoteNodeCancel.hidden = true;
+    document.querySelectorAll("#remote-node-capabilities input").forEach((input) => {
+      input.checked = input.value === "chat" || input.value === "summarize";
+    });
+  }
+
+  function setRemoteNodes(nodes) {
+    remoteNodesList.replaceChildren();
+    if (nodes.length === 0) {
+      const absent = document.createElement("p");
+      absent.textContent = "No retained remote nodes.";
+      remoteNodesList.append(absent);
+      return;
+    }
+    nodes.forEach((node) => {
+      const entry = document.createElement("article");
+      entry.className = "remote-node";
+      const name = document.createElement("h4");
+      name.textContent = node.node_id;
+      const baseUrl = document.createElement("p");
+      baseUrl.textContent = `Configured base URL: ${node.base_url}`;
+      const capabilities = document.createElement("p");
+      capabilities.textContent = `Caller-declared allowed capabilities: ${node.capabilities.join(", ")}`;
+      const actions = document.createElement("div");
+      actions.className = "remote-node-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.textContent = "Edit";
+      edit.addEventListener("click", () => {
+        editingRemoteNodeId = node.node_id;
+        remoteNodeId.value = node.node_id;
+        remoteNodeId.readOnly = true;
+        remoteNodeBaseUrl.value = node.base_url;
+        document.querySelectorAll("#remote-node-capabilities input").forEach((input) => {
+          input.checked = node.capabilities.includes(input.value);
+        });
+        document.querySelector("#remote-node-form-heading").textContent = "Edit remote node";
+        remoteNodeCancel.hidden = false;
+      });
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "Remove";
+      remove.addEventListener("click", () => removeRemoteNode(node.node_id));
+      actions.append(edit, remove);
+      entry.append(name, baseUrl, capabilities, actions);
+      remoteNodesList.append(entry);
+    });
+  }
+
+  async function loadRemoteNodes() {
+    const response = await fetch("/retained-remote-nodes");
+    if (!response.ok) throw new Error("request failed");
+    const body = await response.json();
+    if (!Array.isArray(body.remote_nodes)) throw new Error("request failed");
+    setRemoteNodes(body.remote_nodes);
+  }
+
   async function loadConfiguration() {
     if (configurationLoaded) return;
     const context = requestContexts.configuration;
     setRequestActive(context, true, "Loading retained configuration…");
     clearError(context);
     try {
-      const response = await fetch("/retained-local-configuration");
-      if (!response.ok) return showError(context, await safeFailure(response));
-      const responseBody = await response.json();
+      const [localResponse] = await Promise.all([
+        fetch("/retained-local-configuration"),
+        loadRemoteNodes(),
+      ]);
+      if (!localResponse.ok) return showError(context, await safeFailure(localResponse));
+      const responseBody = await localResponse.json();
       if (!Object.hasOwn(responseBody, "local")) return showError(context, "Request failed");
       setConfigurationLocal(responseBody.local);
       configurationLoaded = true;
@@ -189,8 +262,10 @@
 
   configurationRuntime.addEventListener("change", updateConfigurationRuntimeFields);
   configurationCapabilitiesAbsent.addEventListener("change", updateConfigurationCapabilities);
+  remoteNodeCancel.addEventListener("click", resetRemoteNodeForm);
   updateConfigurationRuntimeFields();
   updateConfigurationCapabilities();
+  resetRemoteNodeForm();
 
   document.querySelector("#configuration-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -229,6 +304,58 @@
     }
     if (saved) context.status.textContent = "Retained configuration saved for future HAC launches.";
   });
+
+  remoteNodeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.remoteNodes;
+    if (context.active) return;
+    const nodeId = editingRemoteNodeId || remoteNodeId.value;
+    const body = {
+      base_url: remoteNodeBaseUrl.value,
+      capabilities: Array.from(document.querySelectorAll("#remote-node-capabilities input:checked"), (input) => input.value),
+    };
+    setRequestActive(context, true, "Saving retained remote node…");
+    clearError(context);
+    let saved = false;
+    try {
+      const response = await fetch(`/retained-remote-nodes/${encodeURIComponent(nodeId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      await loadRemoteNodes();
+      resetRemoteNodeForm();
+      saved = true;
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+    if (saved) context.status.textContent = "Retained remote node saved for future HAC launches.";
+  });
+
+  async function removeRemoteNode(nodeId) {
+    const context = requestContexts.remoteNodes;
+    if (context.active) return;
+    setRequestActive(context, true, "Removing retained remote node…");
+    clearError(context);
+    let removed = false;
+    try {
+      const response = await fetch(`/retained-remote-nodes/${encodeURIComponent(nodeId)}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      await loadRemoteNodes();
+      if (editingRemoteNodeId === nodeId) resetRemoteNodeForm();
+      removed = true;
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+    if (removed) context.status.textContent = "Retained remote node removed for future HAC launches.";
+  }
 
   function renderChat() {
     const container = document.querySelector("#chat-conversation");

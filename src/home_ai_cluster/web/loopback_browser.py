@@ -12,9 +12,13 @@ from home_ai_cluster.retained_configuration import (
     RetainedLocalConfiguration,
     browser_retained_local_shape_is_supported,
     build_retained_local_configuration,
+    build_retained_remote_node_declaration,
     load_retained_configuration,
+    remove_retained_remote_node,
     replace_retained_local_configuration,
+    replace_retained_remote_node,
 )
+from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 
 _WEB_DIRECTORY = Path(__file__).parent
 _CACHE_HEADERS = {"Cache-Control": "no-store"}
@@ -31,6 +35,7 @@ _LOCAL_DOCUMENT_KEYS = (
     "local_capabilities",
     "execution_limit",
 )
+_REMOTE_NODE_DOCUMENT_KEYS = ("base_url", "capabilities")
 
 
 def _browser_local_document(local: RetainedLocalConfiguration) -> dict[str, object]:
@@ -65,6 +70,32 @@ def _local_from_browser_document(document: Any) -> RetainedLocalConfiguration:
         vllm_model=document["vllm_model"],
         local_capabilities=document["local_capabilities"],
         execution_limit=document["execution_limit"],
+    )
+
+
+def _browser_remote_node_document(node: RemoteNodeDeclaration) -> dict[str, object]:
+    return {
+        "node_id": node.node_id,
+        "base_url": node.base_url,
+        "capabilities": list(node.capabilities),
+    }
+
+
+def _remote_node_from_browser_document(
+    node_id: str, document: Any
+) -> RemoteNodeDeclaration:
+    if not isinstance(document, dict) or set(document) != set(
+        _REMOTE_NODE_DOCUMENT_KEYS
+    ):
+        raise ValueError("invalid retained remote node")
+    if not isinstance(document["base_url"], str) or not isinstance(
+        document["capabilities"], list
+    ):
+        raise ValueError("invalid retained remote node")
+    return build_retained_remote_node_declaration(
+        node_id=node_id,
+        base_url=document["base_url"],
+        capabilities=document["capabilities"],
     )
 
 
@@ -162,6 +193,72 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                 status_code=400, detail="unable to retain local configuration"
             ) from None
         return JSONResponse({"local": _browser_local_document(local)})
+
+    @app.get("/retained-remote-nodes", include_in_schema=False)
+    def retained_remote_nodes(request: Request) -> JSONResponse:
+        if not _has_native_host_authority(request, _native_authority(request)):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        try:
+            configuration = load_retained_configuration()
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400, detail="retained remote nodes unavailable"
+            ) from None
+        return JSONResponse(
+            {
+                "remote_nodes": [
+                    _browser_remote_node_document(node)
+                    for node in configuration.remote_nodes
+                ]
+            }
+        )
+
+    @app.put("/retained-remote-nodes/{node_id:path}", include_in_schema=False)
+    async def replace_retained_remote_node_route(
+        node_id: str, request: Request
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            declaration = _remote_node_from_browser_document(
+                node_id, await request.json()
+            )
+            replace_retained_remote_node(declaration)
+        except (
+            json.JSONDecodeError,
+            RetainedConfigurationError,
+            TypeError,
+            ValueError,
+        ):
+            raise HTTPException(
+                status_code=400, detail="invalid retained remote node"
+            ) from None
+        return JSONResponse({"remote_node": _browser_remote_node_document(declaration)})
+
+    @app.delete("/retained-remote-nodes/{node_id:path}", include_in_schema=False)
+    def remove_retained_remote_node_route(
+        node_id: str, request: Request
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        try:
+            removed = remove_retained_remote_node(node_id)
+        except (RetainedConfigurationError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="invalid retained remote node"
+            ) from None
+        if not removed:
+            raise HTTPException(status_code=404, detail="retained node not found")
+        return JSONResponse({"removed": node_id})
 
     @app.get("/assets/pdfjs-6.2.108/pdf.min.mjs", include_in_schema=False)
     def pdfjs_main() -> FileResponse:

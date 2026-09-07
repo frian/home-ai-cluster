@@ -521,7 +521,10 @@ def test_configuration_view_is_retained_future_launch_configuration_only() -> No
 
     assert 'id="configuration-tab"' in html
     assert 'id="configuration-view"' in html
-    assert "Retained local configuration" in html
+    assert "Retained configuration" in html
+    assert "Local configuration" in html
+    assert "Remote nodes" in html
+    assert "Caller-owned retained declarations" in html
     assert "Changes affect future HAC launches." in html
     assert "currently running process is not reconfigured" in html
     assert "Caller-local routing capabilities" in html
@@ -537,11 +540,18 @@ def test_configuration_view_is_retained_future_launch_configuration_only() -> No
     assert "llama-server" in html
     assert "vLLM" in html
     assert 'fetch("/retained-local-configuration")' in script
+    assert 'fetch("/retained-remote-nodes")' in script
     assert 'method: "PUT"' in script
     assert "Apply" not in html
     assert "Reload" not in html
     assert "Restart" not in html
-    assert "remote" not in html.lower().split('id="configuration-view"', 1)[1]
+    assert "Configured base URL" in html
+    assert "Caller-declared allowed capabilities" in html
+    assert "readOnly = true" in script
+    assert "innerHTML" not in script
+    assert "Connection test" not in html
+    assert "health" not in html.lower()
+    assert "drag" not in html.lower()
 
 
 def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> None:

@@ -167,6 +167,77 @@ def replace_retained_local_configuration(
     )
 
 
+def build_retained_remote_node_declaration(
+    *,
+    node_id: str,
+    base_url: str,
+    capabilities: list[str] | tuple[str, ...],
+) -> RemoteNodeDeclaration:
+    """Build one retained remote-node declaration using existing validators."""
+    try:
+        validated_node_id = remote_node_id(node_id)
+        validated_base_url = remote_base_url(base_url)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+    return RemoteNodeDeclaration(
+        node_id=validated_node_id,
+        base_url=validated_base_url,
+        capabilities=validate_static_capabilities(capabilities, subject="remote"),
+    )
+
+
+def replace_retained_remote_node(
+    declaration: RemoteNodeDeclaration,
+    path: Path | None = None,
+) -> None:
+    """Add or replace one remote node while retaining every other domain."""
+    configuration = load_retained_configuration(path)
+    nodes = list(configuration.remote_nodes)
+    for index, node in enumerate(nodes):
+        if node.node_id == declaration.node_id:
+            nodes[index] = declaration
+            break
+    else:
+        nodes.append(declaration)
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=configuration.local,
+            remote_nodes=tuple(nodes),
+            external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
+        ),
+        path,
+    )
+
+
+def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
+    """Remove one retained remote node, returning false when it is absent."""
+    try:
+        validated_node_id = remote_node_id(node_id)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+    configuration = load_retained_configuration(path)
+    nodes = tuple(
+        node for node in configuration.remote_nodes if node.node_id != validated_node_id
+    )
+    if len(nodes) == len(configuration.remote_nodes):
+        return False
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=configuration.local,
+            remote_nodes=nodes,
+            external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
+        ),
+        path,
+    )
+    return True
+
+
 def browser_retained_local_shape_is_supported(local: object) -> bool:
     """Keep browser mutation closed when either retained local domain grows."""
     if not isinstance(local, RetainedLocalConfiguration):

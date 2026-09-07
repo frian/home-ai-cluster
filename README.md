@@ -97,12 +97,13 @@ hac chat "Hello"
 
 With `hac local` running, open `http://127.0.0.1:25042/` in a browser on the
 same machine to use the fixed loopback interface for Chat, Summarize, Classify,
-Code, and retained local configuration. The Configuration view changes only the
-retained local baseline for future ordinary HAC launches; it does not
-reconfigure the running process and provides no remote or network
-configuration. The same URL is available on the calling machine while the
-ordinary `hac static-cluster` process is running; it is not a dashboard or LAN
-administration interface.
+Code, and retained configuration. The Configuration view changes only retained
+local configuration and caller-owned retained remote-node declarations for
+future ordinary HAC launches; it does not reconfigure the running process.
+Remote declarations are not remote administration, and saving them does not
+probe or contact the configured node. The same URL is available on the calling
+machine while the ordinary `hac static-cluster` process is running; it is not a
+dashboard or LAN administration interface.
 
 ### Repository checkout
 

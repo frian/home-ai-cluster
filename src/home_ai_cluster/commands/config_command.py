@@ -18,13 +18,15 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     RetainedLocalConfiguration,
     build_retained_local_configuration,
+    build_retained_remote_node_declaration,
     load_retained_configuration,
     remove_retained_configuration,
+    remove_retained_remote_node,
     replace_retained_local_configuration,
+    replace_retained_remote_node,
     save_retained_configuration,
     validate_external_information_plugin_name,
 )
-from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 
@@ -219,18 +221,16 @@ def _local_configuration(
         parser.error(str(error))
 
 
-def _node_declaration(
-    parser: argparse.ArgumentParser, args: argparse.Namespace
-) -> RemoteNodeDeclaration:
+def _node_declaration(parser: argparse.ArgumentParser, args: argparse.Namespace):
     if args.base_url is None:
         parser.error("--base-url is required unless --remove")
     capabilities = _validated_capabilities(parser, args.capability, subject="remote")
-    return RemoteNodeDeclaration(
+    return build_retained_remote_node_declaration(
         node_id=args.node_id,
         base_url=args.base_url,
-        capabilities=(
-            DEFAULT_STATIC_CAPABILITY_NAMES if capabilities is None else capabilities
-        ),
+        capabilities=DEFAULT_STATIC_CAPABILITY_NAMES
+        if capabilities is None
+        else capabilities,
     )
 
 
@@ -355,45 +355,14 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
 def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.remove:
         _validate_remove(parser, args)
-        configuration = load_retained_configuration()
-        nodes = tuple(
-            node for node in configuration.remote_nodes if node.node_id != args.node_id
-        )
-        if len(nodes) == len(configuration.remote_nodes):
+        if not remove_retained_remote_node(args.node_id):
             print("error: retained node not found", file=sys.stderr)
             raise SystemExit(1)
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            )
-        )
         print("node configuration removed")
         return
 
     declaration = _node_declaration(parser, args)
-    configuration = load_retained_configuration()
-    nodes = list(configuration.remote_nodes)
-    for index, node in enumerate(nodes):
-        if node.node_id == declaration.node_id:
-            nodes[index] = declaration
-            break
-    else:
-        nodes.append(declaration)
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=tuple(nodes),
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_remote_node(declaration)
     print("node configuration retained")
 
 

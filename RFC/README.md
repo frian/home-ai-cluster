@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0112: Bounded Loopback Retained Local Configuration Browser Facade](RFC-0112-bounded-loopback-retained-local-configuration-browser-facade.md)
+  — accepts one native-loopback browser facade over retained local configuration
+  with shared CLI/browser validation and complete replacement, retained state
+  distinct from current process truth, bounded Host/exact-same-origin mutation,
+  receiver/topology/runtime-config/multi-binding exclusions, and fail-closed
+  future-domain evolution.
+
 - [RFC-0111: Explicit Receiver Authority Activation](RFC-0111-explicit-receiver-authority-activation.md)
   — accepts additive `hac local --receiver-host` receiver activation with one
   foreground process, one local composition/node/execution scope, loopback-only

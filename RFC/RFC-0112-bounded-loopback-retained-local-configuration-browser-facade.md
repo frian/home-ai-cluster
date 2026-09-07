@@ -1,6 +1,6 @@
 # RFC-0112: Bounded Loopback Retained Local Configuration Browser Facade
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-07
 
@@ -8,7 +8,7 @@ Author: frian
 
 ## Summary
 
-This Draft proposes one bounded second local facade for the retained local HAC
+This RFC accepts one bounded second local facade for the retained local HAC
 configuration already accepted by RFC-0094:
 
 ```text
@@ -63,7 +63,7 @@ dashboard, cluster control plane, or live process manager.
 
 ## Non-goals
 
-This Draft does not introduce a generic configuration API or framework, direct
+This RFC does not introduce a generic configuration API or framework, direct
 retained-file editing, partial PATCH or merge semantics, browser defaults,
 live reconfiguration, Apply/Reload/Restart, lifecycle management, model
 discovery or download, runtime installation or supervision, health/status or
@@ -195,7 +195,7 @@ required for the first proof and must never create a partial reset/merge path.
 An open page can become stale if another local operation changes retained
 state. A later complete browser save may replace that newer domain: this is the
 accepted last-writer-wins consequence of complete-domain replacement. This
-Draft does not add ETags, revisions, compare-and-swap, optimistic locking,
+RFC does not add ETags, revisions, compare-and-swap, optimistic locking,
 merge conflict resolution, or distributed coordination.
 
 ### Request-authority boundary
@@ -363,7 +363,7 @@ configuration view, one bounded retained-local read surface, one complete-domain
 replacement mutation surface, controls representing every mutable local fact,
 the stated request-authority checks, minimal shared semantic-authority reuse,
 focused frontend/backend and route-isolation tests, and operator documentation.
-It must not implement anything outside this Draft's non-goals. This RFC PR
+It must not implement anything outside this RFC's non-goals. This RFC PR
 authorizes none of that implementation.
 
 ## Proof expectations
@@ -392,13 +392,22 @@ A later implementation must prove at minimum that:
 
 ## Open questions
 
-None remain within this Draft's proposed boundary. A future retained
+None remain within this RFC's accepted boundary. A future retained
 multi-binding domain, general local authentication, or a demonstrated stale
 state product problem requires separate RFC consideration.
 
 ## Decision
 
-Pending review. This Draft proposes that Home AI Cluster accept the bounded
-native-loopback retained-local configuration browser facade described above;
-no implementation is authorized unless and until this RFC is reviewed and
-accepted.
+Home AI Cluster accepts one native-loopback-only browser facade over the
+existing retained-local configuration domain. It shares retained-local semantic
+validation and complete-domain replacement with `hac config local`, represents
+retained future-invocation state rather than the running process, and accepts
+mutation only at HAC's accepted native Host authority with an exact same-origin
+`Origin` on the effective native port.
+
+The facade excludes receiver authority, topology and network configuration,
+`--runtime-config`, retained multi-binding, live reconfiguration, CORS, and
+general authentication. Later retained-local facts do not automatically gain
+browser authority; until an explicit accepted decision extends this facade,
+browser mutation must fail closed rather than rewrite an unrepresented fact.
+This decision introduces no dashboard, control plane, or lifecycle authority.

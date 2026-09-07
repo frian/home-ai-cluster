@@ -1,6 +1,6 @@
 # RFC-0113: Bounded Loopback Retained Remote-Node Configuration Browser Facade
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-07
 
@@ -364,13 +364,18 @@ observation, or topology-model change requires a separate RFC.
 
 ## Decision
 
-Proposed: Home AI Cluster should extend RFC-0112's native-loopback browser
-facade to the already accepted caller-owned retained `hac config node` domain.
-The browser would read and mutate only retained remote-node declarations for
-future ordinary invocations, with existing add/update/remove and ordering
-semantics, shared validation, inert configured values, native-only
-same-origin mutation authority, and exact receiver isolation.
+Home AI Cluster accepts extending RFC-0112's native-loopback browser facade to
+the already accepted caller-owned retained `hac config node` domain. The
+browser reads and mutates retained remote-node declarations only for future
+ordinary invocations, preserving existing add, update, removal, and declaration
+order semantics. Browser and CLI share the same authoritative validation and
+semantic authority. Configured node IDs, base URLs, and caller-declared allowed
+capabilities remain inert retained data; `node_id` remains immutable during an
+update. Retained mutation does not change the current running process or its
+topology.
 
-It would not configure or observe remote machines, activate configured URLs,
-change the running process, create a whole-topology or generic configuration
-API, or add a dashboard, control plane, CORS, TLS, or authentication framework.
+The facade reuses RFC-0112's accepted native Host and exact same-origin Origin
+mutation authority, and RFC-0109 receiver isolation remains exact. It does not
+accept remote administration, observation, probing, discovery, live
+reconfiguration, reorder authority, dashboard, control plane, CORS, TLS, or an
+authentication framework.

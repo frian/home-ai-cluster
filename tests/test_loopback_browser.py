@@ -525,7 +525,7 @@ def test_configuration_view_is_retained_future_launch_configuration_only() -> No
     assert "Changes affect future HAC launches." in html
     assert "currently running process is not reconfigured" in html
     assert "Caller-local routing capabilities" in html
-    assert "HAC execution-permission policy" in html
+    assert "Maximum concurrent HAC executions" in html
     execution_limit_input = html.split('id="configuration-execution-limit"', 1)[
         1
     ].split(">", 1)[0]

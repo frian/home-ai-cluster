@@ -179,6 +179,14 @@ or re-submit stale hidden values. Values inapplicable to a selected runtime do
 not need to appear as active values; the existing runtime-domain validation
 remains authoritative.
 
+RFC-0112 authorizes browser read/write only for the retained-local facts within
+this accepted bounded domain. A later retained-local fact does not automatically
+extend browser authority merely because it is added to retained configuration.
+Its later architectural decision must explicitly decide whether and how it
+participates in this facade. Until then, browser mutation must fail closed
+rather than silently preserve, reset, drop, merge, or otherwise rewrite that
+unrepresented fact. The detection mechanism is an implementation detail.
+
 Existing CLI reset/removal authority remains valid. A later implementation may
 separately expose the existing complete local-domain removal operation under
 the same semantic and request-authority rules, but browser reset is not
@@ -369,15 +377,17 @@ A later implementation must prove at minimum that:
    same validation and replacement behavior as the CLI;
 4. every mutable local fact is explicitly represented, with no hidden preserve,
    reset, or merge, and invalid configuration does not mutate state;
-5. unacceptable Host authority prevents disclosure/mutation as applicable, and
+5. a later unsupported retained-local fact cannot be silently lost, preserved,
+   reset, dropped, merged, or otherwise rewritten by browser mutation;
+6. unacceptable Host authority prevents disclosure/mutation as applicable, and
    absent, `null`, or foreign Origin prevents mutation before persistence;
-6. exact same-origin mutation works on a non-default effective native port and
+7. exact same-origin mutation works on a non-default effective native port and
    grants no unrelated-origin CORS authority;
-7. retained mutation does not change the running `LocalAppComposition`, while a
+8. retained mutation does not change the running `LocalAppComposition`, while a
    future ordinary invocation consumes the retained baseline under RFC-0094;
-8. `--runtime-config` remains separate and uninspected, retained multi-binding
+9. `--runtime-config` remains separate and uninspected, retained multi-binding
    is absent, and remote/receiver/network configuration remains unexposed; and
-9. existing CLI configuration, native browser behavior, and RFC-0109/RFC-0111
+10. existing CLI configuration, native browser behavior, and RFC-0109/RFC-0111
    route isolation remain compatible.
 
 ## Open questions

@@ -65,7 +65,8 @@ configure the caller's retained declaration of a remote node
 configure the remote node
 ```
 
-The latter remains outside Home AI Cluster's accepted architecture.
+The latter remains outside this caller-side browser authority. A remote machine
+continues to own and configure its own local HAC state locally.
 
 ## Goals
 
@@ -131,7 +132,8 @@ remain implementation details.
 
 The browser represents caller-owned retained remote-node declarations: the
 caller-side static topology and eligibility facts that RFC-0094 already
-assigns to `config node`. It does not represent another machine.
+assigns to `config node`. It does not expose or mutate another machine's local
+configuration.
 
 Each declaration exposes only these already accepted retained facts:
 

@@ -113,7 +113,7 @@
           <fieldset data-runtime="llama-server"><legend>llama-server retained values</legend><label for="configuration-llama-server-base-url">Loopback base URL</label><input id="configuration-llama-server-base-url"><label for="configuration-llama-server-model">Model</label><input id="configuration-llama-server-model"></fieldset>
           <fieldset data-runtime="vllm"><legend>vLLM retained values</legend><label for="configuration-vllm-base-url">Loopback base URL</label><input id="configuration-vllm-base-url"><label for="configuration-vllm-model">Served-model identity</label><input id="configuration-vllm-model"></fieldset>
           <fieldset><legend>Caller-local routing capabilities</legend><label><input id="configuration-capabilities-absent" type="checkbox" checked> Not retained</label><div id="configuration-capabilities"><label><input type="checkbox" value="chat"> chat</label><label><input type="checkbox" value="summarize"> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label></div></fieldset>
-          <label for="configuration-execution-limit">HAC execution-permission policy (not retained when blank)</label><input id="configuration-execution-limit" inputmode="numeric" type="number" min="1">
+          <label for="configuration-execution-limit">Maximum concurrent HAC executions (not retained when blank)</label><input id="configuration-execution-limit" inputmode="numeric" type="number" min="1" placeholder="Positive integer">
           <div class="form-actions"><button data-submit type="submit">Save retained configuration</button></div>
         </form>
         <p aria-live="polite" class="error" id="configuration-error" role="status"></p>

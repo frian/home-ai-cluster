@@ -521,13 +521,42 @@ def test_create_local_runtime_app_attaches_loopback_browser_routes(
     monkeypatch.setattr(
         local_runtime,
         "add_loopback_browser_routes",
-        lambda app: calls.append("browser") or browser_app,
+        lambda app, **_: calls.append("browser") or browser_app,
     )
 
     result = local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
 
     assert result is browser_app
     assert calls == ["browser"]
+
+
+def test_create_local_runtime_app_passes_effective_native_port_to_browser_routes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        local_runtime,
+        "create_local_runtime_composition",
+        lambda **_: object(),
+    )
+    monkeypatch.setattr(local_runtime, "create_app", lambda **_: app)
+
+    def add_routes(browser_app: FastAPI, *, native_port: int) -> FastAPI:
+        captured["app"] = browser_app
+        captured["port"] = native_port
+        return browser_app
+
+    monkeypatch.setattr(local_runtime, "add_loopback_browser_routes", add_routes)
+
+    assert (
+        local_runtime.create_local_runtime_app(
+            local_runtime.parse_args(["--port", "25123"])
+        )
+        is app
+    )
+    assert captured == {"app": app, "port": 25123}
 
 
 def test_invalid_input_does_not_start_server(

@@ -11,16 +11,16 @@ from home_ai_cluster.core.static_capabilities import (
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
-    LocalRuntimeCompositionValues,
     non_empty_value,
-    validate_local_runtime_values,
 )
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     RetainedLocalConfiguration,
+    build_retained_local_configuration,
     load_retained_configuration,
     remove_retained_configuration,
+    replace_retained_local_configuration,
     save_retained_configuration,
     validate_external_information_plugin_name,
 )
@@ -202,7 +202,7 @@ def _local_configuration(
     if args.runtime is None:
         parser.error("--runtime is required unless --reset")
     try:
-        llama_base_url, vllm_base_url = validate_local_runtime_values(
+        return build_retained_local_configuration(
             runtime=args.runtime,
             ollama_model=args.ollama_model,
             ollama_disable_thinking=args.ollama_disable_thinking,
@@ -210,24 +210,13 @@ def _local_configuration(
             llama_server_model=args.llama_server_model,
             vllm_base_url=args.vllm_base_url,
             vllm_model=args.vllm_model,
+            local_capabilities=args.local_capability,
+            execution_limit=args.execution_limit,
         )
     except LocalRuntimeCompositionError as error:
         parser.error(str(error))
-    return RetainedLocalConfiguration(
-        runtime=LocalRuntimeCompositionValues(
-            runtime=args.runtime,
-            ollama_model=args.ollama_model,
-            ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=llama_base_url,
-            llama_server_model=args.llama_server_model,
-            vllm_base_url=vllm_base_url,
-            vllm_model=args.vllm_model,
-        ),
-        local_capabilities=_validated_capabilities(
-            parser, args.local_capability, subject="local"
-        ),
-        execution_limit=args.execution_limit,
-    )
+    except ValueError as error:
+        parser.error(str(error))
 
 
 def _node_declaration(
@@ -359,17 +348,7 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         print("local configuration reset")
         return
     local = _local_configuration(parser, args)
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_local_configuration(local)
     print("local configuration retained")
 
 

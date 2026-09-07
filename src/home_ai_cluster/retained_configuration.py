@@ -5,7 +5,7 @@ import json
 import os
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +83,100 @@ class RetainedConfiguration:
     remote_nodes: tuple[RemoteNodeDeclaration, ...] = ()
     external_information_plugin: str | None = None
     chat_external_information_fallback: bool = False
+
+
+_BROWSER_LOCAL_FIELDS = (
+    "runtime",
+    "local_capabilities",
+    "execution_limit",
+)
+_BROWSER_RUNTIME_FIELDS = (
+    "runtime",
+    "ollama_model",
+    "ollama_disable_thinking",
+    "llama_server_base_url",
+    "llama_server_model",
+    "vllm_base_url",
+    "vllm_model",
+)
+
+
+def build_retained_local_configuration(
+    *,
+    runtime: str,
+    ollama_model: str | None,
+    ollama_disable_thinking: bool,
+    llama_server_base_url: str | None,
+    llama_server_model: str | None,
+    vllm_base_url: str | None,
+    vllm_model: str | None,
+    local_capabilities: list[str] | tuple[str, ...] | None,
+    execution_limit: int | None,
+) -> RetainedLocalConfiguration:
+    """Build one complete retained-local domain using its existing validation."""
+    llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
+        runtime=runtime,
+        ollama_model=ollama_model,
+        ollama_disable_thinking=ollama_disable_thinking,
+        llama_server_base_url=llama_server_base_url,
+        llama_server_model=llama_server_model,
+        vllm_base_url=vllm_base_url,
+        vllm_model=vllm_model,
+    )
+    if local_capabilities is None:
+        capabilities = None
+    else:
+        capabilities = validate_static_capabilities(local_capabilities, subject="local")
+    if execution_limit is not None and (
+        isinstance(execution_limit, bool)
+        or not isinstance(execution_limit, int)
+        or execution_limit <= 0
+    ):
+        raise ValueError("execution limit must be a positive integer")
+    return RetainedLocalConfiguration(
+        runtime=LocalRuntimeCompositionValues(
+            runtime=runtime,
+            ollama_model=ollama_model,
+            ollama_disable_thinking=ollama_disable_thinking,
+            llama_server_base_url=llama_base_url,
+            llama_server_model=llama_server_model,
+            vllm_base_url=normalized_vllm_base_url,
+            vllm_model=vllm_model,
+        ),
+        local_capabilities=capabilities,
+        execution_limit=execution_limit,
+    )
+
+
+def replace_retained_local_configuration(
+    local: RetainedLocalConfiguration,
+    path: Path | None = None,
+) -> None:
+    """Replace only the complete retained-local domain through HAC persistence."""
+    configuration = load_retained_configuration(path)
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=local,
+            remote_nodes=configuration.remote_nodes,
+            external_information_plugin=configuration.external_information_plugin,
+            chat_external_information_fallback=(
+                configuration.chat_external_information_fallback
+            ),
+        ),
+        path,
+    )
+
+
+def browser_retained_local_shape_is_supported(local: object) -> bool:
+    """Keep browser mutation closed when either retained local domain grows."""
+    if not isinstance(local, RetainedLocalConfiguration):
+        return False
+    return (
+        tuple(field.name for field in fields(RetainedLocalConfiguration))
+        == _BROWSER_LOCAL_FIELDS
+        and tuple(field.name for field in fields(LocalRuntimeCompositionValues))
+        == _BROWSER_RUNTIME_FIELDS
+    )
 
 
 def _retained_configuration_home() -> Path:

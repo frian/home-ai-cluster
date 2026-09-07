@@ -133,7 +133,7 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
             values, execution_limit=execution_limit
         )
         app = create_app(local_app_composition=composition)
-        return add_loopback_browser_routes(app)
+        return add_loopback_browser_routes(app, native_port=args.port)
     composition_arguments = dict(
         runtime=values.runtime,
         ollama_model=values.ollama_model,
@@ -147,7 +147,7 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
         composition_arguments["execution_limit"] = args.retained_execution_limit
     composition = create_local_runtime_composition(**composition_arguments)
     app = create_app(local_app_composition=composition)
-    return add_loopback_browser_routes(app)
+    return add_loopback_browser_routes(app, native_port=args.port)
 
 
 async def _serve_until_sibling_stops(

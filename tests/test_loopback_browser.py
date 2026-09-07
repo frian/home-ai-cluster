@@ -548,6 +548,24 @@ def test_configuration_view_is_retained_future_launch_configuration_only() -> No
     assert "Configured base URL" in html
     assert "Caller-declared allowed capabilities" in html
     assert "readOnly = true" in script
+    remote_node_form = html.split('id="remote-node-form"', 1)[1].split("</form>", 1)[0]
+    assert remote_node_form.index("Cancel edit") < remote_node_form.index(
+        "Save remote node"
+    )
+    assert ".form-actions { display: flex; gap: .5rem;" in web.joinpath(
+        "assets", "app.css"
+    ).read_text(encoding="utf-8")
+    remove_handler = script.split("async function removeRemoteNode(nodeId)", 1)[
+        1
+    ].split("function renderChat", 1)[0]
+    assert "window.confirm(" in remove_handler
+    assert 'Remove retained remote node "${nodeId}"?' in remove_handler
+    assert "This affects future HAC launches." in remove_handler
+    assert "The currently running process is not reconfigured." in remove_handler
+    assert "if (!window.confirm(" in remove_handler
+    assert remove_handler.index("if (!window.confirm(") < remove_handler.index(
+        'method: "DELETE"'
+    )
     assert "innerHTML" not in script
     assert "Connection test" not in html
     assert "health" not in html.lower()

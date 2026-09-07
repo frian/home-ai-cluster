@@ -336,6 +336,7 @@
   });
 
   async function removeRemoteNode(nodeId) {
+    if (!window.confirm(`Remove retained remote node "${nodeId}"?\n\nThis affects future HAC launches. The currently running process is not reconfigured.`)) return;
     const context = requestContexts.remoteNodes;
     if (context.active) return;
     setRequestActive(context, true, "Removing retained remote node…");

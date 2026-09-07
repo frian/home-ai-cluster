@@ -88,6 +88,10 @@ def _remote_node_from_browser_document(
         _REMOTE_NODE_DOCUMENT_KEYS
     ):
         raise ValueError("invalid retained remote node")
+    if not isinstance(document["base_url"], str) or not isinstance(
+        document["capabilities"], list
+    ):
+        raise ValueError("invalid retained remote node")
     return build_retained_remote_node_declaration(
         node_id=node_id,
         base_url=document["base_url"],

@@ -1,16 +1,18 @@
 import asyncio
-from dataclasses import make_dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
+from home_ai_cluster import retained_configuration
 from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
 from home_ai_cluster.main import create_app, create_receiver_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedLocalConfiguration,
     browser_retained_local_shape_is_supported,
+    build_retained_local_configuration,
     load_retained_configuration,
     save_retained_configuration,
 )
@@ -48,21 +50,22 @@ def request(
     port: int = 25042,
     headers: dict[str, str] | None = None,
     json: object | None = None,
+    content: bytes | None = None,
 ) -> httpx.Response:
     async def send() -> httpx.Response:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
             base_url=f"http://127.0.0.1:{port}",
         ) as client:
-            return await client.request(method, path, headers=headers, json=json)
+            return await client.request(
+                method, path, headers=headers, json=json, content=content
+            )
 
     return asyncio.run(send())
 
 
-def native_app(*, port: int = 25042, composition: object | None = None):
-    return add_loopback_browser_routes(
-        create_app(local_app_composition=composition), native_port=port
-    )
+def native_app(*, composition: object | None = None):
+    return add_loopback_browser_routes(create_app(local_app_composition=composition))
 
 
 def native_mutation_headers(port: int = 25042) -> dict[str, str]:
@@ -183,7 +186,7 @@ def test_mutation_refuses_unaccepted_authority_before_persistence(
     headers: dict[str, str], port: int
 ) -> None:
     response = request(
-        native_app(port=port),
+        native_app(),
         "PUT",
         "/retained-local-configuration",
         port=port,
@@ -195,10 +198,10 @@ def test_mutation_refuses_unaccepted_authority_before_persistence(
     assert load_retained_configuration().local is None
 
 
-def test_nondefault_effective_native_port_allows_exact_same_origin_mutation() -> None:
+def test_effective_server_port_establishes_authority_without_configuration() -> None:
     port = 25123
     response = request(
-        native_app(port=port),
+        native_app(),
         "PUT",
         "/retained-local-configuration",
         port=port,
@@ -210,21 +213,81 @@ def test_nondefault_effective_native_port_allows_exact_same_origin_mutation() ->
     assert "access-control-allow-origin" not in response.headers
 
 
-def test_browser_compatibility_guard_rejects_future_local_shape() -> None:
-    FutureLocalConfiguration = make_dataclass(
-        "FutureLocalConfiguration",
-        [
-            ("runtime", object),
-            ("local_capabilities", object),
-            ("execution_limit", object),
-            ("future", object),
-        ],
-        frozen=True,
+def test_browser_compatibility_guard_rejects_future_local_domain_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    local = build_retained_local_configuration(
+        runtime="ollama",
+        ollama_model=None,
+        ollama_disable_thinking=False,
+        llama_server_base_url=None,
+        llama_server_model=None,
+        vllm_base_url=None,
+        vllm_model=None,
+        local_capabilities=None,
+        execution_limit=None,
+    )
+    fields = retained_configuration.fields
+
+    def future_fields(subject: type) -> tuple[object, ...]:
+        result = fields(subject)
+        if subject is RetainedLocalConfiguration:
+            return (*result, SimpleNamespace(name="future_local"))
+        return result
+
+    monkeypatch.setattr(retained_configuration, "fields", future_fields)
+
+    assert not browser_retained_local_shape_is_supported(local)
+
+
+def test_browser_compatibility_guard_rejects_future_runtime_domain_shape(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    local = build_retained_local_configuration(
+        runtime="ollama",
+        ollama_model=None,
+        ollama_disable_thinking=False,
+        llama_server_base_url=None,
+        llama_server_model=None,
+        vllm_base_url=None,
+        vllm_model=None,
+        local_capabilities=None,
+        execution_limit=None,
+    )
+    fields = retained_configuration.fields
+
+    def future_fields(subject: type) -> tuple[object, ...]:
+        result = fields(subject)
+        if subject is LocalRuntimeCompositionValues:
+            return (*result, SimpleNamespace(name="future_runtime"))
+        return result
+
+    monkeypatch.setattr(retained_configuration, "fields", future_fields)
+
+    assert not browser_retained_local_shape_is_supported(local)
+
+
+@pytest.mark.parametrize(
+    ("json", "content"),
+    [
+        (local_document(runtime=1), None),
+        (None, b"not JSON"),
+    ],
+)
+def test_malformed_browser_input_fails_without_persistence(
+    json: object | None, content: bytes | None
+) -> None:
+    response = request(
+        native_app(),
+        "PUT",
+        "/retained-local-configuration",
+        headers={**native_mutation_headers(), "Content-Type": "application/json"},
+        json=json,
+        content=content,
     )
 
-    assert not browser_retained_local_shape_is_supported(
-        FutureLocalConfiguration(None, None, None, "unsupported")
-    )
+    assert response.status_code == 400
+    assert load_retained_configuration().local is None
 
 
 def test_receiver_does_not_expose_or_mutate_retained_local_configuration() -> None:

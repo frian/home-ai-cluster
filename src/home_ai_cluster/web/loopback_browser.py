@@ -68,15 +68,26 @@ def _local_from_browser_document(document: Any) -> RetainedLocalConfiguration:
     )
 
 
-def _native_origin(port: int) -> str:
-    return f"http://127.0.0.1:{port}"
+def _native_authority(request: Request) -> str | None:
+    """Return the exact native authority from Uvicorn's local socket scope."""
+    server = request.scope.get("server")
+    if (
+        not isinstance(server, (tuple, list))
+        or len(server) != 2
+        or server[0] != "127.0.0.1"
+        or isinstance(server[1], bool)
+        or not isinstance(server[1], int)
+        or not 1 <= server[1] <= 65535
+    ):
+        return None
+    return f"127.0.0.1:{server[1]}"
 
 
-def _has_native_host_authority(request: Request, port: int) -> bool:
-    return request.headers.get("host") == f"127.0.0.1:{port}"
+def _has_native_host_authority(request: Request, authority: str | None) -> bool:
+    return authority is not None and request.headers.get("host") == authority
 
 
-def add_loopback_browser_routes(app: FastAPI, *, native_port: int = 25042) -> FastAPI:
+def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
     """Attach only the fixed RFC-0062 browser page and assets to one API app."""
 
     @app.get("/", include_in_schema=False)
@@ -105,7 +116,7 @@ def add_loopback_browser_routes(app: FastAPI, *, native_port: int = 25042) -> Fa
 
     @app.get("/retained-local-configuration", include_in_schema=False)
     def retained_local_configuration(request: Request) -> JSONResponse:
-        if not _has_native_host_authority(request, native_port):
+        if not _has_native_host_authority(request, _native_authority(request)):
             raise HTTPException(status_code=400, detail="invalid native authority")
         try:
             local = load_retained_configuration().local
@@ -121,9 +132,10 @@ def add_loopback_browser_routes(app: FastAPI, *, native_port: int = 25042) -> Fa
     async def replace_retained_local_configuration_route(
         request: Request,
     ) -> JSONResponse:
-        if not _has_native_host_authority(request, native_port):
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
             raise HTTPException(status_code=400, detail="invalid native authority")
-        if request.headers.get("origin") != _native_origin(native_port):
+        if request.headers.get("origin") != f"http://{authority}":
             raise HTTPException(status_code=403, detail="invalid native origin")
         content_type = request.headers.get("content-type", "").split(";", 1)[0]
         if content_type.strip().lower() != "application/json":

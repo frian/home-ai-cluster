@@ -104,6 +104,11 @@ architecture.
   — retains one privacy-safe real-local RFC-0074 observation that an explicitly
   selected runtime-composition file reached an already-installed local Ollama
   path and rejected an explicit second composition source before startup.
+- [RFC-0110 real multi-binding proof](rfc-0110-real-multi-binding-proof.md)
+  — retains one bounded post-1.0 real-local same-runtime proof that explicit,
+  disjoint capability bindings execute through two configured Ollama adapter
+  instances while preserving one HAC local node; it makes no heterogeneous-
+  runtime or multi-binding observation claim.
 - [Runtime reasoning control investigation](runtime-reasoning-control-investigation.md)
   — evaluates whether one narrowly scoped Ollama process-local reasoning control
   needs an RFC while preserving model-independent requests, routing, and privacy.

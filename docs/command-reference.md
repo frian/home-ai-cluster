@@ -89,6 +89,10 @@ hac config local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
   --llama-server-model <MODEL_IDENTIFIER>
+hac config local \
+  --runtime vllm \
+  --vllm-base-url http://127.0.0.1:<VLLM_PORT> \
+  --vllm-model <SERVED_MODEL_IDENTIFIER>
 hac config local --reset
 
 hac config node <NODE_ID> --base-url <BASE_URL>
@@ -185,15 +189,21 @@ hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
   --llama-server-model <MODEL_IDENTIFIER>
+hac local \
+  --runtime vllm \
+  --vllm-base-url http://127.0.0.1:<VLLM_PORT> \
+  --vllm-model <SERVED_MODEL_IDENTIFIER>
 ```
 
 **Important behavior:** The default runtime is Ollama. The closed runtime choices
-are `ollama` and `llama-server`; `--ollama-model` is optional only with Ollama
-and omission keeps `llama3.2`; llama-server requires both of its explicit
-arguments. The application runs in the foreground. Home AI Cluster does not
-install, start, stop, download models for, or supervise the external runtime.
-Ordinary local compositions advertise and execute `chat`, `summarize`,
-`classify`, and `code`.
+are `ollama`, `llama-server`, and `vllm`. `--ollama-model` is optional only
+with Ollama and omission keeps `llama3.2`; llama-server requires both of its
+explicit arguments; and vLLM requires its explicit loopback base URL and
+served-model identity. vLLM is a concrete runtime selection, not a generic
+OpenAI-compatible runtime abstraction. The application runs in the foreground.
+Home AI Cluster does not install, start, stop, download models for, or
+supervise the external runtime. Ordinary local compositions advertise and
+execute `chat`, `summarize`, `classify`, and `code`.
 
 Native/local authority is always exactly `127.0.0.1`; `--host` accepts no other
 value. `--receiver-host <LAN_IP>` additively enables one receiver listener in

@@ -262,6 +262,23 @@ def test_remote_failure_is_visible_without_retry() -> None:
     assert len(dependencies[4].requests) == 1
 
 
+def test_connection_unavailability_remains_authoritative_over_permission_refusal() -> (
+    None
+):
+    error = RuntimeConnectionUnavailableBeforeRequestError("not connected")
+    dependencies = make_dependencies(
+        adapter_error=error,
+        transport_error=RemoteExecutionPermissionDeniedError("denied"),
+    )
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError) as raised:
+        run_static_remote_fallback(dependencies, make_request())
+
+    assert raised.value is error
+    assert len(dependencies[3].requests) == 1
+    assert len(dependencies[4].requests) == 1
+
+
 def test_local_only_prevents_remote_fallback() -> None:
     error = RuntimeConnectionUnavailableBeforeRequestError("not connected")
     dependencies = make_dependencies(adapter_error=error)

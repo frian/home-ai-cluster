@@ -257,6 +257,7 @@ async def orchestrate_request_with_static_remote_fallback(
         except RemoteExecutionPermissionDeniedError as exc:
             raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
+    connection_error: RuntimeConnectionUnavailableBeforeRequestError | None = None
     try:
         return await orchestrate_request_with_selected_candidate(
             request,
@@ -265,9 +266,10 @@ async def orchestrate_request_with_static_remote_fallback(
             execution_intervals=execution_intervals,
             local_interval_already_entered=execution_intervals is not None,
         )
-    except RuntimeConnectionUnavailableBeforeRequestError:
+    except RuntimeConnectionUnavailableBeforeRequestError as exc:
         if request.constraints.local_only or candidates.declared_remote is None:
             raise
+        connection_error = exc
 
     try:
         return await execute_declared_remote_routing_candidate(
@@ -276,6 +278,8 @@ async def orchestrate_request_with_static_remote_fallback(
             remote_transport,
         )
     except RemoteExecutionPermissionDeniedError as exc:
+        if connection_error is not None:
+            raise connection_error from exc
         raise ExecutionPermissionDeniedError(selection.explanation) from exc
 
 

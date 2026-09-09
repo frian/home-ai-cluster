@@ -1,5 +1,6 @@
 import json
 import stat
+import sys
 from pathlib import Path
 
 import pytest
@@ -192,7 +193,8 @@ def test_recording_creates_owner_only_compact_jsonl_in_temporary_state(
         path.read_text(encoding="utf-8")
         == json.dumps(expected, separators=(",", ":")) + "\n"
     )
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    if sys.platform != "win32":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 def test_record_account_has_only_the_explicit_actual_request_production_writer() -> (

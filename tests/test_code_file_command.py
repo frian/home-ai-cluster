@@ -3,6 +3,7 @@
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 
 import httpx
@@ -85,9 +86,15 @@ def test_invalid_target_fails_before_request(
     elif kind == "symlink":
         source = tmp_path / "source"
         source.write_text("text", encoding="utf-8")
-        target.symlink_to(source)
+        try:
+            target.symlink_to(source)
+        except OSError as error:
+            pytest.skip(f"symlinks unavailable: {error.__class__.__name__}")
     elif kind == "broken-symlink":
-        target.symlink_to(tmp_path / "missing-source")
+        try:
+            target.symlink_to(tmp_path / "missing-source")
+        except OSError as error:
+            pytest.skip(f"symlinks unavailable: {error.__class__.__name__}")
     elif kind == "invalid":
         target.write_bytes(b"\xff")
     calls = 0
@@ -244,6 +251,10 @@ def test_missing_target_creation_requests_non_executable_mode(
     assert creation[0] == (os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="exact POSIX file modes are not a Windows contract",
+)
 def test_missing_target_mode_uses_umask_and_is_preserved(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -455,7 +466,8 @@ def test_output_bound_is_utf8_bytes_and_preserves_mode(
     )
     code_file_command.main(["--file", str(target), "--message", "request"])
     assert target.read_text(encoding="utf-8") == "after"
-    assert stat.S_IMODE(target.stat().st_mode) == 0o755
+    if sys.platform != "win32":
+        assert stat.S_IMODE(target.stat().st_mode) == 0o755
 
 
 def test_input_bound_fails_before_request(
@@ -566,6 +578,10 @@ def test_atomic_permission_or_replace_failure_cleans_up_and_preserves_target(
     assert list(tmp_path.glob(".hac-code-file-*")) == []
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="exact POSIX file modes are not a Windows contract",
+)
 def test_atomic_replacement_keeps_only_ordinary_permission_bits(tmp_path: Path) -> None:
     target = tmp_path / "target.py"
     target.write_text("before", encoding="utf-8")

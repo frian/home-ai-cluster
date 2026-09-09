@@ -21,6 +21,15 @@ from home_ai_cluster.core.routing_candidates import (
 from home_ai_cluster.main import create_receiver_app
 
 
+@pytest.fixture(autouse=True)
+def isolated_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
+
+
 def write_runtime_config(tmp_path: Path, content: str) -> Path:
     path = tmp_path / "runtime.toml"
     path.write_text(content)

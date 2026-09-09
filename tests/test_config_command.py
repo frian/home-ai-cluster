@@ -38,6 +38,7 @@ def _run(capsys: pytest.CaptureFixture[str], argv: list[str]) -> tuple[int, str,
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
 
 
 @pytest.mark.parametrize("argv", ([], ["--help"], ["-h"]))

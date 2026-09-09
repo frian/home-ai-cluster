@@ -19,6 +19,7 @@ from home_ai_cluster.retained_configuration import (
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
 
 
 def _assert_limit_two(intervals: object) -> None:

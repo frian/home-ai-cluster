@@ -18,6 +18,7 @@ from home_ai_cluster.retained_configuration import (
 @pytest.fixture(autouse=True)
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
 
 
 def test_config_local_vllm_retains_execution_limit_and_show(

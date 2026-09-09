@@ -1,5 +1,6 @@
 """Remote transport boundary for normalized cluster objects."""
 
+import json
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -49,9 +50,25 @@ def _is_remote_execution_permission_denial(response: httpx.Response) -> bool:
     if response.status_code != 409:
         return False
     try:
-        return response.json() == {"detail": "execution-permission-denied"}
+        refusal = json.loads(
+            response.content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
     except ValueError:
         return False
+    return refusal == {"detail": "execution-permission-denied"}
+
+
+def _reject_duplicate_json_object_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    """Build a JSON object only when every key occurs exactly once."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON object key")
+        result[key] = value
+    return result
 
 
 class RemoteTransport(Protocol):
@@ -107,7 +124,12 @@ class HttpRemoteTransport:
 
         try:
             if isinstance(request, ClassifyRequest):
-                return ClassifyResult.model_validate(response.json())
+                result = ClassifyResult.model_validate(response.json())
+                if result.selected_label not in request.labels:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                return result
             if isinstance(request, SourceGroundedChatRequest):
                 result = SourceGroundedChatResult.model_validate(response.json())
                 if result.sources != request.sources:

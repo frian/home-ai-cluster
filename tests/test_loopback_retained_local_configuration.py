@@ -24,6 +24,7 @@ from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
 
 
 def local_document(**overrides: object) -> dict[str, object]:

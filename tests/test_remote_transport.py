@@ -574,6 +574,26 @@ def test_http_remote_transport_validates_classify_result_by_request_type() -> No
     )
 
 
+def test_http_remote_transport_rejects_classify_result_label_not_in_request() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"selected_label": "not-requested", "node_id": "receiver-local"},
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await HttpRemoteTransport(client).send(
+                ClassifyRequest(text="Source", labels=["invoice", "personal"]),
+                make_declaration(),
+            )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "HTTP remote transport returned invalid result"
+
+
 def test_http_remote_transport_preserves_runtime_unavailable_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -625,6 +645,13 @@ def test_http_remote_transport_keeps_other_http_failure_as_transport_error() -> 
         (httpx.Response(409, json={"detail": "other"}), False),
         (httpx.Response(409, json={}), False),
         (httpx.Response(409, content=b"not-json"), False),
+        (
+            httpx.Response(
+                409,
+                content=b'{"detail":"other","detail":"execution-permission-denied"}',
+            ),
+            False,
+        ),
         (httpx.Response(500, json={"detail": "execution-permission-denied"}), False),
     ],
 )

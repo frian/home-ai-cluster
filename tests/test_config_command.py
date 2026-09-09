@@ -59,7 +59,6 @@ def test_bare_config_discovery_does_not_access_retained_state(
         raise AssertionError("bare config discovery must not access retained state")
 
     monkeypatch.setattr(config_command, "load_retained_configuration", forbidden)
-    monkeypatch.setattr(config_command, "save_retained_configuration", forbidden)
     monkeypatch.setattr(config_command, "remove_retained_configuration", forbidden)
 
     code, out, err = _run(capsys, [])

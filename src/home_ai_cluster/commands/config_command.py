@@ -22,9 +22,11 @@ from home_ai_cluster.retained_configuration import (
     load_retained_configuration,
     remove_retained_configuration,
     remove_retained_remote_node,
+    replace_retained_external_information_plugin,
     replace_retained_local_configuration,
     replace_retained_remote_node,
-    save_retained_configuration,
+    reset_retained_local_configuration,
+    set_retained_chat_external_information_fallback,
     validate_external_information_plugin_name,
 )
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
@@ -334,17 +336,7 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
 def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.reset:
         _validate_reset(parser, args)
-        configuration = load_retained_configuration()
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=None,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            )
-        )
+        reset_retained_local_configuration()
         print("local configuration reset")
         return
     local = _local_configuration(parser, args)
@@ -373,17 +365,7 @@ def _mutate_external_information(
         parser.error("--reset cannot be combined with --plugin")
     if not args.reset and args.plugin is None:
         parser.error("--plugin is required unless --reset")
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=None if args.reset else args.plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_external_information_plugin(None if args.reset else args.plugin)
     print(
         "external-information configuration reset"
         if args.reset
@@ -396,15 +378,7 @@ def _mutate_chat(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
         parser.error("--reset cannot be combined with --external-information-fallback")
     if not args.reset and not args.external_information_fallback:
         parser.error("--external-information-fallback is required unless --reset")
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=not args.reset,
-        )
-    )
+    set_retained_chat_external_information_fallback(not args.reset)
     print("chat configuration reset" if args.reset else "chat configuration retained")
 
 

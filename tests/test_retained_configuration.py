@@ -1,6 +1,7 @@
 import json
 import multiprocessing
 import stat
+import sys
 import threading
 from pathlib import Path
 
@@ -350,6 +351,7 @@ def test_reading_retained_configuration_does_not_acquire_mutation_lock(
 def test_path_uses_xdg_config_home_without_creating_it(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr(retained_configuration.sys, "platform", "linux")
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("HOME", "/not-the-real-home")
 
@@ -362,6 +364,8 @@ def test_path_uses_xdg_config_home_without_creating_it(
 def test_path_uses_home_config_fallback_when_xdg_config_home_is_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    monkeypatch.setattr(retained_configuration.sys, "platform", "linux")
+    monkeypatch.setattr(retained_configuration.Path, "home", lambda: tmp_path)
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -376,6 +380,8 @@ def test_path_uses_home_config_fallback_when_xdg_config_home_is_not_absolute(
     tmp_path: Path,
     xdg_config_home: str,
 ) -> None:
+    monkeypatch.setattr(retained_configuration.sys, "platform", "linux")
+    monkeypatch.setattr(retained_configuration.Path, "home", lambda: tmp_path)
     monkeypatch.setenv("XDG_CONFIG_HOME", xdg_config_home)
     monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -433,6 +439,9 @@ def test_windows_path_falls_back_to_home_local_app_data(
     assert not (tmp_path / "AppData").exists()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="exact POSIX file modes are not a Windows contract"
+)
 def test_save_creates_owner_only_application_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -446,6 +455,10 @@ def test_save_creates_owner_only_application_directory(
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="exact POSIX directory modes are not a Windows contract",
+)
 def test_save_does_not_chmod_an_existing_application_directory(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -669,7 +682,8 @@ def test_ollama_and_local_capability_values_round_trip_distinctly(
     document = json.loads(path.read_text(encoding="utf-8"))
     assert document["local"]["ollama_disable_thinking"] is True
     assert document["local"]["local_capabilities"] == ["code", "chat"]
-    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    if sys.platform != "win32":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 def test_none_local_capabilities_round_trips_without_inventing_a_default(

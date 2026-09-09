@@ -90,17 +90,19 @@ underlying object physically originated below the root.
 
 Hard links therefore are not automatic escapes.  A regular file reached through
 an accepted name below the workspace is within the grant even if another hard
-link to that object is elsewhere.  Atomic whole-file write replacement changes
-the selected workspace directory entry; it does not promise to mutate every
-other hard link to the old object.  HAC must not attempt inode-provenance
-enforcement.
+link to that object is elsewhere.  Whole-file host replacement changes the
+selected workspace directory entry; it does not promise to mutate every other
+hard link to the old object.  HAC must not attempt inode-provenance enforcement.
 
 Likewise, a workspace namespace backed by the host OS is not HAC
 remote/distributed filesystem authority.  If an operator grants a root backed
 by NFS, SMB, FUSE, a bind mount, mapped storage, or another host filesystem
-mechanism, it remains in the grant.  HAC need not determine physical storage
-locality and must add no mount inspection, filesystem-type policy,
-remote-storage detection, or network-filesystem rejection.
+mechanism, it remains in the grant.  Host filesystem I/O may use whatever
+backing mechanism that trusted operator has exposed, including one that uses a
+network.  HAC neither inspects, detects, classifies, nor prohibits that backing
+because it may use a network; it need not determine physical storage locality
+and must add no mount inspection, filesystem-type policy, remote-storage
+detection, or network-filesystem rejection.
 
 ### Threat model and host boundary
 
@@ -134,8 +136,18 @@ Windows root-relative forms, UNC forms, `\\?\\` extended namespace forms,
 other native namespace-escape syntax.  It performs no application-level `~`,
 environment-variable, glob, repository-relative alias, or configuration
 variable expansion.  Host-invalid or reserved names may additionally fail
-locally.  A later implementation may set a finite logical-path byte bound, but
-this RFC does not invent expansion or alternate native syntax.
+locally.
+
+The complete caller-supplied logical path string has a fixed maximum of 4,096
+UTF-8 bytes, measured before host-path translation or filesystem access.  `.`
+is within that bound.  UTF-8 encoding failure and a path over the bound are
+invalid local input; HAC never truncates a path.  A 4,096-byte logical path may
+still fail ordinary semantic validation or a host operating-system/filesystem
+component or total-path limit.  HAC does not promise every path within its input
+bound is representable or valid on every host.  The bound limits HAC-owned
+input; it neither overrides host limits nor adds per-segment limits,
+normalization, Unicode canonicalization, case folding, expansion, or native
+path aliases.
 
 ### Filesystem redirection
 
@@ -221,17 +233,26 @@ prepare private same-directory temporary replacement
     ->
 complete all fallible pre-publication work
     ->
-one atomic directory-entry replacement
+one same-directory host replacement/publication operation
 ```
 
 HAC must not truncate the selected target in place.  Failure before final
-replacement leaves prior target content unchanged.  After successful atomic
-replacement, no later fallible cleanup or check may falsely report failure.
-There are no transaction libraries, locking, journals, recovery daemons,
-conflict detection, compare-and-swap, repository transactions, or protection
-from unrelated concurrent writers.
+publication leaves prior selected-target content unchanged.  HAC performs
+exactly one same-directory host filesystem replacement/publication operation
+after all fallible pre-publication work.  Once that operation has successfully
+committed according to its host primitive, no later fallible cleanup or check
+may falsely report failure.  There are no transaction libraries, locking,
+journals, recovery daemons, conflict detection, compare-and-swap, repository
+transactions, or protection from unrelated concurrent writers.
 
-Atomic content publication is the portable goal, not file-object identity.
+The HAC guarantee is this one same-directory host replacement operation after
+complete pre-publication validation.  It is not a guarantee of stronger
+atomicity, durability, visibility, cross-client atomicity on network filesystems,
+snapshot isolation, or distributed transaction semantics than the host
+filesystem replacement primitive exposes.  RFC-0080 is precedent for the
+same-directory replacement shape, but this RFC's broader operator-granted host
+namespace prevents HAC from promising more across arbitrary filesystems.
+
 The RFC promises no preservation of inode identity, owner/group, ACLs,
 extended attributes, timestamps, hard-link identity, arbitrary filesystem
 metadata, or power-loss durability.  On POSIX a later proof may preserve the
@@ -244,12 +265,17 @@ not deliberately broaden authority beyond ordinary host OS permissions.
 
 Workspace root, requested relative paths, directory names, file contents, and
 replacement contents are private local inputs.  This authority does not invoke
-an inference runtime, construct a `ClusterRequest`, route, send content over a
-network, add request or prompt history, persist grants, cache contents, or log
-paths or contents by default.  A successful read necessarily discloses content
-to this authority's authorized caller; what that caller later does is a
-separate authority and privacy decision.  This RFC does not claim a future
-external harness cannot send returned text elsewhere.
+an inference runtime, construct a `ClusterRequest`, route, or introduce a
+HAC-owned network request, client, transport, remote-filesystem protocol, or
+remote filesystem orchestration.  It adds no request or prompt history, grant
+persistence, content cache, or default path/content logging.  Host filesystem
+I/O may use a networked backing mechanism explicitly exposed through the
+trusted granted namespace; that is distinct from HAC gaining network authority
+and privacy claims do not pretend all backing storage is physically local.  A
+successful read necessarily discloses content to this authority's authorized
+caller; what that caller later does is a separate authority and privacy
+decision.  This RFC does not claim a future external harness cannot send
+returned text elsewhere.
 
 No implicit sensitivity policy exists.  HAC must not filter `.env`, `.git`,
 credentials, dotfiles, filenames, extensions, ignore files, Git ignore rules,
@@ -367,8 +393,8 @@ over 1 MiB and binary or non-UTF-8 files are unavailable.  There is no creation,
 and same-user concurrent mutation is not isolated.
 
 Mounts and hard links make workspace a namespace grant rather than physical
-storage ownership.  Atomic replacement does not preserve all metadata, and
-Windows and POSIX cannot honestly share every metadata or race guarantee.
+storage ownership.  Same-directory host replacement does not preserve all
+metadata, and Windows and POSIX cannot honestly share every metadata or race guarantee.
 These costs are acceptable for a first bounded authority: they keep the
 authority understandable, explicit, model-free, and portable.
 
@@ -377,7 +403,7 @@ authority understandable, explicit, model-free, and portable.
 After acceptance, one separate implementation PR may add only the smallest
 concrete core/model-free proof: fixed existing root, explicit operation subset,
 logical parsing, list/read/write, bounds, redirection rejection, fail-closed
-behavior, and atomic existing-file replacement.  It must not add CLI
+behavior, and same-directory host existing-file replacement.  It must not add CLI
 activation, HTTP API, retained configuration, Pi/OpenCode or plugin integration,
 automatic model calls, routing behavior, or remote filesystem transport.
 
@@ -385,8 +411,10 @@ That PR must prove at least:
 
 1. construction requires one explicit existing directory and a non-empty grant;
 2. ungranted operations fail before filesystem action;
-3. `.` lists the root; accepted relative names work; traversal and native,
-   drive-relative, UNC, device, and ADS-like forms fail;
+3. `.` lists the root; accepted relative names work; exactly 4,096 UTF-8
+   logical-path bytes satisfy HAC's own bound subject to ordinary semantic and
+   host validation, while 4,097 bytes fail before filesystem access; traversal
+   and native, drive-relative, UNC, device, and ADS-like forms fail;
 4. symlink traversal fails where supported, and junction/reparse traversal fails
    where practical; redirect entries may list but cannot be traversed;
 5. lists are non-recursive, sorted, complete at 1,024 entries, and fail at
@@ -397,14 +425,16 @@ That PR must prove at least:
 7. existing-file whole replacement, including empty and exactly 1,048,576-byte
    replacement, succeeds; oversized replacement, missing targets, and redirect
    targets fail without creation or mutation;
-8. temporary/pre-publication failure retains prior content, and success is one
-   atomic directory-entry publication;
+8. temporary/pre-publication failure retains prior content; success performs
+   one same-directory host replacement/publication operation after complete
+   pre-publication validation, with guarantees no stronger than that host
+   primitive exposes;
 9. no delete, rename, move, append, patch, mkdir, or new-file behavior exists;
 10. hard-link behavior follows namespace rather than provenance semantics;
-11. tests need no model, runtime, network activity, Ollama, llama-server, vLLM,
-    Pi, OpenCode, Aider, Git, external filesystem service, root, or admin
-    privileges; supported Linux and native Windows CI exercise the portable
-    contract; and
+11. tests need no model, runtime, HAC-owned network activity, Ollama,
+    llama-server, vLLM, Pi, OpenCode, Aider, Git, external filesystem service,
+    root, or admin privileges; supported Linux and native Windows CI exercise
+    the portable contract; and
 12. tests make no claim to protect against arbitrary malicious same-user
     concurrent namespace mutation.  Mount semantics may be policy-tested
     without privileged mount fixtures.
@@ -421,7 +451,7 @@ redirection traversal, creation, sandboxing, or Pi/OpenCode dependence.
 
 This Draft RFC proposes that Home AI Cluster accept one bounded HAC-owned local
 workspace authority with the fixed root, explicit `list`/`read`/`write` grants,
-closed logical namespace, non-traversal, bounded text, and existing-file atomic
+closed logical namespace, non-traversal, bounded text, and existing-file host
 replacement semantics specified above.  The RFC PR changes no behavior.
 Implementation is permitted only after acceptance and only within the later
 implementation boundary recorded here.

@@ -1,2 +1,3 @@
 # Exclude vendored browser dependencies from GitHub Linguist language statistics.
 src/home_ai_cluster/web/assets/pdfjs-6.2.108/** linguist-vendored
+src/home_ai_cluster/web/assets/pdfjs-6.2.108/*.mjs -text

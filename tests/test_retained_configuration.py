@@ -1,5 +1,7 @@
 import json
+import multiprocessing
 import stat
+import threading
 from pathlib import Path
 
 import pytest
@@ -12,10 +14,31 @@ from home_ai_cluster.retained_configuration import (
     RetainedLocalConfiguration,
     load_retained_configuration,
     remove_retained_configuration,
+    replace_retained_external_information_plugin,
+    replace_retained_local_configuration,
+    replace_retained_remote_node,
     retained_configuration_file,
     save_retained_configuration,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
+
+
+def _hold_retained_mutation_lock(
+    path_string: str,
+    entered: object,
+    release: object,
+) -> None:
+    with retained_configuration._retained_mutation_lock(Path(path_string)):
+        entered.set()
+        release.wait(5)
+
+
+def _enter_retained_mutation_lock(
+    path_string: str,
+    entered: object,
+) -> None:
+    with retained_configuration._retained_mutation_lock(Path(path_string)):
+        entered.set()
 
 
 def ollama_configuration(
@@ -31,6 +54,297 @@ def ollama_configuration(
             local_capabilities=capabilities,
         )
     )
+
+
+def test_unrelated_retained_mutations_do_not_overlap_or_lose_updates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+    save_retained_configuration(ollama_configuration(), path)
+    local = RetainedLocalConfiguration(
+        runtime=LocalRuntimeCompositionValues(runtime="ollama", ollama_model="L1")
+    )
+    remote = RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",))
+    original_load = retained_configuration.load_retained_configuration
+    local_loaded = threading.Event()
+    allow_local_save = threading.Event()
+    remote_loaded = threading.Event()
+
+    def synchronized_load(candidate: Path | None = None) -> RetainedConfiguration:
+        configuration = original_load(candidate)
+        if threading.current_thread().name == "local-writer":
+            local_loaded.set()
+            assert allow_local_save.wait(2)
+        elif threading.current_thread().name == "remote-writer":
+            remote_loaded.set()
+        return configuration
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", synchronized_load
+    )
+    local_writer = threading.Thread(
+        name="local-writer",
+        target=replace_retained_local_configuration,
+        args=(local, path),
+    )
+    remote_writer = threading.Thread(
+        name="remote-writer",
+        target=replace_retained_remote_node,
+        args=(remote, path),
+    )
+    local_writer.start()
+    assert local_loaded.wait(2)
+    remote_writer.start()
+    assert not remote_loaded.wait(0.1)
+    allow_local_save.set()
+    local_writer.join(2)
+    remote_writer.join(2)
+    assert not local_writer.is_alive()
+    assert not remote_writer.is_alive()
+
+    configuration = original_load(path)
+    assert configuration.local == local
+    assert configuration.remote_nodes == (remote,)
+
+
+def test_retained_mutation_lock_excludes_independent_processes(tmp_path: Path) -> None:
+    context = multiprocessing.get_context("spawn")
+    path = tmp_path / "retained-config.json"
+    first_entered = context.Event()
+    release_first = context.Event()
+    second_entered = context.Event()
+    first = context.Process(
+        target=_hold_retained_mutation_lock,
+        args=(str(path), first_entered, release_first),
+    )
+    second = context.Process(
+        target=_enter_retained_mutation_lock,
+        args=(str(path), second_entered),
+    )
+    first.start()
+    assert first_entered.wait(5)
+    second.start()
+    assert not second_entered.wait(0.1)
+    release_first.set()
+    assert second_entered.wait(5)
+    first.join(5)
+    second.join(5)
+    assert first.exitcode == second.exitcode == 0
+
+
+def test_retained_mutation_lock_preserves_different_remote_declarations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+    first = RemoteNodeDeclaration("first", "http://192.0.2.1:25042", ("chat",))
+    second = RemoteNodeDeclaration("second", "http://192.0.2.2:25042", ("code",))
+    original_load = retained_configuration.load_retained_configuration
+    first_loaded = threading.Event()
+    allow_first_save = threading.Event()
+    second_loaded = threading.Event()
+
+    def synchronized_load(candidate: Path | None = None) -> RetainedConfiguration:
+        configuration = original_load(candidate)
+        if threading.current_thread().name == "first-writer":
+            first_loaded.set()
+            assert allow_first_save.wait(2)
+        elif threading.current_thread().name == "second-writer":
+            second_loaded.set()
+        return configuration
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", synchronized_load
+    )
+    first_writer = threading.Thread(
+        name="first-writer", target=replace_retained_remote_node, args=(first, path)
+    )
+    second_writer = threading.Thread(
+        name="second-writer", target=replace_retained_remote_node, args=(second, path)
+    )
+    first_writer.start()
+    assert first_loaded.wait(2)
+    second_writer.start()
+    assert not second_loaded.wait(0.1)
+    allow_first_save.set()
+    first_writer.join(2)
+    second_writer.join(2)
+
+    assert original_load(path).remote_nodes == (first, second)
+
+
+def test_retained_mutation_lock_preserves_remote_and_plugin_changes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+    remote = RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",))
+    original_load = retained_configuration.load_retained_configuration
+    remote_loaded = threading.Event()
+    allow_remote_save = threading.Event()
+    plugin_loaded = threading.Event()
+
+    def synchronized_load(candidate: Path | None = None) -> RetainedConfiguration:
+        configuration = original_load(candidate)
+        if threading.current_thread().name == "remote-writer":
+            remote_loaded.set()
+            assert allow_remote_save.wait(2)
+        elif threading.current_thread().name == "plugin-writer":
+            plugin_loaded.set()
+        return configuration
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", synchronized_load
+    )
+    remote_writer = threading.Thread(
+        name="remote-writer", target=replace_retained_remote_node, args=(remote, path)
+    )
+    plugin_writer = threading.Thread(
+        name="plugin-writer",
+        target=replace_retained_external_information_plugin,
+        args=("tavily", path),
+    )
+    remote_writer.start()
+    assert remote_loaded.wait(2)
+    plugin_writer.start()
+    assert not plugin_loaded.wait(0.1)
+    allow_remote_save.set()
+    remote_writer.join(2)
+    plugin_writer.join(2)
+
+    configuration = original_load(path)
+    assert configuration.remote_nodes == (remote,)
+    assert configuration.external_information_plugin == "tavily"
+
+
+def test_retained_mutation_lock_keeps_complete_local_replacement_last_writer_wins(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+    first = RetainedLocalConfiguration(
+        LocalRuntimeCompositionValues(runtime="ollama", ollama_model="first"),
+        local_capabilities=("chat",),
+        execution_limit=1,
+    )
+    second = RetainedLocalConfiguration(
+        LocalRuntimeCompositionValues(runtime="ollama", ollama_model="second")
+    )
+    original_load = retained_configuration.load_retained_configuration
+    first_loaded = threading.Event()
+    allow_first_save = threading.Event()
+    second_loaded = threading.Event()
+
+    def synchronized_load(candidate: Path | None = None) -> RetainedConfiguration:
+        configuration = original_load(candidate)
+        if threading.current_thread().name == "first-writer":
+            first_loaded.set()
+            assert allow_first_save.wait(2)
+        elif threading.current_thread().name == "second-writer":
+            second_loaded.set()
+        return configuration
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", synchronized_load
+    )
+    first_writer = threading.Thread(
+        name="first-writer",
+        target=replace_retained_local_configuration,
+        args=(first, path),
+    )
+    second_writer = threading.Thread(
+        name="second-writer",
+        target=replace_retained_local_configuration,
+        args=(second, path),
+    )
+    first_writer.start()
+    assert first_loaded.wait(2)
+    second_writer.start()
+    assert not second_loaded.wait(0.1)
+    allow_first_save.set()
+    first_writer.join(2)
+    second_writer.join(2)
+
+    assert original_load(path).local == second
+
+
+def test_reset_of_absent_configuration_waits_for_a_concurrent_creator(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "missing" / "retained-config.json"
+    remote = RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",))
+    original_load = retained_configuration.load_retained_configuration
+    writer_loaded = threading.Event()
+    allow_writer_save = threading.Event()
+    reset_finished = threading.Event()
+
+    def synchronized_load(candidate: Path | None = None) -> RetainedConfiguration:
+        configuration = original_load(candidate)
+        if threading.current_thread().name == "writer":
+            writer_loaded.set()
+            assert allow_writer_save.wait(2)
+        return configuration
+
+    def reset() -> None:
+        remove_retained_configuration(path)
+        reset_finished.set()
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", synchronized_load
+    )
+    writer = threading.Thread(
+        name="writer", target=replace_retained_remote_node, args=(remote, path)
+    )
+    resetter = threading.Thread(name="resetter", target=reset)
+    writer.start()
+    assert writer_loaded.wait(2)
+    resetter.start()
+    assert not reset_finished.wait(0.1)
+    assert not path.parent.exists()
+    allow_writer_save.set()
+    writer.join(2)
+    resetter.join(2)
+
+    assert reset_finished.is_set()
+    assert not path.exists()
+
+
+def test_failed_mutation_releases_retained_mutation_lock(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+
+    def fail_load(_path: Path | None = None) -> RetainedConfiguration:
+        raise RetainedConfigurationError("invalid retained configuration")
+
+    monkeypatch.setattr(
+        retained_configuration, "load_retained_configuration", fail_load
+    )
+    with pytest.raises(RetainedConfigurationError):
+        replace_retained_local_configuration(
+            RetainedLocalConfiguration(LocalRuntimeCompositionValues(runtime="ollama")),
+            path,
+        )
+    monkeypatch.setattr(
+        retained_configuration,
+        "load_retained_configuration",
+        load_retained_configuration,
+    )
+
+    replace_retained_remote_node(
+        RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",)), path
+    )
+    assert len(load_retained_configuration(path).remote_nodes) == 1
+
+
+def test_reading_retained_configuration_does_not_acquire_mutation_lock(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "retained-config.json"
+    save_retained_configuration(ollama_configuration(), path)
+
+    def forbidden(_path: Path | None = None) -> object:
+        raise AssertionError("read must not acquire the mutation lock")
+
+    monkeypatch.setattr(retained_configuration, "_retained_mutation_lock", forbidden)
+    assert load_retained_configuration(path) == ollama_configuration()
 
 
 def test_path_uses_xdg_config_home_without_creating_it(
@@ -175,6 +489,10 @@ def test_remove_retained_configuration_is_idempotent_without_creating_parent(
     remove_retained_configuration(path)
 
     assert not path.parent.exists()
+    assert retained_configuration._retained_mutation_lock_file(path) == (
+        tmp_path / ".missing-retained-config.json.lock"
+    )
+    assert (tmp_path / ".missing-retained-config.json.lock").exists()
 
 
 def test_remove_retained_configuration_bounds_os_errors_without_path_leakage(

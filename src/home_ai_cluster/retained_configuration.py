@@ -5,9 +5,18 @@ import json
 import os
 import sys
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
+
+if sys.platform == "win32":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+else:
+    import fcntl
 
 from home_ai_cluster.core.static_capabilities import validate_static_capabilities
 from home_ai_cluster.local_runtime_composition import (
@@ -47,6 +56,38 @@ _LOCAL_KEYS = (
 _LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LEGACY_LOCAL_KEYS + ("execution_limit",)
 _LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LOCAL_KEYS + ("execution_limit",)
 _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
+
+if sys.platform == "win32":
+    _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
+
+    class _Overlapped(ctypes.Structure):
+        _fields_ = [
+            ("internal", ctypes.c_size_t),
+            ("internal_high", ctypes.c_size_t),
+            ("offset", wintypes.DWORD),
+            ("offset_high", wintypes.DWORD),
+            ("event", wintypes.HANDLE),
+        ]
+
+    _lock_file_ex = ctypes.WinDLL("kernel32", use_last_error=True).LockFileEx
+    _lock_file_ex.argtypes = (
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    )
+    _lock_file_ex.restype = wintypes.BOOL
+    _unlock_file_ex = ctypes.WinDLL("kernel32", use_last_error=True).UnlockFileEx
+    _unlock_file_ex.argtypes = (
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    )
+    _unlock_file_ex.restype = wintypes.BOOL
 
 
 class RetainedConfigurationError(Exception):
@@ -153,18 +194,36 @@ def replace_retained_local_configuration(
     path: Path | None = None,
 ) -> None:
     """Replace only the complete retained-local domain through HAC persistence."""
-    configuration = load_retained_configuration(path)
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=local,
+                remote_nodes=configuration.remote_nodes,
+                external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
             ),
-        ),
-        path,
-    )
+            path,
+        )
+
+
+def reset_retained_local_configuration(path: Path | None = None) -> None:
+    """Clear only the retained-local domain through HAC persistence."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=None,
+                remote_nodes=configuration.remote_nodes,
+                external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
+            ),
+            path,
+        )
 
 
 def build_retained_remote_node_declaration(
@@ -191,25 +250,26 @@ def replace_retained_remote_node(
     path: Path | None = None,
 ) -> None:
     """Add or replace one remote node while retaining every other domain."""
-    configuration = load_retained_configuration(path)
-    nodes = list(configuration.remote_nodes)
-    for index, node in enumerate(nodes):
-        if node.node_id == declaration.node_id:
-            nodes[index] = declaration
-            break
-    else:
-        nodes.append(declaration)
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=tuple(nodes),
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        nodes = list(configuration.remote_nodes)
+        for index, node in enumerate(nodes):
+            if node.node_id == declaration.node_id:
+                nodes[index] = declaration
+                break
+        else:
+            nodes.append(declaration)
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=configuration.local,
+                remote_nodes=tuple(nodes),
+                external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
             ),
-        ),
-        path,
-    )
+            path,
+        )
 
 
 def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
@@ -218,24 +278,65 @@ def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
         validated_node_id = remote_node_id(node_id)
     except argparse.ArgumentTypeError as error:
         raise ValueError(str(error)) from error
-    configuration = load_retained_configuration(path)
-    nodes = tuple(
-        node for node in configuration.remote_nodes if node.node_id != validated_node_id
-    )
-    if len(nodes) == len(configuration.remote_nodes):
-        return False
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        nodes = tuple(
+            node
+            for node in configuration.remote_nodes
+            if node.node_id != validated_node_id
+        )
+        if len(nodes) == len(configuration.remote_nodes):
+            return False
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=configuration.local,
+                remote_nodes=nodes,
+                external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
             ),
-        ),
-        path,
-    )
+            path,
+        )
     return True
+
+
+def replace_retained_external_information_plugin(
+    plugin: str | None,
+    path: Path | None = None,
+) -> None:
+    """Replace only the retained external-information plugin choice."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=configuration.local,
+                remote_nodes=configuration.remote_nodes,
+                external_information_plugin=plugin,
+                chat_external_information_fallback=(
+                    configuration.chat_external_information_fallback
+                ),
+            ),
+            path,
+        )
+
+
+def set_retained_chat_external_information_fallback(
+    authorized: bool,
+    path: Path | None = None,
+) -> None:
+    """Set the retained Chat external-information fallback authorization."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            RetainedConfiguration(
+                local=configuration.local,
+                remote_nodes=configuration.remote_nodes,
+                external_information_plugin=configuration.external_information_plugin,
+                chat_external_information_fallback=authorized,
+            ),
+            path,
+        )
 
 
 def browser_retained_local_shape_is_supported(local: object) -> bool:
@@ -273,13 +374,83 @@ def retained_configuration_file() -> Path:
     )
 
 
+def _retained_mutation_lock_file(configuration_path: Path) -> Path:
+    configuration_directory = configuration_path.parent
+    return configuration_directory.parent / (
+        f".{configuration_directory.name}-{configuration_path.name}.lock"
+    )
+
+
+@contextmanager
+def _retained_mutation_lock(path: Path | None = None) -> Iterator[None]:
+    """Serialize one local retained-configuration mutation across processes."""
+    configuration_path = path or retained_configuration_file()
+    lock_path = _retained_mutation_lock_file(configuration_path)
+    lock_file = None
+    handle = None
+    overlapped = None
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        lock_file = lock_path.open("a+b")
+        os.chmod(lock_path, 0o600)
+        if sys.platform == "win32":
+            lock_file.seek(0, os.SEEK_END)
+            if lock_file.tell() == 0:
+                lock_file.write(b"\0")
+                lock_file.flush()
+            handle = wintypes.HANDLE(msvcrt.get_osfhandle(lock_file.fileno()))
+            overlapped = _Overlapped()
+            if not _lock_file_ex(
+                handle,
+                _LOCKFILE_EXCLUSIVE_LOCK,
+                0,
+                1,
+                0,
+                ctypes.byref(overlapped),
+            ):
+                raise OSError(ctypes.get_last_error(), "unable to lock file")
+        else:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+    except OSError as error:
+        if lock_file is not None:
+            try:
+                lock_file.close()
+            except OSError:
+                pass
+        raise RetainedConfigurationError(
+            "unable to coordinate retained configuration"
+        ) from error
+    try:
+        yield
+    finally:
+        try:
+            if sys.platform == "win32":
+                if not _unlock_file_ex(handle, 0, 1, 0, ctypes.byref(overlapped)):
+                    raise OSError(ctypes.get_last_error(), "unable to unlock file")
+            else:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        except OSError as error:
+            raise RetainedConfigurationError(
+                "unable to coordinate retained configuration"
+            ) from error
+        finally:
+            try:
+                lock_file.close()
+            except OSError as error:
+                raise RetainedConfigurationError(
+                    "unable to coordinate retained configuration"
+                ) from error
+
+
 def remove_retained_configuration(path: Path | None = None) -> None:
     """Remove private retained configuration without loading it."""
     configuration_path = path or retained_configuration_file()
     try:
-        configuration_path.unlink()
-    except FileNotFoundError:
-        pass
+        with _retained_mutation_lock(configuration_path):
+            try:
+                configuration_path.unlink()
+            except FileNotFoundError:
+                pass
     except OSError as error:
         raise RetainedConfigurationError(
             "unable to remove retained configuration"

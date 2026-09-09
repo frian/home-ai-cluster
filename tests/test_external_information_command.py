@@ -569,7 +569,7 @@ def test_short_form_preserves_output_and_timeout_behavior(
     assert full_result == short_result
 
 
-@pytest.mark.parametrize("question", ["", "x" * 65_537])
+@pytest.mark.parametrize("question", ["", "x" * 65_537], ids=["empty", "oversized"])
 def test_short_invalid_question_preserves_downstream_acquisition_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], question: str
 ) -> None:

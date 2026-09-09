@@ -143,7 +143,11 @@ def test_classify_request_accepts_text_at_the_utf8_byte_limit() -> None:
     assert ClassifyRequest(text=text, labels=["first", "second"]).text == text
 
 
-@pytest.mark.parametrize("text", ["", "   ", "\n\t", "é" * 32_768 + "a"])
+@pytest.mark.parametrize(
+    "text",
+    ["", "   ", "\n\t", "é" * 32_768 + "a"],
+    ids=["empty", "spaces", "whitespace", "oversized-utf8"],
+)
 def test_classify_request_rejects_blank_or_oversized_text(text: str) -> None:
     with pytest.raises(ValidationError):
         ClassifyRequest(text=text, labels=["first", "second"])

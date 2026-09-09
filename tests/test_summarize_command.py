@@ -370,6 +370,7 @@ def test_relative_regular_file_uses_process_working_directory(
         b"\xff",
         b"x" * 65_537,
     ],
+    ids=["empty", "whitespace", "invalid-utf8", "oversized"],
 )
 def test_invalid_file_has_one_safe_error_without_http_client(
     capsys: pytest.CaptureFixture[str], tmp_path: Path, contents: bytes

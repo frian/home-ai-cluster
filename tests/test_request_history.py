@@ -56,6 +56,22 @@ def failed_account() -> dict[str, object]:
     }
 
 
+def execution_permission_denied_account() -> dict[str, object]:
+    return {
+        "status": "failed",
+        "routing": {
+            "requested_capability": "chat",
+            "selected_candidate_family": "local",
+            "outcome_rule": "local-only",
+        },
+        "result": None,
+        "failure": {
+            "status": "execution-permission-denied",
+            "reason": "execution permission denied",
+        },
+    }
+
+
 def use_temporary_state(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setenv("HOME", "/not-the-real-home")
@@ -123,6 +139,44 @@ def test_record_derives_failed_status_without_failure_reason() -> None:
         "failure_status": "no-selectable-candidate",
     }
     assert "private stable failure reason" not in json.dumps(record)
+
+
+def test_execution_permission_denied_history_record_is_retained_and_readable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    use_temporary_state(monkeypatch, tmp_path)
+
+    account = execution_permission_denied_account()
+    record = record_for_account(account)
+    record_account(account)
+
+    assert list(record) == [
+        "status",
+        "requested_capability",
+        "selected_candidate_family",
+        "outcome_rule",
+        "failure_status",
+    ]
+    assert record == {
+        "status": "failed",
+        "requested_capability": "chat",
+        "selected_candidate_family": "local",
+        "outcome_rule": "local-only",
+        "failure_status": "execution-permission-denied",
+    }
+    assert "execution permission denied" not in json.dumps(record)
+    assert read_valid_records() == [record]
+
+
+def test_history_rejects_unsupported_failure_status() -> None:
+    account = failed_account()
+    account["failure"] = {
+        "status": "unsupported-failure-status",
+        "reason": "private failure reason",
+    }
+
+    with pytest.raises(ValueError, match="cannot produce a valid history record"):
+        record_for_account(account)
 
 
 def test_recording_creates_owner_only_compact_jsonl_in_temporary_state(

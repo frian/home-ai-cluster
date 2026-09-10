@@ -207,7 +207,7 @@ That proof must demonstrate: the exact launcher exists; empty, missing, or inval
 
 ## Consequences and future work
 
-RFC-0114 continues to own workspace semantics; this RFC adds only trusted startup carriage and one-shot bounded JSON framing. No implementation is authorized by this Draft. Persistence or another transport requires its own evidence and RFC rather than an unreviewed extension.
+RFC-0114 continues to own workspace semantics; this RFC adds only trusted startup carriage and one-shot bounded JSON framing. This acceptance authorizes only the later separate implementation proof described above; it does not itself implement the carrier. Persistence or another transport requires its own evidence and RFC rather than an unreviewed extension.
 
 ## Decision
 

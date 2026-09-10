@@ -68,6 +68,9 @@ class _WorkspaceRequest:
 
 
 CodeInference = Callable[[Sequence[ChatMessage]], ClusterResult | None]
+CompletedActionObserver = Callable[
+    [Literal["list", "read", "write"], str, Literal["success", "refused"]], None
+]
 
 
 def run_workspace_aware_code(
@@ -76,6 +79,7 @@ def run_workspace_aware_code(
     root: str | Path,
     operations: set[str] | frozenset[str],
     infer: CodeInference,
+    on_completed_action: CompletedActionObserver | None = None,
 ) -> WorkspaceAwareCodeResult:
     """Run one synchronous, ephemeral workspace-aware Code interaction."""
     if not isinstance(instruction, str) or not instruction.strip():
@@ -134,13 +138,22 @@ def run_workspace_aware_code(
             )
 
         actions += 1
-        messages.append(ChatMessage(role="assistant", content=result.content))
         try:
             outcome = _dispatch(authority, response)
         except WorkspaceAuthorityError:
             outcome = {"status": "refused"}
         except Exception:
             return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        if on_completed_action is not None:
+            try:
+                on_completed_action(
+                    response.operation, response.path, outcome["status"]
+                )
+            except Exception:
+                return WorkspaceAwareCodeResult(
+                    WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+                )
+        messages.append(ChatMessage(role="assistant", content=result.content))
         messages.append(
             ChatMessage(role="user", content=_outcome_message(response, outcome))
         )

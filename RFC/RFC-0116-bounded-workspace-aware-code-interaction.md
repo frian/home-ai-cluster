@@ -241,7 +241,7 @@ version negotiation, or extensible registry.
 
 ### Action execution and outcomes
 
-For a valid workspace action, HAC must:
+For a valid workspace request selected while action budget remains, HAC must:
 
 1. validate the closed interaction response;
 2. consume one action-budget unit;
@@ -255,10 +255,13 @@ There are three distinct outcomes.
 - **Success:** RFC-0114 completed the operation.  A `list` reinjection carries
   its bounded entries; a `read` reinjection carries its bounded text; a `write`
   records that replacement completed.
-- **Refused:** RFC-0114 rejected the requested operation, path, or content.
-  This is unambiguously distinct from success.  A bounded generic refusal may
-  be reinjected so the model can request another already-authorized operation
-  or finish; no stable filesystem error-code taxonomy is required.
+- **Refused:** the RFC-0114 workspace-authority call did not produce a
+  successful operation result through its ordinary bounded failure/refusal
+  surface.  This normal authority non-success is unambiguously distinct from
+  success and may be reinjected so the model can request another
+  already-authorized operation or finish.  It does not imply HAC can classify
+  the exact underlying reason; no stable grant, path, host-I/O, or error-code
+  taxonomy is introduced.
 - **Internal interaction failure:** an unexpected composition/HAC failure is
   not a refusal.  HAC terminates and must not manufacture a successful or
   refused result.
@@ -285,6 +288,16 @@ not be elevated into a system-style authority message.  Exact whitespace and
 private helper structure are implementation details, provided provenance and
 success/refusal cannot be ambiguous.
 
+For every valid RFC-0114 textual result, arbitrary workspace content must not
+forge, terminate, or become structurally indistinguishable from the HAC-owned
+outcome metadata surrounding it.  The representation must preserve an
+unambiguous distinction among the requested action, HAC-owned success/refusal
+state, and returned untrusted data, including when that data deliberately
+imitates HAC framing text.  An injective textual encoding is required, but its
+exact escaping, quoting, length-delimiting, or equivalent mechanism remains an
+implementation detail.  This is a structural provenance property, not a claim
+to prevent prompt injection or control what inference believes about the data.
+
 RFC-0067's 65,536-byte aggregate Code message-content bound remains unchanged.
 The entire prospective subsequent message set must satisfy it before HAC makes
 that request.  HAC must neither raise that limit, silently truncate a workspace
@@ -295,17 +308,20 @@ the accepted Code bound.  It must not claim that the workspace action failed.
 
 ### Finite action budget and foreground lifecycle
 
-The initial proposed hard maximum is eight syntactically valid workspace-action
-requests per interaction.  Each valid action consumes one unit whether
-RFC-0114 succeeds or refuses; malformed model output terminates immediately
-without consume-and-continue behavior.
+The initial proposed hard maximum is eight budget-consuming, dispatched
+workspace action attempts per interaction.  Each valid workspace request
+selected while budget remains consumes one unit before RFC-0114 execution,
+whether the authority later succeeds or refuses; malformed model output
+terminates immediately without consume-and-continue behavior.
 
 At most nine ordinary Code inferences occur: one initial inference and at most
 one after each of eight outcomes.  After the eighth outcome, one final Code
-inference may still produce a final response.  If it instead requests a ninth
-workspace action, HAC must not execute it and must terminate for exhausted
-action budget.  The model cannot extend or change the budget.  No token budget,
-scheduler, queue, background supervisor, or hidden autonomous loop is added.
+inference may still produce a final response.  If it instead produces another
+otherwise-valid workspace request, HAC recognizes it as such but must not
+dispatch it or attempt any RFC-0114 operation; the interaction terminates for
+exhausted action budget.  The model cannot extend or change the budget.  No
+token budget, scheduler, queue, background supervisor, or hidden autonomous
+loop is added.
 
 The first interaction is local, foreground, ephemeral, single-user, and
 sequential.  It permits no concurrent workspace actions, parallel model

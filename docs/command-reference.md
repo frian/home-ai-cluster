@@ -977,7 +977,7 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the fourteen-command `hac` root and have no ordinary
+not ordinary commands in the fifteen-command `hac` root and have no ordinary
 `hac` equivalents.
 
 ## Historical proof commands

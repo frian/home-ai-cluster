@@ -151,3 +151,52 @@ def test_existing_code_failure_is_preserved(tmp_path):
         )
     assert raised.value.code == 1
     assert stderr.getvalue() == "error: no available code capability\n"
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    (
+        (
+            "MALFORMED_MODEL_RESPONSE",
+            "error: invalid code-workspace model response\n",
+        ),
+        (
+            "OVERSIZED_MODEL_RESPONSE",
+            "error: code-workspace model response too large\n",
+        ),
+        (
+            "ACTION_BUDGET_EXHAUSTED",
+            "error: code-workspace action budget exhausted\n",
+        ),
+        (
+            "CODE_CONTEXT_TOO_LARGE",
+            "error: code-workspace Code context too large\n",
+        ),
+        ("INTERNAL_FAILURE", "error: code-workspace internal failure\n"),
+    ),
+)
+def test_terminal_interaction_failures_have_distinct_safe_cli_output(
+    status, expected, tmp_path, monkeypatch
+):
+    terminal_status = getattr(
+        code_workspace_command.workspace_aware_code.WorkspaceAwareCodeStatus, status
+    )
+    monkeypatch.setattr(
+        code_workspace_command.workspace_aware_code,
+        "run_workspace_aware_code",
+        lambda *_args, **_kwargs: (
+            code_workspace_command.workspace_aware_code.WorkspaceAwareCodeResult(
+                terminal_status
+            )
+        ),
+    )
+    stderr = StringIO()
+
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main(
+            ["--root", str(tmp_path), "--grant", "read", "task"],
+            _stderr=stderr,
+        )
+
+    assert raised.value.code == 1
+    assert stderr.getvalue() == expected

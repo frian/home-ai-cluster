@@ -14,8 +14,27 @@ from home_ai_cluster.commands import chat_command, code_command
 from home_ai_cluster.core.models import ChatMessage
 from home_ai_cluster.core.workspace_authority import WorkspaceAuthorityError
 
-_RUNTIME_FAILURE = "error: code-workspace interaction failed"
 _ROOT_FAILURE = "error: invalid code-workspace root"
+_TERMINAL_FAILURES = {
+    workspace_aware_code.WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE: (
+        "error: invalid code-workspace model response"
+    ),
+    workspace_aware_code.WorkspaceAwareCodeStatus.OVERSIZED_MODEL_RESPONSE: (
+        "error: code-workspace model response too large"
+    ),
+    workspace_aware_code.WorkspaceAwareCodeStatus.ACTION_BUDGET_EXHAUSTED: (
+        "error: code-workspace action budget exhausted"
+    ),
+    workspace_aware_code.WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE: (
+        "error: code-workspace Code context too large"
+    ),
+    workspace_aware_code.WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED: (
+        "error: code-workspace Code inference failed"
+    ),
+    workspace_aware_code.WorkspaceAwareCodeStatus.INTERNAL_FAILURE: (
+        "error: code-workspace internal failure"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -133,4 +152,6 @@ def main(
         and saved_failure is not None
     ):
         chat_command._exit_with_failure(saved_failure, 1, stderr=stderr)
-    chat_command._exit_with_failure(_RUNTIME_FAILURE, 1, stderr=stderr)
+    chat_command._exit_with_failure(
+        _TERMINAL_FAILURES[outcome.status], 1, stderr=stderr
+    )

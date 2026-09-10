@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0114: Bounded HAC Local Workspace Authority](RFC-0114-bounded-hac-local-workspace-authority.md)
+  — accepts one process-local HAC-owned workspace namespace authority with
+  explicit `list`/`read`/`write` grants, closed bounded logical paths, bounded
+  UTF-8 list/read/write behavior, and existing-file same-directory replacement,
+  without routing, remote filesystem protocol, sandbox, harness, inference, or
+  retained configuration authority.
+
 - [RFC-0113: Bounded Loopback Retained Remote-Node Configuration Browser Facade](RFC-0113-bounded-loopback-retained-remote-node-configuration-browser-facade.md)
   — accepts one native-loopback browser facade over caller-owned retained `hac
   config node` declarations with shared add/update/remove validation and order

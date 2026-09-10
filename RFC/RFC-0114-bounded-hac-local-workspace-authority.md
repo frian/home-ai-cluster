@@ -1,6 +1,6 @@
 # RFC-0114: Bounded HAC Local Workspace Authority
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-09
 
@@ -63,11 +63,11 @@ but HAC independently validates the grant, the closed logical path language,
 the target, bounds, encoding, and publication behavior.  This must remain
 distinct from cluster eligibility and routing.
 
-## Proposed decision
+## Decision
 
-The project proposes to add one concrete local workspace authority after this
-RFC is accepted.  The RFC PR itself changes no behavior.  Any implementation
-must be a separate, smallest model-free proof of exactly this authority.
+The project accepts one concrete local workspace authority.  This RFC changes
+no behavior.  Any implementation must be a separate, smallest model-free proof
+of exactly this authority.
 
 ### Authority ownership and lifetime
 
@@ -374,8 +374,8 @@ base class or general framework.
 
 This RFC does not choose or integrate Pi, OpenCode, Aider replacement, any
 harness, generic agent architecture, generic plugin framework, generic
-authority framework, filesystem backend abstraction, remote/distributed
-filesystem access, synchronization, discovery, recursive repository work,
+authority framework, filesystem backend abstraction, HAC-owned remote/distributed
+filesystem access or protocol, synchronization, discovery, recursive repository work,
 repository awareness, Git semantics, shell, process execution, `hac_exec`,
 command allowlists, sandboxing, chroot, containers, Docker, Kubernetes, VMs,
 seccomp, namespaces, database, daemon, watchers, background workers,
@@ -447,11 +447,11 @@ temporary-name generation, exception classes, result representation, and
 platform primitives.  It must not reopen locality, retention, routing,
 redirection traversal, creation, sandboxing, or Pi/OpenCode dependence.
 
-## Proposed decision
+## Accepted decision
 
-This Draft RFC proposes that Home AI Cluster accept one bounded HAC-owned local
-workspace authority with the fixed root, explicit `list`/`read`/`write` grants,
-closed logical namespace, non-traversal, bounded text, and existing-file host
-replacement semantics specified above.  The RFC PR changes no behavior.
-Implementation is permitted only after acceptance and only within the later
-implementation boundary recorded here.
+This accepted RFC records one bounded HAC-owned local workspace authority with
+the fixed root, explicit `list`/`read`/`write` grants, closed logical namespace,
+non-traversal, bounded text, and existing-file host replacement semantics
+specified above.  The RFC changes no behavior.  Implementation is permitted
+only in a later separate PR and only within the later implementation boundary
+recorded here.

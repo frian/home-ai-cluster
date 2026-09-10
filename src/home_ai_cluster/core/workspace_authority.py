@@ -187,6 +187,8 @@ class WorkspaceAuthority:
         segments = tuple(path.split("/"))
         if any(segment in {"", ".", ".."} for segment in segments):
             raise WorkspaceAuthorityError("invalid logical workspace path")
+        if os.name == "nt" and any(os.path.isreserved(segment) for segment in segments):
+            raise WorkspaceAuthorityError("invalid logical workspace path")
         return segments
 
     @staticmethod

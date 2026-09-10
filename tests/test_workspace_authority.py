@@ -71,6 +71,45 @@ def test_closed_logical_path_grammar_fails_before_access(tmp_path, path):
         authority(tmp_path).read(path)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows pathname semantics")
+@pytest.mark.parametrize(
+    "path", ["target.", "target ", "NUL", "NUL.txt", "CON", "COM1", "LPT1"]
+)
+def test_windows_reserved_paths_are_rejected_before_filesystem_access(
+    tmp_path, monkeypatch, path
+):
+    workspace = authority(tmp_path)
+    monkeypatch.setattr(
+        "home_ai_cluster.core.workspace_authority.os.lstat",
+        lambda _path: (_ for _ in ()).throw(
+            AssertionError("must not access filesystem")
+        ),
+    )
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.read(path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows pathname semantics")
+def test_windows_reserved_alias_cannot_read_or_replace_existing_target(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("before", encoding="utf-8")
+    workspace = authority(tmp_path)
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.read("target.")
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.write("target.", "after")
+    assert target.read_text(encoding="utf-8") == "before"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX host pathname semantics")
+def test_posix_does_not_impose_windows_reserved_path_rejection(tmp_path):
+    (tmp_path / "NUL").write_text("nul", encoding="utf-8")
+    (tmp_path / "target.").write_text("dot", encoding="utf-8")
+    workspace = authority(tmp_path)
+    assert workspace.read("NUL") == "nul"
+    assert workspace.read("target.") == "dot"
+
+
 def test_logical_path_utf8_bound_is_checked_before_host_access(tmp_path):
     permitted = "a" * 4_096
     with pytest.raises(WorkspaceAuthorityError, match="invalid workspace file"):

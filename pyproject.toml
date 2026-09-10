@@ -32,6 +32,7 @@ home-ai-cluster-history = "home_ai_cluster.request_history:history_main"
 home-ai-cluster-clear-history = "home_ai_cluster.request_history:clear_history_main"
 home-ai-cluster-local = "home_ai_cluster.local_runtime:main"
 home-ai-cluster-chat = "home_ai_cluster.commands.chat_command:main"
+home-ai-cluster-workspace-carrier = "home_ai_cluster.workspace_carrier:main"
 
 [dependency-groups]
 dev = [

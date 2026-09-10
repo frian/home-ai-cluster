@@ -111,7 +111,21 @@ There are no generic method parameters or arbitrary argument dictionaries.
 
 Stdout is exclusively one UTF-8 machine response. For a normally handled request, the carrier writes one JSON object, may append one trailing newline, and exits. It writes no log, progress output, banner, prompt, or human diagnostic to stdout. Stderr may carry optional process diagnostics, but must not log workspace file content or request content by default. It creates no request history or retained logs.
 
-The output bound is 8 MiB, sufficient for current RFC-0114 results including JSON escaping. No streaming response is supported. Success shapes are closed and minimal:
+The 8 MiB output bound is a separate carrier serialization bound, measured over
+the complete serialized UTF-8 JSON response bytes. Every emitted response,
+including `ok: false`, remains inside that bound. Responses are complete or
+failure; they are never silently truncated. No streaming response is supported.
+For the current bounded `read`, 8 MiB is intentionally sufficient for any
+RFC-0114 one-MiB UTF-8 content under ordinary JSON escaping. RFC-0114 does not,
+however, define one aggregate byte bound over all names in a successful `list`;
+this RFC therefore does not claim that every accepted RFC-0114 result is
+necessarily serializable below the carrier limit.
+
+For a non-mutating successful `list` or `read` result whose complete success
+response would exceed the carrier bound, the carrier must not return a partial
+result. It may instead return one bounded normal carrier failure response when
+that response can be safely formed. This adds no paging, range reads,
+continuation token, or streaming form. Success shapes are closed and minimal:
 
 ```json
 {"ok":true,"entries":[{"name":"README.md","kind":"file"}]}
@@ -137,7 +151,25 @@ For a normally parsed and handled request rejected by schema validation or RFC-0
 {"ok":false,"error":"..."}
 ```
 
-The error text is not a stable error-code taxonomy. It must not expose a stack trace, echo file content, or require a native host path. Startup failures, malformed framing, unexpected internal failures, and failures before a response can be formed terminate non-zero and may diagnose on stderr. Valid success exits zero; every failure exits non-zero. No non-zero exit-code taxonomy is standardized.
+The error text is not a stable error-code taxonomy. It must not expose a stack trace, echo file content, or require a native host path. Startup failures, malformed framing, unexpected internal failures, and failures before a response can be formed terminate non-zero and may diagnose on stderr.
+
+RFC-0114 alone defines whether a workspace `write` succeeded. Once
+`WorkspaceAuthority.write()` has successfully returned, the carrier must never
+generate a normal `{"ok":false,...}` response claiming that the workspace
+operation failed. It then attempts to serialize and deliver the already-known
+success response. If that serialization or stdout delivery fails after the
+write committed, the process may terminate non-zero without a valid normal
+response. The invoking parent then has an indeterminate observed write outcome:
+absence of a success response does not prove that the target remained
+unchanged. A valid delivered `{"ok":true}` write response followed by exit
+status zero confirms that RFC-0114 returned successfully and the carrier
+completed its normal response path.
+
+A non-zero carrier exit means the complete carrier transaction did not finish
+successfully; it does not universally mean that no filesystem side effect
+occurred. The carrier prescribes no automatic retry: unrelated concurrent
+modification remains outside existing guarantees and retry could overwrite
+later content. No non-zero exit-code taxonomy is standardized.
 
 ### Delegation and architectural boundaries
 
@@ -169,7 +201,7 @@ This RFC does not authorize an operator workspace CLI; persistent carrier; HTTP;
 
 Acceptance authorizes one later separate implementation PR only: the dedicated installed entry point, one small machine-facing carrier module, closed startup parsing, bounded stdin JSON parsing, delegation to existing `WorkspaceAuthority`, bounded stdout JSON serialization, focused tests, and the minimal packaging change needed to install it. It must not add a human CLI, HTTP, persistence, harness integration, model/runtime logic, routing, retained configuration, or generic abstractions.
 
-That proof must demonstrate: the exact launcher exists; empty, missing, or invalid root fails rather than falling back to cwd, while explicit `"."` remains valid when RFC-0114 accepts it; at least one grant is required; unknown grants fail; requests cannot override root/grant; ungranted operations fail; exactly one request is consumed and extra material rejected; malformed, non-object, oversized, and non-UTF-8 request fails; unknown and operation-inappropriate fields fail; granted list/read/write delegate successfully; RFC-0114 traversal, absolute-path, redirection, and missing-write refusal remain effective; stdout has only one machine response; no default content/path logging; success exits zero and failure non-zero; no listener/network use, inference/runtime import/call, or persistent loop; Linux and native Windows behavior is tested; and the existing full suite remains green.
+That proof must demonstrate: the exact launcher exists; empty, missing, or invalid root fails rather than falling back to cwd, while explicit `"."` remains valid when RFC-0114 accepts it; at least one grant is required; unknown grants fail; requests cannot override root/grant; ungranted operations fail; exactly one request is consumed and extra material rejected; malformed, non-object, oversized, and non-UTF-8 request fails; unknown and operation-inappropriate fields fail; granted list/read/write delegate successfully; RFC-0114 traversal, absolute-path, redirection, and missing-write refusal remain effective; every serialized stdout response is complete-or-failure and inside the carrier output limit; oversized success results are never silently truncated; a forced stdout-delivery failure after successful RFC-0114 `write` produces no normal `ok:false` claim that the write failed, and documentation/tests make clear that missing acknowledgment does not prove absence of the committed write; no default content/path logging; success exits zero and failure non-zero; no listener/network use, inference/runtime import/call, or persistent loop; Linux and native Windows behavior is tested; and the existing full suite remains green.
 
 ## Consequences and future work
 

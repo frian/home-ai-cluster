@@ -26,12 +26,63 @@ class BrokenOutput(BytesIO):
         raise BrokenPipeError
 
 
-def run(argv, request=b"", *, stdout=None):
+class ChunkedInput:
+    def __init__(self, *chunks):
+        self.chunks = list(chunks)
+        self.read_sizes = []
+
+    def read(self, size):
+        self.read_sizes.append(size)
+        return self.chunks.pop(0)
+
+
+class NoneOutput(BytesIO):
+    def __init__(self):
+        super().__init__()
+        self.write_attempts = 0
+
+    def write(self, data):
+        self.write_attempts += 1
+        return None
+
+
+class ShortOutput(BytesIO):
+    def __init__(self, count):
+        super().__init__()
+        self.count = count
+        self.offered = []
+
+    def write(self, data):
+        self.offered.append(bytes(data))
+        accepted = min(self.count, len(data))
+        super().write(data[:accepted])
+        return accepted
+
+
+class ZeroOutput(BytesIO):
+    def write(self, data):
+        return 0
+
+
+class FlushFailureOutput(BytesIO):
+    def __init__(self):
+        super().__init__()
+        self.write_attempts = 0
+
+    def write(self, data):
+        self.write_attempts += 1
+        return super().write(data)
+
+    def flush(self):
+        raise OSError
+
+
+def run(argv, request=b"", *, source=None, stdout=None):
     output = BytesIO() if stdout is None else stdout
     diagnostics = StringIO()
     status = workspace_carrier.main(
         argv,
-        _stdin=BytesIO(request),
+        _stdin=BytesIO(request) if source is None else source,
         _stdout=output,
         _stderr=diagnostics,
     )
@@ -155,6 +206,62 @@ def test_input_byte_bound_accepts_exact_limit_and_rejects_next_byte(tmp_path):
     status, output, error = run(arguments(tmp_path, "list"), exact + b" ")
     assert status != 0
     assert decoded(output) == {"ok": False, "error": "invalid request"}
+    assert error == ""
+
+
+def test_short_request_fragments_are_accumulated_through_eof(tmp_path):
+    request = b'{"operation":"list","path":"."}'
+    source = ChunkedInput(
+        request[:16],
+        request[16:29],
+        request[29:],
+        b"",
+    )
+    status, output, error = run(
+        arguments(tmp_path, "list"),
+        source=source,
+    )
+    assert (status, decoded(output), error) == (0, {"ok": True, "entries": []}, "")
+    assert source.read_sizes[-1] == workspace_carrier._MAX_INPUT_BYTES + 1 - len(
+        request
+    )
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [b" garbage", b' {"operation":"list","path":"."}'],
+)
+def test_later_short_read_material_invalidates_apparently_valid_first_document(
+    tmp_path, monkeypatch, suffix
+):
+    calls = []
+
+    def forbidden(self, path):
+        calls.append(path)
+
+    monkeypatch.setattr(workspace_carrier.WorkspaceAuthority, "list", forbidden)
+    source = ChunkedInput(b'{"operation":"list","path":"."}', suffix, b"")
+    status, output, error = run(arguments(tmp_path, "list"), source=source)
+    assert status != 0
+    assert decoded(output) == {"ok": False, "error": "invalid request"}
+    assert calls == []
+    assert error == ""
+
+
+def test_nonblocking_style_none_is_not_eof_or_permission_to_execute(
+    tmp_path, monkeypatch
+):
+    calls = []
+
+    def forbidden(self, path):
+        calls.append(path)
+
+    monkeypatch.setattr(workspace_carrier.WorkspaceAuthority, "list", forbidden)
+    source = ChunkedInput(b'{"operation":"list","path":"."}', None)
+    status, output, error = run(arguments(tmp_path, "list"), source=source)
+    assert status != 0
+    assert decoded(output) == {"ok": False, "error": "invalid request"}
+    assert calls == []
     assert error == ""
 
 
@@ -385,6 +492,94 @@ def test_write_delivery_failure_preserves_committed_write_without_second_respons
     assert target.read_text(encoding="utf-8") == "after"
     assert output.write_attempts == 1
     assert output.getvalue() == b""
+    assert error == "error: response delivery failed\n"
+
+
+def test_none_write_result_is_not_successful_nonmutating_response(tmp_path):
+    output = NoneOutput()
+    status, _, error = run(
+        arguments(tmp_path, "list"),
+        b'{"operation":"list","path":"."}',
+        stdout=output,
+    )
+    assert status != 0
+    assert output.write_attempts == 1
+    assert output.getvalue() == b""
+    assert error == "error: response delivery failed\n"
+
+
+def test_none_write_result_after_commit_preserves_write_without_failure_response(
+    tmp_path,
+):
+    target = tmp_path / "target"
+    target.write_text("before", encoding="utf-8")
+    output = NoneOutput()
+    status, _, error = run(
+        arguments(tmp_path, "write"),
+        b'{"operation":"write","path":"target","content":"after"}',
+        stdout=output,
+    )
+    assert status != 0
+    assert target.read_text(encoding="utf-8") == "after"
+    assert output.write_attempts == 1
+    assert output.getvalue() == b""
+    assert error == "error: response delivery failed\n"
+
+
+def test_positive_short_writes_complete_one_response_using_only_remaining_suffix(
+    tmp_path,
+):
+    expected = b'{"ok":true,"entries":[]}\n'
+    output = ShortOutput(3)
+    status, payload, error = run(
+        arguments(tmp_path, "list"),
+        b'{"operation":"list","path":"."}',
+        stdout=output,
+    )
+    assert (status, payload, error) == (0, expected, "")
+    assert output.offered[0] == expected
+    assert output.offered[1] == expected[3:]
+    assert output.offered == [expected[index:] for index in range(0, len(expected), 3)]
+
+
+def test_zero_write_result_is_delivery_failure(tmp_path):
+    output = ZeroOutput()
+    status, _, error = run(
+        arguments(tmp_path, "list"),
+        b'{"operation":"list","path":"."}',
+        stdout=output,
+    )
+    assert status != 0
+    assert output.getvalue() == b""
+    assert error == "error: response delivery failed\n"
+
+
+def test_flush_failure_is_delivery_failure_for_nonmutating_response(tmp_path):
+    output = FlushFailureOutput()
+    status, payload, error = run(
+        arguments(tmp_path, "list"),
+        b'{"operation":"list","path":"."}',
+        stdout=output,
+    )
+    assert status != 0
+    assert payload == b'{"ok":true,"entries":[]}\n'
+    assert output.write_attempts == 1
+    assert error == "error: response delivery failed\n"
+
+
+def test_flush_failure_after_commit_preserves_write_without_second_response(tmp_path):
+    target = tmp_path / "target"
+    target.write_text("before", encoding="utf-8")
+    output = FlushFailureOutput()
+    status, payload, error = run(
+        arguments(tmp_path, "write"),
+        b'{"operation":"write","path":"target","content":"after"}',
+        stdout=output,
+    )
+    assert status != 0
+    assert target.read_text(encoding="utf-8") == "after"
+    assert payload == b'{"ok":true}\n'
+    assert output.write_attempts == 1
     assert error == "error: response delivery failed\n"
 
 

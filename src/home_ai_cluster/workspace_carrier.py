@@ -72,7 +72,21 @@ def _reject_non_json_constant(value: str) -> NoReturn:
 
 
 def _read_request(source: BinaryIO) -> dict[str, Any]:
-    payload = source.read(_MAX_INPUT_BYTES + 1)
+    payload = bytearray()
+    while len(payload) <= _MAX_INPUT_BYTES:
+        try:
+            chunk = source.read(_MAX_INPUT_BYTES + 1 - len(payload))
+        except (OSError, TypeError, ValueError):
+            raise _RequestError from None
+        if chunk is None:
+            raise _RequestError
+        if not isinstance(chunk, bytes):
+            raise _RequestError
+        if not chunk:
+            break
+        if len(chunk) > _MAX_INPUT_BYTES + 1 - len(payload):
+            raise _RequestError
+        payload.extend(chunk)
     if len(payload) > _MAX_INPUT_BYTES:
         raise _RequestError
     try:
@@ -132,11 +146,18 @@ def _serialize_response(response: dict[str, Any]) -> bytes:
 
 def _write_payload(destination: BinaryIO, payload: bytes) -> None:
     try:
-        written = destination.write(payload)
-        if written is not None and written != len(payload):
-            raise _ResponseError
+        offset = 0
+        while offset < len(payload):
+            written = destination.write(payload[offset:])
+            if (
+                type(written) is not int
+                or written <= 0
+                or written > len(payload) - offset
+            ):
+                raise _ResponseError
+            offset += written
         destination.flush()
-    except (OSError, ValueError, _ResponseError):
+    except (OSError, TypeError, ValueError, _ResponseError):
         raise _ResponseError from None
 
 

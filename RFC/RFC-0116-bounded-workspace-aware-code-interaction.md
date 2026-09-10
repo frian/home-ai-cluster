@@ -52,7 +52,7 @@ authority to a selected local or remote inference node.
 
 - Define one explicitly workspace-enabled, HAC-owned Code interaction.
 - Keep `capability=code` bounded textual inference under RFC-0067.
-- Use exactly one ephemeral, locally retained RFC-0114 authority for one
+- Use exactly one ephemeral, process-local RFC-0114 authority held for one
   foreground interaction.
 - Define an exact, closed final-or-single-workspace-action response grammar.
 - Permit only sequential `list`, `read`, and `write` requests, with RFC-0114
@@ -153,6 +153,34 @@ loosen, or repair that policy.
 
 ### Closed model-response contract
 
+Before its initial ordinary `capability=code` inference, the composition must
+construct deterministic HAC-generated textual interaction instructions using
+the existing ordered textual Code message representation.  The instructions
+must tell inference that every response in this interaction is exactly one
+closed `kind=final` JSON form or one closed `kind=workspace` JSON form using
+only `list`, `read`, or `write`; that prose outside that JSON, Markdown fences,
+and more than one action are invalid; and that HAC, not the model, owns the
+authority and may refuse a requested workspace operation.
+
+These instructions are interaction-specific HAC-generated control text, not a
+new message role, generic prompt-template framework, or filesystem authority.
+The model may ignore them, so validation remains fail-closed.  They need not
+disclose the physical workspace root: the model operates on RFC-0114 logical
+paths, while the actual root and grants remain trusted composition state
+enforced independently by `WorkspaceAuthority`.  Whether the instructions
+name the currently granted operations remains an implementation/product detail.
+
+The interaction instructions count toward RFC-0067's existing 65,536-byte
+aggregate Code request-content bound.  Before the initial inference, the
+complete initial request—including the operator instruction and every
+HAC-generated interaction instruction—must fit that bound.  If it cannot,
+HAC terminates locally before routing or inference; it must not truncate either
+the operator instruction or interaction contract, or raise RFC-0067's limit.
+Every later inference participating in the interaction must receive sufficient
+retained HAC-generated contract context to know the same closed grammar.  The
+architecture does not require duplicating those instructions on every turn
+when the complete existing textual interaction context already retains them.
+
 Every Code result interpreted by this interaction must be exactly one JSON
 document containing exactly one of the following closed top-level forms.  JSON
 leading/trailing whitespace is permitted; Markdown fences, prose, a second
@@ -190,6 +218,22 @@ including escaped-equivalent names.  For example, `"kind"` and
 model response fails closed and terminates the interaction.  HAC neither
 treats it as a final textual answer nor infers an action from natural-language
 prose.
+
+Before JSON parsing or semantic interpretation, the composition must measure
+the complete `ClusterResult.content` UTF-8 byte length.  A result this
+interaction intends to interpret is at most 8 MiB (`8 * 1024 * 1024` bytes),
+whether it ultimately encodes `kind=final` or `kind=workspace`.  If it exceeds
+that fixed interaction-only bound, HAC must not parse it, execute a workspace
+action, truncate it, summarize it, retry automatically, or reinterpret it as
+final text; it terminates with a truthful local interaction failure.
+
+This bound applies only after ordinary Code result receipt and before this
+composition's interpretation.  It does not change RFC-0067, ordinary `hac
+code`, `ClusterResult`, adapters, remote envelopes, transports, runtimes, or
+ordinary Code output limits.  It does not claim to bound memory already used
+by an adapter or transport before `ClusterResult` reaches the composition.
+After a valid final response is parsed, its `content` is presented through the
+foreground interaction without creating a retained output surface.
 
 This is one interaction-owned grammar, not a generic function-calling or tool
 protocol.  It adds no tool names, generic parameters, IDs, parallel actions,
@@ -306,7 +350,8 @@ generic agent framework; its external-information semantics are not reused.
 
 Foreground presentation must distinguish at least final answer; action
 requested; action succeeded; action refused; malformed-model-response terminal
-failure; action-budget exhaustion; failure because continued Code context would
+failure; model response exceeding the workspace-aware interaction response
+bound; action-budget exhaustion; failure because continued Code context would
 exceed RFC-0067's bound; and unexpected internal failure.  This adds no
 retained history, status, or observability subsystem.  Exact terminal
 formatting is an implementation detail.
@@ -338,6 +383,12 @@ Reinjection as deterministic user-role text preserves the existing Code request
 representation and accurately marks workspace data as untrusted.  Preserving
 normal Code routing avoids a special local-execution policy, while explicit
 disclosure wording lets the operator understand the privacy consequence.
+
+The fixed 8 MiB interaction-response ceiling keeps the new parsing surface
+finite without changing ordinary Code output.  It accommodates an RFC-0114
+one-MiB `write` value even when JSON escaping substantially expands its textual
+representation, without formula-derived dynamic limits or coupling to model
+token limits.
 
 ## Alternatives considered
 
@@ -389,9 +440,10 @@ The trade-offs are deliberate: structured model output may be malformed and
 then fails closed; only `list`, `read`, and `write` are available; there is no
 create/delete/Git/shell/test execution; the maximum is eight actions; a large
 successful list/read result may be impossible to reinject under RFC-0067's
-bound; a write can remain committed after later failure; workspace text can be
-disclosed to an existing configured remote Code node; model compliance with the
-closed grammar is required; and no prompt-injection prevention is claimed.
+bound; an oversized model result terminates before interaction parsing; a write
+can remain committed after later failure; workspace text can be disclosed to an
+existing configured remote Code node; model compliance with the closed grammar
+is required; and no prompt-injection prevention is claimed.
 
 ## Implementation boundary
 

@@ -119,7 +119,7 @@ def run_workspace_aware_code(
             )
         try:
             response = _parse_response(result.content)
-        except (TypeError, ValueError, json.JSONDecodeError):
+        except (TypeError, ValueError, json.JSONDecodeError, RecursionError):
             return WorkspaceAwareCodeResult(
                 WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
             )

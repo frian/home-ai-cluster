@@ -142,6 +142,30 @@ def test_closed_response_grammar_fails_before_workspace_dispatch(
     assert len(calls) == 1
 
 
+def test_deeply_nested_json_response_fails_closed_before_workspace_dispatch(
+    tmp_path, monkeypatch
+):
+    def forbidden(*_args):
+        raise AssertionError("workspace operation must not be dispatched")
+
+    nested_response = "[" * 10_000 + "]" * 10_000
+    assert len(nested_response.encode("utf-8")) < workspace_aware_code._MAX_RESULT_BYTES
+    monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "list", forbidden)
+    monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "read", forbidden)
+    monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "write", forbidden)
+    infer, calls = responses(nested_response)
+
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "inspect", root=tmp_path, operations={"list", "read", "write"}, infer=infer
+    )
+
+    assert (
+        outcome.status
+        == workspace_aware_code.WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
+    )
+    assert len(calls) == 1
+
+
 def test_result_size_boundary_accepts_exactly_eight_mib(tmp_path):
     prefix = '{"kind":"final","content":"'
     content = "x" * (workspace_aware_code._MAX_RESULT_BYTES - len(prefix) - 2)

@@ -1,6 +1,6 @@
 # RFC-0117: Bounded Workspace-Aware Code Operator Surface
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-10
 
@@ -50,7 +50,7 @@ After local CLI syntax validation, the supplied root is passed to the existing R
 
 At least one explicit repeated `--grant OP` is required. Each `OP` is exactly `list`, `read`, or `write`; unknown values are invalid CLI input. There is no default grant, implicit `read`, implicit all-operations grant, `all` spelling, model-selected grant, dynamic escalation, or retained grant.
 
-Valid repeated grants form the fixed operation set before the first Code inference. Duplicate valid grants may collapse idempotently into that set; they do not add authority. RFC-0114 remains authoritative for operation enforcement.
+Valid repeated grants form the fixed operation set before the first Code inference. Duplicate valid `--grant` occurrences are accepted, collapse idempotently into that set, do not add authority, and do not make grant ordering meaningful. RFC-0114 remains authoritative for operation enforcement.
 
 ### Local validation and timeout
 
@@ -85,7 +85,7 @@ workspace write src/example.py: refused
 
 The examples use ordinary paths. In every actual activity line, the logical path is a deterministic, safe, human-readable rendering rather than necessarily raw path text. Its exact encoding is an implementation detail, but it must preserve one physical stderr line per dispatched action, prevent arbitrary valid logical-path content from introducing another physical line or becoming structurally indistinguishable from HAC-owned operation/outcome framing, and avoid emitting terminal control or escape characters raw in a way that can alter terminal control state. Deterministic quoting, escaping, or an equivalent single-line injective representation are acceptable; this does not select a generic protocol or machine-output format.
 
-This is presentation-only. RFC-0114 remains exclusively authoritative for logical-path acceptance: the CLI must not reject additional paths, normalize or rewrite a path before dispatch, or otherwise change model-controlled path semantics for rendering convenience. The information and stderr channel are contractual; exact wording and whitespace are not. Activity lines must not display read contents, write contents, prompts, model responses, physical roots, remote-node internals, or runtime/model metadata. No separate requested, started, and completed events are required. A valid ninth action request rejected solely by RFC-0116's exhausted action budget is not dispatched, receives no normal activity line, and terminates through budget-exhaustion failure.
+This is presentation-only. RFC-0114 remains exclusively authoritative for logical-path acceptance: the CLI must not reject additional paths, normalize or rewrite a path before dispatch, or otherwise change model-controlled path semantics for rendering convenience. HAC performs the foreground activity-output attempt synchronously before a subsequent Code inference and should flush according to ordinary CLI output behavior. If stderr itself fails, such as from a closed sink or I/O error, the command may terminate as an ordinary safe runtime/presentation failure; it neither rolls back nor retries a completed action, reclassifies a successful write as refused or failed, nor promises that an external sink accepted or displayed the bytes. The information and stderr channel are contractual; exact wording and whitespace are not. Activity lines must not display read contents, write contents, prompts, model responses, physical roots, remote-node internals, or runtime/model metadata. No separate requested, started, and completed events are required. A valid ninth action request rejected solely by RFC-0116's exhausted action budget is not dispatched, receives no normal activity line, and terminates through budget-exhaustion failure.
 
 A successful completed workspace write stays successful if a later context bound, Code inference, response parse, result-size check, budget decision, or other continuation step fails. There is no rollback or automatic retry. A narrow callback/observer for completed action outcomes is an implementation detail, not a generic event architecture.
 
@@ -99,13 +99,13 @@ Workspace activity and safe terminal errors use stderr. Malformed or oversized m
 
 `hac code` remains RFC-0067 textual assistance and RFC-0088 textual interactive Code with no filesystem authority. `hac code-file` remains its one operator-selected whole-file transformation under RFC-0080/RFC-0081; it is not superseded. `hac code-workspace` is the distinct multi-step caller-edge composition where the model selects logical paths only inside the operator's already-fixed RFC-0114 root and grants.
 
-The model and workspace content can be adversarial or prompt-injected. Security does not depend on model obedience. Before inference, the operator fixes the root, grants, RFC-0116 action budget, filesystem vocabulary, and ordinary routing configuration. The model cannot expand any of these, select a network destination/runtime/model/node, or execute shells or processes. Activity-line framing is HAC-owned: model-controlled logical-path text cannot forge that framing through its safe rendering. This is not a claim to prevent prompt injection or malicious filenames, and it exposes no workspace contents beyond the already-specified activity metadata. RFC-0114's local same-OS-user boundary remains unchanged.
+The model and workspace content can be adversarial or prompt-injected. Security does not depend on model obedience. Before inference, the operator fixes the root, grants, RFC-0116 action budget, filesystem vocabulary, and ordinary routing configuration. The model cannot expand any of these, select a network destination/runtime/model/node, or execute shells or processes. Activity-line framing is HAC-owned: model-controlled logical-path text cannot forge that framing through its safe rendering. This is not a claim to prevent prompt injection or malicious filenames, and it exposes no workspace contents beyond the already-specified activity metadata. The physical `--root` value and initial instruction are ordinary command-line arguments; HAC does not promise to hide them from ordinary host operating-system, process-inspection, shell, or command-history mechanisms that can observe argv. This local argv visibility does not send the physical root to remote Code nodes. RFC-0114's local same-OS-user boundary remains unchanged.
 
 No root or grant is added to `hac config local`, `hac config node`, configuration files, environment variables as a new authority surface, or named workspace profiles. All authority-bearing workspace inputs remain explicit and ephemeral for one invocation.
 
 ## Non-goals
 
-This Draft does not authorize changing ordinary `hac code`; interactive or human-follow-up workspace Code; browser or `/v1/chat` workspace authority; HTTP workspace endpoints; root/grant retention, profiles, implicit cwd roots, or implicit/escalating grants; approval or runtime-confirmation prompts; JSON, machine-event, or verbose output modes; persistence, concurrency, parallel or background actions; generic event, tool/function-calling, agent, MCP, or plugin frameworks; file operations beyond RFC-0114; repository/Git, compiler, test, formatter, shell, process, or `hac_exec` execution; remote filesystem authority; routing/capability changes; database, dashboard, Docker, or Kubernetes work.
+This RFC does not authorize changing ordinary `hac code`; interactive or human-follow-up workspace Code; browser or `/v1/chat` workspace authority; HTTP workspace endpoints; root/grant retention, profiles, implicit cwd roots, or implicit/escalating grants; approval or runtime-confirmation prompts; JSON, machine-event, or verbose output modes; persistence, concurrency, parallel or background actions; generic event, tool/function-calling, agent, MCP, or plugin frameworks; file operations beyond RFC-0114; repository/Git, compiler, test, formatter, shell, process, or `hac_exec` execution; remote filesystem authority; routing/capability changes; database, dashboard, Docker, or Kubernetes work.
 
 ## Alternatives considered
 
@@ -139,6 +139,6 @@ If accepted, this RFC authorizes only the smallest CLI wiring: one `code-workspa
 
 It does not authorize redesigning `workspace_aware_code.py` into a generic agent/event system, changing ordinary Code/routing/adapters/`ClusterRequest`/`ClusterResult`, retained workspace configuration, browser/API authority, process execution, or generic tools. If implementation requires a generic event system, protocol change, retained state, new message role, or routing change, it must stop and return to RFC review.
 
-## Draft decision
+## Decision
 
-This Draft proposes a dedicated `hac code-workspace` command with one explicit root, one or more explicit grants, and exactly one positional-or-`--message` instruction. It has no interactive mode, owns caller-local authority for one ephemeral RFC-0116 interaction, preserves existing ordinary Code requests and routing, and applies existing timeout semantics per inference. Each dispatched action produces one success/refusal stderr line; only final content goes to stdout. A refusal may still lead to a successful final exit, while terminal interaction failures are nonzero. It adds neither retained configuration nor a richer authority surface.
+Accepted. HAC accepts a dedicated `hac code-workspace` command with one explicit root, one or more explicit grants, and exactly one positional-or-`--message` instruction. It has no interactive mode, owns caller-local CLI-process RFC-0114 authority for one ephemeral RFC-0116 interaction, preserves the existing ordinary Code request and routing path, and applies existing timeout semantics independently per inference. Dispatched actions have bounded safe foreground stderr activity and final content alone goes to stdout; a refusal may still lead to a successful final exit, while terminal failures are nonzero. It adds neither retained workspace authority nor a richer tool, agent, or process surface.

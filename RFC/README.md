@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0117: Bounded Workspace-Aware Code Operator Surface](RFC-0117-bounded-workspace-aware-code-operator-surface.md)
+  — accepts one explicit `hac code-workspace` operator surface with per-invocation
+  root and `list`/`read`/`write` grants, caller-local RFC-0116/RFC-0114
+  authority, ordinary Code routing, bounded stderr activity, and stdout final
+  output, without retained workspace configuration or broader agent/tool/process
+  authority.
+
 - [RFC-0116: Bounded Workspace-Aware Code Interaction](RFC-0116-bounded-workspace-aware-code-interaction.md)
   — accepts one foreground ephemeral workspace-aware Code composition: ordinary
   textual Code inference plus one local RFC-0114 authority, a closed

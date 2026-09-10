@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0115: Bounded One-Shot Local Workspace Machine Carrier](RFC-0115-bounded-one-shot-local-workspace-machine-carrier.md)
+  — accepts one dedicated local machine-facing one-shot workspace carrier with
+  trusted startup root/grant, one bounded JSON request/response, and RFC-0114
+  filesystem semantics, without listener, persistence, human CLI, routing,
+  inference, or generic process authority.
+
 - [RFC-0114: Bounded HAC Local Workspace Authority](RFC-0114-bounded-hac-local-workspace-authority.md)
   — accepts one process-local HAC-owned workspace namespace authority with
   explicit `list`/`read`/`write` grants, closed bounded logical paths, bounded

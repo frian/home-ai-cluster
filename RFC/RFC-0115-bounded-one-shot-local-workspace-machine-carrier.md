@@ -1,6 +1,6 @@
 # RFC-0115: Bounded One-Shot Local Workspace Machine Carrier
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-10
 
@@ -211,4 +211,4 @@ RFC-0114 continues to own workspace semantics; this RFC adds only trusted startu
 
 ## Decision
 
-Draft.
+Accepted.

@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0116: Bounded Workspace-Aware Code Interaction](RFC-0116-bounded-workspace-aware-code-interaction.md)
+  — accepts one foreground ephemeral workspace-aware Code composition: ordinary
+  textual Code inference plus one local RFC-0114 authority, a closed
+  final-or-`list`/`read`/`write` grammar, finite action budget, and bounded
+  textual reinjection, with unchanged routing and no change to ordinary Code,
+  generic tools/agents, or process authority.
+
 - [RFC-0115: Bounded One-Shot Local Workspace Machine Carrier](RFC-0115-bounded-one-shot-local-workspace-machine-carrier.md)
   — accepts one dedicated local machine-facing one-shot workspace carrier with
   trusted startup root/grant, one bounded JSON request/response, and RFC-0114

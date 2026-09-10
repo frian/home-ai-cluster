@@ -1,6 +1,6 @@
 # RFC-0116: Bounded Workspace-Aware Code Interaction
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-10
 
@@ -463,8 +463,8 @@ is required; and no prompt-injection prevention is claimed.
 
 ## Implementation boundary
 
-This Draft RFC authorizes no implementation.  If accepted, a later separate
-implementation may prove only this narrow interaction: one small composition
+This accepted RFC authorizes only a later separate implementation that proves
+this narrow interaction: one small composition
 or state-machine module, direct `WorkspaceAuthority`, ordinary existing Code
 caller, closed parser/serializer, and focused tests.  It must not thereby
 authorize final CLI spelling, browser support, retained configuration, generic
@@ -487,4 +487,12 @@ must remain as specified here.
 
 ## Decision
 
-Draft.  Review is requested before any acceptance or implementation.
+Accepted.  HAC accepts one bounded workspace-aware Code interaction that
+preserves ordinary textual `code` inference and composes it with one ephemeral
+local RFC-0114 authority, the closed final/workspace response grammar, and at
+most eight budget-consuming workspace action attempts.  It retains existing
+Code request bounds plus the interaction-only model-result bound, sequential
+action-and-continue behavior, existing routing, and explicit remote textual
+workspace-data disclosure semantics.  It introduces no generic tools or agent
+framework, process execution, retained workspace authority, or remote
+filesystem authority.

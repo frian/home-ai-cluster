@@ -17,6 +17,10 @@ def authority(tmp_path, operations=None):
 
 def test_construction_requires_existing_directory_and_known_nonempty_grant(tmp_path):
     with pytest.raises(WorkspaceAuthorityError):
+        WorkspaceAuthority("", {"read"})
+    assert isinstance(WorkspaceAuthority(".", {"read"}), WorkspaceAuthority)
+    assert isinstance(WorkspaceAuthority(tmp_path, {"read"}), WorkspaceAuthority)
+    with pytest.raises(WorkspaceAuthorityError):
         WorkspaceAuthority(tmp_path / "missing", {"read"})
     (tmp_path / "file").write_text("not a directory", encoding="utf-8")
     with pytest.raises(WorkspaceAuthorityError):

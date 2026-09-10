@@ -29,6 +29,8 @@ class WorkspaceAuthority:
     """One fixed root with an explicit subset of local workspace operations."""
 
     def __init__(self, root: str | Path, operations: set[str] | frozenset[str]) -> None:
+        if root == "":
+            raise WorkspaceAuthorityError("root must be an existing directory")
         try:
             resolved_root = Path(root).resolve(strict=True)
         except (OSError, RuntimeError, TypeError):

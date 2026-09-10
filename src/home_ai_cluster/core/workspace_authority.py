@@ -157,9 +157,7 @@ class WorkspaceAuthority:
         except WorkspaceAuthorityError:
             raise
         except OSError:
-            # Later target validation gives every unavailable/nonexistent target
-            # the same small internal error boundary.
-            pass
+            raise WorkspaceAuthorityError("workspace path inspection failed") from None
         return target
 
     @staticmethod

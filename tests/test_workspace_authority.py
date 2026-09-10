@@ -112,7 +112,7 @@ def test_posix_does_not_impose_windows_reserved_path_rejection(tmp_path):
 
 def test_logical_path_utf8_bound_is_checked_before_host_access(tmp_path):
     permitted = "a" * 4_096
-    with pytest.raises(WorkspaceAuthorityError, match="invalid workspace file"):
+    with pytest.raises(WorkspaceAuthorityError, match="path inspection"):
         authority(tmp_path).read(permitted)
     with pytest.raises(WorkspaceAuthorityError, match="path exceeds"):
         authority(tmp_path).read("a" * 4_097)
@@ -153,6 +153,65 @@ def test_redirection_is_rejected_for_intermediate_and_final_targets(tmp_path):
             workspace.read(path)
         with pytest.raises(WorkspaceAuthorityError):
             workspace.write(path, "replacement")
+
+
+def test_failed_component_inspection_does_not_retarget_read_to_prefix(
+    tmp_path, monkeypatch
+):
+    prefix = tmp_path / "a"
+    prefix.write_text("prefix content", encoding="utf-8")
+    original_lstat = os.lstat
+
+    def fail_prefix(path):
+        if path == prefix:
+            raise OSError("controlled failure")
+        return original_lstat(path)
+
+    monkeypatch.setattr(
+        "home_ai_cluster.core.workspace_authority.os.lstat", fail_prefix
+    )
+    with pytest.raises(WorkspaceAuthorityError, match="path inspection"):
+        authority(tmp_path).read("a/b")
+
+
+def test_failed_component_inspection_does_not_retarget_write_to_prefix(
+    tmp_path, monkeypatch
+):
+    prefix = tmp_path / "a"
+    prefix.write_text("before", encoding="utf-8")
+    original_lstat = os.lstat
+
+    def fail_prefix(path):
+        if path == prefix:
+            raise OSError("controlled failure")
+        return original_lstat(path)
+
+    monkeypatch.setattr(
+        "home_ai_cluster.core.workspace_authority.os.lstat", fail_prefix
+    )
+    with pytest.raises(WorkspaceAuthorityError, match="path inspection"):
+        authority(tmp_path).write("a/b", "after")
+    assert prefix.read_text(encoding="utf-8") == "before"
+
+
+def test_failed_component_inspection_does_not_retarget_list_to_prefix(
+    tmp_path, monkeypatch
+):
+    prefix = tmp_path / "a"
+    prefix.mkdir()
+    (prefix / "prefix-child").write_text("content", encoding="utf-8")
+    original_lstat = os.lstat
+
+    def fail_prefix(path):
+        if path == prefix:
+            raise OSError("controlled failure")
+        return original_lstat(path)
+
+    monkeypatch.setattr(
+        "home_ai_cluster.core.workspace_authority.os.lstat", fail_prefix
+    )
+    with pytest.raises(WorkspaceAuthorityError, match="path inspection"):
+        authority(tmp_path).list("a/b")
 
 
 def test_list_entry_bound_is_complete_or_failure(tmp_path):

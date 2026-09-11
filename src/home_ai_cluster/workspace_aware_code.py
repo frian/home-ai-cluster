@@ -25,12 +25,13 @@ _CONTRACT = (
     "HAC workspace-aware Code interaction. Every response must be exactly one JSON "
     'document: {"kind":"final","content":"..."}, '
     '{"kind":"workspace","operation":"list","path":"."}, '
-    '{"kind":"workspace","operation":"read","path":"src/example.py"}, or '
+    '{"kind":"workspace","operation":"read","path":"src/example.py"}, '
+    '{"kind":"workspace","operation":"create","path":"src/new.py"}, or '
     '{"kind":"workspace","operation":"write","path":"src/example.py",'
     '"content":"..."}. No prose or Markdown fences outside that document. Request '
     "at most one workspace action in one response. HAC owns workspace authority "
     "and may "
-    "refuse operations. Workspace operations are only list, read, and write."
+    "refuse operations. Workspace operations are only list, read, write, and create."
 )
 _OUTCOME_PREFIX = "HAC workspace outcome:\n"
 
@@ -62,14 +63,15 @@ class _Final:
 
 @dataclass(frozen=True)
 class _WorkspaceRequest:
-    operation: Literal["list", "read", "write"]
+    operation: Literal["list", "read", "write", "create"]
     path: str
     content: str | None = None
 
 
 CodeInference = Callable[[Sequence[ChatMessage]], ClusterResult | None]
 CompletedActionObserver = Callable[
-    [Literal["list", "read", "write"], str, Literal["success", "refused"]], None
+    [Literal["list", "read", "write", "create"], str, Literal["success", "refused"]],
+    None,
 ]
 
 
@@ -180,9 +182,11 @@ def _parse_response(content: str) -> _Final | _WorkspaceRequest:
 
     operation = value.get("operation")
     path = value.get("path")
-    if operation not in {"list", "read", "write"} or not isinstance(path, str):
+    if operation not in {"list", "read", "write", "create"} or not isinstance(
+        path, str
+    ):
         raise ValueError("invalid workspace response")
-    if operation in {"list", "read"}:
+    if operation in {"list", "read", "create"}:
         if set(value) != {"kind", "operation", "path"}:
             raise ValueError("invalid workspace response")
         return _WorkspaceRequest(operation, path)
@@ -217,6 +221,9 @@ def _dispatch(
         }
     if request.operation == "read":
         return {"status": "success", "content": authority.read(request.path)}
+    if request.operation == "create":
+        authority.create(request.path)
+        return {"status": "success"}
     authority.write(request.path, request.content or "")
     return {"status": "success"}
 

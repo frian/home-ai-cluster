@@ -80,6 +80,74 @@ def test_duplicate_grants_collapse_idempotently():
     assert command_input.operations == frozenset({"read"})
 
 
+def test_create_grants_are_accepted_and_idempotent():
+    command_input = code_workspace_command._parse_input(
+        [
+            "--root",
+            ".",
+            "--grant",
+            "create",
+            "--grant",
+            "write",
+            "--grant",
+            "create",
+            "task",
+        ]
+    )
+    assert command_input.operations == frozenset({"create", "write"})
+
+
+def test_create_activity_and_create_then_write_use_existing_cli_flow(tmp_path):
+    stdout, stderr = StringIO(), StringIO()
+    responses = iter(
+        (
+            '{"kind":"workspace","operation":"create","path":"new.txt"}',
+            '{"kind":"workspace","operation":"write","path":"new.txt","content":"value"}',
+            '{"kind":"final","content":"done"}',
+        )
+    )
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "create", "--grant", "write", "task"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json=_result(next(responses)))
+            ),
+            **kwargs,
+        ),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+    assert (tmp_path / "new.txt").read_text(encoding="utf-8") == "value"
+    assert stderr.getvalue() == (
+        'workspace create "new.txt": success\nworkspace write "new.txt": success\n'
+    )
+    assert stdout.getvalue() == "done\n"
+
+
+def test_create_only_interaction_leaves_an_empty_file(tmp_path):
+    stdout, stderr = StringIO(), StringIO()
+    responses = iter(
+        (
+            '{"kind":"workspace","operation":"create","path":"empty.txt"}',
+            '{"kind":"final","content":"done"}',
+        )
+    )
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "create", "task"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(
+                lambda request: httpx.Response(200, json=_result(next(responses)))
+            ),
+            **kwargs,
+        ),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+    assert (tmp_path / "empty.txt").read_bytes() == b""
+    assert stderr.getvalue() == 'workspace create "empty.txt": success\n'
+    assert stdout.getvalue() == "done\n"
+
+
 def test_actions_report_to_stderr_before_next_request_and_reuse_timeout(tmp_path):
     (tmp_path / "file.txt").write_text("value", encoding="utf-8")
     requests, timeouts = [], []

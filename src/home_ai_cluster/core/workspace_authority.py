@@ -10,7 +10,7 @@ from typing import Literal
 _MAX_PATH_BYTES = 4_096
 _MAX_FILE_BYTES = 1_048_576
 _MAX_LIST_ENTRIES = 1_024
-_OPERATIONS = frozenset({"list", "read", "write"})
+_OPERATIONS = frozenset({"list", "read", "write", "create"})
 
 
 class WorkspaceAuthorityError(ValueError):
@@ -144,6 +144,21 @@ class WorkspaceAuthority:
                 except OSError:
                     pass
 
+    def create(self, path: str) -> None:
+        """Exclusively create one missing empty regular file."""
+        self._require("create")
+        target = self._create_target(path)
+        try:
+            descriptor = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        except OSError:
+            raise WorkspaceAuthorityError("workspace creation failed") from None
+        try:
+            os.close(descriptor)
+        except OSError:
+            # Creation committed at successful exclusive open. A later close
+            # failure must not falsely report that it did not occur.
+            pass
+
     def _require(self, operation: str) -> None:
         if operation not in self._operations:
             raise WorkspaceAuthorityError("operation is not granted")
@@ -161,6 +176,29 @@ class WorkspaceAuthority:
         except OSError:
             raise WorkspaceAuthorityError("workspace path inspection failed") from None
         return target
+
+    def _create_target(self, path: str) -> Path:
+        segments = self._segments(path, allow_root=False)
+        parent = self._root
+        try:
+            for segment in segments[:-1]:
+                parent = parent / segment
+                parent_status = os.lstat(parent)
+                if self._is_redirection_status(parent_status) or not stat.S_ISDIR(
+                    parent_status.st_mode
+                ):
+                    raise OSError
+        except OSError:
+            raise WorkspaceAuthorityError("invalid workspace parent") from None
+
+        target = parent / segments[-1]
+        try:
+            os.lstat(target)
+        except FileNotFoundError:
+            return target
+        except OSError:
+            raise WorkspaceAuthorityError("workspace creation failed") from None
+        raise WorkspaceAuthorityError("workspace creation target exists")
 
     @staticmethod
     def _segments(path: str, *, allow_root: bool) -> tuple[str, ...]:

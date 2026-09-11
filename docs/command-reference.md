@@ -681,15 +681,22 @@ caller-local workspace root and explicit filesystem-operation grants.
 ```sh
 hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
 hac code-workspace --root <PATH> --grant read --grant write --message "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant create --grant write --message "<INSTRUCTION>"
 ```
 
 **Important behavior:** Exactly one explicit `--root`, one or more `--grant`
-values (`list`, `read`, or `write`), and exactly one non-blank positional or
+values (`list`, `read`, `write`, or `create`), and exactly one non-blank positional or
 `--message` instruction are required. Duplicate valid grants collapse
 idempotently; there is no implicit root, grant, interactive mode, follow-up
 input, or retained workspace setting. `--timeout-seconds` uses ordinary Code
 timeout validation and applies independently to each inference, not to the
 whole interaction.
+
+`write` replaces one existing regular UTF-8 file and still refuses a missing
+target. `create` creates exactly one empty missing regular leaf in an existing
+directory; it creates no parent directory and never overwrites an existing
+object. Creating and then populating a new file normally requires both explicit
+`create` and `write` grants. No grant is implicit or default.
 
 The root and grants construct caller-local authority for this invocation only.
 Workspace action activity is written to stderr; a final model response alone is

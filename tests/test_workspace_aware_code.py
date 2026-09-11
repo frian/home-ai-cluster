@@ -218,6 +218,7 @@ def test_closed_response_grammar_fails_before_workspace_dispatch(
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "list", forbidden)
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "read", forbidden)
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "write", forbidden)
+    monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "create", forbidden)
     infer, calls = responses(content)
 
     outcome = workspace_aware_code.run_workspace_aware_code(
@@ -242,6 +243,7 @@ def test_deeply_nested_json_response_fails_closed_before_workspace_dispatch(
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "list", forbidden)
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "read", forbidden)
     monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "write", forbidden)
+    monkeypatch.setattr(workspace_aware_code.WorkspaceAuthority, "create", forbidden)
     infer, calls = responses(nested_response)
 
     outcome = workspace_aware_code.run_workspace_aware_code(
@@ -410,3 +412,119 @@ def test_safe_inference_failure_and_unexpected_failure_have_distinct_outcomes(tm
     assert (
         outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.INTERNAL_FAILURE
     )
+
+
+def test_create_dispatches_reinjects_and_notifies_once(tmp_path):
+    observed = []
+    infer, calls = responses(
+        '{"kind":"workspace","operation":"create","path":"new.txt"}',
+        '{"kind":"final","content":"done"}',
+    )
+
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "create",
+        root=tmp_path,
+        operations={"create"},
+        infer=infer,
+        on_completed_action=lambda *item: observed.append(item),
+    )
+
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert (tmp_path / "new.txt").read_bytes() == b""
+    assert observed == [("create", "new.txt", "success")]
+    reinjected = json.loads(calls[1][-1].content.split("\n", 1)[1])
+    assert reinjected == {
+        "requested": {"operation": "create", "path": "new.txt"},
+        "outcome": {"status": "success"},
+    }
+
+
+def test_create_refusal_and_content_field_are_handled_without_dispatch(
+    tmp_path, monkeypatch
+):
+    observed = []
+    infer, calls = responses(
+        '{"kind":"workspace","operation":"create","path":"new.txt"}',
+        '{"kind":"final","content":"done"}',
+    )
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "create",
+        root=tmp_path,
+        operations={"read"},
+        infer=infer,
+        on_completed_action=lambda *item: observed.append(item),
+    )
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert not (tmp_path / "new.txt").exists()
+    assert json.loads(calls[1][-1].content.split("\n", 1)[1])["outcome"] == {
+        "status": "refused"
+    }
+    assert observed == [("create", "new.txt", "refused")]
+
+    monkeypatch.setattr(
+        workspace_aware_code.WorkspaceAuthority,
+        "create",
+        lambda *_: pytest.fail("create must not dispatch"),
+    )
+    malformed = workspace_aware_code.run_workspace_aware_code(
+        "create",
+        root=tmp_path,
+        operations={"create"},
+        infer=lambda _: result(
+            '{"kind":"workspace","operation":"create","path":"new.txt","content":"x"}'
+        ),
+    )
+    assert (
+        malformed.status
+        == workspace_aware_code.WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
+    )
+
+
+def test_create_then_write_then_read_and_observer_failure_preserves_create(tmp_path):
+    infer, calls = responses(
+        '{"kind":"workspace","operation":"create","path":"new.txt"}',
+        '{"kind":"workspace","operation":"write","path":"new.txt","content":"value"}',
+        '{"kind":"workspace","operation":"read","path":"new.txt"}',
+        '{"kind":"final","content":"done"}',
+    )
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "create", root=tmp_path, operations={"create", "write", "read"}, infer=infer
+    )
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert (tmp_path / "new.txt").read_text(encoding="utf-8") == "value"
+    assert len(calls) == 4
+
+    infer, calls = responses(
+        '{"kind":"workspace","operation":"create","path":"committed.txt"}',
+        '{"kind":"final","content":"never"}',
+    )
+    failed = workspace_aware_code.run_workspace_aware_code(
+        "create",
+        root=tmp_path,
+        operations={"create"},
+        infer=infer,
+        on_completed_action=lambda *_: (_ for _ in ()).throw(OSError()),
+    )
+    assert (
+        failed.status == workspace_aware_code.WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+    )
+    assert (tmp_path / "committed.txt").read_bytes() == b""
+    assert len(calls) == 1
+
+
+def test_create_consumes_the_existing_action_budget(tmp_path):
+    infer, calls = responses(
+        *(
+            json.dumps(
+                {"kind": "workspace", "operation": "create", "path": f"new-{index}"}
+            )
+            for index in range(8)
+        ),
+        '{"kind":"final","content":"done"}',
+    )
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "create", root=tmp_path, operations={"create"}, infer=infer
+    )
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert len(calls) == 9
+    assert all((tmp_path / f"new-{index}").is_file() for index in range(8))

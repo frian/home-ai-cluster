@@ -153,6 +153,7 @@ def test_explicit_dot_root_is_accepted(monkeypatch):
         ["--root", ".", "--root", ".", "--grant", "read"],
         ["--root", "."],
         ["--root", ".", "--grant", "unknown"],
+        ["--root", ".", "--grant", "create"],
         ["--root", ".", "--grant", "read", "--unknown"],
         ["--root", ".", "--grant", "read", "positional"],
         ["--roo", ".", "--grant", "read"],
@@ -172,6 +173,25 @@ def test_invalid_startup_fails_before_request_read(argv):
     assert output.getvalue() == b""
     assert diagnostics.getvalue() == "error: invalid carrier startup\n"
     assert "missing" not in diagnostics.getvalue()
+
+
+def test_carrier_create_remains_closed_at_startup_and_request_boundaries(tmp_path):
+    target = tmp_path / "new.txt"
+    status, output, error = run(
+        arguments(tmp_path, "create"), b'{"operation":"create","path":"new.txt"}'
+    )
+    assert status != 0
+    assert output == b""
+    assert error == "error: invalid carrier startup\n"
+    assert not target.exists()
+
+    status, output, error = run(
+        arguments(tmp_path, "write"), b'{"operation":"create","path":"new.txt"}'
+    )
+    assert status != 0
+    assert decoded(output) == {"ok": False, "error": "invalid request"}
+    assert error == ""
+    assert not target.exists()
 
 
 @pytest.mark.parametrize(
@@ -302,6 +322,7 @@ def test_duplicate_decoded_members_fail_before_workspace_action(
     [
         {},
         {"operation": "unknown", "path": "."},
+        {"operation": "create", "path": "new.txt"},
         {"operation": None, "path": "."},
         {"operation": True, "path": "."},
         {"operation": [], "path": "."},

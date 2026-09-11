@@ -90,6 +90,10 @@ architecture.
   — retains the completed real `sat` + `rasp` operator proof that browser
   remote-node mutation changes caller-owned retained future state immediately,
   leaves the running process unchanged, and is consumed by the next launch.
+- [RFC-0117 workspace-aware Code proof](rfc-0117-workspace-aware-code-proof.md)
+  — retains factual real-operator evidence for the accepted caller-local
+  workspace-aware Code path, including explicit list/read authority, refusal
+  of missing-target creation, and successful existing-file replacement.
 - [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
   — documents the adapter-owned, capability-centered seam for a possible
   per-node Ollama model argument; it authorizes no implementation or RFC.

@@ -94,6 +94,11 @@ architecture.
   — retains factual real-operator evidence for the accepted caller-local
   workspace-aware Code path, including explicit list/read authority, refusal
   of missing-target creation, and successful existing-file replacement.
+- [RFC-0118 workspace empty-leaf creation proof](rfc-0118-workspace-empty-leaf-creation-proof.md)
+  — retains real-operator evidence that an explicitly granted workspace
+  interaction read an existing source file, created a previously absent empty
+  leaf, populated it through separate `write`, reread it, and was independently
+  verified on the host.
 - [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
   — documents the adapter-owned, capability-centered seam for a possible
   per-node Ollama model argument; it authorizes no implementation or RFC.

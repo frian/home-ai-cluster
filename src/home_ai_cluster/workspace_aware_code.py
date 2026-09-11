@@ -25,9 +25,9 @@ _CONTRACT = (
     "HAC workspace-aware Code interaction. Every response must be exactly one JSON "
     'document: {"kind":"final","content":"..."}, '
     '{"kind":"workspace","operation":"list","path":"."}, '
-    '{"kind":"workspace","operation":"read","path":"src/example.py"}, '
-    '{"kind":"workspace","operation":"create","path":"src/new.py"}, or '
-    '{"kind":"workspace","operation":"write","path":"src/example.py",'
+    '{"kind":"workspace","operation":"read","path":"example.py"}, '
+    '{"kind":"workspace","operation":"create","path":"new.py"}, or '
+    '{"kind":"workspace","operation":"write","path":"example.py",'
     '"content":"..."}. No prose or Markdown fences outside that document. Request '
     "at most one workspace action in one response. HAC owns workspace authority "
     "and may "

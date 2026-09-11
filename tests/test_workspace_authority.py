@@ -362,3 +362,117 @@ def test_reparse_points_are_classified_as_redirections(tmp_path, monkeypatch):
         },
     )()
     assert WorkspaceAuthority._kind(status) == "redirection"
+
+
+def test_create_requires_its_own_grant_and_creates_empty_regular_leaves(tmp_path):
+    with pytest.raises(WorkspaceAuthorityError):
+        authority(tmp_path, {"write"}).create("new.txt")
+    assert not (tmp_path / "new.txt").exists()
+
+    workspace = authority(tmp_path, {"create"})
+    workspace.create("new.txt")
+    target = tmp_path / "new.txt"
+    assert target.is_file()
+    assert target.read_bytes() == b""
+
+    (tmp_path / "nested").mkdir()
+    workspace.create("nested/child.txt")
+    assert (tmp_path / "nested" / "child.txt").read_bytes() == b""
+
+
+def test_create_refuses_invalid_paths_missing_parents_and_existing_targets(tmp_path):
+    workspace = authority(tmp_path, {"create"})
+    for path in (".", "", "/new", "a/../new", "a\\new", "new:stream"):
+        with pytest.raises(WorkspaceAuthorityError):
+            workspace.create(path)
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.create("missing/new.txt")
+    assert not (tmp_path / "missing").exists()
+
+    target = tmp_path / "target"
+    target.write_text("before", encoding="utf-8")
+    directory = tmp_path / "directory"
+    directory.mkdir()
+    for path in ("target", "directory"):
+        with pytest.raises(WorkspaceAuthorityError):
+            workspace.create(path)
+    assert target.read_text(encoding="utf-8") == "before"
+
+
+def test_create_refuses_redirection_and_special_existing_targets_where_supported(
+    tmp_path,
+):
+    workspace = authority(tmp_path, {"create"})
+    link = tmp_path / "redirect"
+    try:
+        link.symlink_to(tmp_path / "outside")
+    except OSError as error:
+        pytest.skip(f"symlink fixture unavailable: {error}")
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.create("redirect")
+
+    if hasattr(os, "mkfifo"):
+        fifo = tmp_path / "fifo"
+        try:
+            os.mkfifo(fifo)
+        except OSError:
+            pass
+        else:
+            with pytest.raises(WorkspaceAuthorityError):
+                workspace.create("fifo")
+
+
+def test_create_rejects_redirection_parent_and_path_bound_before_creation(tmp_path):
+    workspace = authority(tmp_path, {"create"})
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    link = tmp_path / "redirect"
+    try:
+        link.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"symlink fixture unavailable: {error}")
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.create("redirect/new.txt")
+    with pytest.raises(WorkspaceAuthorityError, match="path exceeds"):
+        workspace.create("x" * 4_097)
+    assert not (outside / "new.txt").exists()
+
+
+def test_create_race_fails_closed_without_adopting_target(tmp_path, monkeypatch):
+    workspace = authority(tmp_path, {"create"})
+    target = tmp_path / "race.txt"
+    original_open = os.open
+
+    def raced_open(path, flags, mode):
+        target.write_text("other", encoding="utf-8")
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr("home_ai_cluster.core.workspace_authority.os.open", raced_open)
+    with pytest.raises(WorkspaceAuthorityError):
+        workspace.create("race.txt")
+    assert target.read_text(encoding="utf-8") == "other"
+
+
+def test_create_requests_ordinary_mode_and_close_failure_preserves_commit(
+    tmp_path, monkeypatch
+):
+    workspace = authority(tmp_path, {"create"})
+    original_open = os.open
+    original_close = os.close
+    modes = []
+
+    def record_open(path, flags, mode):
+        modes.append(mode)
+        return original_open(path, flags, mode)
+
+    def close_then_fail(descriptor):
+        original_close(descriptor)
+        raise OSError("controlled close failure")
+
+    monkeypatch.setattr("home_ai_cluster.core.workspace_authority.os.open", record_open)
+    monkeypatch.setattr(
+        "home_ai_cluster.core.workspace_authority.os.close", close_then_fail
+    )
+    workspace.create("created")
+    assert modes == [0o666]
+    assert (tmp_path / "created").read_bytes() == b""

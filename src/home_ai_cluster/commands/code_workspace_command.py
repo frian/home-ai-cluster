@@ -63,7 +63,9 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
         ),
     )
     parser.add_argument("--root", action="append", metavar="PATH")
-    parser.add_argument("--grant", action="append", choices=("list", "read", "write"))
+    parser.add_argument(
+        "--grant", action="append", choices=("list", "read", "write", "create")
+    )
     parser.add_argument("message_positional", nargs="?", metavar="MESSAGE")
     parser.add_argument("--message", action="append", metavar="MESSAGE")
     parser.add_argument("--timeout-seconds", metavar="SECONDS")

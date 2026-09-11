@@ -35,6 +35,7 @@ Finite commands:
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   code-file       Replace one selected file from one bounded code request.
+  code-workspace  Run one bounded workspace-aware code interaction.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -61,6 +62,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "chat",
         "code",
         "code-file",
+        "code-workspace",
         "classify",
         "summarize",
         "preflight",
@@ -212,6 +214,8 @@ def test_ordinary_help_surfaces_explain_important_boundaries(
     assert "interactive Chat on a TTY" in help_for("chat")
     assert "textual Code" in help_for("code")
     assert "file to replace" in help_for("code-file")
+    assert "workspace text" in help_for("code-workspace")
+    assert "remote Code nodes" in help_for("code-workspace")
     assert "read stdin" in help_for("summarize")
     assert "read stdin" in help_for("classify")
     assert "Read-only" in help_for("preflight")

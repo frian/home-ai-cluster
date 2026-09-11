@@ -99,6 +99,95 @@ def test_refusal_consumes_budget_and_is_reinjected(tmp_path):
     }
 
 
+def test_completed_action_observer_sees_success_and_refusal_once(tmp_path):
+    target = tmp_path / "target.txt"
+    target.write_text("value", encoding="utf-8")
+    observed = []
+    infer, _ = responses(
+        '{"kind":"workspace","operation":"read","path":"target.txt"}',
+        '{"kind":"workspace","operation":"read","path":"missing.txt"}',
+        '{"kind":"final","content":"done"}',
+    )
+
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "inspect",
+        root=tmp_path,
+        operations={"read"},
+        infer=infer,
+        on_completed_action=lambda operation, path, status: observed.append(
+            (operation, path, status)
+        ),
+    )
+
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert observed == [
+        ("read", "target.txt", "success"),
+        ("read", "missing.txt", "refused"),
+    ]
+
+
+def test_observer_failure_keeps_write_and_prevents_next_inference(tmp_path):
+    target = tmp_path / "target.txt"
+    target.write_text("before", encoding="utf-8")
+    infer, calls = responses(
+        '{"kind":"workspace","operation":"write","path":"target.txt","content":"after"}',
+        '{"kind":"final","content":"never"}',
+    )
+
+    outcome = workspace_aware_code.run_workspace_aware_code(
+        "write",
+        root=tmp_path,
+        operations={"write"},
+        infer=infer,
+        on_completed_action=lambda *_: (_ for _ in ()).throw(OSError()),
+    )
+
+    assert (
+        outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+    )
+    assert target.read_text(encoding="utf-8") == "after"
+    assert len(calls) == 1
+
+
+def test_observer_is_not_called_for_final_malformed_or_undispatched_action(tmp_path):
+    observed = []
+    final = workspace_aware_code.run_workspace_aware_code(
+        "inspect",
+        root=tmp_path,
+        operations={"read"},
+        infer=lambda _: result('{"kind":"final","content":"done"}'),
+        on_completed_action=lambda *item: observed.append(item),
+    )
+    malformed = workspace_aware_code.run_workspace_aware_code(
+        "inspect",
+        root=tmp_path,
+        operations={"read"},
+        infer=lambda _: result("not json"),
+        on_completed_action=lambda *item: observed.append(item),
+    )
+    infer, _ = responses(
+        *(['{"kind":"workspace","operation":"read","path":"missing.txt"}'] * 9)
+    )
+    exhausted = workspace_aware_code.run_workspace_aware_code(
+        "inspect",
+        root=tmp_path,
+        operations={"read"},
+        infer=infer,
+        on_completed_action=lambda *item: observed.append(item),
+    )
+
+    assert final.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert (
+        malformed.status
+        == workspace_aware_code.WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
+    )
+    assert (
+        exhausted.status
+        == workspace_aware_code.WorkspaceAwareCodeStatus.ACTION_BUDGET_EXHAUSTED
+    )
+    assert observed == [("read", "missing.txt", "refused")] * 8
+
+
 @pytest.mark.parametrize(
     "content",
     [

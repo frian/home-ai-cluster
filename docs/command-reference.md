@@ -53,7 +53,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has fourteen commands.
+The ordinary root surface has fifteen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -65,6 +65,7 @@ The ordinary root surface has fourteen commands.
 | [`chat`](#hac-chat) | Send one native chat request. |
 | [`code`](#hac-code) | Send one native bounded textual code request. |
 | [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. |
+| [`code-workspace`](#hac-code-workspace) | Run one bounded workspace-aware Code interaction. |
 | [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`classify`](#hac-classify) | Send one native bounded classification request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
@@ -670,6 +671,36 @@ permission bits, and atomically replaces the selected target once. It does not
 execute generated content, does not retry, and adds no endpoint, capability,
 standalone executable, or Aider behavior.
 
+## `hac code-workspace`
+
+**Purpose:** Run one bounded multi-step Code interaction with one explicit,
+caller-local workspace root and explicit filesystem-operation grants.
+
+**Common forms:**
+
+```sh
+hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant read --grant write --message "<INSTRUCTION>"
+```
+
+**Important behavior:** Exactly one explicit `--root`, one or more `--grant`
+values (`list`, `read`, or `write`), and exactly one non-blank positional or
+`--message` instruction are required. Duplicate valid grants collapse
+idempotently; there is no implicit root, grant, interactive mode, follow-up
+input, or retained workspace setting. `--timeout-seconds` uses ordinary Code
+timeout validation and applies independently to each inference, not to the
+whole interaction.
+
+The root and grants construct caller-local authority for this invocation only.
+Workspace action activity is written to stderr; a final model response alone is
+written to stdout. A refused action is intermediate and can still be followed
+by a successful final response. Ordinary Code routing still applies, so bounded
+workspace text (such as names and file contents) may be sent to configured
+remote Code nodes; the physical root and grants remain local. `--root` and the
+initial instruction are ordinary local command-line arguments and may be
+visible to host process inspection, shell behavior, or shell history. The
+command grants no shell, process, Git, general-agent, or retained authority.
+
 ## `hac aider`
 
 **Purpose:** Coordinate one bounded external Aider edit of one explicitly
@@ -946,7 +977,7 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the fourteen-command `hac` root and have no ordinary
+not ordinary commands in the fifteen-command `hac` root and have no ordinary
 `hac` equivalents.
 
 ## Historical proof commands

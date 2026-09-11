@@ -16,6 +16,7 @@ from home_ai_cluster.commands import (
     classify_command,
     code_command,
     code_file_command,
+    code_workspace_command,
     config_command,
     external_information_command,
     static_preflight,
@@ -36,6 +37,7 @@ Finite commands:
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   code-file       Replace one selected file from one bounded code request.
+  code-workspace  Run one bounded workspace-aware code interaction.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
@@ -55,6 +57,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "chat": chat_command.main,
     "code": code_command.main,
     "code-file": code_file_command.main,
+    "code-workspace": code_workspace_command.main,
     "classify": classify_command.main,
     "summarize": summarize_command.main,
     "preflight": static_preflight.main,

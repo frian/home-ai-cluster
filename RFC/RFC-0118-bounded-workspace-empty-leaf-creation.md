@@ -1,6 +1,6 @@
 # RFC-0118: Bounded Workspace Empty-Leaf Creation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-11
 
@@ -22,14 +22,14 @@ test, documentation, configuration, or other ordinary file unless the operator
 first creates the target manually.
 
 Keeping that manual `touch` step permanently is too restrictive. This RFC
-proposes exactly one additional, independently granted workspace operation:
+accepts exactly one additional, independently granted workspace operation:
 empty-leaf creation. It does not reopen RFC-0114's namespace, threat model,
 routing boundary, or existing operation semantics.
 
 ## Proposal
 
-This RFC would narrowly amend RFC-0114, RFC-0116, and RFC-0117. The workspace
-operation vocabulary would become:
+This RFC narrowly amends RFC-0114, RFC-0116, and RFC-0117. The workspace
+operation vocabulary is:
 
 ```text
 list
@@ -154,7 +154,7 @@ rollback.
 
 ## RFC-0116 amendment: closed action contract
 
-RFC-0116's closed model-response/action vocabulary would gain exactly one
+RFC-0116's closed model-response/action vocabulary gains exactly one
 fourth workspace action: `create`. Its request contains the existing closed
 response framing's operation/kind identifying workspace creation and one
 logical `path`; it contains no content.
@@ -187,7 +187,7 @@ physically true if a later observer failure terminates the interaction.
 
 ## RFC-0117 amendment: explicit operator surface
 
-`hac code-workspace` would gain one additional valid explicit grant:
+`hac code-workspace` gains one additional valid explicit grant:
 
 ```text
 --grant create
@@ -219,9 +219,9 @@ retained history, status, audit log, or observability subsystem.
 RFC-0069 and RFC-0081 are useful boring-creation precedents: missing leaf,
 existing parent, exclusive non-overwriting creation, ordinary host permissions,
 and no rollback deletion. They authorize an exact operator-selected target.
-This proposal is deliberately different: the model-controlled caller selects a
-logical leaf within an operator-selected workspace namespace and explicitly
-granted `create` operation.
+This accepted decision is deliberately different: the model-controlled caller
+selects a logical leaf within an operator-selected workspace namespace and
+explicitly granted `create` operation.
 
 The authority model is:
 
@@ -315,14 +315,14 @@ ownership semantics, and makes committed filesystem truth less reliable.
 
 ## Trade-offs
 
-The strongest argument against this proposal is real: granting `create` lets a
+The strongest argument against this decision is real: granting `create` lets a
 model-controlled caller extend the selected workspace namespace with new names.
 Those names may matter to other software, including configuration, hidden,
 source, or repository-internal files. This is qualitatively stronger authority
 than replacement of operator-existing files and must not be described as “just
 another write.”
 
-The project would accept that authority only because the workspace root and
+The project accepts that authority only because the workspace root and
 `create` grant are explicit; no grant is default; creation makes only one empty
 regular leaf in an existing directory; no directory or executable permission is
 created; content population separately requires `write`; action count remains
@@ -330,19 +330,19 @@ bounded; and filesystem authority remains caller-local.
 
 ## Implementation boundary
 
-If accepted, this RFC would amend only the operation, action, and grant
-vocabularies described above. A later implementation must preserve all existing
-behavior otherwise: RFC-0114's vocabulary becomes `list/read/write/create`,
+This RFC amends only the operation, action, and grant vocabularies described
+above. A later implementation must preserve all existing behavior otherwise:
+RFC-0114's vocabulary becomes `list/read/write/create`,
 `create(path)` means exclusive empty-leaf creation only, RFC-0116 admits the
 closed `create` action, and RFC-0117 admits `--grant create`.
 
-It would not authorize implementation beyond that accepted boundary, nor any
+It does not authorize implementation beyond that accepted boundary, nor any
 change to code, tests, routing, capabilities, remote authority, product
 behavior outside a later implementation decision, or the non-goals above.
 
 ## Decision
 
-Draft. This RFC proposes one narrow fourth independently grantable workspace
+Accepted. This RFC accepts one narrow fourth independently grantable workspace
 operation, `create`, for exclusive creation of one model-selected empty logical
 leaf inside an explicitly operator-granted RFC-0114 namespace. It leaves
 `list`, `read`, and existing-file `write` unchanged; extends RFC-0116's closed

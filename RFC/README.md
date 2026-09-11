@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0118: Bounded Workspace Empty-Leaf Creation](RFC-0118-bounded-workspace-empty-leaf-creation.md)
+  — accepts one separately granted `create` operation for exclusive empty-leaf
+  creation in an existing parent, with separate later `write` for content and
+  unchanged routing and caller-local workspace authority.
+
 - [RFC-0117: Bounded Workspace-Aware Code Operator Surface](RFC-0117-bounded-workspace-aware-code-operator-surface.md)
   — accepts one explicit `hac code-workspace` operator surface with per-invocation
   root and `list`/`read`/`write` grants, caller-local RFC-0116/RFC-0114

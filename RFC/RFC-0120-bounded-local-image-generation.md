@@ -1,6 +1,6 @@
 # RFC-0120: Bounded Local Image Generation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-12
 

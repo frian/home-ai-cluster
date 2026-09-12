@@ -67,6 +67,14 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0120: Bounded Local Image Generation](RFC-0120-bounded-local-image-generation.md)
+  — accepts the distribution-independent `image-generation` semantic capability
+  for local request-executable use, one dedicated Image Generation execution
+  shape, and one closed bounded still-PNG result contract with cluster-owned
+  complete validation, while leaving remote transport, production runtime
+  selection, operator surfaces, configuration, and filesystem authority
+  unchanged.
+
 - [RFC-0119: Capability-Coherent Adapter Execution Contracts](RFC-0119-capability-coherent-adapter-execution-contracts.md)
   — separates the common adapter surface from explicit operation-shaped execution
   contracts, requires positive adapter capability claims to be execution-coherent

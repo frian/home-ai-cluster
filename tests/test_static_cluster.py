@@ -1145,12 +1145,7 @@ def test_static_cluster_constructors_accept_llama_server_composition_without_pro
             return AdapterHealth(available=True)
 
         def capabilities(self) -> list[Capability]:
-            return [
-                Capability(name="chat"),
-                Capability(name="summarize"),
-                Capability(name="classify"),
-                Capability(name="code"),
-            ]
+            return [Capability(name="chat")]
 
         async def chat(self, request: ClusterRequest) -> RuntimeResult:
             self.chat_calls += 1
@@ -1172,6 +1167,7 @@ def test_static_cluster_constructors_accept_llama_server_composition_without_pro
     local_composition = create_llama_server_local_app_composition(
         base_url="http://127.0.0.1:8080",
         model="local-model",
+        capabilities=("chat",),
     )
     inline_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None))
     collection_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _: None))

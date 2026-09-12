@@ -373,12 +373,7 @@ class RecordingLlamaServerAdapter:
         return AdapterHealth(available=True)
 
     def capabilities(self) -> list[Capability]:
-        return [
-            Capability(name="chat"),
-            Capability(name="summarize"),
-            Capability(name="classify"),
-            Capability(name="code"),
-        ]
+        return [Capability(name="chat")]
 
     async def chat(self, request: ClusterRequest) -> RuntimeResult:
         self.chat_calls += 1
@@ -405,6 +400,7 @@ def test_shared_composition_construction_does_not_probe_or_execute_runtime(
         runtime="llama-server",
         llama_server_base_url="http://127.0.0.1:8080",
         llama_server_model="local-model",
+        capabilities=("chat",),
     )
 
     assert len(created) == 1
@@ -426,12 +422,10 @@ def test_explicit_ollama_model_construction_does_not_probe_runtime(
             created.append(self)
 
         def capabilities(self) -> list[Capability]:
-            return [
-                Capability(name="chat"),
-                Capability(name="summarize"),
-                Capability(name="classify"),
-                Capability(name="code"),
-            ]
+            return [Capability(name="chat")]
+
+        async def chat(self, request: ClusterRequest) -> RuntimeResult:
+            return RuntimeResult(content="unused", adapter=self.name)
 
     monkeypatch.setattr(
         local_runtime_composition,
@@ -442,6 +436,7 @@ def test_explicit_ollama_model_construction_does_not_probe_runtime(
     local_runtime_composition.create_local_runtime_composition(
         runtime="ollama",
         ollama_model="configured-model",
+        capabilities=("chat",),
     )
 
     assert len(created) == 1

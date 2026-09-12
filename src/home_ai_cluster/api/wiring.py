@@ -4,6 +4,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.core.adapter_execution_contracts import (
+    validate_adapter_execution_contracts,
+)
 from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -44,6 +47,7 @@ class LocalAppComposition:
             raise LocalAppCompositionError(
                 "Local application composition requires a local adapter registry"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 def _validate_static_remote_wiring_dependencies(
@@ -100,6 +104,7 @@ class StaticRemoteWiring:
             raise StaticRemoteWiringError(
                 "Static remote wiring requires exactly one declared remote node"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 @dataclass(frozen=True)
@@ -126,6 +131,7 @@ class StaticRemoteCollectionWiring:
                 "Static remote collection wiring requires at least one "
                 "declared remote node"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 def build_static_remote_collection_wiring(
@@ -191,4 +197,6 @@ def create_static_local_node_registry(
 
 def create_static_runtime_adapter_registry() -> AdapterRegistry:
     """Create the temporary static runtime adapter registry."""
-    return AdapterRegistry([OllamaAdapter()])
+    registry = AdapterRegistry([OllamaAdapter()])
+    validate_adapter_execution_contracts(registry.list_adapters())
+    return registry

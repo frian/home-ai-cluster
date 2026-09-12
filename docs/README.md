@@ -102,6 +102,9 @@ architecture.
 - [Explicit Ollama model selection investigation](explicit-ollama-model-selection-investigation.md)
   — documents the adapter-owned, capability-centered seam for a possible
   per-node Ollama model argument; it authorizes no implementation or RFC.
+- [Capability routing-permission reconciliation](capability-routing-permission-reconciliation.md)
+  — clarifies accepted RFC-0058/0059/0066/0067 semantics: static declarations
+  remain operator-owned routing permission, distinct from execution support.
 - [Explicit Ollama model selection proof](explicit-ollama-model-selection-proof.md)
   — retains one real-local RFC-0071 observation that an already-installed
   explicitly selected Ollama model handled one native model-free `code` request.

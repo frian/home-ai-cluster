@@ -240,8 +240,12 @@ cardinality change:
 
 ```text
 Before: sRGB exactly once
-After:  sRGB zero or one; if present, valid and truthful
+After:  sRGB zero or one; if present, structurally valid
 ```
+
+The cluster validator checks only the accepted PNG structure and `sRGB` chunk
+syntax and cardinality. The adapter remains responsible for having a truthful
+basis for preserving or producing an `sRGB` assertion.
 
 No implementation is authorized by this Draft.
 

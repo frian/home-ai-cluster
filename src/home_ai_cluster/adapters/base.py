@@ -7,6 +7,7 @@ from home_ai_cluster.core.models import (
     Capability,
     ClassifyRequest,
     ClusterRequest,
+    ImageGenerationRequest,
     RuntimeResult,
     SummarizeRequest,
 )
@@ -61,4 +62,13 @@ class ClassifyExecutionAdapter(Protocol):
 
     async def classify(self, request: ClassifyRequest) -> str:
         """Propose one label for a normalized bounded classification request."""
+        ...
+
+
+@runtime_checkable
+class ImageGenerationExecutionAdapter(Protocol):
+    """Explicit adapter contract for one normalized image-generation operation."""
+
+    async def generate_image(self, request: ImageGenerationRequest) -> bytes:
+        """Return candidate HAC still-PNG bytes for core validation."""
         ...

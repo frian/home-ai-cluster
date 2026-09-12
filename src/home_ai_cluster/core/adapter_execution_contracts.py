@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from home_ai_cluster.adapters.base import (
     ChatExecutionAdapter,
     ClassifyExecutionAdapter,
+    ImageGenerationExecutionAdapter,
     RuntimeAdapter,
     SummarizeExecutionAdapter,
 )
@@ -37,4 +38,11 @@ def validate_adapter_execution_contracts(
         ):
             raise AdapterExecutionContractError(
                 f"Adapter {adapter.name} claims classify without Classify"
+            )
+        if "image-generation" in capability_names and not isinstance(
+            adapter, ImageGenerationExecutionAdapter
+        ):
+            raise AdapterExecutionContractError(
+                "Adapter "
+                f"{adapter.name} claims image-generation without Image Generation"
             )

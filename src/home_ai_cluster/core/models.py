@@ -263,6 +263,28 @@ class ClassifyRequest(BaseModel):
         return Capability(name="classify")
 
 
+class ImageGenerationRequest(BaseModel):
+    """One bounded textual instruction for local image generation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruction: str
+
+    @field_validator("instruction")
+    @classmethod
+    def validate_instruction(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("instruction must not be blank")
+        if len(value.encode("utf-8")) > 65_536:
+            raise ValueError("instruction must not exceed 65,536 UTF-8 bytes")
+        return value
+
+    @property
+    def capability(self) -> Capability:
+        """Expose RFC-0120's fixed capability to local routing."""
+        return Capability(name="image-generation")
+
+
 class InternalSummarizeRequestBody(BaseModel):
     """Strict summarize body used only by the closed internal envelope."""
 
@@ -433,10 +455,19 @@ class ClassifyResult(BaseModel):
     node_id: str = Field(min_length=1)
 
 
-type RoutableRequest = (
+class ImageGenerationResult(BaseModel):
+    """One cluster-validated local still-PNG result."""
+
+    image_bytes: bytes
+    node_id: str = Field(min_length=1)
+
+
+type RemoteTransportRequest = (
     ClusterRequest | SummarizeRequest | ClassifyRequest | SourceGroundedChatRequest
 )
-type RoutableResult = ClusterResult | ClassifyResult | SourceGroundedChatResult
+type RemoteTransportResult = ClusterResult | ClassifyResult | SourceGroundedChatResult
+type LocalRoutableRequest = RemoteTransportRequest | ImageGenerationRequest
+type LocalRoutableResult = RemoteTransportResult | ImageGenerationResult
 
 
 class DeclarationStatus(StrEnum):

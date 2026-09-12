@@ -8,8 +8,8 @@ from home_ai_cluster.core.executor import (
     execute_declared_remote_routing_candidate,
 )
 from home_ai_cluster.core.models import (
-    RoutableRequest,
-    RoutableResult,
+    RemoteTransportRequest,
+    RemoteTransportResult,
 )
 from home_ai_cluster.core.orchestrator import (
     ExecutionPermissionDeniedError,
@@ -29,13 +29,13 @@ from home_ai_cluster.core.routing_candidates import (
 
 
 async def orchestrate_request_with_ordered_static_remote_fallback(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
     execution_intervals: ExecutionIntervalCardinality | None = None,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Try local once, then eligible declared remotes once in declaration order.
 
     Per RFC-0028, only an affirmative pre-transmission failure may advance

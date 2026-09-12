@@ -20,8 +20,10 @@ from home_ai_cluster.core.executor import (
 from home_ai_cluster.core.models import (
     ClusterRequest,
     ClusterResult,
-    RoutableRequest,
-    RoutableResult,
+    LocalRoutableRequest,
+    LocalRoutableResult,
+    RemoteTransportRequest,
+    RemoteTransportResult,
     SummarizeRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -63,14 +65,14 @@ class AutomaticCapabilityRoutingOutcome:
     """Request-scoped selection explanation and successful normalized result."""
 
     explanation: AutomaticCapabilitySelectionExplanation
-    result: RoutableResult
+    result: RemoteTransportResult
 
 
 async def orchestrate_request(
-    request: RoutableRequest,
+    request: LocalRoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
-) -> RoutableResult:
+) -> LocalRoutableResult:
     """Route a request to an adapter and return its normalized result."""
     return await _orchestrate_request(
         request, node_registry, adapter_registry, execution_intervals=None
@@ -78,11 +80,11 @@ async def orchestrate_request(
 
 
 async def orchestrate_composed_request(
-    request: RoutableRequest,
+    request: LocalRoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     execution_intervals: ExecutionIntervalCardinality,
-) -> RoutableResult:
+) -> LocalRoutableResult:
     """Route a request through one ordinary composed application process."""
     decision = route_request(request, node_registry, adapter_registry)
     if not await execution_intervals.try_enter():
@@ -93,11 +95,11 @@ async def orchestrate_composed_request(
 
 
 async def orchestrate_receiver_composed_request(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     execution_intervals: ExecutionIntervalCardinality,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Execute a received internal request after receiver-local permission."""
     decision = route_request(request, node_registry, adapter_registry)
     if not await execution_intervals.try_enter():
@@ -108,24 +110,24 @@ async def orchestrate_receiver_composed_request(
 
 
 async def _orchestrate_request(
-    request: RoutableRequest,
+    request: LocalRoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     execution_intervals: ExecutionIntervalCardinality | None,
-) -> RoutableResult:
+) -> LocalRoutableResult:
     decision = route_request(request, node_registry, adapter_registry)
 
     return await execute_routing_decision(request, decision, execution_intervals)
 
 
 async def orchestrate_request_with_selected_candidate(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     selected: SelectedRoutingCandidate,
     *,
     remote_transport: RemoteTransport | None = None,
     execution_intervals: ExecutionIntervalCardinality | None = None,
     local_interval_already_entered: bool = False,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Execute an already selected routing candidate without routing again."""
     if selected is None:
         raise InvalidSelectedRoutingCandidateError(
@@ -166,7 +168,7 @@ async def orchestrate_request_with_selected_candidate(
 
 
 async def orchestrate_request_with_automatic_capability_explanation(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
@@ -196,12 +198,12 @@ async def orchestrate_request_with_automatic_capability_explanation(
 
 
 async def orchestrate_request_with_automatic_capability_selection(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Compose explicit candidate discovery, automatic selection, and execution."""
     outcome = await orchestrate_request_with_automatic_capability_explanation(
         request,
@@ -214,13 +216,13 @@ async def orchestrate_request_with_automatic_capability_selection(
 
 
 async def orchestrate_request_with_static_remote_fallback(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
     execution_intervals: ExecutionIntervalCardinality | None = None,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Execute the accepted local-to-declared-remote fallback once."""
     candidates = routing_candidates_for_request(
         request,
@@ -284,12 +286,12 @@ async def orchestrate_request_with_static_remote_fallback(
 
 
 async def orchestrate_request_with_automatic_capability_fallback(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
-) -> RoutableResult:
+) -> RemoteTransportResult:
     """Preserve the RFC-0028 proof-facing fallback entry point."""
     return await orchestrate_request_with_static_remote_fallback(
         request,

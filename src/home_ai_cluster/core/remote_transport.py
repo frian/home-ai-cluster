@@ -22,8 +22,8 @@ from home_ai_cluster.core.models import (
     ClusterStatusNode,
     InternalClusterRequest,
     InternalClusterStatusResponse,
-    RoutableRequest,
-    RoutableResult,
+    RemoteTransportRequest,
+    RemoteTransportResult,
     RuntimeStatus,
     SourceGroundedChatInternalRequest,
     SourceGroundedChatRequest,
@@ -96,9 +96,9 @@ class HttpRemoteTransport:
 
     async def send(
         self,
-        request: RoutableRequest,
+        request: RemoteTransportRequest,
         declaration: RemoteNodeDeclaration,
-    ) -> RoutableResult:
+    ) -> RemoteTransportResult:
         endpoint = internal_cluster_request_url(declaration)
 
         try:
@@ -203,7 +203,7 @@ def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
 
 
 def internal_cluster_request_body(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
 ) -> dict[str, object]:
     """Serialize one of the accepted closed internal request variants."""
     if isinstance(request, ClusterRequest):
@@ -229,13 +229,15 @@ def internal_cluster_request_body(
                 },
             }
         )
-    else:
+    elif isinstance(request, ClassifyRequest):
         envelope = ClassifyInternalRequest.model_validate(
             {
                 "kind": "classify",
                 "request": {"text": request.text, "labels": request.labels},
             }
         )
+    else:
+        raise TypeError("Unsupported remote transport request")
     return envelope.model_dump(mode="json")
 
 

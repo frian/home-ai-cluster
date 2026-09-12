@@ -67,6 +67,14 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0121: Explicit stable-diffusion.cpp Image Generation Adapter](RFC-0121-explicit-stable-diffusion-cpp-image-generation-adapter.md)
+  — selects `stable-diffusion.cpp` / operator-managed loopback `sd-server` as
+  the first concrete local `image-generation` runtime adapter, keeps native
+  runtime protocol and job mechanics adapter-private, requires bounded truthful
+  normalization into the unchanged RFC-0120 still-PNG contract, and limits the
+  first real proof to programmatic local composition without expanding remote
+  transport or operator surfaces.
+
 - [RFC-0120: Bounded Local Image Generation](RFC-0120-bounded-local-image-generation.md)
   — accepts the distribution-independent `image-generation` semantic capability
   for local request-executable use, one dedicated Image Generation execution

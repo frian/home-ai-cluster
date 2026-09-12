@@ -1,6 +1,6 @@
 # RFC-0121: Explicit stable-diffusion.cpp Image Generation Adapter
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-12
 
@@ -527,4 +527,4 @@ justified.
 
 ## Decision
 
-Pending.
+Accepted.

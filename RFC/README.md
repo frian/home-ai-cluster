@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0119: Capability-Coherent Adapter Execution Contracts](RFC-0119-capability-coherent-adapter-execution-contracts.md)
+  — separates the common adapter surface from explicit operation-shaped execution
+  contracts, requires positive adapter capability claims to be execution-coherent
+  before request-executable use, preserves RFC-0108 binding ownership separately,
+  and leaves routing operation-blind without accepting a generic execution model
+  or any new capability.
+
 - [RFC-0118: Bounded Workspace Empty-Leaf Creation](RFC-0118-bounded-workspace-empty-leaf-creation.md)
   — accepts one separately granted `create` operation for exclusive empty-leaf
   creation in an existing parent, with separate later `write` for content and

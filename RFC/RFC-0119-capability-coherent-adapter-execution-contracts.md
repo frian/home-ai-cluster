@@ -1,6 +1,6 @@
 # RFC-0119: Capability-Coherent Adapter Execution Contracts
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-12
 

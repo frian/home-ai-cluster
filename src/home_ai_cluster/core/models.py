@@ -264,7 +264,7 @@ class ClassifyRequest(BaseModel):
 
 
 class ImageGenerationRequest(BaseModel):
-    """One bounded textual instruction for local image generation."""
+    """One bounded textual image-generation request."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -456,7 +456,7 @@ class ClassifyResult(BaseModel):
 
 
 class ImageGenerationResult(BaseModel):
-    """One cluster-validated local still-PNG result."""
+    """One cluster-validated still-PNG image-generation result."""
 
     image_bytes: bytes
     node_id: str = Field(min_length=1)

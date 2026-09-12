@@ -30,7 +30,10 @@ from home_ai_cluster.core.png_validation import (
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_transport import internal_cluster_request_body
 from home_ai_cluster.core.router import route_request
-from home_ai_cluster.core.static_capabilities import DEFAULT_STATIC_CAPABILITY_NAMES
+from home_ai_cluster.core.static_capabilities import (
+    DEFAULT_STATIC_CAPABILITY_NAMES,
+    validate_static_capabilities,
+)
 
 
 def chunk(kind: bytes, payload: bytes, *, valid_crc: bool = True) -> bytes:
@@ -76,6 +79,18 @@ def png(
     )
     parts.append(chunk(b"IEND", b""))
     return b"".join(parts)
+
+
+def assembled_png(chunks: list[bytes]) -> bytes:
+    return b"\x89PNG\r\n\x1a\n" + b"".join(chunks)
+
+
+def ihdr() -> bytes:
+    return chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+
+
+def valid_raw_scanline() -> bytes:
+    return b"\0\0\0\0"
 
 
 class ImageAdapter:
@@ -223,6 +238,65 @@ def test_validator_rejects_truncated_and_wrong_scanline_extent() -> None:
         validate_still_png(png(compressed=zlib.compress(b"\0\0")))
 
 
+def test_validator_rejects_truncated_zlib_stream_inside_valid_png_structure() -> None:
+    truncated = zlib.compress(valid_raw_scanline())[:-2]
+    with pytest.raises(ImageGenerationResultValidationError):
+        validate_still_png(png(compressed=truncated))
+
+
+def test_validator_rejects_excess_inflated_scanline_data() -> None:
+    extra_scanline = valid_raw_scanline() + valid_raw_scanline()
+    with pytest.raises(ImageGenerationResultValidationError):
+        validate_still_png(png(compressed=zlib.compress(extra_scanline)))
+
+
+@pytest.mark.parametrize(
+    "chunks",
+    [
+        [
+            ihdr(),
+            chunk(b"sRGB", b"\0"),
+            chunk(b"sRGB", b"\0"),
+            chunk(b"IDAT", zlib.compress(valid_raw_scanline())),
+            chunk(b"IEND", b""),
+        ],
+        [
+            ihdr(),
+            chunk(b"sRGB", b"\0\0"),
+            chunk(b"IDAT", zlib.compress(valid_raw_scanline())),
+            chunk(b"IEND", b""),
+        ],
+        [
+            ihdr(),
+            chunk(b"sRGB", b"\0"),
+            chunk(b"IDAT", zlib.compress(valid_raw_scanline())),
+            chunk(b"IEND", b"not-empty"),
+        ],
+    ],
+)
+def test_validator_rejects_duplicate_or_malformed_required_chunks(
+    chunks: list[bytes],
+) -> None:
+    with pytest.raises(ImageGenerationResultValidationError):
+        validate_still_png(assembled_png(chunks))
+
+
+def test_validator_rejects_interrupted_idat_sequence() -> None:
+    compressed = zlib.compress(valid_raw_scanline())
+    candidate = assembled_png(
+        [
+            ihdr(),
+            chunk(b"sRGB", b"\0"),
+            chunk(b"IDAT", compressed[:2]),
+            chunk(b"tEXt", b"interruption"),
+            chunk(b"IDAT", compressed[2:]),
+            chunk(b"IEND", b""),
+        ]
+    )
+    with pytest.raises(ImageGenerationResultValidationError):
+        validate_still_png(candidate)
+
+
 def test_invalid_image_candidate_fails_after_adapter_invocation() -> None:
     adapter = ImageAdapter({"image-generation"}, b"invalid")
     nodes, adapters = composition(adapter)
@@ -248,3 +322,5 @@ def test_image_generation_stays_outside_closed_remote_transport() -> None:
     with pytest.raises(TypeError, match="Unsupported remote transport request"):
         internal_cluster_request_body(request)  # type: ignore[arg-type]
     assert "image-generation" not in DEFAULT_STATIC_CAPABILITY_NAMES
+    with pytest.raises(ValueError, match="unknown test capability"):
+        validate_static_capabilities(["image-generation"], subject="test")

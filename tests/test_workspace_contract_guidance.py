@@ -7,9 +7,8 @@ from home_ai_cluster import workspace_aware_code
 
 def test_contract_keeps_explanations_inside_final_json_content():
     assert (
-        'If the operator asks for an explanation, put that explanation only in the '
-        '"content" field of a final JSON response.'
-        in workspace_aware_code._CONTRACT
+        "If the operator asks for an explanation, put that explanation only in the "
+        '"content" field of a final JSON response.' in workspace_aware_code._CONTRACT
     )
 
 

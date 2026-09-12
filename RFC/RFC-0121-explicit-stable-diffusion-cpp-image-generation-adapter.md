@@ -289,8 +289,9 @@ independent RFC-0120 validation
 Current evidence relevant to this adapter is that image generation produces
 ordinary 8-bit RGB/RGBA image data, PNG output is encoded through
 `stb_image_write`, and runtime image handling uses the sRGB image-sample
-convention where it performs color-space-aware resizing. These facts do not
-themselves establish RFC-0120's exact closed PNG chunk vocabulary.
+convention where it performs color-space-aware resizing. That observation does
+not by itself establish either the color interpretation of generated output
+samples or RFC-0120's exact closed PNG chunk vocabulary.
 
 The adapter must request runtime output with generation metadata disabled where
 the runtime offers that control; for current `sd-server`, this is the
@@ -313,7 +314,8 @@ The adapter may:
 * require RFC-0120-compatible 8-bit RGB or RGBA `IHDR` values;
 * reject unsupported, interlaced, or incompatible representations;
 * omit runtime ancillary metadata;
-* produce exactly one `sRGB` chunk;
+* produce exactly one `sRGB` chunk only when the generated samples are
+  truthfully sRGB;
 * preserve an encoded `IDAT` pixel stream when that is truthful;
 * produce valid PNG chunk CRCs and final structure; and
 * fail closed if truthful normalization cannot be established.
@@ -329,11 +331,16 @@ image-processing subsystem.
 
 RFC-0120 remains authoritative: non-sRGB data must not be relabeled as sRGB.
 This RFC makes no formal universal color-profile claim for
-`stable-diffusion.cpp`. It relies only on the current runtime RGB/RGBA
-image-sample convention, including its own sRGB convention in image processing,
-as the basis on which the adapter may truthfully normalize into RFC-0120's
-`sRGB`-tagged still-PNG profile. If that basis ceases to be truthful, the
-adapter must fail or be revised through normal project review.
+`stable-diffusion.cpp`. Current upstream evidence that some image-processing
+paths use an sRGB convention does not by itself establish the color
+interpretation of generated output samples.
+
+The adapter may add RFC-0120's required `sRGB` identification without changing
+pixel samples only when implementation evidence establishes that the generated
+samples are truthfully sRGB. Otherwise normalization must fail closed. If
+truthful normalization requires actual color conversion or a broader
+image-processing/color-management subsystem, implementation must stop and
+return to architectural review rather than silently introducing that machinery.
 
 The core must not become a generic color-management engine. Nor does the core
 accept runtime-specific exceptions or a weakened still-PNG profile. The flow

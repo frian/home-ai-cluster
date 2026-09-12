@@ -9,7 +9,10 @@ from home_ai_cluster.core.adapter_execution_contracts import (
     AdapterExecutionContractError,
     validate_adapter_execution_contracts,
 )
-from home_ai_cluster.core.local_capability_binding import LocalCapabilityBinding
+from home_ai_cluster.core.local_capability_binding import (
+    LocalCapabilityBinding,
+    LocalCapabilityBindings,
+)
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -107,14 +110,17 @@ def test_operation_without_positive_capability_claim_does_not_create_support() -
 def test_all_positive_claims_are_validated_even_when_binding_omits_one() -> None:
     adapter = ChatAdapter({"chat", "summarize"})
     binding = LocalCapabilityBinding(frozenset({"chat"}), adapter)
+    bindings = LocalCapabilityBindings([binding])
 
     with pytest.raises(AdapterExecutionContractError, match="summarize"):
         LocalAppComposition(
             node_registry=NodeRegistry(),
-            adapter_registry=AdapterRegistry([adapter], local_capability_bindings=None),
+            adapter_registry=AdapterRegistry(
+                [adapter], local_capability_bindings=bindings
+            ),
         )
 
-    assert binding.capabilities == frozenset({"chat"})
+    assert bindings.capability_names == frozenset({"chat"})
 
 
 def test_legacy_non_binding_composition_is_admitted_before_routing() -> None:

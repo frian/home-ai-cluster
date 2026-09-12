@@ -30,7 +30,7 @@ _CONTRACT = (
     '{"kind":"workspace","operation":"write","path":"example.py",'
     '"content":"..."}. No prose or Markdown fences outside that document. If the '
     'operator asks for an explanation, put that explanation only in the "content" '
-    'field of a final JSON response. Request at most one workspace action in one '
+    "field of a final JSON response. Request at most one workspace action in one "
     "response. HAC owns workspace authority and may "
     "refuse operations. Workspace operations are only list, read, write, and create."
 )

@@ -1,10 +1,15 @@
 """Focused proof of the RFC-0116 workspace-aware Code interaction."""
 
+import asyncio
 import json
 
 import pytest
 
 from home_ai_cluster import workspace_aware_code
+from home_ai_cluster.api.client_disconnect import (
+    ConfirmedClientDisconnect,
+    run_routable_execution,
+)
 from home_ai_cluster.core.models import ClusterResult
 
 
@@ -133,6 +138,56 @@ def test_completed_action_observer_sees_success_and_refusal_once(tmp_path):
         ("read", "target.txt", "success"),
         ("read", "missing.txt", "refused"),
     ]
+
+
+def test_disconnect_wins_before_a_late_inference_can_dispatch_another_action(tmp_path):
+    async def run() -> None:
+        class Request:
+            disconnected = False
+
+            async def is_disconnected(self) -> bool:
+                await asyncio.sleep(0)
+                return self.disconnected
+
+        request = Request()
+        second_inference = asyncio.Event()
+        observed = []
+        calls = 0
+
+        async def infer(_):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return result('{"kind":"workspace","operation":"list","path":"."}')
+            if calls > 2:
+                return result('{"kind":"final","content":"unexpected"}')
+            second_inference.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                return result(
+                    '{"kind":"workspace","operation":"read","path":"missing.txt"}'
+                )
+
+        task = asyncio.create_task(
+            run_routable_execution(
+                request,
+                lambda: workspace_aware_code.run_workspace_aware_code_async(
+                    "inspect",
+                    root=tmp_path,
+                    operations={"list", "read"},
+                    infer=infer,
+                    on_completed_action=lambda *item: observed.append(item),
+                ),
+            )
+        )
+        await second_inference.wait()
+        request.disconnected = True
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert observed == [("list", ".", "success")]
+
+    asyncio.run(run())
 
 
 def test_observer_failure_keeps_write_and_prevents_next_inference(tmp_path):

@@ -7,6 +7,10 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 
+from home_ai_cluster.api.client_disconnect import run_routable_execution
+from home_ai_cluster.api.routes import handle_chat_cluster_request
+from home_ai_cluster.core.models import Capability, ChatMessage, ClusterRequest
+from home_ai_cluster.core.workspace_authority import WorkspaceAuthorityError
 from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
     RetainedLocalConfiguration,
@@ -19,6 +23,10 @@ from home_ai_cluster.retained_configuration import (
     replace_retained_remote_node,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
+from home_ai_cluster.workspace_aware_code import (
+    WorkspaceAwareCodeStatus,
+    run_workspace_aware_code_async,
+)
 
 _WEB_DIRECTORY = Path(__file__).parent
 _CACHE_HEADERS = {"Cache-Control": "no-store"}
@@ -36,6 +44,48 @@ _LOCAL_DOCUMENT_KEYS = (
     "execution_limit",
 )
 _REMOTE_NODE_DOCUMENT_KEYS = ("base_url", "capabilities")
+_WORKSPACE_CODE_KEYS = ("root", "grants", "history", "instruction")
+_WORKSPACE_GRANTS = frozenset({"list", "read", "write", "create"})
+
+
+def _workspace_code_document(
+    value: Any,
+) -> tuple[str, set[str], list[ChatMessage], str]:
+    if not isinstance(value, dict) or set(value) != set(_WORKSPACE_CODE_KEYS):
+        raise ValueError("invalid workspace Code request")
+    root, grants, history, instruction = (
+        value["root"],
+        value["grants"],
+        value["history"],
+        value["instruction"],
+    )
+    if not isinstance(root, str) or not root or not isinstance(grants, list):
+        raise ValueError("invalid workspace Code request")
+    if not grants or any(not isinstance(item, str) for item in grants):
+        raise ValueError("invalid workspace Code request")
+    grant_set = set(grants)
+    if len(grant_set) != len(grants) or not grant_set <= _WORKSPACE_GRANTS:
+        raise ValueError("invalid workspace Code request")
+    if (
+        not isinstance(history, list)
+        or not isinstance(instruction, str)
+        or not instruction.strip()
+    ):
+        raise ValueError("invalid workspace Code request")
+    try:
+        messages = [ChatMessage.model_validate(item) for item in history]
+        ClusterRequest(
+            messages=[*messages, ChatMessage(role="user", content=instruction)],
+            capability=Capability(name="code"),
+        )
+    except (TypeError, ValueError):
+        raise ValueError("invalid workspace Code request") from None
+    if len(messages) % 2 or any(
+        message.role != ("user" if index % 2 == 0 else "assistant")
+        for index, message in enumerate(messages)
+    ):
+        raise ValueError("invalid workspace Code request")
+    return root, grant_set, messages, instruction
 
 
 def _browser_local_document(local: RetainedLocalConfiguration) -> dict[str, object]:
@@ -126,8 +176,73 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
         return FileResponse(
             _WEB_DIRECTORY / "index.html",
             media_type="text/html",
-            headers=_CACHE_HEADERS,
+            headers={
+                **_CACHE_HEADERS,
+                "Content-Security-Policy": "frame-ancestors 'self'",
+            },
         )
+
+    @app.post("/workspace-code", include_in_schema=False)
+    async def workspace_code(request: Request) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            root, grants, history, instruction = _workspace_code_document(
+                await request.json()
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="invalid workspace Code request"
+            ) from None
+        activity: list[dict[str, str]] = []
+        final_node_id: str | None = None
+
+        async def infer(messages: tuple[ChatMessage, ...]):
+            nonlocal final_node_id
+            result = await handle_chat_cluster_request(
+                ClusterRequest(
+                    messages=list(messages), capability=Capability(name="code")
+                ),
+                request.app.state.static_remote_wiring,
+                request.app.state.static_remote_collection_wiring,
+                request.app.state.local_app_composition,
+            )
+            final_node_id = result.node_id
+            return result
+
+        try:
+            outcome = await run_routable_execution(
+                request,
+                lambda: run_workspace_aware_code_async(
+                    instruction,
+                    root=root,
+                    operations=grants,
+                    prior_messages=history,
+                    infer=infer,
+                    on_completed_action=lambda operation, path, status: activity.append(
+                        {"operation": operation, "path": path, "outcome": status}
+                    ),
+                ),
+            )
+        except WorkspaceAuthorityError:
+            raise HTTPException(
+                status_code=400, detail="invalid workspace root"
+            ) from None
+        if outcome.status == WorkspaceAwareCodeStatus.FINAL and outcome.content:
+            return JSONResponse(
+                {
+                    "content": outcome.content,
+                    "node_id": final_node_id,
+                    "activity": activity,
+                }
+            )
+        return JSONResponse({"status": outcome.status, "activity": activity})
 
     @app.get("/assets/app.css", include_in_schema=False)
     def stylesheet() -> FileResponse:

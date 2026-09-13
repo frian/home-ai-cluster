@@ -93,10 +93,12 @@
         <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
           <h3 id="code-result-heading">Generated code</h3>
           <div aria-live="polite" class="conversation" id="code-conversation"></div>
+          <div aria-live="polite" id="workspace-activity"></div>
         </section>
         <form id="code-form">
           <label for="code-text">Code instruction</label>
           <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
+          <fieldset id="workspace-access"><legend>Optional workspace access</legend><label><input id="workspace-enabled" type="checkbox"> Enable workspace access</label><div id="workspace-options" hidden><label for="workspace-root">Workspace root</label><input id="workspace-root" placeholder="/explicit/existing/path"><div id="workspace-grants"><label><input type="checkbox" value="list"> list</label><label><input type="checkbox" value="read"> read</label><label><input type="checkbox" value="write"> write</label><label><input type="checkbox" value="create"> create</label></div></div></fieldset>
           <div class="form-actions"><button data-submit type="submit">Request code</button></div>
         </form>
         <p aria-live="polite" class="error" id="code-error" role="status"></p>

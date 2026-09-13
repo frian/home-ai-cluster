@@ -1,12 +1,14 @@
 """Bounded RFC-0116 workspace-aware Code interaction."""
 
+import asyncio
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
+from home_ai_cluster.api.client_disconnect import cancellation_has_won
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -70,6 +72,7 @@ class _WorkspaceRequest:
 
 
 CodeInference = Callable[[Sequence[ChatMessage]], ClusterResult | None]
+AsyncCodeInference = Callable[[Sequence[ChatMessage]], Awaitable[ClusterResult | None]]
 CompletedActionObserver = Callable[
     [Literal["list", "read", "write", "create"], str, Literal["success", "refused"]],
     None,
@@ -103,9 +106,36 @@ def _run_interaction(
     on_completed_action: CompletedActionObserver | None = None,
 ) -> WorkspaceAwareCodeResult:
     """Run one RFC-0116 interaction using one already-constructed authority."""
+    steps = _interaction_steps(
+        instruction,
+        authority=authority,
+        prior_messages=prior_messages,
+        on_completed_action=on_completed_action,
+    )
+    try:
+        messages = next(steps)
+        while True:
+            try:
+                result = infer(messages)
+            except Exception:
+                return WorkspaceAwareCodeResult(
+                    WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+                )
+            messages = steps.send(result)
+    except StopIteration as terminal:
+        return terminal.value
+
+
+def _interaction_steps(
+    instruction: str,
+    *,
+    authority: WorkspaceAuthority,
+    prior_messages: Sequence[ChatMessage] = (),
+    on_completed_action: CompletedActionObserver | None = None,
+):
+    """Own the shared RFC-0116 state transitions between Code inferences."""
     if not isinstance(instruction, str) or not instruction.strip():
         raise ValueError("instruction must be non-blank")
-
     messages = [
         ChatMessage(role="system", content=_CONTRACT),
         *prior_messages,
@@ -120,11 +150,7 @@ def _run_interaction(
             return WorkspaceAwareCodeResult(
                 WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE
             )
-
-        try:
-            result = infer(tuple(messages))
-        except Exception:
-            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        result = yield tuple(messages)
         if result is None:
             return WorkspaceAwareCodeResult(
                 WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED
@@ -178,6 +204,39 @@ def _run_interaction(
         messages.append(
             ChatMessage(role="user", content=_outcome_message(response, outcome))
         )
+
+
+async def run_workspace_aware_code_async(
+    instruction: str,
+    *,
+    root: str | Path,
+    operations: set[str] | frozenset[str],
+    prior_messages: Sequence[ChatMessage] = (),
+    infer: AsyncCodeInference,
+    on_completed_action: CompletedActionObserver | None = None,
+) -> WorkspaceAwareCodeResult:
+    """Run one cancellable RFC-0116 interaction for a browser turn."""
+    authority = WorkspaceAuthority(root, operations)
+    steps = _interaction_steps(
+        instruction,
+        authority=authority,
+        prior_messages=prior_messages,
+        on_completed_action=on_completed_action,
+    )
+    try:
+        messages = next(steps)
+        while True:
+            try:
+                result = await infer(messages)
+            except Exception:
+                return WorkspaceAwareCodeResult(
+                    WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+                )
+            if asyncio.current_task().cancelling() or cancellation_has_won():
+                raise asyncio.CancelledError
+            messages = steps.send(result)
+    except StopIteration as terminal:
+        return terminal.value
 
 
 def _parse_response(content: str) -> _Final | _WorkspaceRequest:

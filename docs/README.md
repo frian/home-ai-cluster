@@ -86,6 +86,8 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [Loopback browser workspace Code](loopback-browser-workspace-code.md) —
+  concise operator boundary for explicit, ephemeral workspace-enabled Code.
 - [stable-diffusion.cpp Image Generation proof](stable-diffusion-cpp-image-generation-proof.md)
   — retains one privacy-safe real local RFC-0121 proof through ordinary local
   routing, including truthful untagged still-PNG normalization and the

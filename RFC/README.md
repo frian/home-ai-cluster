@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0123: Bounded Interactive Workspace Coding](RFC-0123-bounded-interactive-workspace-coding.md)
+  — accepts bounded foreground multi-turn `hac code-workspace` with fixed
+  caller-local workspace authority, process-memory-only successful conversation
+  history, and one fresh bounded native HAC workspace interaction per human
+  turn; native HAC is the sole current harness, with no generic harness
+  selection or persistence.
+
 - [RFC-0122: Honest Still-PNG Color Signaling](RFC-0122-honest-still-png-color-signaling.md)
   — narrows RFC-0120's still-PNG color rule from mandatory `sRGB` to one
   closed two-state representation: exactly one truthful `sRGB` chunk or no

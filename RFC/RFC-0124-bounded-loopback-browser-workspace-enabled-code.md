@@ -1,6 +1,6 @@
 # RFC-0124: Bounded Loopback Browser Workspace-Enabled Code
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-13
 
@@ -1183,4 +1183,8 @@ Any future retained workspace profiles, server sessions, recoverable requests, p
 
 ## Decision
 
-Pending.
+Accepted. RFC-0124 accepts one explicit optional workspace-enabled mode inside the existing loopback browser Code experience while preserving ordinary browser Code as text-only by default. Each workspace-enabled human turn carries one explicit existing root, one explicit non-empty subset of the accepted `list`, `read`, `write`, and `create` grants, successful current-page human/final Code history, and the new human instruction. The browser-only facade validates its loopback Host/Origin authority, constructs one fresh caller-local `WorkspaceAuthority`, and runs one bounded RFC-0116/RFC-0118 interaction using ordinary independently routed `capability=code` inference.
+
+The official page keeps one root/grant pair fixed for workspace-enabled turns in the same current-page Code conversation, including across intervening text-only turns, without introducing server-side workspace or conversation identity. Safely classified workspace activity is returned in a bounded operator-facing summary when a response can be delivered. The authority-bearing page requires anti-framing, and confirmed disconnect adopts RFC-0082 cancellation semantics plus the stronger route-specific rule that no new workspace action may be dispatched after disconnect wins.
+
+This decision accepts no generic filesystem HTTP API, raw filesystem endpoints, server session, workspace ID or token, persistence, recovery protocol, remote filesystem authority, browser filesystem API, shell/Git authority, generic tool/agent/harness abstraction, streaming, authentication framework, database, or change to the `code` capability or ordinary `/v1/chat` contract.

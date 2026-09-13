@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0124: Bounded Loopback Browser Workspace-Enabled Code](RFC-0124-bounded-loopback-browser-workspace-enabled-code.md)
+  — accepts explicit optional workspace access inside the existing loopback
+  browser Code conversation, with one fresh caller-local workspace authority per
+  human turn, fixed current-page root/grant continuity, bounded classified
+  activity, same-origin plus anti-framing browser authority, and RFC-0082-style
+  disconnect cancellation without server sessions or generic filesystem APIs.
+
 - [RFC-0123: Bounded Interactive Workspace Coding](RFC-0123-bounded-interactive-workspace-coding.md)
   — accepts bounded foreground multi-turn `hac code-workspace` with fixed
   caller-local workspace authority, process-memory-only successful conversation

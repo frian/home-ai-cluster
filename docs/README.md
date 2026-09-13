@@ -86,6 +86,10 @@ architecture.
 - [Loopback web client proof](loopback-web-client-proof.md) — retained
   privacy-safe evidence and current boundary for the accepted minimal browser
   surface.
+- [stable-diffusion.cpp Image Generation proof](stable-diffusion-cpp-image-generation-proof.md)
+  — retains one privacy-safe real local RFC-0121 proof through ordinary local
+  routing, including truthful untagged still-PNG normalization and the
+  HAC-owned unavailable-runtime failure.
 - [RFC-0113 retained remote-node proof](rfc-0113-retained-remote-node-proof.md)
   — retains the completed real `sat` + `rasp` operator proof that browser
   remote-node mutation changes caller-owned retained future state immediately,

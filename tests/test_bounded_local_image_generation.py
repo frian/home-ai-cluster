@@ -50,6 +50,7 @@ def png(
     bit_depth: int = 8,
     color_type: int = 2,
     intent: int = 0,
+    include_srgb: bool = True,
     filters: list[int] | None = None,
     extra_chunks: list[bytes] | None = None,
     idat_parts: int = 1,
@@ -68,8 +69,9 @@ def png(
             b"IHDR",
             struct.pack(">IIBBBBB", width, height, bit_depth, color_type, 0, 0, 0),
         ),
-        chunk(b"sRGB", bytes([intent])),
     ]
+    if include_srgb:
+        parts.append(chunk(b"sRGB", bytes([intent])))
     if extra_chunks:
         parts.extend(extra_chunks)
     split = max(1, len(compressed) // idat_parts)
@@ -198,6 +200,11 @@ def test_validator_accepts_each_srgb_intent(intent: int) -> None:
     assert validate_still_png(png(intent=intent))
 
 
+def test_validator_accepts_png_without_color_space_signaling() -> None:
+    candidate = png(include_srgb=False)
+    assert validate_still_png(candidate) == candidate
+
+
 @pytest.mark.parametrize(
     "candidate",
     [
@@ -209,6 +216,10 @@ def test_validator_accepts_each_srgb_intent(intent: int) -> None:
         png(color_type=0),
         png(extra_chunks=[chunk(b"tEXt", b"x")]),
         png(extra_chunks=[chunk(b"abcd", b"")]),
+        png(extra_chunks=[chunk(b"iCCP", b"profile")]),
+        png(extra_chunks=[chunk(b"gAMA", b"\0\0\xb1\x8f")]),
+        png(extra_chunks=[chunk(b"cHRM", b"x")]),
+        png(extra_chunks=[chunk(b"cICP", b"\0\0\0\0")]),
         png(intent=4),
         png(filters=[5]),
     ],
@@ -279,6 +290,19 @@ def test_validator_rejects_duplicate_or_malformed_required_chunks(
 ) -> None:
     with pytest.raises(ImageGenerationResultValidationError):
         validate_still_png(assembled_png(chunks))
+
+
+def test_validator_rejects_srgb_after_idat() -> None:
+    candidate = assembled_png(
+        [
+            ihdr(),
+            chunk(b"IDAT", zlib.compress(valid_raw_scanline())),
+            chunk(b"sRGB", b"\0"),
+            chunk(b"IEND", b""),
+        ]
+    )
+    with pytest.raises(ImageGenerationResultValidationError):
+        validate_still_png(candidate)
 
 
 def test_validator_rejects_interrupted_idat_sequence() -> None:

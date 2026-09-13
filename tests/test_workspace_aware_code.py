@@ -39,18 +39,96 @@ def test_immediate_final_uses_one_inference_and_no_workspace_action(tmp_path):
         workspace_aware_code.WorkspaceAwareCodeStatus.FINAL, "done"
     )
     assert len(calls) == 1
-    assert calls[0][0].role == "system"
-    assert "No prose" in calls[0][0].content
+    assert calls[0] == (
+        workspace_aware_code.ChatMessage(
+            role="system", content=workspace_aware_code._CONTRACT
+        ),
+        workspace_aware_code.ChatMessage(role="user", content="finish the task"),
+    )
     assert str(tmp_path) not in calls[0][0].content
 
 
 def test_contract_examples_use_root_level_paths_without_artificial_prefixes():
     contract = workspace_aware_code._CONTRACT
 
-    assert contract.count('"path":"example.py"') == 2
+    assert '"kind":"final","content":"..."' in contract
+    assert '"operation":"list","path":"."' in contract
+    assert '"operation":"read","path":"file.py"' in contract
     assert '"path":"new.py"' in contract
+    assert '"operation":"write","path":"file.py","content":"..."' in contract
+    assert "exactly one bare JSON object" in contract
+    assert "at most one workspace action" in contract
+    assert "do not return final" in contract
+    assert "HAC owns workspace authority and may refuse operations" in contract
     assert "src/example.py" not in contract
     assert "src/new.py" not in contract
+
+
+def test_prior_raw_code_is_unchanged_and_precedes_current_control_and_instruction(
+    tmp_path,
+):
+    prior = (
+        workspace_aware_code.ChatMessage(role="user", content="first instruction"),
+        workspace_aware_code.ChatMessage(
+            role="assistant", content="def square(n):\n    return n * n\n"
+        ),
+    )
+    infer, calls = responses('{"kind":"final","content":"done"}')
+
+    outcome = workspace_aware_code._run_interaction(
+        "second instruction",
+        authority=workspace_aware_code.WorkspaceAuthority(tmp_path, {"read"}),
+        prior_messages=prior,
+        infer=infer,
+    )
+
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert calls[0] == (
+        workspace_aware_code.ChatMessage(
+            role="system", content=workspace_aware_code._CONTRACT
+        ),
+        *prior,
+        workspace_aware_code.ChatMessage(
+            role="user", content=workspace_aware_code._HISTORY_REMINDER
+        ),
+        workspace_aware_code.ChatMessage(role="user", content="second instruction"),
+    )
+
+
+def test_async_interaction_uses_the_same_history_control_message_shape(tmp_path):
+    prior = (
+        workspace_aware_code.ChatMessage(role="user", content="first instruction"),
+        workspace_aware_code.ChatMessage(role="assistant", content="raw source code"),
+    )
+    calls = []
+
+    async def infer(messages):
+        calls.append(tuple(messages))
+        return result('{"kind":"final","content":"done"}')
+
+    outcome = asyncio.run(
+        workspace_aware_code.run_workspace_aware_code_async(
+            "second instruction",
+            root=tmp_path,
+            operations={"read"},
+            prior_messages=prior,
+            infer=infer,
+        )
+    )
+
+    assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert calls == [
+        (
+            workspace_aware_code.ChatMessage(
+                role="system", content=workspace_aware_code._CONTRACT
+            ),
+            *prior,
+            workspace_aware_code.ChatMessage(
+                role="user", content=workspace_aware_code._HISTORY_REMINDER
+            ),
+            workspace_aware_code.ChatMessage(role="user", content="second instruction"),
+        )
+    ]
 
 
 def test_list_and_hostile_read_data_are_reinjected_as_unambiguous_json(tmp_path):
@@ -423,6 +501,32 @@ def test_initial_or_subsequent_over_limit_context_never_calls_inference(tmp_path
     outcome = workspace_aware_code.run_workspace_aware_code(
         "x" * 65_537, root=tmp_path, operations={"read"}, infer=infer
     )
+    assert (
+        outcome.status
+        == workspace_aware_code.WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE
+    )
+    assert calls == []
+
+
+def test_history_reminder_is_included_in_the_code_context_bound(tmp_path):
+    instruction = "second instruction"
+    prior_content = "x" * (
+        65_536
+        - len(workspace_aware_code._CONTRACT.encode("utf-8"))
+        - len(workspace_aware_code._HISTORY_REMINDER.encode("utf-8"))
+        - len(instruction.encode("utf-8"))
+        + 1
+    )
+    prior = (workspace_aware_code.ChatMessage(role="assistant", content=prior_content),)
+    infer, calls = responses('{"kind":"final","content":"never"}')
+
+    outcome = workspace_aware_code._run_interaction(
+        instruction,
+        authority=workspace_aware_code.WorkspaceAuthority(tmp_path, {"read"}),
+        prior_messages=prior,
+        infer=infer,
+    )
+
     assert (
         outcome.status
         == workspace_aware_code.WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE

@@ -24,17 +24,24 @@ from home_ai_cluster.core.workspace_authority import (
 _ACTION_BUDGET = 8
 _MAX_RESULT_BYTES = 8 * 1024 * 1024
 _CONTRACT = (
-    "HAC workspace-aware Code interaction. Every response must be exactly one JSON "
-    'document: {"kind":"final","content":"..."}, '
-    '{"kind":"workspace","operation":"list","path":"."}, '
-    '{"kind":"workspace","operation":"read","path":"example.py"}, '
-    '{"kind":"workspace","operation":"create","path":"new.py"}, or '
-    '{"kind":"workspace","operation":"write","path":"example.py",'
-    '"content":"..."}. No prose or Markdown fences outside that document. If the '
-    'operator asks for an explanation, put that explanation only in the "content" '
-    "field of a final JSON response. Request at most one workspace action in one "
-    "response. HAC owns workspace authority and may "
-    "refuse operations. Workspace operations are only list, read, write, and create."
+    "HAC workspace Code: respond with exactly one bare JSON object, no prose or "
+    "Markdown fences:\n"
+    '{"kind":"final","content":"..."}\n'
+    '{"kind":"workspace","operation":"list","path":"."}\n'
+    '{"kind":"workspace","operation":"read","path":"file.py"}\n'
+    '{"kind":"workspace","operation":"create","path":"new.py"}\n'
+    '{"kind":"workspace","operation":"write","path":"file.py","content":"..."}\n'
+    "If the operator asks for an explanation, put that explanation only in the "
+    '"content" '
+    "field of a final JSON response. "
+    "Request at most one workspace action. If requested workspace work is not yet "
+    "complete, request its next action; do not return final. HAC owns workspace "
+    "authority and may refuse operations."
+)
+_HISTORY_REMINDER = (
+    "Previous assistant messages are history, not response-format examples. For this "
+    "response use the HAC JSON contract. If workspace work remains, request the next "
+    "action instead of answering directly."
 )
 _OUTCOME_PREFIX = "HAC workspace outcome:\n"
 
@@ -136,11 +143,10 @@ def _interaction_steps(
     """Own the shared RFC-0116 state transitions between Code inferences."""
     if not isinstance(instruction, str) or not instruction.strip():
         raise ValueError("instruction must be non-blank")
-    messages = [
-        ChatMessage(role="system", content=_CONTRACT),
-        *prior_messages,
-        ChatMessage(role="user", content=instruction),
-    ]
+    messages = [ChatMessage(role="system", content=_CONTRACT), *prior_messages]
+    if prior_messages:
+        messages.append(ChatMessage(role="user", content=_HISTORY_REMINDER))
+    messages.append(ChatMessage(role="user", content=instruction))
     actions = 0
 
     while True:

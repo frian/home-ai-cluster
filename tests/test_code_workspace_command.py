@@ -194,6 +194,10 @@ def test_interactive_reuses_one_authority_and_retains_only_successful_conversati
         },
         {"role": "user", "content": "first instruction"},
         {"role": "assistant", "content": "first result"},
+        {
+            "role": "user",
+            "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,
+        },
         {"role": "user", "content": "second instruction"},
     ]
     assert "HAC workspace outcome:" not in str(requests[2])
@@ -228,6 +232,10 @@ def test_interactive_empty_final_is_not_retained_and_loop_continues(tmp_path):
     assert requests[2]["messages"][1:] == [
         {"role": "user", "content": "first"},
         {"role": "assistant", "content": "saved"},
+        {
+            "role": "user",
+            "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,
+        },
         {"role": "user", "content": "third"},
     ]
     assert stderr.getvalue() == "error: invalid cluster response\n"
@@ -295,6 +303,10 @@ def test_interactive_failed_turn_is_not_retained_after_success(tmp_path):
     assert requests[2]["messages"][1:] == [
         {"role": "user", "content": "saved turn"},
         {"role": "assistant", "content": "saved"},
+        {
+            "role": "user",
+            "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,
+        },
         {"role": "user", "content": "later turn"},
     ]
     assert stderr.getvalue() == "error: invalid code-workspace model response\n"
@@ -330,6 +342,10 @@ def test_interactive_committed_create_survives_failed_turn_without_retention(tmp
     assert requests[3]["messages"][1:] == [
         {"role": "user", "content": "saved turn"},
         {"role": "assistant", "content": "saved"},
+        {
+            "role": "user",
+            "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,
+        },
         {"role": "user", "content": "later turn"},
     ]
     assert stderr.getvalue() == (
@@ -366,6 +382,10 @@ def test_interactive_over_limit_turn_is_not_sent_or_retained(tmp_path):
     assert requests[1]["messages"][1:] == [
         {"role": "user", "content": "saved"},
         {"role": "assistant", "content": "x" * 64_000},
+        {
+            "role": "user",
+            "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,
+        },
         {"role": "user", "content": "later"},
     ]
     assert stderr.getvalue() == "error: code-workspace Code context too large\n"

@@ -85,12 +85,30 @@ def run_workspace_aware_code(
     on_completed_action: CompletedActionObserver | None = None,
 ) -> WorkspaceAwareCodeResult:
     """Run one synchronous, ephemeral workspace-aware Code interaction."""
+    authority = WorkspaceAuthority(root, operations)
+    return _run_interaction(
+        instruction,
+        authority=authority,
+        infer=infer,
+        on_completed_action=on_completed_action,
+    )
+
+
+def _run_interaction(
+    instruction: str,
+    *,
+    authority: WorkspaceAuthority,
+    prior_messages: Sequence[ChatMessage] = (),
+    infer: CodeInference,
+    on_completed_action: CompletedActionObserver | None = None,
+) -> WorkspaceAwareCodeResult:
+    """Run one RFC-0116 interaction using one already-constructed authority."""
     if not isinstance(instruction, str) or not instruction.strip():
         raise ValueError("instruction must be non-blank")
 
-    authority = WorkspaceAuthority(root, operations)
     messages = [
         ChatMessage(role="system", content=_CONTRACT),
+        *prior_messages,
         ChatMessage(role="user", content=instruction),
     ]
     actions = 0

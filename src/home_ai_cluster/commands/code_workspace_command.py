@@ -41,7 +41,7 @@ _TERMINAL_FAILURES = {
 class _CodeWorkspaceInput:
     root: str
     operations: frozenset[str]
-    message: str
+    message: str | None
     timeout_seconds: float
 
 
@@ -74,6 +74,7 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
     roots = args.root or []
     messages = args.message or []
     grants = args.grant or []
+    message: str | None = None
     if len(roots) != 1 or not grants:
         raise chat_command._InvalidRequestInput
     if args.message_positional is not None:
@@ -82,9 +83,9 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
         message = args.message_positional
     elif len(messages) == 1:
         message = messages[0]
-    else:
+    elif messages:
         raise chat_command._InvalidRequestInput
-    if not message.strip():
+    if message is not None and not message.strip():
         raise chat_command._InvalidRequestInput
     try:
         timeout_seconds = (
@@ -106,10 +107,12 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     _client_factory: Callable[..., httpx.Client] = httpx.Client,
+    _stdin: TextIO | None = None,
     _stdout: TextIO | None = None,
     _stderr: TextIO | None = None,
 ) -> None:
     """Run one explicit, ephemeral workspace-aware Code interaction."""
+    stdin = sys.stdin if _stdin is None else _stdin
     stdout = sys.stdout if _stdout is None else _stdout
     stderr = sys.stderr if _stderr is None else _stderr
     try:
@@ -117,34 +120,64 @@ def main(
     except chat_command._InvalidRequestInput:
         chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2, stderr=stderr)
 
-    saved_failure: str | None = None
+    saved_failure: list[str | None] = [None]
 
     def infer(messages: Sequence[ChatMessage]):
-        nonlocal saved_failure
-        saved_failure = None
+        saved_failure[0] = None
         result, failure = code_command._send_native_request(
             messages,
             timeout_seconds=command_input.timeout_seconds,
             client_factory=_client_factory,
         )
-        saved_failure = failure
+        saved_failure[0] = failure
         return result
 
     def observe(operation: str, path: str, outcome: str) -> None:
         stderr.write(f"workspace {operation} {_render_logical_path(path)}: {outcome}\n")
         stderr.flush()
 
+    if command_input.message is not None:
+        try:
+            outcome = workspace_aware_code.run_workspace_aware_code(
+                command_input.message,
+                root=command_input.root,
+                operations=command_input.operations,
+                infer=infer,
+                on_completed_action=observe,
+            )
+        except WorkspaceAuthorityError:
+            chat_command._exit_with_failure(_ROOT_FAILURE, 1, stderr=stderr)
+        _handle_one_shot_outcome(
+            outcome, saved_failure=saved_failure[0], stdout=stdout, stderr=stderr
+        )
+        return
+
+    if not stdin.isatty() or not stdout.isatty():
+        chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2, stderr=stderr)
     try:
-        outcome = workspace_aware_code.run_workspace_aware_code(
-            command_input.message,
-            root=command_input.root,
-            operations=command_input.operations,
-            infer=infer,
-            on_completed_action=observe,
+        authority = workspace_aware_code.WorkspaceAuthority(
+            command_input.root, command_input.operations
         )
     except WorkspaceAuthorityError:
         chat_command._exit_with_failure(_ROOT_FAILURE, 1, stderr=stderr)
+    _run_interactive(
+        authority=authority,
+        infer=infer,
+        saved_failure=saved_failure,
+        observe=observe,
+        stdin=stdin,
+        stdout=stdout,
+        stderr=stderr,
+    )
 
+
+def _handle_one_shot_outcome(
+    outcome: workspace_aware_code.WorkspaceAwareCodeResult,
+    *,
+    saved_failure: str | None,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> None:
     if outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL:
         chat_command._write_content(outcome.content or "", stdout=stdout)
         return
@@ -157,3 +190,57 @@ def main(
     chat_command._exit_with_failure(
         _TERMINAL_FAILURES[outcome.status], 1, stderr=stderr
     )
+
+
+def _run_interactive(
+    *,
+    authority: workspace_aware_code.WorkspaceAuthority,
+    infer: Callable[[Sequence[ChatMessage]], object],
+    saved_failure: list[str | None],
+    observe: Callable[[str, str, str], None],
+    stdin: TextIO,
+    stdout: TextIO,
+    stderr: TextIO,
+) -> None:
+    """Run the RFC-0123 foreground loop with one fixed authority."""
+    retained_messages: list[ChatMessage] = []
+    try:
+        while True:
+            stdout.write("> ")
+            stdout.flush()
+            submitted = stdin.readline()
+            if submitted == "":
+                return
+            instruction = submitted.rstrip("\r\n")
+            if not instruction.strip():
+                continue
+
+            saved_failure[0] = None
+            outcome = workspace_aware_code._run_interaction(
+                instruction,
+                authority=authority,
+                prior_messages=retained_messages,
+                infer=infer,
+                on_completed_action=observe,
+            )
+            if outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL:
+                if not outcome.content:
+                    print(chat_command._INVALID_CLUSTER_RESPONSE, file=stderr)
+                    continue
+                retained_messages = [
+                    *retained_messages,
+                    ChatMessage(role="user", content=instruction),
+                    ChatMessage(role="assistant", content=outcome.content),
+                ]
+                chat_command._write_content(outcome.content, stdout=stdout)
+                continue
+            if (
+                outcome.status
+                == workspace_aware_code.WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED
+                and saved_failure[0] is not None
+            ):
+                print(saved_failure[0], file=stderr)
+            else:
+                print(_TERMINAL_FAILURES[outcome.status], file=stderr)
+    except KeyboardInterrupt:
+        return

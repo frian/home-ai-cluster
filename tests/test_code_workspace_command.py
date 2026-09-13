@@ -9,6 +9,31 @@ import pytest
 from home_ai_cluster.commands import code_workspace_command
 
 
+class terminal(StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+class non_terminal(StringIO):
+    def isatty(self) -> bool:
+        return False
+
+
+class unreadable_terminal(non_terminal):
+    def readline(self, size: int | None = -1) -> str:
+        raise AssertionError("non-TTY code-workspace must not read stdin")
+
+
+class unreadable_tty(terminal):
+    def readline(self, size: int | None = -1) -> str:
+        raise AssertionError("invalid root must fail before reading stdin")
+
+
+class interrupted_tty(terminal):
+    def readline(self, size: int | None = -1) -> str:
+        raise KeyboardInterrupt
+
+
 def _result(content: str) -> dict[str, str]:
     return {"content": content, "adapter": "test", "node_id": "test-node"}
 
@@ -60,6 +85,289 @@ def test_invalid_cli_contract_fails_before_inference(arguments):
     assert raised.value.code == 2
 
 
+@pytest.mark.parametrize(
+    ("stdin", "stdout"),
+    [(unreadable_terminal(), terminal()), (terminal(), non_terminal())],
+)
+def test_no_message_requires_both_tty_streams_before_input_or_inference(stdin, stdout):
+    stderr = StringIO()
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main(
+            ["--root", ".", "--grant", "read"],
+            _client_factory=lambda **kwargs: pytest.fail("must not infer"),
+            _stdin=stdin,
+            _stdout=stdout,
+            _stderr=stderr,
+        )
+
+    assert raised.value.code == 2
+    assert stderr.getvalue() == "error: invalid request input\n"
+
+
+def test_interactive_reuses_one_authority_and_retains_only_successful_conversation(
+    tmp_path, monkeypatch
+):
+    target = tmp_path / "data.txt"
+    target.write_text("value", encoding="utf-8")
+    requests = []
+    constructed = 0
+    original = code_workspace_command.workspace_aware_code.WorkspaceAuthority
+
+    def construct(*args, **kwargs):
+        nonlocal constructed
+        constructed += 1
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        code_workspace_command.workspace_aware_code, "WorkspaceAuthority", construct
+    )
+    responses = iter(
+        (
+            '{"kind":"workspace","operation":"read","path":"data.txt"}',
+            '{"kind":"final","content":"first result"}',
+            '{"kind":"final","content":"second result"}',
+        )
+    )
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stdout, stderr = terminal(), StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "read"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal("first instruction\nsecond instruction\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert constructed == 1
+    assert requests[2]["messages"] == [
+        {
+            "role": "system",
+            "content": code_workspace_command.workspace_aware_code._CONTRACT,
+        },
+        {"role": "user", "content": "first instruction"},
+        {"role": "assistant", "content": "first result"},
+        {"role": "user", "content": "second instruction"},
+    ]
+    assert "HAC workspace outcome:" not in str(requests[2])
+    assert stderr.getvalue() == 'workspace read "data.txt": success\n'
+
+
+def test_interactive_empty_final_is_not_retained_and_loop_continues(tmp_path):
+    requests = []
+    responses = iter(
+        (
+            '{"kind":"final","content":"saved"}',
+            '{"kind":"final","content":""}',
+            '{"kind":"final","content":"later"}',
+        )
+    )
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stderr = StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "read"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal("first\nempty\nthird\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert requests[2]["messages"][1:] == [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "saved"},
+        {"role": "user", "content": "third"},
+    ]
+    assert stderr.getvalue() == "error: invalid cluster response\n"
+
+
+def test_interactive_action_budget_starts_fresh_for_each_human_turn(tmp_path):
+    target = tmp_path / "data.txt"
+    target.write_text("value", encoding="utf-8")
+    action = '{"kind":"workspace","operation":"read","path":"data.txt"}'
+    responses = iter(
+        [
+            *([action] * 8),
+            '{"kind":"final","content":"first"}',
+            *([action] * 8),
+            '{"kind":"final","content":"second"}',
+        ]
+    )
+    requests = []
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stderr = StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "read"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal("first turn\nsecond turn\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert len(requests) == 18
+    assert stderr.getvalue().count('workspace read "data.txt": success\n') == 16
+    assert "action budget exhausted" not in stderr.getvalue()
+
+
+def test_interactive_failed_turn_is_not_retained_after_success(tmp_path):
+    requests = []
+    responses = iter(
+        (
+            '{"kind":"final","content":"saved"}',
+            "not JSON",
+            '{"kind":"final","content":"later"}',
+        )
+    )
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stderr = StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "read"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal("saved turn\nfailed turn\nlater turn\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert requests[2]["messages"][1:] == [
+        {"role": "user", "content": "saved turn"},
+        {"role": "assistant", "content": "saved"},
+        {"role": "user", "content": "later turn"},
+    ]
+    assert stderr.getvalue() == "error: invalid code-workspace model response\n"
+
+
+def test_interactive_committed_create_survives_failed_turn_without_retention(tmp_path):
+    requests = []
+    responses = iter(
+        (
+            '{"kind":"final","content":"saved"}',
+            '{"kind":"workspace","operation":"create","path":"created.txt"}',
+            "not JSON",
+            '{"kind":"final","content":"later"}',
+        )
+    )
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stderr = StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "create"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal("saved turn\ncreate then fail\nlater turn\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert (tmp_path / "created.txt").read_bytes() == b""
+    assert requests[3]["messages"][1:] == [
+        {"role": "user", "content": "saved turn"},
+        {"role": "assistant", "content": "saved"},
+        {"role": "user", "content": "later turn"},
+    ]
+    assert stderr.getvalue() == (
+        'workspace create "created.txt": success\n'
+        "error: invalid code-workspace model response\n"
+    )
+
+
+def test_interactive_over_limit_turn_is_not_sent_or_retained(tmp_path):
+    requests = []
+    responses = iter(
+        (
+            json.dumps({"kind": "final", "content": "x" * 64_000}),
+            '{"kind":"final","content":"later"}',
+        )
+    )
+
+    def handler(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=_result(next(responses)))
+
+    stderr = StringIO()
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "read"],
+        _client_factory=lambda **kwargs: httpx.Client(
+            transport=httpx.MockTransport(handler), **kwargs
+        ),
+        _stdin=terminal(f"saved\n{'y' * 1_000}\nlater\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert len(requests) == 2
+    assert requests[1]["messages"][1:] == [
+        {"role": "user", "content": "saved"},
+        {"role": "assistant", "content": "x" * 64_000},
+        {"role": "user", "content": "later"},
+    ]
+    assert stderr.getvalue() == "error: code-workspace Code context too large\n"
+
+
+def test_interactive_timeout_is_applied_to_each_code_inference(tmp_path):
+    timeouts = []
+    responses = iter(
+        (
+            '{"kind":"workspace","operation":"list","path":"."}',
+            '{"kind":"final","content":"done"}',
+        )
+    )
+
+    code_workspace_command.main(
+        ["--root", str(tmp_path), "--grant", "list", "--timeout-seconds", "7"],
+        _client_factory=lambda **kwargs: (
+            timeouts.append(kwargs["timeout"])
+            or httpx.Client(
+                transport=httpx.MockTransport(
+                    lambda request: httpx.Response(200, json=_result(next(responses)))
+                ),
+                **kwargs,
+            )
+        ),
+        _stdin=terminal("inspect\n"),
+        _stdout=terminal(),
+        _stderr=StringIO(),
+    )
+
+    assert timeouts == [7.0, 7.0]
+
+
+def test_interactive_eof_and_keyboard_interrupt_exit_without_inference(tmp_path):
+    for stdin in (terminal(), interrupted_tty()):
+        code_workspace_command.main(
+            ["--root", str(tmp_path), "--grant", "read"],
+            _client_factory=lambda **kwargs: pytest.fail("must not infer"),
+            _stdin=stdin,
+            _stdout=terminal(),
+            _stderr=StringIO(),
+        )
+
+
 def test_empty_root_is_runtime_failure_without_inference():
     stderr = StringIO()
     with pytest.raises(SystemExit) as raised:
@@ -70,6 +378,21 @@ def test_empty_root_is_runtime_failure_without_inference():
         )
     assert raised.value.code == 1
     assert "invalid code-workspace root" in stderr.getvalue()
+
+
+def test_interactive_invalid_root_fails_before_input_or_inference():
+    stderr = StringIO()
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main(
+            ["--root", "", "--grant", "read"],
+            _client_factory=lambda **kwargs: pytest.fail("must not infer"),
+            _stdin=unreadable_tty(),
+            _stdout=terminal(),
+            _stderr=stderr,
+        )
+
+    assert raised.value.code == 1
+    assert stderr.getvalue() == "error: invalid code-workspace root\n"
 
 
 def test_duplicate_grants_collapse_idempotently():

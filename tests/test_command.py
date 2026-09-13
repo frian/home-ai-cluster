@@ -35,7 +35,7 @@ Finite commands:
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   code-file       Replace one selected file from one bounded code request.
-  code-workspace  Run one bounded workspace-aware code interaction.
+  code-workspace  Run bounded workspace-aware code interactions.
   classify        Send one ordinary classify request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.

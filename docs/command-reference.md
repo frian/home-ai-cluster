@@ -673,7 +673,7 @@ standalone executable, or Aider behavior.
 
 ## `hac code-workspace`
 
-**Purpose:** Run one bounded multi-step Code interaction with one explicit,
+**Purpose:** Run bounded workspace-aware Code interactions with one explicit,
 caller-local workspace root and explicit filesystem-operation grants.
 
 **Common forms:**
@@ -682,15 +682,25 @@ caller-local workspace root and explicit filesystem-operation grants.
 hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
 hac code-workspace --root <PATH> --grant read --grant write --message "<INSTRUCTION>"
 hac code-workspace --root <PATH> --grant create --grant write --message "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant list --grant read
 ```
 
 **Important behavior:** Exactly one explicit `--root`, one or more `--grant`
-values (`list`, `read`, `write`, or `create`), and exactly one non-blank positional or
-`--message` instruction are required. Duplicate valid grants collapse
-idempotently; there is no implicit root, grant, interactive mode, follow-up
-input, or retained workspace setting. `--timeout-seconds` uses ordinary Code
-timeout validation and applies independently to each inference, not to the
-whole interaction.
+values (`list`, `read`, `write`, or `create`) are required. An explicit
+non-blank positional or `--message` instruction runs exactly one interaction;
+both forms together or repeated `--message` are invalid. With neither message
+form, the command enters a foreground interaction only when both stdin and
+stdout are TTYs. It retains no history or authority after exit, accepts no
+piped-input protocol, and leaves blank terminal input unsubmitted.
+
+One interactive foreground invocation constructs one fixed caller-local
+authority from its root and grants. Each submitted human turn starts a fresh
+bounded interaction (at most eight workspace actions and nine Code inferences)
+and uses the ordinary per-inference `--timeout-seconds` value. Only successful
+human instructions and exact non-empty final answers are retained in process
+memory for later turns; workspace action/outcome context is turn-local.
+Duplicate valid grants collapse idempotently; there is no implicit root or
+grant, retained workspace setting, or dynamic authority.
 
 `write` replaces one existing regular UTF-8 file and still refuses a missing
 target. `create` creates exactly one empty missing regular leaf in an existing

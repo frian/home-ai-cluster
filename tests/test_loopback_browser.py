@@ -52,6 +52,7 @@ def test_api_only_applications_remain_page_free() -> None:
         assert get(app, "/").status_code == 404
         assert get(app, "/assets/app.css").status_code == 404
         assert get(app, "/assets/pdfjs-6.2.108/pdf.min.mjs").status_code == 404
+        assert get(app, "/workspace-code").status_code == 404
 
 
 def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
@@ -66,6 +67,7 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
     assert page.headers["cache-control"] == "no-store"
+    assert page.headers["content-security-policy"] == "frame-ancestors 'self'"
     assert stylesheet.status_code == 200
     assert stylesheet.headers["content-type"].startswith("text/css")
     assert script.status_code == 200
@@ -373,7 +375,9 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     assert "showError(requestContexts.classify," in script
 
 
-def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
+def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access() -> (
+    None
+):
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
@@ -393,6 +397,13 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert 'for="code-text"' in code_section
     assert 'id="code-text"' in code_section
     assert code_section.count("<textarea") == 1
+    assert 'id="workspace-enabled" type="checkbox"' in code_section
+    assert 'id="workspace-options" hidden' in code_section
+    assert 'id="workspace-root"' in code_section
+    assert 'value="list"' in code_section
+    assert 'value="read"' in code_section
+    assert 'value="write"' in code_section
+    assert 'value="create"' in code_section
     assert 'data-submit type="submit"' in code_section
     assert 'aria-live="polite" class="conversation" id="code-conversation"' in code_view
     assert 'type="file"' not in code_section
@@ -422,6 +433,10 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     )
     assert '"/v1/chat"' in code_handler
     assert '{ capability: "code", messages: codeMessages }' in code_handler
+    assert '"/workspace-code"' in code_handler
+    assert "let fixedWorkspace = null;" in script
+    assert "Reload the page before changing workspace access" in script
+    assert "history: codeMessages.slice(0, -1)" in code_handler
     assert "codeMessages.push(pendingMessage);" in code_handler
     assert "codeMessages.push(assistantMessage);" in code_handler
     assert "messages.push" not in code_handler
@@ -432,7 +447,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert 'behavior: "smooth"' not in code_handler
     assert code_handler.index(
         "codeMessages.push(pendingMessage);"
-    ) < code_handler.index("const request = post(")
+    ) < code_handler.index("const request = workspaceEnabled")
     assert code_handler.index(
         'context.status.scrollIntoView({ block: "nearest" });'
     ) < code_handler.index("const result = await request;")

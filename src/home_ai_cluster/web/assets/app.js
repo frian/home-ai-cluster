@@ -422,6 +422,34 @@
     renderCode();
   }
 
+  function renderWorkspaceActivity(activity) {
+    const container = document.querySelector("#workspace-activity");
+    container.replaceChildren();
+    if (!Array.isArray(activity)) return;
+    activity.forEach((entry) => {
+      if (!entry || typeof entry.operation !== "string" || typeof entry.path !== "string" || typeof entry.outcome !== "string") return;
+      const line = document.createElement("p");
+      line.textContent = `${entry.operation} ${entry.path}: ${entry.outcome}`;
+      container.append(line);
+    });
+  }
+
+  const workspaceEnabled = document.querySelector("#workspace-enabled");
+  const workspaceOptions = document.querySelector("#workspace-options");
+  const workspaceRoot = document.querySelector("#workspace-root");
+  let fixedWorkspace = null;
+  workspaceEnabled.addEventListener("change", () => {
+    workspaceOptions.hidden = !workspaceEnabled.checked;
+    if (fixedWorkspace) {
+      workspaceRoot.value = fixedWorkspace.root;
+      workspaceRoot.readOnly = true;
+      document.querySelectorAll("#workspace-grants input").forEach((input) => {
+        input.checked = fixedWorkspace.grants.includes(input.value);
+        input.disabled = true;
+      });
+    }
+  });
+
   function renderResult(container, content, nodeId) {
     container.closest(".result-section").hidden = false;
     container.hidden = false;
@@ -478,21 +506,31 @@
     if (!input.value.trim() || candidateBytes > byteLimit) {
       return showError(context, "Code conversation must be non-blank and within the accepted limit");
     }
+    const grants = [...document.querySelectorAll("#workspace-grants input:checked")].map((input) => input.value);
+    if (workspaceEnabled.checked && (!workspaceRoot.value || grants.length === 0)) {
+      return showError(context, "Workspace access requires an explicit root and grant");
+    }
+    if (fixedWorkspace && workspaceEnabled.checked && (workspaceRoot.value !== fixedWorkspace.root || grants.join(",") !== fixedWorkspace.grants.join(","))) {
+      return showError(context, "Reload the page before changing workspace access");
+    }
     codeMessages.push(pendingMessage);
     renderCode();
     input.value = "";
-    const request = post(
-      context,
-      "/v1/chat",
-      { capability: "code", messages: codeMessages },
-      "Generating code…",
-    );
+    const request = workspaceEnabled.checked
+      ? post(context, "/workspace-code", { root: workspaceRoot.value, grants, history: codeMessages.slice(0, -1), instruction: pendingMessage.content }, "Generating code…")
+      : post(context, "/v1/chat", { capability: "code", messages: codeMessages }, "Generating code…");
     context.status.scrollIntoView({ block: "nearest" });
     const result = await request;
+    if (workspaceEnabled.checked && result) renderWorkspaceActivity(result.activity);
     if (result && typeof result.content === "string" && typeof result.node_id === "string") {
       const assistantMessage = { role: "assistant", content: result.content };
       assistantAttribution.set(assistantMessage, result.node_id);
       codeMessages.push(assistantMessage);
+      if (workspaceEnabled.checked && !fixedWorkspace) {
+        fixedWorkspace = { root: workspaceRoot.value, grants };
+        workspaceRoot.readOnly = true;
+        document.querySelectorAll("#workspace-grants input").forEach((input) => { input.disabled = true; });
+      }
       renderCode();
     } else {
       rollbackPendingCodeMessage(pendingMessage);

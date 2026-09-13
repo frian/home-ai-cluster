@@ -1,7 +1,7 @@
 """Bounded RFC-0116 workspace-aware Code interaction."""
 
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -70,6 +70,7 @@ class _WorkspaceRequest:
 
 
 CodeInference = Callable[[Sequence[ChatMessage]], ClusterResult | None]
+AsyncCodeInference = Callable[[Sequence[ChatMessage]], Awaitable[ClusterResult | None]]
 CompletedActionObserver = Callable[
     [Literal["list", "read", "write", "create"], str, Literal["success", "refused"]],
     None,
@@ -158,6 +159,93 @@ def _run_interaction(
                 WorkspaceAwareCodeStatus.ACTION_BUDGET_EXHAUSTED
             )
 
+        actions += 1
+        try:
+            outcome = _dispatch(authority, response)
+        except WorkspaceAuthorityError:
+            outcome = {"status": "refused"}
+        except Exception:
+            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        if on_completed_action is not None:
+            try:
+                on_completed_action(
+                    response.operation, response.path, outcome["status"]
+                )
+            except Exception:
+                return WorkspaceAwareCodeResult(
+                    WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+                )
+        messages.append(ChatMessage(role="assistant", content=result.content))
+        messages.append(
+            ChatMessage(role="user", content=_outcome_message(response, outcome))
+        )
+
+
+async def run_workspace_aware_code_async(
+    instruction: str,
+    *,
+    root: str | Path,
+    operations: set[str] | frozenset[str],
+    prior_messages: Sequence[ChatMessage] = (),
+    infer: AsyncCodeInference,
+    on_completed_action: CompletedActionObserver | None = None,
+) -> WorkspaceAwareCodeResult:
+    """Run one cancellable RFC-0116 interaction for a browser turn.
+
+    This deliberately mirrors the native interaction rather than introducing a
+    second protocol: cancellation can interrupt a pending inference before a
+    later action is dispatched.
+    """
+    authority = WorkspaceAuthority(root, operations)
+    if not isinstance(instruction, str) or not instruction.strip():
+        raise ValueError("instruction must be non-blank")
+    messages = [
+        ChatMessage(role="system", content=_CONTRACT),
+        *prior_messages,
+        ChatMessage(role="user", content=instruction),
+    ]
+    actions = 0
+    while True:
+        try:
+            ClusterRequest(messages=messages, capability=Capability(name="code"))
+        except ValueError:
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE
+            )
+        try:
+            result = await infer(tuple(messages))
+        except Exception:
+            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        if result is None:
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED
+            )
+        if not isinstance(result, ClusterResult):
+            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        try:
+            result_size = len(result.content.encode("utf-8", errors="strict"))
+        except UnicodeError:
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
+            )
+        if result_size > _MAX_RESULT_BYTES:
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.OVERSIZED_MODEL_RESPONSE
+            )
+        try:
+            response = _parse_response(result.content)
+        except (TypeError, ValueError, json.JSONDecodeError, RecursionError):
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
+            )
+        if isinstance(response, _Final):
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.FINAL, response.content
+            )
+        if actions == _ACTION_BUDGET:
+            return WorkspaceAwareCodeResult(
+                WorkspaceAwareCodeStatus.ACTION_BUDGET_EXHAUSTED
+            )
         actions += 1
         try:
             outcome = _dispatch(authority, response)

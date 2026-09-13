@@ -1,6 +1,6 @@
 # RFC-0122: Honest Still-PNG Color Signaling
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-12
 
@@ -359,4 +359,4 @@ runtime lifecycle, or dependencies.
 
 ## Decision
 
-Pending.
+Accepted.

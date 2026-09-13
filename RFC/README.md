@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0122: Honest Still-PNG Color Signaling](RFC-0122-honest-still-png-color-signaling.md)
+  — narrows RFC-0120's still-PNG color rule from mandatory `sRGB` to one
+  closed two-state representation: exactly one truthful `sRGB` chunk or no
+  color-space signaling, while preserving adapter-owned color truthfulness,
+  cluster-owned structural validation, all non-color PNG bounds, and the
+  unchanged RFC-0121 runtime decision.
+
 - [RFC-0121: Explicit stable-diffusion.cpp Image Generation Adapter](RFC-0121-explicit-stable-diffusion-cpp-image-generation-adapter.md)
   — selects `stable-diffusion.cpp` / operator-managed loopback `sd-server` as
   the first concrete local `image-generation` runtime adapter, keeps native

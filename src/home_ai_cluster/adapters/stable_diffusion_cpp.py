@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import binascii
+import json
 import struct
 import zlib
 from typing import Any
@@ -18,11 +19,18 @@ from home_ai_cluster.core.models import (
     Capability,
     ImageGenerationRequest,
 )
-from home_ai_cluster.core.png_validation import MAX_ENCODED_PNG_BYTES, PNG_SIGNATURE
+from home_ai_cluster.core.png_validation import (
+    MAX_ENCODED_PNG_BYTES,
+    PNG_SIGNATURE,
+    ImageGenerationResultValidationError,
+    validate_still_png,
+)
 from home_ai_cluster.local_http import local_http_url
 
 _POLL_INTERVAL_SECONDS = 0.05
 _MAX_ENCODED_RESULT_BASE64_BYTES = 4 * ((MAX_ENCODED_PNG_BYTES + 2) // 3)
+_MAX_NATIVE_METADATA_RESPONSE_BYTES = 16 * 1024
+_MAX_NATIVE_RESULT_RESPONSE_BYTES = _MAX_ENCODED_RESULT_BASE64_BYTES + 64 * 1024
 _JOB_ID_CHARACTERS = frozenset(
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 )
@@ -54,8 +62,8 @@ class StableDiffusionCppAdapter:
                 transport=self._transport,
                 trust_env=False,
             ) as client:
-                response = client.get("/sdcpp/v1/capabilities")
-                response.raise_for_status()
+                with client.stream("GET", "/sdcpp/v1/capabilities") as response:
+                    response.raise_for_status()
         except httpx.HTTPError as exc:
             return AdapterHealth(available=False, reason=str(exc))
         return AdapterHealth(available=True)
@@ -89,8 +97,11 @@ class StableDiffusionCppAdapter:
         request: ImageGenerationRequest,
     ) -> str:
         try:
-            response = await client.post(
+            body = await _bounded_json_response(
+                client,
+                "POST",
                 "/sdcpp/v1/img_gen",
+                _MAX_NATIVE_METADATA_RESPONSE_BYTES,
                 json={
                     "prompt": request.instruction,
                     "batch_count": 1,
@@ -98,7 +109,6 @@ class StableDiffusionCppAdapter:
                     "output_format": "png",
                 },
             )
-            response.raise_for_status()
         except httpx.ConnectError as exc:
             raise RuntimeConnectionUnavailableBeforeRequestError(
                 "Runtime connection unavailable before request transmission",
@@ -107,7 +117,6 @@ class StableDiffusionCppAdapter:
             raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
 
         try:
-            body = response.json()
             job_id = body["id"]
             if (
                 not isinstance(job_id, str)
@@ -124,9 +133,12 @@ class StableDiffusionCppAdapter:
     ) -> bytes:
         while True:
             try:
-                response = await client.get(f"/sdcpp/v1/jobs/{job_id}")
-                response.raise_for_status()
-                body = response.json()
+                body = await _bounded_json_response(
+                    client,
+                    "GET",
+                    f"/sdcpp/v1/jobs/{job_id}",
+                    _MAX_NATIVE_RESULT_RESPONSE_BYTES,
+                )
                 status = body["status"]
             except (httpx.HTTPError, TypeError, ValueError, KeyError) as exc:
                 raise RuntimeAdapterUnavailableError(
@@ -175,8 +187,31 @@ def _completed_native_image(body: Any) -> bytes:
         raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
 
 
+async def _bounded_json_response(
+    client: httpx.AsyncClient,
+    method: str,
+    url: str,
+    maximum_bytes: int,
+    **kwargs: Any,
+) -> Any:
+    """Read one private native JSON response without unbounded buffering."""
+    try:
+        async with client.stream(method, url, **kwargs) as response:
+            response.raise_for_status()
+            chunks: list[bytes] = []
+            size = 0
+            async for chunk in response.aiter_bytes():
+                size += len(chunk)
+                if size > maximum_bytes:
+                    raise ValueError("native response exceeds bounded limit")
+                chunks.append(chunk)
+        return json.loads(b"".join(chunks))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+
+
 def _normalize_runtime_png(source: bytes) -> bytes:
-    """Keep one structurally compatible, truthfully identified PNG image only."""
+    """Keep one structurally compatible PNG with only permitted color signaling."""
     if len(source) > MAX_ENCODED_PNG_BYTES or not source.startswith(PNG_SIGNATURE):
         raise ValueError("invalid runtime PNG")
 
@@ -185,6 +220,7 @@ def _normalize_runtime_png(source: bytes) -> bytes:
     srgb: bytes | None = None
     idat_parts: list[bytes] = []
     seen_idat = False
+    idat_closed = False
     seen_iend = False
 
     while offset < len(source):
@@ -215,8 +251,10 @@ def _normalize_runtime_png(source: bytes) -> bytes:
             ):
                 raise ValueError("invalid runtime PNG sRGB")
             srgb = payload
+        elif kind in {b"iCCP", b"gAMA", b"cHRM", b"cICP"}:
+            raise ValueError("unsupported runtime PNG color signaling")
         elif kind == b"IDAT":
-            if ihdr is None or srgb is None or seen_iend:
+            if ihdr is None or seen_iend or idat_closed:
                 raise ValueError("invalid runtime PNG IDAT")
             seen_idat = True
             idat_parts.append(payload)
@@ -226,19 +264,25 @@ def _normalize_runtime_png(source: bytes) -> bytes:
             seen_iend = True
         elif kind[0] & 0x20 == 0:
             raise ValueError("unsupported runtime PNG critical chunk")
+        elif seen_idat:
+            idat_closed = True
 
-    if ihdr is None or srgb is None or not idat_parts or not seen_iend:
-        raise ValueError("runtime PNG cannot be truthfully normalized")
+    if ihdr is None or not idat_parts or not seen_iend:
+        raise ValueError("runtime PNG cannot be structurally normalized")
 
-    return b"".join(
+    candidate = b"".join(
         [
             PNG_SIGNATURE,
             _png_chunk(b"IHDR", ihdr),
-            _png_chunk(b"sRGB", srgb),
+            *([_png_chunk(b"sRGB", srgb)] if srgb is not None else []),
             *(_png_chunk(b"IDAT", payload) for payload in idat_parts),
             _png_chunk(b"IEND", b""),
         ]
     )
+    try:
+        return validate_still_png(candidate)
+    except ImageGenerationResultValidationError as exc:
+        raise ValueError("runtime PNG cannot be structurally normalized") from exc
 
 
 def _validate_runtime_ihdr(payload: bytes) -> None:

@@ -1,4 +1,4 @@
-"""Closed RFC-0120 still-PNG validation for local image generation."""
+"""Closed RFC-0120/RFC-0122 still-PNG validation for local image generation."""
 
 import struct
 import zlib
@@ -58,10 +58,16 @@ def validate_still_png(candidate: bytes) -> bytes:
         if state == "ihdr":
             if kind != b"IHDR" or length != 13:
                 _fail("IHDR must occur exactly once and first")
-            state = "srgb"
-        elif state == "srgb":
-            if kind != b"sRGB" or length != 1 or payload[0] > 3:
-                _fail("invalid or missing sRGB chunk")
+            state = "color-or-idat"
+        elif state == "color-or-idat":
+            if kind == b"sRGB":
+                if length != 1 or payload[0] > 3:
+                    _fail("invalid sRGB chunk")
+                state = "idat"
+                continue
+            if kind != b"IDAT":
+                _fail("expected optional sRGB chunk or IDAT")
+            idat_parts.append(payload)
             state = "idat"
         elif state == "idat":
             if kind == b"IDAT":

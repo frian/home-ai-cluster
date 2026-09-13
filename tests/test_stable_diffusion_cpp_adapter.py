@@ -14,6 +14,8 @@ from home_ai_cluster.adapters.base import (
 )
 from home_ai_cluster.adapters.stable_diffusion_cpp import (
     _MAX_ENCODED_RESULT_BASE64_BYTES,
+    _MAX_NATIVE_METADATA_RESPONSE_BYTES,
+    _MAX_NATIVE_RESULT_RESPONSE_BYTES,
     StableDiffusionCppAdapter,
     _normalize_runtime_png,
 )
@@ -97,6 +99,19 @@ def successful_transport(
         return httpx.Response(200, json=completed_body(image))
 
     return httpx.MockTransport(handler)
+
+
+class ChunkedAsyncStream(httpx.AsyncByteStream):
+    def __init__(self, *chunks: bytes) -> None:
+        self.chunks = chunks
+        self.closed = False
+
+    async def __aiter__(self):  # type: ignore[override]
+        for chunk in self.chunks:
+            yield chunk
+
+    async def aclose(self) -> None:
+        self.closed = True
 
 
 def test_image_only_identity_and_contract() -> None:
@@ -297,19 +312,83 @@ def test_non_success_native_response_is_an_adapter_unavailable_failure() -> None
         asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
 
 
+def test_oversized_submission_response_is_closed_before_json_parsing() -> None:
+    stream = ChunkedAsyncStream(b"{" * _MAX_NATIVE_METADATA_RESPONSE_BYTES, b"{")
+    adapter = StableDiffusionCppAdapter(
+        base_url="http://127.0.0.1:7860",
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(202, stream=stream)
+        ),
+    )
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
+    assert stream.closed
+
+
+def test_chunked_oversized_result_response_is_closed_before_json_parsing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "home_ai_cluster.adapters.stable_diffusion_cpp._MAX_NATIVE_RESULT_RESPONSE_BYTES",
+        32,
+    )
+    stream = ChunkedAsyncStream(b"{" * 32, b"{")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("img_gen"):
+            return httpx.Response(202, json={"id": "job_1"})
+        return httpx.Response(200, stream=stream)
+
+    adapter = StableDiffusionCppAdapter(
+        base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
+    )
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
+    assert stream.closed
+
+
+def test_exactly_bounded_metadata_response_continues_to_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    submission = b'{"id":"job_1"}'
+    monkeypatch.setattr(
+        "home_ai_cluster.adapters.stable_diffusion_cpp._MAX_NATIVE_METADATA_RESPONSE_BYTES",
+        len(submission),
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("img_gen"):
+            return httpx.Response(202, content=submission)
+        return httpx.Response(200, json=completed_body(runtime_png()))
+
+    adapter = StableDiffusionCppAdapter(
+        base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
+    )
+    assert asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
+    assert _MAX_NATIVE_RESULT_RESPONSE_BYTES == (
+        _MAX_ENCODED_RESULT_BASE64_BYTES + 64 * 1024
+    )
+
+
+@pytest.mark.parametrize("color_type", [2, 6])
+def test_normalization_accepts_untagged_runtime_pngs(color_type: int) -> None:
+    candidate = _normalize_runtime_png(
+        runtime_png(include_srgb=False, color_type=color_type)
+    )
+    assert validate_still_png(candidate) == candidate
+    assert b"sRGB" not in candidate
+
+
 @pytest.mark.parametrize(
     "source",
     [
-        runtime_png(include_srgb=False),
         runtime_png(color_type=0),
         runtime_png(interlace=1),
         runtime_png(width=2049),
         b"not a PNG",
     ],
 )
-def test_normalization_rejects_untagged_or_unsupported_runtime_pngs(
-    source: bytes,
-) -> None:
+def test_normalization_rejects_unsupported_runtime_pngs(source: bytes) -> None:
     with pytest.raises(ValueError):
         _normalize_runtime_png(source)
 
@@ -323,6 +402,30 @@ def test_normalization_rejects_source_crc_corruption_and_strips_metadata() -> No
     corrupted[29] ^= 1
     with pytest.raises(ValueError):
         _normalize_runtime_png(bytes(corrupted))
+
+
+def test_normalization_preserves_valid_source_srgb() -> None:
+    source = runtime_png()
+    candidate = _normalize_runtime_png(source)
+    assert png_chunk(b"sRGB", b"\0") in candidate
+    assert validate_still_png(candidate) == candidate
+
+
+@pytest.mark.parametrize("kind", [b"iCCP", b"gAMA", b"cHRM", b"cICP"])
+def test_normalization_rejects_unsupported_color_signaling(kind: bytes) -> None:
+    with pytest.raises(ValueError):
+        _normalize_runtime_png(runtime_png(extra_chunks=[png_chunk(kind, b"x")]))
+
+
+@pytest.mark.parametrize(
+    "extra_chunk",
+    [png_chunk(b"sRGB", b"\0"), png_chunk(b"sRGB", b"\0\0")],
+)
+def test_normalization_rejects_duplicate_or_malformed_srgb(
+    extra_chunk: bytes,
+) -> None:
+    with pytest.raises(ValueError):
+        _normalize_runtime_png(runtime_png(extra_chunks=[extra_chunk]))
 
 
 def test_invalid_base64_oversized_and_multiple_runtime_results_fail_closed() -> None:

@@ -158,11 +158,30 @@ human instruction 2
 final answer 2
 ```
 
-The retained assistant side is final human-visible answer content, not the
-RFC-0116 internal closed JSON envelope. This state exists only in ordinary
-process memory: no server-side owner, conversation ID, persistence, retained
-configuration, file/database storage, or restart/recovery semantics. A failed
-turn does not join it.
+The retained assistant side is the exact non-empty final human-visible
+`content`, not the RFC-0116 internal closed JSON envelope. HAC does not rewrite,
+summarize, clean up, strip Markdown from, or extract from that content before
+retaining it. This state exists only in ordinary process memory: no server-side
+owner, conversation ID, persistence, retained configuration, file/database
+storage, or restart/recovery semantics. A failed turn does not join it.
+
+RFC-0116 and existing explicit-message one-shot `hac code-workspace` behavior
+continue to permit a valid final response with empty `content`:
+
+```text
+{"kind":"final","content":""}
+```
+
+This RFC does not change that final grammar or one-shot behavior. In interactive
+`hac code-workspace`, however, such a final cannot become an assistant
+conversation message because the existing `ChatMessage` assistant content is
+non-empty. HAC therefore treats that submitted human turn as a handled failed
+interactive turn at the local conversation boundary: it retains neither the
+pending human instruction nor a synthetic assistant message; preserves earlier
+successful history and any already committed `write`/`create` effects; performs
+no automatic retry; presents one safe human-readable interaction failure through
+existing CLI failure conventions; and keeps the foreground loop active when
+safely possible.
 
 #### Turn-local RFC-0116 orchestration state
 
@@ -228,6 +247,17 @@ ordinary textual context RFC-0116 permits; they never receive physical root,
 executable grants as authority, filesystem handles, remote filesystem authority,
 or workspace session objects.
 
+That ordinary textual context can include successful human instructions and
+exact successful final answers retained from earlier interactive turns. A final
+answer may itself contain, quote, summarize, or otherwise derive from workspace
+information observed during an earlier turn. A later independently selected
+eligible remote Code node may therefore receive that bounded textual history
+under the operator's existing Code routing configuration. Continuing the same
+interactive `code-workspace` invocation accepts this conversational disclosure
+consequence, just as independently routed interactive Code carries prior
+successful conversation context. It is not remote filesystem authority and does
+not provide direct workspace access.
+
 One existing `--timeout-seconds` value applies independently to every ordinary
 Code inference. It is not a human-input timeout, whole-turn/session deadline,
 workspace-action deadline, watchdog, or queue timeout.
@@ -244,13 +274,14 @@ already committed filesystem effects:   preserved
 automatic retry:                        none
 ```
 
-Examples include local context rejection, Code timeout, ordinary request,
-transport, or runtime failure, malformed/oversized workspace model response,
-action-budget exhaustion, and an unfit continuation. A workspace refusal is an
-RFC-0116 intermediate outcome; the model may continue within the remaining
-per-turn budget and eventually give a valid final answer. Unexpected failures
-that cannot be safely handled may terminate the invocation. There is no
-rollback, retry framework, transaction model, checkpointing, or recovery
+Examples include local context rejection, a valid native final with empty
+`content` at the interactive conversation boundary, Code timeout, ordinary
+request, transport, or runtime failure, malformed/oversized workspace model
+response, action-budget exhaustion, and an unfit continuation. A workspace
+refusal is an RFC-0116 intermediate outcome; the model may continue within the
+remaining per-turn budget and eventually give a valid final answer. Unexpected
+failures that cannot be safely handled may terminate the invocation. There is
+no rollback, retry framework, transaction model, checkpointing, or recovery
 identity.
 
 Blank or whitespace-only input is not a submitted turn: it sends no inference,
@@ -377,19 +408,29 @@ should show that:
 6. every valid turn starts one bounded native interaction with fresh eight-action
    and at-most-nine-inference limits that the model cannot reset;
 7. later successful turns receive prior successful human/final history plus the
-   new instruction, not retained action/outcome transcripts;
-8. committed write/create effects remain real across later turns and failures;
-9. failed turns are not retained while earlier successful history is preserved;
-10. RFC-0067 is checked before every inference without automatic truncation,
+   new instruction, retaining exact non-empty final content without automatic
+   rewriting, summarization, cleanup, Markdown stripping, or extraction, and
+   not retaining action/outcome transcripts;
+8. a valid native empty final remains valid for explicit-message one-shot use,
+   while an interactive empty final becomes a handled failed turn with no
+   retained pending human/synthetic assistant message, no retry, preserved
+   earlier history and committed effects, safe existing-style failure output,
+   and an active loop when safely possible;
+9. committed write/create effects remain real across later turns and failures;
+10. failed turns are not retained while earlier successful history is preserved;
+11. RFC-0067 is checked before every inference without automatic truncation,
     pruning, or summarization;
-11. routing remains independent with no sticky node/model/runtime/adapter
-    behavior, and physical root/executable authority never reaches Code nodes;
-12. timeout remains per ordinary Code inference;
-13. EOF/Ctrl-C discard ephemeral history and authority without undoing effects;
-14. no harness selector/abstraction, Pi/OpenCode implementation, browser
+12. routing remains independent with no sticky node/model/runtime/adapter
+    behavior; later eligible remote nodes may receive retained successful
+    human/final textual history, including final answers derived from earlier
+    workspace observations, but never physical root, `WorkspaceAuthority`,
+    handles, executable authority, or direct workspace access;
+13. timeout remains per ordinary Code inference;
+14. EOF/Ctrl-C discard ephemeral history and authority without undoing effects;
+15. no harness selector/abstraction, Pi/OpenCode implementation, browser
     authority, persistence, background work, shell/process/Git authority, or
     other excluded architecture appears; and
-15. the full existing test suite is green.
+16. the full existing test suite is green.
 
 ## Open questions
 

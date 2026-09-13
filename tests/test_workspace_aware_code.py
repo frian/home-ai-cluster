@@ -58,7 +58,11 @@ def test_contract_examples_use_root_level_paths_without_artificial_prefixes():
     assert '"operation":"write","path":"file.py","content":"..."' in contract
     assert "exactly one bare JSON object" in contract
     assert "at most one workspace action" in contract
-    assert "do not return final" in contract
+    assert (
+        "If more workspace work is required, request the next action before final"
+        in contract
+    )
+    assert "After a refusal, final may truthfully report inability" in contract
     assert "HAC owns workspace authority and may refuse operations" in contract
     assert "src/example.py" not in contract
     assert "src/new.py" not in contract

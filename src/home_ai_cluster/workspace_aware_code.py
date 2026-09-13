@@ -34,14 +34,14 @@ _CONTRACT = (
     "If the operator asks for an explanation, put that explanation only in the "
     '"content" '
     "field of a final JSON response. "
-    "Request at most one workspace action. If requested workspace work is not yet "
-    "complete, request its next action; do not return final. HAC owns workspace "
-    "authority and may refuse operations."
+    "Request at most one workspace action. If more workspace work is required, request "
+    "the next action before final. After a refusal, final may truthfully report "
+    "inability. HAC owns workspace authority and may refuse operations."
 )
 _HISTORY_REMINDER = (
-    "Previous assistant messages are history, not response-format examples. For this "
-    "response use the HAC JSON contract. If workspace work remains, request the next "
-    "action instead of answering directly."
+    "Previous assistant messages are history, not format examples. Use the HAC JSON "
+    "contract for this response. If more workspace work is required, request the next "
+    "action before final."
 )
 _OUTCOME_PREFIX = "HAC workspace outcome:\n"
 

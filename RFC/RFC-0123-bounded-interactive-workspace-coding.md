@@ -1,6 +1,6 @@
 # RFC-0123: Bounded Interactive Workspace Coding
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-13
 
@@ -439,7 +439,19 @@ coding harnesses, including Pi or OpenCode, require separate RFCs.
 
 ## Decision
 
-Pending. This Draft proposes a bounded TTY-only interactive form of
-`hac code-workspace` with fixed caller-local authority and one fresh native HAC
-workspace interaction per human turn. It authorizes no implementation unless
-accepted.
+Accepted. RFC-0123 accepts one TTY-only foreground interactive
+`hac code-workspace` lifecycle when no explicit message is supplied, alongside
+unchanged one-shot explicit-message forms. One invocation has fixed caller-local
+root, grants, and process-local `WorkspaceAuthority`; it may contain multiple
+explicit human turns, each starting one fresh bounded native RFC-0116-style
+interaction with at most eight dispatched actions and nine ordinary Code
+inferences. Successful human/final history is process-memory-only, retains exact
+non-empty final content, and remains distinct from turn-local action/outcome
+state; RFC-0067's aggregate Code bound remains unchanged. Ordinary Code
+inferences remain independently routed, committed filesystem effects remain
+truthful, and the specified interactive empty-final handling applies.
+
+This decision accepts no persistence, sticky routing, dynamic authority, browser
+workspace authority, harness-selection mechanism, generic harness abstraction,
+Pi/OpenCode integration, shell/process/Git authority, or generic agent/tool
+architecture.

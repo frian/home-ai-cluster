@@ -496,6 +496,7 @@
     event.preventDefault();
     const context = requestContexts.code;
     if (context.active) return;
+    renderWorkspaceActivity(null);
     const input = document.querySelector("#code-text");
     const pendingMessage = { role: "user", content: input.value };
     const candidateMessages = [...codeMessages, pendingMessage];

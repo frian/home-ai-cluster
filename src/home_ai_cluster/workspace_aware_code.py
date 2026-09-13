@@ -1,5 +1,6 @@
 """Bounded RFC-0116 workspace-aware Code interaction."""
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -7,6 +8,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
+from home_ai_cluster.api.client_disconnect import cancellation_has_won
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -104,9 +106,36 @@ def _run_interaction(
     on_completed_action: CompletedActionObserver | None = None,
 ) -> WorkspaceAwareCodeResult:
     """Run one RFC-0116 interaction using one already-constructed authority."""
+    steps = _interaction_steps(
+        instruction,
+        authority=authority,
+        prior_messages=prior_messages,
+        on_completed_action=on_completed_action,
+    )
+    try:
+        messages = next(steps)
+        while True:
+            try:
+                result = infer(messages)
+            except Exception:
+                return WorkspaceAwareCodeResult(
+                    WorkspaceAwareCodeStatus.INTERNAL_FAILURE
+                )
+            messages = steps.send(result)
+    except StopIteration as terminal:
+        return terminal.value
+
+
+def _interaction_steps(
+    instruction: str,
+    *,
+    authority: WorkspaceAuthority,
+    prior_messages: Sequence[ChatMessage] = (),
+    on_completed_action: CompletedActionObserver | None = None,
+):
+    """Own the shared RFC-0116 state transitions between Code inferences."""
     if not isinstance(instruction, str) or not instruction.strip():
         raise ValueError("instruction must be non-blank")
-
     messages = [
         ChatMessage(role="system", content=_CONTRACT),
         *prior_messages,
@@ -121,11 +150,7 @@ def _run_interaction(
             return WorkspaceAwareCodeResult(
                 WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE
             )
-
-        try:
-            result = infer(tuple(messages))
-        except Exception:
-            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
+        result = yield tuple(messages)
         if result is None:
             return WorkspaceAwareCodeResult(
                 WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED
@@ -190,82 +215,28 @@ async def run_workspace_aware_code_async(
     infer: AsyncCodeInference,
     on_completed_action: CompletedActionObserver | None = None,
 ) -> WorkspaceAwareCodeResult:
-    """Run one cancellable RFC-0116 interaction for a browser turn.
-
-    This deliberately mirrors the native interaction rather than introducing a
-    second protocol: cancellation can interrupt a pending inference before a
-    later action is dispatched.
-    """
+    """Run one cancellable RFC-0116 interaction for a browser turn."""
     authority = WorkspaceAuthority(root, operations)
-    if not isinstance(instruction, str) or not instruction.strip():
-        raise ValueError("instruction must be non-blank")
-    messages = [
-        ChatMessage(role="system", content=_CONTRACT),
-        *prior_messages,
-        ChatMessage(role="user", content=instruction),
-    ]
-    actions = 0
-    while True:
-        try:
-            ClusterRequest(messages=messages, capability=Capability(name="code"))
-        except ValueError:
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.CODE_CONTEXT_TOO_LARGE
-            )
-        try:
-            result = await infer(tuple(messages))
-        except Exception:
-            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
-        if result is None:
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.CODE_INFERENCE_FAILED
-            )
-        if not isinstance(result, ClusterResult):
-            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
-        try:
-            result_size = len(result.content.encode("utf-8", errors="strict"))
-        except UnicodeError:
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
-            )
-        if result_size > _MAX_RESULT_BYTES:
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.OVERSIZED_MODEL_RESPONSE
-            )
-        try:
-            response = _parse_response(result.content)
-        except (TypeError, ValueError, json.JSONDecodeError, RecursionError):
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE
-            )
-        if isinstance(response, _Final):
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.FINAL, response.content
-            )
-        if actions == _ACTION_BUDGET:
-            return WorkspaceAwareCodeResult(
-                WorkspaceAwareCodeStatus.ACTION_BUDGET_EXHAUSTED
-            )
-        actions += 1
-        try:
-            outcome = _dispatch(authority, response)
-        except WorkspaceAuthorityError:
-            outcome = {"status": "refused"}
-        except Exception:
-            return WorkspaceAwareCodeResult(WorkspaceAwareCodeStatus.INTERNAL_FAILURE)
-        if on_completed_action is not None:
+    steps = _interaction_steps(
+        instruction,
+        authority=authority,
+        prior_messages=prior_messages,
+        on_completed_action=on_completed_action,
+    )
+    try:
+        messages = next(steps)
+        while True:
             try:
-                on_completed_action(
-                    response.operation, response.path, outcome["status"]
-                )
+                result = await infer(messages)
             except Exception:
                 return WorkspaceAwareCodeResult(
                     WorkspaceAwareCodeStatus.INTERNAL_FAILURE
                 )
-        messages.append(ChatMessage(role="assistant", content=result.content))
-        messages.append(
-            ChatMessage(role="user", content=_outcome_message(response, outcome))
-        )
+            if asyncio.current_task().cancelling() or cancellation_has_won():
+                raise asyncio.CancelledError
+            messages = steps.send(result)
+    except StopIteration as terminal:
+        return terminal.value
 
 
 def _parse_response(content: str) -> _Final | _WorkspaceRequest:

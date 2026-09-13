@@ -64,7 +64,7 @@ def _workspace_code_document(
     if not grants or any(not isinstance(item, str) for item in grants):
         raise ValueError("invalid workspace Code request")
     grant_set = set(grants)
-    if grant_set != set(grants) or not grant_set <= _WORKSPACE_GRANTS:
+    if len(grant_set) != len(grants) or not grant_set <= _WORKSPACE_GRANTS:
         raise ValueError("invalid workspace Code request")
     if (
         not isinstance(history, list)
@@ -80,7 +80,10 @@ def _workspace_code_document(
         )
     except (TypeError, ValueError):
         raise ValueError("invalid workspace Code request") from None
-    if any(message.role not in {"user", "assistant"} for message in messages):
+    if len(messages) % 2 or any(
+        message.role != ("user" if index % 2 == 0 else "assistant")
+        for index, message in enumerate(messages)
+    ):
         raise ValueError("invalid workspace Code request")
     return root, grant_set, messages, instruction
 

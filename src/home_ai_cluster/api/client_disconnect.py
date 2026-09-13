@@ -2,6 +2,8 @@
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Protocol
 
 
@@ -13,6 +15,22 @@ class DisconnectAwareRequest(Protocol):
 
 class ConfirmedClientDisconnect(Exception):
     """Private signal that this HTTP boundary has already abandoned its client."""
+
+
+@dataclass
+class _CancellationState:
+    won: bool = False
+
+
+_cancellation_state: ContextVar[_CancellationState | None] = ContextVar(
+    "hac_cancellation_state", default=None
+)
+
+
+def cancellation_has_won() -> bool:
+    """Expose only the current HTTP cancellation result to owned work."""
+    state = _cancellation_state.get()
+    return state is not None and state.won
 
 
 async def _wait_for_confirmed_disconnect(
@@ -48,6 +66,8 @@ async def run_routable_execution[Result](
     if await request.is_disconnected():
         raise ConfirmedClientDisconnect
 
+    state = _CancellationState()
+    token = _cancellation_state.set(state)
     execution_task = asyncio.create_task(execution())
     stop_observer = asyncio.Event()
     disconnect_task = asyncio.create_task(
@@ -70,9 +90,11 @@ async def run_routable_execution[Result](
         if execution_task.done():
             return await execution_task
 
+        state.won = True
         await _cancel_and_wait(execution_task)
         raise ConfirmedClientDisconnect
     finally:
         stop_observer.set()
         await _cancel_and_wait(execution_task)
         await _cancel_and_wait(disconnect_task)
+        _cancellation_state.reset(token)

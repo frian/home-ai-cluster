@@ -437,6 +437,14 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     assert "let fixedWorkspace = null;" in script
     assert "Reload the page before changing workspace access" in script
     assert "history: codeMessages.slice(0, -1)" in code_handler
+    assert "renderWorkspaceActivity(null);" in code_handler
+    assert code_handler.index("renderWorkspaceActivity(null);") < code_handler.index(
+        "const request = workspaceEnabled"
+    )
+    assert (
+        "if (workspaceEnabled.checked && result) "
+        "renderWorkspaceActivity(result.activity);" in code_handler
+    )
     assert "codeMessages.push(pendingMessage);" in code_handler
     assert "codeMessages.push(assistantMessage);" in code_handler
     assert "messages.push" not in code_handler

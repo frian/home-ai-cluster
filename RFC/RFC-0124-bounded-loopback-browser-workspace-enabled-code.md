@@ -31,11 +31,11 @@ There is no server-side workspace session, conversation ID, workspace ID, token,
 
 The official browser keeps one root and grant set fixed for workspace-enabled turns belonging to the same current-page Code conversation. That continuity belongs to browser state, not to a server-side security identity. The server independently validates and reconstructs workspace authority for every request.
 
-Because filesystem effects may already have committed before a later inference or interaction failure, the browser response includes a bounded ordered summary of every workspace action whose RFC-0116 outcome was safely classified. This makes committed effects visible without creating an execution transcript or persistent activity system.
+Because filesystem effects may already have committed before a later inference or interaction failure, the browser response includes a bounded ordered summary of every workspace action whose RFC-0116 outcome was safely classified. When a response can be delivered, this makes safely classified workspace activity visible without creating an execution transcript or persistent activity system.
 
 The workspace-bearing browser surface retains the existing native loopback Host and exact-same-origin Origin authority precedent and adds a cross-origin anti-framing requirement.
 
-A confirmed browser disconnect also becomes a cancellation boundary for this route. After disconnect wins, HAC must not deliberately dispatch any new workspace action. Already dispatched or committed filesystem work remains governed by existing workspace semantics and is not rolled back or retried.
+A confirmed browser disconnect also becomes a cancellation boundary for this route. After disconnect wins, HAC cancels its HAC-owned pending interaction work, stops awaiting its normal result, discards late normal results, and must not deliberately dispatch any new workspace action. Already dispatched or committed filesystem work remains governed by existing workspace semantics and is not rolled back or retried.
 
 This RFC adds no new cluster capability, generic tool system, generic filesystem API, server session, authentication framework, persistence, streaming, browser filesystem API, shell authority, Git authority, or remote filesystem authority.
 
@@ -314,6 +314,8 @@ Before the first workspace-enabled turn, the operator may select the workspace r
 Once workspace-enabled turns are part of the retained current-page Code conversation, that conversation has one fixed workspace root and grant set.
 
 Any later workspace-enabled turn belonging to that same retained Code conversation must use the same root and grants.
+
+An intervening text-only Code turn does not reset this browser-owned workspace continuity. If workspace access is enabled again later in the same retained conversation, it must use the same fixed root and grants.
 
 Changing root or grants requires abandoning the current ephemeral Code conversation before beginning another workspace-enabled conversation.
 
@@ -829,7 +831,7 @@ If the workspace interaction already owns its terminal normal result when discon
 
 Response delivery is not guaranteed and no retry occurs.
 
-If confirmed disconnect wins while the workspace interaction is still pending, HAC must cancel or abandon its owned pending interaction work.
+If confirmed disconnect wins while the workspace interaction is still pending, HAC must cancel its HAC-owned pending interaction work, stop awaiting its normal result, and discard every later normal success or failure.
 
 Most importantly:
 
@@ -951,7 +953,7 @@ workspace authority lifetime
 
 No fourth server-session lifetime is required.
 
-The bounded activity summary solves the primary truthfulness problem created by real filesystem effects: a later interaction failure cannot silently imply that already classified successful actions never happened.
+When a response can be delivered, the bounded activity summary solves the primary truthfulness problem created by real filesystem effects: a later interaction failure cannot silently imply that already classified successful actions never happened.
 
 The existing Host/Origin boundary protects against unrelated Web-origin direct requests.
 
@@ -1135,7 +1137,7 @@ A later implementation should prove at minimum that:
 
 3. no root is inferred from cwd, repository, home, launch location, retained configuration, or prior use;
 
-4. the official browser keeps one root/grant pair for workspace-enabled turns belonging to one retained current-page Code conversation, and changing that authority requires abandoning that conversation;
+4. the official browser keeps one root/grant pair for workspace-enabled turns belonging to one retained current-page Code conversation, an intervening text-only turn does not reset that continuity, and changing that authority requires abandoning that conversation;
 
 5. there is no server-side workspace session, workspace/conversation ID, token, registry, retained grant, or persistent conversation;
 
@@ -1161,7 +1163,7 @@ A later implementation should prove at minimum that:
 
 16. committed filesystem effects survive later inference failure, context failure, empty final, presentation failure, and disconnect without rollback or retry;
 
-17. after confirmed disconnect wins, no new workspace action can be dispatched, while already dispatched work remains governed by existing filesystem semantics;
+17. after confirmed disconnect wins, HAC-owned pending interaction work is cancelled, its normal result is no longer awaited, late normal results are discarded, and no new workspace action can be dispatched, while already dispatched work remains governed by existing filesystem semantics;
 
 18. disconnect creates no recovery identity, durable action record, status lookup, or automatic retry;
 

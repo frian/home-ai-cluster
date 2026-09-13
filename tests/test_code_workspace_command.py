@@ -85,6 +85,48 @@ def test_invalid_cli_contract_fails_before_inference(arguments):
     assert raised.value.code == 2
 
 
+def test_grant_help_explains_that_multiple_operations_require_repetition(capsys):
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main(["-h"])
+
+    captured = capsys.readouterr()
+    assert raised.value.code == 0
+    assert captured.err == ""
+    assert (
+        "Grant one workspace operation. Repeat --grant for multiple operations."
+        in " ".join(captured.out.split())
+    )
+
+
+def test_comma_separated_grant_is_rejected_before_inference():
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main(
+            ["--root", ".", "--grant", "read,list", "task"],
+            _client_factory=lambda **kwargs: pytest.fail("must not infer"),
+        )
+
+    assert raised.value.code == 2
+
+
+def test_repeated_grants_are_accepted():
+    command_input = code_workspace_command._parse_input(
+        ["--root", ".", "--grant", "read", "--grant", "list", "task"]
+    )
+
+    assert command_input.operations == frozenset({"read", "list"})
+
+
+def test_naked_invocation_shows_authority_requirement_and_usage():
+    stderr = StringIO()
+
+    with pytest.raises(SystemExit) as raised:
+        code_workspace_command.main([], _stderr=stderr)
+
+    assert raised.value.code == 2
+    assert stderr.getvalue().startswith("usage: home-ai-cluster code-workspace")
+    assert "error: --root and at least one --grant are required\n" in stderr.getvalue()
+
+
 @pytest.mark.parametrize(
     ("stdin", "stdout"),
     [(unreadable_terminal(), terminal()), (terminal(), non_terminal())],

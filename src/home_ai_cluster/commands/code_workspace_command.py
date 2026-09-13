@@ -15,6 +15,7 @@ from home_ai_cluster.core.models import ChatMessage
 from home_ai_cluster.core.workspace_authority import WorkspaceAuthorityError
 
 _ROOT_FAILURE = "error: invalid code-workspace root"
+_MISSING_AUTHORITY = "error: --root and at least one --grant are required"
 _TERMINAL_FAILURES = {
     workspace_aware_code.WorkspaceAwareCodeStatus.MALFORMED_MODEL_RESPONSE: (
         "error: invalid code-workspace model response"
@@ -52,6 +53,13 @@ class _ArgumentParser(argparse.ArgumentParser):
         raise chat_command._InvalidRequestInput from None
 
 
+class _MissingWorkspaceAuthority(Exception):
+    """Keep the naked invocation actionable without changing input status."""
+
+    def __init__(self, usage: str) -> None:
+        self.usage = usage
+
+
 def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
     parser = _ArgumentParser(
         prog="home-ai-cluster code-workspace",
@@ -64,7 +72,10 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
     )
     parser.add_argument("--root", action="append", metavar="PATH")
     parser.add_argument(
-        "--grant", action="append", choices=("list", "read", "write", "create")
+        "--grant",
+        action="append",
+        choices=("list", "read", "write", "create"),
+        help="Grant one workspace operation. Repeat --grant for multiple operations.",
     )
     parser.add_argument("message_positional", nargs="?", metavar="MESSAGE")
     parser.add_argument("--message", action="append", metavar="MESSAGE")
@@ -75,6 +86,8 @@ def _parse_input(argv: Sequence[str] | None) -> _CodeWorkspaceInput:
     messages = args.message or []
     grants = args.grant or []
     message: str | None = None
+    if not roots and not grants:
+        raise _MissingWorkspaceAuthority(parser.format_usage())
     if len(roots) != 1 or not grants:
         raise chat_command._InvalidRequestInput
     if args.message_positional is not None:
@@ -117,6 +130,9 @@ def main(
     stderr = sys.stderr if _stderr is None else _stderr
     try:
         command_input = _parse_input(argv)
+    except _MissingWorkspaceAuthority as error:
+        stderr.write(error.usage)
+        chat_command._exit_with_failure(_MISSING_AUTHORITY, 2, stderr=stderr)
     except chat_command._InvalidRequestInput:
         chat_command._exit_with_failure(chat_command._INVALID_INPUT, 2, stderr=stderr)
 

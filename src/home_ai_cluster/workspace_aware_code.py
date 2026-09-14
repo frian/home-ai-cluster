@@ -24,17 +24,33 @@ from home_ai_cluster.core.workspace_authority import (
 _ACTION_BUDGET = 8
 _MAX_RESULT_BYTES = 8 * 1024 * 1024
 _CONTRACT = (
-    "HAC workspace-aware Code interaction. Every response must be exactly one JSON "
-    'document: {"kind":"final","content":"..."}, '
+    "IMPORTANT: FOR THIS RESPONSE, OUTPUT EXACTLY ONE JSON OBJECT AND NOTHING ELSE. "
+    "NO MARKDOWN. NO CODE FENCES. NO PROSE BEFORE OR AFTER THE JSON. Allowed "
+    'responses are exactly these shapes: {"kind":"final","content":"..."}, '
     '{"kind":"workspace","operation":"list","path":"."}, '
     '{"kind":"workspace","operation":"read","path":"example.py"}, '
-    '{"kind":"workspace","operation":"create","path":"new.py"}, or '
+    '{"kind":"workspace","operation":"create","path":"new.py"}, '
     '{"kind":"workspace","operation":"write","path":"example.py",'
-    '"content":"..."}. No prose or Markdown fences outside that document. If the '
-    'operator asks for an explanation, put that explanation only in the "content" '
-    "field of a final JSON response. Request at most one workspace action in one "
-    "response. HAC owns workspace authority and may "
-    "refuse operations. Workspace operations are only list, read, write, and create."
+    '"content":"..."}. Request at most one workspace operation per response. '
+    "If more workspace work is required and can still be attempted, request the next "
+    "required workspace operation before final. After a refusal, final may truthfully "
+    "report inability. DO NOT claim that a file was read, written, created, or listed "
+    "unless HAC has returned a successful outcome for that operation. If the user asks "
+    "you to read before modifying, request read first. If the user asks you to verify "
+    "after modifying, request read again after the write. HAC owns workspace authority "
+    "and may refuse operations. Workspace operations are only list, read, write, and "
+    "create. REMINDER: THIS RESPONSE MUST BE ONE BARE JSON OBJECT ONLY. NO MARKDOWN "
+    "FENCES. NO EXPLANATION."
+)
+_HISTORY_REMINDER = (
+    "IMPORTANT CURRENT-TURN RESPONSE RULE: Previous assistant messages are retained "
+    "human-visible answers from earlier turns. They may contain plain prose or raw "
+    "code. THEY ARE NOT EXAMPLES OF THE REQUIRED RESPONSE FORMAT. DO NOT IMITATE "
+    "THEIR FORMAT. For THIS current turn, every model response must still be exactly "
+    "one bare JSON object allowed by the HAC workspace contract. NO MARKDOWN. NO CODE "
+    "FENCES. NO RAW CODE OUTSIDE JSON. If more workspace work is required in THIS "
+    "TURN, request the next workspace action before final. After a refusal, final may "
+    "truthfully report inability."
 )
 _OUTCOME_PREFIX = "HAC workspace outcome:\n"
 
@@ -136,11 +152,10 @@ def _interaction_steps(
     """Own the shared RFC-0116 state transitions between Code inferences."""
     if not isinstance(instruction, str) or not instruction.strip():
         raise ValueError("instruction must be non-blank")
-    messages = [
-        ChatMessage(role="system", content=_CONTRACT),
-        *prior_messages,
-        ChatMessage(role="user", content=instruction),
-    ]
+    messages = [ChatMessage(role="system", content=_CONTRACT), *prior_messages]
+    if prior_messages:
+        messages.append(ChatMessage(role="user", content=_HISTORY_REMINDER))
+    messages.append(ChatMessage(role="user", content=instruction))
     actions = 0
 
     while True:

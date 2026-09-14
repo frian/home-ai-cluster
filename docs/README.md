@@ -90,7 +90,7 @@ architecture.
   concise operator boundary for explicit, ephemeral workspace-enabled Code.
 - [Workspace Code model compatibility investigation](workspace-code-model-compatibility-investigation.md)
   — records bounded CLI and browser evidence across Qwen 2.5 Coder, Qwen 3.5,
-  and Mistral NeMo, including one material temperature=0 compatibility change,
+  and Mistral NeMo, including repeated Qwen 3.5 temperature=0 evidence,
   without selecting models, generation defaults, or a new configuration
   contract.
 - [stable-diffusion.cpp Image Generation proof](stable-diffusion-cpp-image-generation-proof.md)

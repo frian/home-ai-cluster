@@ -140,6 +140,98 @@ protocol compatibility in at least one observed model/environment. This does
 not establish that temperature=0 is universally required, optimal, or
 sufficient for Qwen 3.5 or any other model.
 
+## Repeated Qwen 3.5 temperature A/B observation
+
+This follow-up was predeclared before its results were seen. It repeated the
+same local workspace-Code workflow for `qwen3.5:9b` with two temporary Ollama
+aliases created from the same already-installed source model: Condition A,
+`hac-exp-qwen35-control`, had no intentional generation overrides; Condition
+B, `hac-exp-qwen35-temp0`, had only `PARAMETER temperature 0`. No model
+download occurred. Thinking remained enabled, the ordinary request timeout
+remained 120.0 seconds, and the HAC workspace contract, strict parser,
+filesystem authority, production code, workflow, and prompts were unchanged.
+Using aliases for both conditions avoided making base-model-versus-alias an
+experimental difference.
+
+The fixed order was A -> B, B -> A, A -> B, B -> A, A -> B. Every intended
+run used a fresh disposable workspace with the common initial `math_tool.py`,
+a new native interactive `hac code-workspace` invocation, the same two exact
+human turns, and no retries, replacement runs, prompt correction, or manual
+file repair. Strict PASS required both turns to complete `read -> write -> read
+-> final` and the final file to execute as `25`, then `27`. The predeclared
+repeatability separation was at least 4/5 strict PASS for one condition and at
+most 1/5 for the other. This was not a statistical benchmark or general model
+study.
+
+| Run | Pair / condition | Turn 1 (elapsed) | Turn 2 (elapsed) | Final execution | Strict result |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 1 / A | ordinary cluster unavailable (30s) | ordinary cluster unavailable (30s) | not performed | FAIL |
+| 2 | 1 / B | read -> write -> read -> final (150s) | read -> write -> read -> final (270s) | `25`, `27` | PASS |
+| 3 | 2 / B | read -> write -> read -> final (150s) | read -> write -> read -> final (270s) | `25`, `27` | PASS |
+| 4 | 2 / A | read -> write -> timeout (210s) | timeout (150s) | `25`, `27` | FAIL |
+| 5 | 3 / A | read -> timeout (150s) | read -> timeout (150s) | `25` | FAIL |
+| 6 | 3 / B | read -> write -> read -> final (150s) | read -> write -> read -> final (270s) | `25`, `27` | PASS |
+| 7 | 4 / A | read -> write -> read -> final (210s) | list refused -> final (90s) | `25`, `27` | FAIL |
+| 8 | 4 / B | read -> write -> read -> final (150s) | read -> write -> read -> final (270s) | `25`, `27` | PASS |
+| 9 | 5 / A | read -> write -> read -> read -> timeout (330s) | read -> write -> read -> final (210s) | `25`, `27` | FAIL |
+| 10 | 5 / B | read -> write -> read -> final (150s) | read -> write -> read -> final (210s) | `25`, `27` | PASS |
+
+Run 1 began while `hac local` was stopped. It remains a real recorded strict
+FAIL under the predeclared no-retry rule, but it did not exercise the model and
+is not valid evidence of `qwen3.5:9b` behavior at ordinary settings. It is
+therefore explicitly excluded from causal or model-behavior interpretation.
+
+The raw predeclared record is A: 0/5 strict PASS and B: 5/5 strict PASS. The
+valid model-behavior comparison is instead ordinary settings: 0/4 strict PASS,
+and temperature=0: 5/5 strict PASS. The four independent ordinary-setting
+model runs all failed the strict criterion, although some produced the correct
+final file. Condition A had five recorded strict FAIL outcomes, one caused by
+`hac local` being unavailable; Condition B had five strict PASS outcomes, no
+terminal timeouts, no incomplete requested-action sequences, no parser or
+malformed failures, and the correct final file in every run. No parser or
+malformed failures were observed in either condition.
+
+Median observed human-turn elapsed time was A: 150s and B: 180s. This is a
+secondary observation, not speed evidence: recorded B turns were often longer
+while still completing correctly. No raw-response observer was used.
+
+The repeated valid observations make a stochastic one-off explanation for the
+earlier single A/B observation materially less credible in this local
+environment. With the source model, thinking setting, 120-second ordinary
+request timeout, HAC contract, parser, workflow, filesystem authority, and
+production code held constant, they provide a strong bounded repeatability
+signal that an inference-generation setting can materially affect reliable
+workspace-Code protocol completion for one explicitly selected local
+model/environment. They do not establish statistical significance, universal
+determinism, universal requirement or optimality of temperature=0, improvement
+for every model, or a temperature setting belonging to the Code capability.
+
+The repeatability question is no longer merely hypothetical: a generation
+setting currently external to retained HAC composition can materially affect
+reliable execution in this observed workflow. That creates, but does not
+answer, an architectural question about ownership and inspectability. A
+separate RFC discussion may evaluate only this neutral question:
+
+> Should an explicitly selected Ollama local runtime composition be able to
+> retain one operator-controlled sampling temperature, or should that setting
+> remain entirely external/runtime-owned?
+
+This investigation neither authorizes nor designs such a change. It does not
+propose capability-specific or per-request temperature, cluster transport
+changes, generic inference options, arbitrary Ollama option passthrough,
+other sampling/context settings, cross-runtime temperature semantics, or an
+OpenAI-compatible parameter surface. The evidence is analogous in
+architectural shape, not semantics, to earlier narrow runtime-specific
+operator controls such as Ollama thinking control; those controls do not
+authorize a temperature decision.
+
+After the experiment, the retained HAC configuration was restored to
+`qwen2.5-coder:7b`, thinking enabled, the `code` capability, no execution
+limit, and no remote nodes. `hac local` was stopped again as originally found;
+the temporary aliases, temporary Modelfiles, and temporary `/tmp` workspaces
+were removed. The repository remained clean, and the experiment itself changed
+no production code, tests, architecture, RFC, issue, or pull request.
+
 ## Browser observations
 
 Later manual loopback Web UI observations covered `qwen2.5-coder:7b` at its

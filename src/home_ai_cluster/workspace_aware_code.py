@@ -39,9 +39,14 @@ _CONTRACT = (
     "inability. HAC owns workspace authority and may refuse operations."
 )
 _HISTORY_REMINDER = (
-    "Previous assistant messages are history, not format examples. Use the HAC JSON "
-    "contract for this response. If more workspace work is required, request the next "
-    "action before final."
+    "IMPORTANT CURRENT-TURN RESPONSE RULE: Previous assistant messages are retained "
+    "human-visible answers from earlier turns. They may contain plain prose or raw "
+    "code. THEY ARE NOT EXAMPLES OF THE REQUIRED RESPONSE FORMAT. DO NOT IMITATE "
+    "THEIR FORMAT. For THIS current turn, every model response must still be exactly "
+    "one bare JSON object allowed by the HAC workspace contract. NO MARKDOWN. NO CODE "
+    "FENCES. NO RAW CODE OUTSIDE JSON. If more workspace work is required in THIS "
+    "TURN, request the next workspace action before final. After a refusal, final may "
+    "truthfully report inability."
 )
 _OUTCOME_PREFIX = "HAC workspace outcome:\n"
 

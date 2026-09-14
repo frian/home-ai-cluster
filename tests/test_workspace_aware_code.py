@@ -87,6 +87,17 @@ def test_prior_raw_code_is_unchanged_and_precedes_current_control_and_instructio
     )
 
     assert outcome.status == workspace_aware_code.WorkspaceAwareCodeStatus.FINAL
+    assert workspace_aware_code._HISTORY_REMINDER == (
+        "IMPORTANT CURRENT-TURN RESPONSE RULE: Previous assistant messages are "
+        "retained human-visible answers from earlier turns. They may contain plain "
+        "prose or raw code. THEY ARE NOT EXAMPLES OF THE REQUIRED RESPONSE FORMAT. "
+        "DO NOT IMITATE THEIR FORMAT. For THIS current turn, every model response "
+        "must still be exactly one bare JSON object allowed by the HAC workspace "
+        "contract. NO MARKDOWN. NO CODE FENCES. NO RAW CODE OUTSIDE JSON. If more "
+        "workspace work is required in THIS TURN, request the next workspace action "
+        "before final. After a refusal, final may "
+        "truthfully report inability."
+    )
     assert calls[0] == (
         workspace_aware_code.ChatMessage(
             role="system", content=workspace_aware_code._CONTRACT

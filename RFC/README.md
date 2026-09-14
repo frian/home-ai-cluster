@@ -65,6 +65,14 @@ does not invalidate or supersede an RFC.
   not be guaranteed with the existing high-level stack, and the literal-IP-only
   narrowing was not useful enough. No implementation was authorized.
 
+## Draft RFCs
+
+- [RFC-0125: Explicit Local Sampling Temperature](RFC-0125-explicit-local-sampling-temperature.md)
+  — proposes one optional common local textual-runtime sampling-
+  temperature fact for Ollama, llama-server, and vLLM while preserving native
+  omission/defaults and excluding Classify, requests, transport, routing, and
+  generic inference options.
+
 ## Selected accepted RFCs
 
 - [RFC-0124: Bounded Loopback Browser Workspace-Enabled Code](RFC-0124-bounded-loopback-browser-workspace-enabled-code.md)

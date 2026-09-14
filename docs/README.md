@@ -88,6 +88,11 @@ architecture.
   surface.
 - [Loopback browser workspace Code](loopback-browser-workspace-code.md) —
   concise operator boundary for explicit, ephemeral workspace-enabled Code.
+- [Workspace Code model compatibility investigation](workspace-code-model-compatibility-investigation.md)
+  — records bounded CLI and browser evidence across Qwen 2.5 Coder, Qwen 3.5,
+  and Mistral NeMo, including one material temperature=0 compatibility change,
+  without selecting models, generation defaults, or a new configuration
+  contract.
 - [stable-diffusion.cpp Image Generation proof](stable-diffusion-cpp-image-generation-proof.md)
   — retains one privacy-safe real local RFC-0121 proof through ordinary local
   routing, including truthful untagged still-PNG normalization and the

@@ -5,10 +5,11 @@ import pytest
 from home_ai_cluster import workspace_aware_code
 
 
-def test_contract_keeps_explanations_inside_final_json_content():
-    assert (
-        "If the operator asks for an explanation, put that explanation only in the "
-        '"content" field of a final JSON response.' in workspace_aware_code._CONTRACT
+def test_contract_requires_bare_json_without_success_claims():
+    assert "NO PROSE BEFORE OR AFTER THE JSON" in workspace_aware_code._CONTRACT
+    assert "NO EXPLANATION" in workspace_aware_code._CONTRACT
+    assert "DO NOT claim that a file was read, written, created, or listed" in (
+        workspace_aware_code._CONTRACT
     )
 
 

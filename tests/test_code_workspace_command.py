@@ -356,9 +356,20 @@ def test_interactive_committed_create_survives_failed_turn_without_retention(tmp
 
 def test_interactive_over_limit_turn_is_not_sent_or_retained(tmp_path):
     requests = []
+    saved_content = "x" * (
+        65_536
+        - len(code_workspace_command.workspace_aware_code._CONTRACT.encode("utf-8"))
+        - len(
+            code_workspace_command.workspace_aware_code._HISTORY_REMINDER.encode(
+                "utf-8"
+            )
+        )
+        - len(b"saved")
+        - len(b"later")
+    )
     responses = iter(
         (
-            json.dumps({"kind": "final", "content": "x" * 64_000}),
+            json.dumps({"kind": "final", "content": saved_content}),
             '{"kind":"final","content":"later"}',
         )
     )
@@ -381,7 +392,7 @@ def test_interactive_over_limit_turn_is_not_sent_or_retained(tmp_path):
     assert len(requests) == 2
     assert requests[1]["messages"][1:] == [
         {"role": "user", "content": "saved"},
-        {"role": "assistant", "content": "x" * 64_000},
+        {"role": "assistant", "content": saved_content},
         {
             "role": "user",
             "content": code_workspace_command.workspace_aware_code._HISTORY_REMINDER,

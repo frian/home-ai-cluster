@@ -24,19 +24,23 @@ from home_ai_cluster.core.workspace_authority import (
 _ACTION_BUDGET = 8
 _MAX_RESULT_BYTES = 8 * 1024 * 1024
 _CONTRACT = (
-    "HAC workspace Code: respond with exactly one bare JSON object, no prose or "
-    "Markdown fences:\n"
-    '{"kind":"final","content":"..."}\n'
-    '{"kind":"workspace","operation":"list","path":"."}\n'
-    '{"kind":"workspace","operation":"read","path":"file.py"}\n'
-    '{"kind":"workspace","operation":"create","path":"new.py"}\n'
-    '{"kind":"workspace","operation":"write","path":"file.py","content":"..."}\n'
-    "If the operator asks for an explanation, put that explanation only in the "
-    '"content" '
-    "field of a final JSON response. "
-    "Request at most one workspace action. If more workspace work is required, request "
-    "the next action before final. After a refusal, final may truthfully report "
-    "inability. HAC owns workspace authority and may refuse operations."
+    "IMPORTANT: FOR THIS RESPONSE, OUTPUT EXACTLY ONE JSON OBJECT AND NOTHING ELSE. "
+    "NO MARKDOWN. NO CODE FENCES. NO PROSE BEFORE OR AFTER THE JSON. Allowed "
+    'responses are exactly these shapes: {"kind":"final","content":"..."}, '
+    '{"kind":"workspace","operation":"list","path":"."}, '
+    '{"kind":"workspace","operation":"read","path":"example.py"}, '
+    '{"kind":"workspace","operation":"create","path":"new.py"}, '
+    '{"kind":"workspace","operation":"write","path":"example.py",'
+    '"content":"..."}. Request at most one workspace operation per response. '
+    "If more workspace work is required and can still be attempted, request the next "
+    "required workspace operation before final. After a refusal, final may truthfully "
+    "report inability. DO NOT claim that a file was read, written, created, or listed "
+    "unless HAC has returned a successful outcome for that operation. If the user asks "
+    "you to read before modifying, request read first. If the user asks you to verify "
+    "after modifying, request read again after the write. HAC owns workspace authority "
+    "and may refuse operations. Workspace operations are only list, read, write, and "
+    "create. REMINDER: THIS RESPONSE MUST BE ONE BARE JSON OBJECT ONLY. NO MARKDOWN "
+    "FENCES. NO EXPLANATION."
 )
 _HISTORY_REMINDER = (
     "IMPORTANT CURRENT-TURN RESPONSE RULE: Previous assistant messages are retained "

@@ -32,7 +32,7 @@ def square(n):
     return n * n
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     print(square(5))
 ```
 
@@ -156,17 +156,18 @@ settings were 0/4 strict, while `temperature=0` was 5/5 strict. Model source,
 thinking setting, HAC contract/parser/workflow/filesystem authority, and
 production code were held constant.
 
-Its later llama-server follow-up prevents treating that direction as
-engine-independent semantics. Because the tested llama-server build could not
-load the exact Ollama GGUF, it used a compatible but different Qwen3.5-9B GGUF
-artifact and was not a byte-identical cross-runtime comparison. Native/default
-was 3/5 strict; `temperature=0` was 0/5 strict; a later explicit
-`temperature=1` condition was 2/5 strict; and explicit `temperature=0` was
-0/5 strict. Temperature changed behavior, but `temperature=0` was not a
-portable reliability recipe. The evidence supports only that generation
-settings can materially affect protocol behavior and that numeric temperature
-values have no demonstrated portable reliability meaning across
-engine/model-artifact compositions.
+A later separate llama-server experimental follow-up, retained by the operator
+outside the repository before this study, prevents treating that favorable
+Ollama direction as engine-independent semantics. Because the tested
+llama-server build could not load the exact Ollama GGUF, it used a compatible
+but different Qwen3.5-9B GGUF artifact and was not a byte-identical
+cross-runtime comparison. Native/default was 3/5 strict; `temperature=0` was
+0/5 strict; a later explicit `temperature=1` condition was 2/5 strict; and
+explicit `temperature=0` was 0/5 strict. Temperature changed behavior, but
+`temperature=0` was not a portable reliability recipe. The evidence supports
+only that generation settings can materially affect protocol behavior and that
+numeric temperature values have no demonstrated portable reliability meaning
+across engine/model-artifact compositions.
 
 ## Restrained synthesis
 

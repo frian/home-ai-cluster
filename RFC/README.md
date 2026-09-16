@@ -58,6 +58,14 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Draft RFCs
+
+- [RFC-0128: Retained Local Image Generation Companion Composition](RFC-0128-retained-local-image-generation-companion-composition.md)
+  — proposes one optional HAC-managed retained stable-diffusion.cpp Image
+  Generation companion, separately configured from the unchanged complete
+  textual `config local` domain; ordinary local composition may add it, while
+  `--runtime-config` remains a complete non-merging alternative.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

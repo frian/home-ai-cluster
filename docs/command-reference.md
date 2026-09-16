@@ -185,6 +185,7 @@ hac local --receiver-host <LAN_IP>
 hac local --receiver-host <LAN_IP> --receiver-port <PORT>
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
+hac local --runtime ollama --temperature 0
 hac local --runtime-config <PATH>
 hac local \
   --runtime llama-server \
@@ -205,6 +206,14 @@ OpenAI-compatible runtime abstraction. The application runs in the foreground.
 Home AI Cluster does not install, start, stop, download models for, or
 supervise the external runtime. Ordinary local compositions advertise and
 execute `chat`, `summarize`, `classify`, and `code`.
+
+`--temperature VALUE` is an optional finite non-negative local free-text
+sampling-temperature value for Ollama, llama-server, and vLLM. Explicit `0`
+is retained and forwarded; omission sends no temperature override and preserves
+the runtime's native default request behavior. It applies to Chat, Summarize,
+and Code (including workspace Code), not Classify. HAC neither recommends nor
+supplies a default temperature, and equal values do not promise equivalent
+behavior across runtimes.
 
 Native/local authority is always exactly `127.0.0.1`; `--host` accepts no other
 value. `--receiver-host <LAN_IP>` additively enables one receiver listener in
@@ -227,6 +236,9 @@ multi-binding schema. A multi-binding file contains only one or more
 capability set to one `ollama`, `llama-server`, or `vllm` adapter construction.
 Ollama accepts optional `model` and `disable_thinking`; llama-server and vLLM
 require `base_url` and `model`. There is no implicit config-file discovery.
+Each covered single-runtime file may optionally use a top-level `temperature`
+fact; each covered multi-binding entry may do the same. Runtime-config files
+are self-contained and never inherit retained temperature.
 File mode is mutually exclusive with equivalent runtime-composition options
 explicitly supplied by the operator; parser defaults do not conflict. The file
 and CLI options are not merged.

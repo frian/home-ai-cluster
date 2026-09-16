@@ -55,6 +55,7 @@ def test_config_local_vllm_retains_execution_limit_and_show(
         "  runtime: vllm\n"
         "  vLLM base URL: http://127.0.0.1:8000\n"
         "  vLLM model: served-name\n"
+        "  temperature: not retained\n"
         "  caller-local capabilities: not retained\n"
         "  HAC execution limit: 2\n"
         "Remote nodes:\n"
@@ -93,6 +94,7 @@ def test_vllm_retained_configuration_round_trips_with_execution_limit(
         "local_capabilities": None,
         "vllm_base_url": "http://127.0.0.1:8000",
         "vllm_model": "served-name",
+        "temperature": None,
         "execution_limit": 3,
     }
 

@@ -40,6 +40,7 @@ _LOCAL_DOCUMENT_KEYS = (
     "llama_server_model",
     "vllm_base_url",
     "vllm_model",
+    "temperature",
     "local_capabilities",
     "execution_limit",
 )
@@ -100,6 +101,7 @@ def _browser_local_document(local: RetainedLocalConfiguration) -> dict[str, obje
         "llama_server_model": runtime.llama_server_model,
         "vllm_base_url": runtime.vllm_base_url,
         "vllm_model": runtime.vllm_model,
+        "temperature": runtime.temperature,
         "local_capabilities": (
             None if local.local_capabilities is None else list(local.local_capabilities)
         ),
@@ -118,6 +120,7 @@ def _local_from_browser_document(document: Any) -> RetainedLocalConfiguration:
         llama_server_model=document["llama_server_model"],
         vllm_base_url=document["vllm_base_url"],
         vllm_model=document["vllm_model"],
+        temperature=document["temperature"],
         local_capabilities=document["local_capabilities"],
         execution_limit=document["execution_limit"],
     )

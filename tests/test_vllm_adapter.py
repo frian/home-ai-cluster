@@ -155,6 +155,25 @@ def test_vllm_adapter_chat_translates_cluster_request() -> None:
     ]
 
 
+def test_vllm_adapter_forwards_ordinary_temperature() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Hi"}}]})
+
+    asyncio.run(
+        VllmAdapter(
+            base_url="http://127.0.0.1:8000",
+            model="configured-model",
+            temperature=0,
+            transport=httpx.MockTransport(handler),
+        ).chat(make_request())
+    )
+
+    assert seen_payloads[0]["temperature"] == 0
+
+
 def test_vllm_adapter_chat_normalizes_response_and_model() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(

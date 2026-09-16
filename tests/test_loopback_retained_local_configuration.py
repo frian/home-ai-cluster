@@ -36,6 +36,7 @@ def local_document(**overrides: object) -> dict[str, object]:
         "llama_server_model": None,
         "vllm_base_url": None,
         "vllm_model": None,
+        "temperature": None,
         "local_capabilities": None,
         "execution_limit": None,
     }

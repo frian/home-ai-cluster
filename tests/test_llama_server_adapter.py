@@ -152,6 +152,24 @@ def test_llama_server_adapter_chat_normalizes_response_and_loaded_model() -> Non
     assert set(result.model_dump()) == {"content", "adapter", "model"}
 
 
+def test_llama_server_adapter_forwards_ordinary_temperature() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Hi"}}]})
+
+    asyncio.run(
+        LlamaServerAdapter(
+            model="configured-model",
+            temperature=0.25,
+            transport=httpx.MockTransport(handler),
+        ).chat(make_request())
+    )
+
+    assert seen_payloads[0]["temperature"] == 0.25
+
+
 def test_llama_server_adapter_summarize_maps_source_text_to_chat_transport() -> None:
     source = '  First line.\n</source> "Quoted" text.\nLast line.  '
     seen_payloads: list[dict[str, object]] = []

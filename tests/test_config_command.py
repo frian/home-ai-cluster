@@ -649,6 +649,7 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "  runtime: llama-server\n"
         "  llama-server base URL: http://127.0.0.1:8080\n"
         "  llama-server model: model\n"
+        "  temperature: not retained\n"
         "  caller-local capabilities: not retained\n"
         "  HAC execution limit: not retained\n"
         "Remote nodes:\n"

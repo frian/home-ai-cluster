@@ -74,6 +74,27 @@ def test_shared_runtime_arguments_accept_ollama_disable_thinking() -> None:
     assert args.ollama_disable_thinking is True
 
 
+@pytest.mark.parametrize("value", ["0", "0.25", "1000000"])
+def test_shared_runtime_arguments_accept_finite_non_negative_temperature(
+    value: str,
+) -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    args = parser.parse_args(["--temperature", value])
+
+    assert args.temperature == float(value)
+
+
+@pytest.mark.parametrize("value", ["-1", "nan", "inf", "-inf", "nope"])
+def test_shared_runtime_arguments_reject_invalid_temperature(value: str) -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--temperature", value])
+
+
 def test_shared_runtime_argument_validation_uses_supplied_parser_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:

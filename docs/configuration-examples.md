@@ -110,6 +110,7 @@ Source: [`examples/runtime-ollama.toml`](https://github.com/frian/home-ai-cluste
 
 ```toml
 runtime = "ollama"
+temperature = 0
 
 [ollama]
 # Replace with an already-installed operator-owned Ollama model.

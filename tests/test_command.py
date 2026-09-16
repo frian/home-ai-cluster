@@ -86,7 +86,6 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
             "home-ai-cluster-clear-history",
             "home-ai-cluster-local",
             "home-ai-cluster-chat",
-            "home-ai-cluster-image-generation",
         )
     } == {
         "home-ai-cluster-static-cluster": "home_ai_cluster.static_cluster:main",
@@ -108,9 +107,6 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         ),
         "home-ai-cluster-local": "home_ai_cluster.local_runtime:main",
         "home-ai-cluster-chat": "home_ai_cluster.commands.chat_command:main",
-        "home-ai-cluster-image-generation": (
-            "home_ai_cluster.commands.image_generation_command:main"
-        ),
     }
     assert {
         "home-ai-cluster-static-proof",

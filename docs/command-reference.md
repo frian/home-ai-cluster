@@ -997,7 +997,6 @@ mapping is useful for compatibility or reference:
 | `hac static-cluster` | `uv run home-ai-cluster-static-cluster` |
 | `hac compatibility` | `uv run home-ai-cluster-openai-compatibility` |
 | `hac chat` | `uv run home-ai-cluster-chat` |
-| `hac image-generation` | `uv run home-ai-cluster-image-generation` |
 | `hac preflight` | `uv run home-ai-cluster-preflight` |
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |

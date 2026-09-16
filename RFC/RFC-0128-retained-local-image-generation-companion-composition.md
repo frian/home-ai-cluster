@@ -1,6 +1,6 @@
 # RFC-0128: Retained Local Image Generation Companion Composition
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-16
 
@@ -401,4 +401,18 @@ general retained bindings requires a separate architectural decision.
 
 ## Decision
 
-Pending.
+Accepted. Home AI Cluster accepts one optional HAC-managed retained local Image
+Generation companion with fixed `stable-diffusion-cpp` identity, one explicit
+validated loopback `base_url`, and exact local execution ownership of
+`image-generation`. It is configured and reset only through the separate
+complete `hac config image-generation` domain, while the existing complete
+`hac config local` textual/local domain remains unchanged.
+
+When no explicit `--runtime-config PATH` is selected, ordinary local
+composition may combine the existing effective textual composition with this
+optional companion. An explicit runtime-config remains a complete,
+self-contained non-merging alternative that bypasses both retained
+execution-composition domains. RFC-0059 caller-local permission remains
+separate from execution ownership; no static Image Generation permission,
+remote/receiver behavior, browser authority, observation, lifecycle, or
+generation-control authority is added.

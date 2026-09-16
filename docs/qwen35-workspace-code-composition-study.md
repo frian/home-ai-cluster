@@ -27,7 +27,7 @@ unresolved proposal and is neither changed nor pre-accepted here.
 
 Each fresh workspace began with `math_tool.py` containing:
 
-```python
+```text
 def square(n):
     return n * n
 

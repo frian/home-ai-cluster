@@ -1074,6 +1074,93 @@ def test_chat_external_information_decision_never_falls_back_to_declared_remote(
     assert transport.calls == 0
 
 
+@pytest.mark.parametrize("collection", [False, True])
+def test_chat_external_information_decision_uses_projected_static_local_permission(
+    collection: bool,
+) -> None:
+    adapter = RecordingClassifyAdapter("external")
+    physical_node = NodeDescription(
+        id="local",
+        name="Physical local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[
+            Capability(name="chat"),
+            Capability(name="classify"),
+            Capability(name="image-generation"),
+        ],
+        adapters=[adapter.name, "stable-diffusion-cpp"],
+    )
+    projected_node = NodeDescription(
+        id="local",
+        name="Caller local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="chat")],
+        adapters=[adapter.name, "stable-diffusion-cpp"],
+    )
+    remote = RemoteNodeDeclaration(
+        node=NodeDescription(
+            id="remote",
+            name="Remote classify node",
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="classify")],
+            adapters=["remote"],
+        ),
+        transport_address="http://remote.example:8000",
+    )
+
+    class RemoteTransport:
+        calls = 0
+
+        async def send(self, *_: object) -> ClassifyResult:
+            self.calls += 1
+            raise AssertionError("decision must not invoke remote Classify")
+
+    transport = RemoteTransport()
+    arguments = dict(
+        node_registry=NodeRegistry([projected_node]),
+        adapter_registry=AdapterRegistry([adapter]),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+    if collection:
+        wiring = build_static_remote_collection_wiring(
+            remote_declarations=[remote], **arguments
+        )
+        app = create_app(
+            local_app_composition=LocalAppComposition(
+                NodeRegistry([physical_node]), AdapterRegistry([adapter])
+            ),
+            static_remote_collection_wiring=wiring,
+        )
+    else:
+        wiring = build_static_remote_wiring(remote_declaration=remote, **arguments)
+        app = create_app(
+            local_app_composition=LocalAppComposition(
+                NodeRegistry([physical_node]), AdapterRegistry([adapter])
+            ),
+            static_remote_wiring=wiring,
+        )
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.post(
+                "/internal/chat/external-information-decision",
+                json={"question": "Need evidence"},
+            )
+
+    response = asyncio.run(send())
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "No adapter provides capability: classify"}
+    assert adapter.requests == []
+    assert transport.calls == 0
+
+
 def test_decision_does_not_use_remote_after_local_failure() -> None:
     local_adapter = UnavailableClassifyAdapter("ordinary")
     local_node = NodeDescription(

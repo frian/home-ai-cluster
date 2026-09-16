@@ -8,6 +8,8 @@ import pytest
 from home_ai_cluster import local_runtime, local_runtime_composition, static_cluster
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.stable_diffusion_cpp import StableDiffusionCppAdapter
+from home_ai_cluster.core.local_capability_binding import LocalCapabilityBindingError
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -555,6 +557,156 @@ def test_multi_binding_runtime_config_constructs_one_node_and_exact_bindings(
     )
 
 
+def test_multi_binding_runtime_config_constructs_image_only_adapter(
+    tmp_path: Path,
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            '[[bindings]]\ncapabilities = ["image-generation"]\n'
+            'runtime = "stable-diffusion-cpp"\n'
+            'base_url = "http://127.0.0.1:7860/"\n',
+        )
+    )
+    assert isinstance(
+        values, local_runtime_composition.MultiBindingRuntimeCompositionValues
+    )
+    assert values.bindings[0].base_url == "http://127.0.0.1:7860"
+
+    composition = local_runtime_composition.create_multi_binding_local_app_composition(
+        values
+    )
+    adapter = composition.adapter_registry.list_adapters()[0]
+
+    assert isinstance(adapter, StableDiffusionCppAdapter)
+    assert adapter.base_url == "http://127.0.0.1:7860"
+    assert [
+        capability.name
+        for capability in composition.node_registry.list_nodes()[0].capabilities
+    ] == ["image-generation"]
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        )
+        is adapter
+    )
+
+
+def test_multi_binding_runtime_config_constructs_disjoint_image_binding(
+    tmp_path: Path,
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n\n'
+            '[[bindings]]\ncapabilities = ["image-generation"]\n'
+            'runtime = "stable-diffusion-cpp"\n'
+            'base_url = "http://127.0.0.1:7860"\n',
+        )
+    )
+    assert isinstance(
+        values, local_runtime_composition.MultiBindingRuntimeCompositionValues
+    )
+    composition = local_runtime_composition.create_multi_binding_local_app_composition(
+        values
+    )
+    adapters = composition.adapter_registry.list_adapters()
+
+    assert len(composition.node_registry.list_nodes()) == 1
+    assert isinstance(adapters[0], OllamaAdapter)
+    assert isinstance(adapters[1], StableDiffusionCppAdapter)
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="chat"))
+        is adapters[0]
+    )
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        )
+        is adapters[1]
+    )
+
+
+@pytest.mark.parametrize(
+    ("runtime", "capability", "extra"),
+    [
+        ("stable-diffusion-cpp", "chat", 'base_url = "http://127.0.0.1:7860"\n'),
+        ("stable-diffusion-cpp", "summarize", 'base_url = "http://127.0.0.1:7860"\n'),
+        ("stable-diffusion-cpp", "classify", 'base_url = "http://127.0.0.1:7860"\n'),
+        ("stable-diffusion-cpp", "code", 'base_url = "http://127.0.0.1:7860"\n'),
+        ("ollama", "image-generation", ""),
+        (
+            "llama-server",
+            "image-generation",
+            'base_url = "http://127.0.0.1:8080"\nmodel = "model"\n',
+        ),
+        (
+            "vllm",
+            "image-generation",
+            'base_url = "http://127.0.0.1:8000"\nmodel = "model"\n',
+        ),
+    ],
+)
+def test_multi_binding_runtime_config_rejects_unsupported_adapter_capability(
+    tmp_path: Path, runtime: str, capability: str, extra: str
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            f'[[bindings]]\ncapabilities = ["{capability}"]\n'
+            f'runtime = "{runtime}"\n{extra}',
+        )
+    )
+
+    with pytest.raises(LocalCapabilityBindingError, match="unsupported capability"):
+        local_runtime_composition.create_multi_binding_local_app_composition(values)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nmodel = "model"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\ntemperature = 0\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\ndisable_thinking = true\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nbase_url = "https://127.0.0.1:7860"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nbase_url = "http://example.test:7860"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nbase_url = "http://127.0.0.1:7860/path"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nbase_url = "http://127.0.0.1:7860?x=1"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nbase_url = "http://user@127.0.0.1:7860"\n',
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\nseed = 1\n',
+    ],
+)
+def test_multi_binding_runtime_config_rejects_invalid_image_binding(
+    tmp_path: Path, content: str
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.load_local_runtime_config(
+            write_runtime_config(tmp_path, content)
+        )
+
+
+def test_single_runtime_config_and_cli_reject_stable_diffusion_cpp(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.load_local_runtime_config(
+            write_runtime_config(tmp_path, 'runtime = "stable-diffusion-cpp"\n')
+        )
+    with pytest.raises(SystemExit):
+        parser_and_args(["--runtime", "stable-diffusion-cpp"])
+
+
 @pytest.mark.parametrize(
     "content",
     [
@@ -752,6 +904,57 @@ def test_static_cluster_represents_disjoint_permission_as_no_local_candidate(
     asyncio.run(app.state.static_cluster_http_client.aclose())
 
 
+def test_static_cluster_does_not_expand_image_generation_permission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'local_capabilities = ["chat"]\n\n[[remote_nodes]]\n'
+        'node_id = "remote-a"\nbase_url = "http://remote-a.test:8000"\n'
+        'capabilities = ["chat"]\n',
+        encoding="utf-8",
+    )
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\n'
+        'base_url = "http://127.0.0.1:7860"\n',
+    )
+    recorded: dict[str, object] = {}
+    monkeypatch.setattr(
+        static_cluster.uvicorn,
+        "run",
+        lambda app, **_kwargs: recorded.update(app=app),
+    )
+
+    static_cluster.main(
+        ["--declaration", str(declaration), "--runtime-config", str(config)]
+    )
+
+    app = recorded["app"]
+    assert [
+        capability.name
+        for capability in app.state.local_app_composition.node_registry.list_nodes()[
+            0
+        ].capabilities
+    ] == ["image-generation"]
+    assert app.state.static_remote_collection_wiring.node_registry.list_nodes() == []
+    for capability_option in ("--local-capability", "--remote-capability"):
+        with pytest.raises(SystemExit):
+            static_cluster.parse_args(
+                [
+                    "--remote-node-id",
+                    "remote-a",
+                    "--remote-base-url",
+                    "http://remote-a.test:8000",
+                    capability_option,
+                    "image-generation",
+                ]
+            )
+
+    asyncio.run(app.state.static_cluster_http_client.aclose())
+
+
 def test_status_rejects_multi_binding_runtime_config_before_observation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -764,6 +967,35 @@ def test_status_rejects_multi_binding_runtime_config_before_observation(
     )
     config = write_runtime_config(
         tmp_path, '[[bindings]]\ncapabilities = ["chat"]\nruntime = "ollama"\n'
+    )
+
+    async def fail_observation(*_: object) -> object:
+        raise AssertionError("status observation must not run")
+
+    monkeypatch.setattr(
+        status_command, "evaluate_static_cluster_status", fail_observation
+    )
+    with pytest.raises(SystemExit, match="2"):
+        status_command.main(
+            ["--declaration", str(declaration), "--runtime-config", str(config)]
+        )
+
+
+def test_status_rejects_image_only_multi_binding_before_observation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from home_ai_cluster.commands import status_command
+
+    declaration = tmp_path / "cluster.toml"
+    declaration.write_text(
+        'remote_node_id = "remote-a"\nremote_base_url = "http://remote-a.test:8000"\n',
+        encoding="utf-8",
+    )
+    config = write_runtime_config(
+        tmp_path,
+        '[[bindings]]\ncapabilities = ["image-generation"]\n'
+        'runtime = "stable-diffusion-cpp"\n'
+        'base_url = "http://127.0.0.1:7860"\n',
     )
 
     async def fail_observation(*_: object) -> object:

@@ -60,6 +60,11 @@ zero or non-zero value are distinct operator choices.
 bindings. Each binding owns its concrete runtime composition; any temperature
 belongs to that binding rather than to a capability.
 
+`runtime-stable-diffusion-cpp.toml` demonstrates RFC-0126's explicit
+image-only multi-binding construction for an already-running local `sd-server`.
+Its illustrative port must be adapted to the operator's endpoint; it is not a
+HAC default and does not provide an Image Generation request/output surface.
+
 Select a file explicitly with `--runtime-config`; it does not configure
 topology, and there is no implicit config discovery. A runtime-composition file
 cannot be combined with an equivalent runtime CLI argument explicitly supplied
@@ -110,7 +115,8 @@ Use bounded workspace-aware Code with explicit local authority:
 hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
 ```
 
-Bounded local Image Generation currently has no CLI or runtime-configuration
-surface; see the
+RFC-0126 provides explicit multi-binding runtime configuration for the accepted
+local Image Generation adapter, but bounded local Image Generation still has no
+ordinary CLI, request/output, or browser surface; see the
 [stable-diffusion.cpp Image Generation proof](../docs/stable-diffusion-cpp-image-generation-proof.md)
 for its current local composition boundary.

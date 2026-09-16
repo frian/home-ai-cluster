@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0125: Explicit Local Sampling Temperature](RFC-0125-explicit-local-sampling-temperature.md)
+  — accepts one optional common operator-facing local textual-runtime
+  sampling-temperature control for Ollama, llama-server, and vLLM, scoped to
+  the selected runtime composition/retention, with native omission preserved;
+  Classify, requests, transport, routing, and generic options remain excluded.
+
 - [RFC-0124: Bounded Loopback Browser Workspace-Enabled Code](RFC-0124-bounded-loopback-browser-workspace-enabled-code.md)
   — accepts explicit optional workspace access inside the existing loopback
   browser Code conversation, with one fresh caller-local workspace authority per

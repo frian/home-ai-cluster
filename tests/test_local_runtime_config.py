@@ -220,6 +220,7 @@ def test_runtime_config_does_not_conflict_with_implicit_cli_defaults(
         ["--runtime", "ollama"],
         ["--ollama-model", "local-model"],
         ["--ollama-disable-thinking"],
+        ["--temperature", "0"],
         ["--llama-server-base-url", "http://127.0.0.1:8080"],
         ["--llama-server-model", "local-model"],
     ],

@@ -20,7 +20,10 @@ from home_ai_cluster.commands.chat_command import (
     _parse_timeout_seconds,
 )
 from home_ai_cluster.core.models import ImageGenerationRequest
-from home_ai_cluster.core.png_validation import validate_still_png
+from home_ai_cluster.core.png_validation import (
+    MAX_ENCODED_PNG_BYTES,
+    validate_still_png,
+)
 
 _ORDINARY_IMAGE_GENERATION_URL = "http://127.0.0.1:25042/v1/image-generation"
 _NO_CAPABILITY = "error: no available image-generation capability"
@@ -87,10 +90,22 @@ def _fail(message: str, exit_code: int, stderr: TextIO) -> None:
     raise SystemExit(exit_code)
 
 
-def _expected_png(response: httpx.Response) -> bytes:
+def _acquire_png(
+    response: httpx.Response,
+    *,
+    maximum_bytes: int = MAX_ENCODED_PNG_BYTES,
+) -> bytes:
+    """Acquire one native PNG without buffering beyond its accepted bound."""
     if response.headers.get("content-type") != "image/png":
         raise ValueError("unexpected response media type")
-    return validate_still_png(response.content)
+    if response.headers.get("content-encoding") not in (None, "identity"):
+        raise ValueError("unexpected response content encoding")
+    body = bytearray()
+    for chunk in response.iter_raw():
+        if len(body) + len(chunk) > maximum_bytes:
+            raise ValueError("encoded PNG exceeds accepted bound")
+        body.extend(chunk)
+    return validate_still_png(bytes(body))
 
 
 def _write_png(stdout: BinaryIO, png: bytes) -> None:
@@ -133,10 +148,20 @@ def main(
             follow_redirects=False,
             trust_env=False,
         ) as client:
-            response = client.post(
+            with client.stream(
+                "POST",
                 _ORDINARY_IMAGE_GENERATION_URL,
                 json=command.request.model_dump(),
-            )
+            ) as response:
+                failure = _failure_for_status(response.status_code)
+                if failure is not None:
+                    _fail(failure, 1, stderr)
+                try:
+                    png = _acquire_png(response)
+                except httpx.RequestError:
+                    raise
+                except Exception:
+                    _fail(_INVALID_CLUSTER_RESPONSE, 1, stderr)
     except httpx.ConnectError:
         _fail(_CLUSTER_UNAVAILABLE, 1, stderr)
     except httpx.TimeoutException:
@@ -146,13 +171,6 @@ def main(
     except Exception:
         _fail(_ORDINARY_REQUEST_FAILED, 1, stderr)
 
-    failure = _failure_for_status(response.status_code)
-    if failure is not None:
-        _fail(failure, 1, stderr)
-    try:
-        png = _expected_png(response)
-    except Exception:
-        _fail(_INVALID_CLUSTER_RESPONSE, 1, stderr)
     try:
         _write_png(stdout, png)
     except Exception:

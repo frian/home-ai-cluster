@@ -269,14 +269,29 @@ def test_native_image_generation_uses_routable_disconnect_boundary(
 class _Response:
     def __init__(
         self,
-        content: bytes,
+        chunks: list[bytes],
         *,
         status_code: int = 200,
         content_type: str = "image/png",
+        content_encoding: str | None = None,
     ) -> None:
-        self.content = content
+        self.chunks = chunks
+        self.consumed_chunks = 0
         self.status_code = status_code
         self.headers = {"content-type": content_type}
+        if content_encoding is not None:
+            self.headers["content-encoding"] = content_encoding
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def iter_raw(self):
+        for chunk in self.chunks:
+            self.consumed_chunks += 1
+            yield chunk
 
 
 class _Client:
@@ -291,8 +306,8 @@ class _Client:
     def __exit__(self, *args: object) -> None:
         return None
 
-    def post(self, url: str, *, json: object) -> _Response:
-        self.calls.append((url, json))
+    def stream(self, method: str, url: str, *, json: object) -> _Response:
+        self.calls.append((method, url, json))
         if isinstance(self.response, Exception):
             raise self.response
         return self.response
@@ -335,7 +350,7 @@ def test_image_generation_command_writes_exact_png_to_non_tty_stdout() -> None:
             "follow_redirects": False,
             "trust_env": False,
         }
-        return _Client(_Response(_png()), calls)
+        return _Client(_Response([_png()]), calls)
 
     image_generation_command.main(
         ["a fox"], _client_factory=factory, _stdout=output, _stderr=errors
@@ -344,10 +359,85 @@ def test_image_generation_command_writes_exact_png_to_non_tty_stdout() -> None:
     assert errors.getvalue() == ""
     assert calls == [
         (
+            "POST",
             "http://127.0.0.1:25042/v1/image-generation",
             {"instruction": "a fox"},
         )
     ]
+
+
+def test_image_generation_command_acquires_all_streamed_png_chunks() -> None:
+    candidate = _png()
+    streamed = _Response([candidate[:7], candidate[7:19], candidate[19:]])
+    output, errors, calls = io.BytesIO(), io.StringIO(), []
+
+    image_generation_command.main(
+        ["a fox"],
+        _client_factory=lambda **kwargs: _Client(streamed, calls),
+        _stdout=output,
+        _stderr=errors,
+    )
+
+    assert output.getvalue() == candidate
+    assert streamed.consumed_chunks == 3
+    assert errors.getvalue() == ""
+    assert len(calls) == 1
+
+
+def test_image_generation_command_stops_streaming_when_bound_is_crossed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    streamed = _Response([b"abc", b"de", b"later"])
+    output, errors, calls = io.BytesIO(), io.StringIO(), []
+    original = image_generation_command._acquire_png
+
+    def acquire_with_small_test_bound(response: object) -> bytes:
+        return original(response, maximum_bytes=4)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(
+        image_generation_command, "_acquire_png", acquire_with_small_test_bound
+    )
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["a fox"],
+            _client_factory=lambda **kwargs: _Client(streamed, calls),
+            _stdout=output,
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert streamed.consumed_chunks == 2
+    assert output.getvalue() == b""
+    assert errors.getvalue() == "error: invalid image generation response\n"
+    assert len(calls) == 1
+
+
+def test_streamed_acquisition_does_not_trust_content_length() -> None:
+    streamed = _Response([b"abc", b"de", b"later"])
+    streamed.headers["content-length"] = "4"
+
+    with pytest.raises(ValueError):
+        image_generation_command._acquire_png(streamed, maximum_bytes=4)  # type: ignore[arg-type]
+
+    assert streamed.consumed_chunks == 2
+
+
+def test_image_generation_command_rejects_encoded_response_before_body_read() -> None:
+    streamed = _Response([_png()], content_encoding="gzip")
+    output, errors, calls = io.BytesIO(), io.StringIO(), []
+
+    with pytest.raises(SystemExit):
+        image_generation_command.main(
+            ["a fox"],
+            _client_factory=lambda **kwargs: _Client(streamed, calls),
+            _stdout=output,
+            _stderr=errors,
+        )
+
+    assert streamed.consumed_chunks == 0
+    assert output.getvalue() == b""
+    assert errors.getvalue() == "error: invalid image generation response\n"
+    assert len(calls) == 1
 
 
 def test_image_generation_command_completes_short_writes_and_flushes() -> None:
@@ -355,7 +445,7 @@ def test_image_generation_command_completes_short_writes_and_flushes() -> None:
 
     image_generation_command.main(
         ["a fox"],
-        _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+        _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
         _stdout=output,
         _stderr=errors,
     )
@@ -372,7 +462,7 @@ def test_image_generation_command_does_not_retry_after_prefix_write_failure() ->
     with pytest.raises(SystemExit) as raised:
         image_generation_command.main(
             ["a fox"],
-            _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+            _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
             _stdout=output,
             _stderr=errors,
         )
@@ -389,7 +479,7 @@ def test_image_generation_command_reports_flush_failure_without_retry() -> None:
     with pytest.raises(SystemExit) as raised:
         image_generation_command.main(
             ["a fox"],
-            _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+            _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
             _stdout=output,
             _stderr=errors,
         )
@@ -409,13 +499,13 @@ def test_image_generation_command_reports_flush_failure_without_retry() -> None:
         (["a fox"], httpx.ConnectError("down"), 1),
         (["a fox"], httpx.ReadTimeout("late"), 1),
         (["a fox"], httpx.RequestError("failed"), 1),
-        (["a fox"], _Response(b"", status_code=422), 1),
-        (["a fox"], _Response(b"", status_code=404), 1),
-        (["a fox"], _Response(b"", status_code=409), 1),
-        (["a fox"], _Response(b"", status_code=503), 1),
-        (["a fox"], _Response(b"", status_code=500), 1),
-        (["a fox"], _Response(_png(), content_type="application/json"), 1),
-        (["a fox"], _Response(b"not a png"), 1),
+        (["a fox"], _Response([], status_code=422), 1),
+        (["a fox"], _Response([], status_code=404), 1),
+        (["a fox"], _Response([], status_code=409), 1),
+        (["a fox"], _Response([], status_code=503), 1),
+        (["a fox"], _Response([], status_code=500), 1),
+        (["a fox"], _Response([_png()], content_type="application/json"), 1),
+        (["a fox"], _Response([b"not a png"]), 1),
     ],
 )
 def test_image_generation_command_pre_emission_failures_leave_stdout_empty(

@@ -233,12 +233,15 @@ per-request or per-capability setting.
 It accepts either the existing closed single-runtime schema or a closed
 multi-binding schema. A multi-binding file contains only one or more
 `[[bindings]]` entries; each entry explicitly assigns a non-empty, disjoint
-capability set to one `ollama`, `llama-server`, or `vllm` adapter construction.
-Ollama accepts optional `model` and `disable_thinking`; llama-server and vLLM
-require `base_url` and `model`. There is no implicit config-file discovery.
+capability set to one adapter construction. The binding-only
+`stable-diffusion-cpp` runtime requires exactly explicit `image-generation`
+ownership and loopback HTTP `base_url`; it accepts no model or generation
+controls. Ollama accepts optional `model` and `disable_thinking`; llama-server
+and vLLM require `base_url` and `model`. Temperature remains limited to
+textual-runtime bindings. There is no implicit config-file discovery.
 Each covered single-runtime file may optionally use a top-level `temperature`
-fact; each covered multi-binding entry may do the same. Runtime-config files
-are self-contained and never inherit retained temperature.
+fact; covered textual multi-binding entries may do the same. Runtime-config
+files are self-contained and never inherit retained temperature.
 File mode is mutually exclusive with equivalent runtime-composition options
 explicitly supplied by the operator; parser defaults do not conflict. The file
 and CLI options are not merged.
@@ -350,7 +353,8 @@ hac static-cluster \
   contract as `hac local`; multi-binding files are accepted and topology
   declarations remain separate. The binding union is local execution ownership;
   caller-local capabilities remain independent routing permission, so local
-  eligibility requires both.
+  eligibility requires both. An Image Generation binding does not add
+  `image-generation` to caller-local or remote static capability permission.
 
 **Capabilities**
 

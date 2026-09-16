@@ -10,6 +10,7 @@ from typing import Any
 
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.stable_diffusion_cpp import StableDiffusionCppAdapter
 from home_ai_cluster.adapters.vllm import VllmAdapter
 from home_ai_cluster.api.wiring import LocalAppComposition
 from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
@@ -23,6 +24,11 @@ from home_ai_cluster.local_http import local_http_url
 
 LOCAL_RUNTIMES = ("ollama", "llama-server", "vllm")
 LOCAL_RUNTIME_CAPABILITY_NAMES = ("chat", "summarize", "classify", "code")
+_MULTI_BINDING_RUNTIMES = (*LOCAL_RUNTIMES, "stable-diffusion-cpp")
+_MULTI_BINDING_CAPABILITY_NAMES = (
+    *LOCAL_RUNTIME_CAPABILITY_NAMES,
+    "image-generation",
+)
 
 
 class LocalRuntimeCompositionError(ValueError):
@@ -278,7 +284,7 @@ def _load_multi_binding_runtime_config(
                 "runtime config binding capabilities must not duplicate"
             )
         if any(
-            capability not in LOCAL_RUNTIME_CAPABILITY_NAMES
+            capability not in _MULTI_BINDING_CAPABILITY_NAMES
             for capability in capabilities
         ):
             raise LocalRuntimeCompositionError(
@@ -291,10 +297,32 @@ def _load_multi_binding_runtime_config(
         claimed.update(capabilities)
 
         runtime = raw_binding.get("runtime")
-        if runtime not in LOCAL_RUNTIMES:
+        if runtime not in _MULTI_BINDING_RUNTIMES:
             raise LocalRuntimeCompositionError(
-                "runtime config binding runtime must be ollama, llama-server, or vllm"
+                "runtime config binding runtime must be ollama, llama-server, vllm, "
+                "or stable-diffusion-cpp"
             )
+        if runtime == "stable-diffusion-cpp":
+            if set(raw_binding) != {"capabilities", "runtime", "base_url"}:
+                raise LocalRuntimeCompositionError(
+                    "stable-diffusion-cpp binding requires only base_url"
+                )
+            base_url = _non_blank_config_string(
+                raw_binding["base_url"], "binding.base_url"
+            )
+            try:
+                base_url = local_http_url(base_url)
+            except argparse.ArgumentTypeError as error:
+                raise LocalRuntimeCompositionError(str(error)) from error
+            bindings.append(
+                LocalCapabilityBindingValues(
+                    capabilities=tuple(capabilities),
+                    runtime=runtime,
+                    base_url=base_url,
+                )
+            )
+            continue
+
         allowed_keys = {"capabilities", "runtime", "temperature"}
         if runtime == "ollama":
             allowed_keys.update({"model", "disable_thinking"})
@@ -764,7 +792,7 @@ def create_vllm_local_app_composition(
 
 def _create_adapter_for_binding(
     binding: LocalCapabilityBindingValues,
-) -> OllamaAdapter | LlamaServerAdapter | VllmAdapter:
+) -> OllamaAdapter | LlamaServerAdapter | StableDiffusionCppAdapter | VllmAdapter:
     if binding.runtime == "ollama":
         return (
             OllamaAdapter(
@@ -779,6 +807,8 @@ def _create_adapter_for_binding(
             )
         )
     assert binding.base_url is not None
+    if binding.runtime == "stable-diffusion-cpp":
+        return StableDiffusionCppAdapter(base_url=binding.base_url)
     assert binding.model is not None
     if binding.runtime == "llama-server":
         return LlamaServerAdapter(

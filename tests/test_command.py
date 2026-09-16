@@ -37,6 +37,7 @@ Finite commands:
   code-file       Replace one selected file from one bounded code request.
   code-workspace  Run bounded workspace-aware code interactions.
   classify        Send one ordinary classify request.
+  image-generation  Send one local Image Generation request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
@@ -64,6 +65,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "code-file",
         "code-workspace",
         "classify",
+        "image-generation",
         "summarize",
         "preflight",
         "health",

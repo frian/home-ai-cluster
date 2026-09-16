@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0126: Explicit stable-diffusion.cpp Local Capability-Binding Configuration](RFC-0126-explicit-stable-diffusion-cpp-local-binding-configuration.md)
+  — extends RFC-0110's explicitly selected multi-binding runtime-config
+  vocabulary with one closed `stable-diffusion-cpp` binding requiring explicit
+  `image-generation` ownership and loopback `base_url`, while preserving
+  RFC-0074, retained configuration, static routing permission, remote Image
+  Generation, observation, and operator request/output boundaries.
+
 - [RFC-0125: Explicit Local Sampling Temperature](RFC-0125-explicit-local-sampling-temperature.md)
   — accepts one optional common operator-facing local textual-runtime
   sampling-temperature control for Ollama, llama-server, and vLLM, scoped to

@@ -197,6 +197,13 @@ it. Where RFC-0110 applies that path to request-capable `static-cluster`, the
 existing local binding rule remains applicable, including its separation of
 RFC-0108 execution ownership from RFC-0059 caller-local routing permission.
 
+RFC-0126 does not expand RFC-0059 caller-local static capability permission.
+The local binding therefore establishes local execution ownership, while
+unchanged caller-local permission does not newly make `image-generation` an
+eligible static-cluster local candidate. Implementation must not add
+`image-generation` to a shared static capability vocabulary merely to route
+this binding; whether RFC-0059 should permit it later is a separate decision.
+
 This does not authorize remote Image Generation. In a static-cluster process:
 
 - the binding is local process execution ownership only;
@@ -310,8 +317,11 @@ Later implementation must prove that:
 3. its RFC-0108 binding owns exactly `image-generation`;
 4. disjoint textual and Image Generation bindings construct without adapter-name
    or declaration-order selection;
-5. textual assignment, duplicate/overlapping ownership, missing/invalid
-   `base_url`, and non-loopback URLs fail locally;
+5. assigning `chat`, `summarize`, `classify`, or `code` to
+   `stable-diffusion-cpp`, or assigning `image-generation` to `ollama`,
+   `llama-server`, or `vllm`, fails under existing subset/coherence rules;
+   duplicate/overlapping ownership, missing/invalid `base_url`, and
+   non-loopback URLs also fail locally;
 6. `model`, `temperature`, `disable_thinking`, and unknown keys fail rather
    than being ignored;
 7. retained state neither completes nor is mutated by the selected file, and

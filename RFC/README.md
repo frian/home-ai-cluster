@@ -68,10 +68,10 @@ does not invalidate or supersede an RFC.
 ## Draft RFCs
 
 - [RFC-0125: Explicit Local Sampling Temperature](RFC-0125-explicit-local-sampling-temperature.md)
-  — proposes one optional common local textual-runtime sampling-
-  temperature fact for Ollama, llama-server, and vLLM while preserving native
-  omission/defaults and excluding Classify, requests, transport, routing, and
-  generic inference options.
+  — proposes one optional common operator-facing local textual-runtime
+  sampling-temperature control for Ollama, llama-server, and vLLM, scoped to
+  the selected runtime composition/retention, with native omission preserved;
+  Classify, requests, transport, routing, and generic options remain excluded.
 
 ## Selected accepted RFCs
 

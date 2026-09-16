@@ -860,6 +860,44 @@ def create_multi_binding_local_app_composition(
     )
 
 
+def create_textual_with_image_generation_companion_composition(
+    values: LocalRuntimeCompositionValues,
+    *,
+    image_generation_base_url: str,
+    execution_limit: int = 1,
+) -> LocalAppComposition:
+    """Compose the historical textual runtime with RFC-0128's closed companion."""
+    textual_binding = LocalCapabilityBindingValues(
+        capabilities=LOCAL_RUNTIME_CAPABILITY_NAMES,
+        runtime=values.runtime,
+        model=(
+            values.ollama_model
+            if values.runtime == "ollama"
+            else values.llama_server_model
+            if values.runtime == "llama-server"
+            else values.vllm_model
+        ),
+        base_url=(
+            values.llama_server_base_url
+            if values.runtime == "llama-server"
+            else values.vllm_base_url
+            if values.runtime == "vllm"
+            else None
+        ),
+        disable_thinking=values.ollama_disable_thinking,
+        temperature=values.temperature,
+    )
+    image_binding = LocalCapabilityBindingValues(
+        capabilities=("image-generation",),
+        runtime="stable-diffusion-cpp",
+        base_url=image_generation_base_url,
+    )
+    return create_multi_binding_local_app_composition(
+        MultiBindingRuntimeCompositionValues(bindings=(textual_binding, image_binding)),
+        execution_limit=execution_limit,
+    )
+
+
 def create_local_runtime_composition(
     *,
     runtime: str,

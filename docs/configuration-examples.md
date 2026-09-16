@@ -99,6 +99,24 @@ current work or runtime load. `hac config local --reset` clears the retained
 local record. Configuring a complete local record without `--execution-limit`
 also leaves the limit not retained, with effective limit `1`.
 
+### Retained local Image Generation companion
+
+For the ordinary integrated workflow, retain the textual runtime and the
+operator-managed stable-diffusion.cpp endpoint separately:
+
+```sh
+hac config local --runtime ollama --ollama-model qwen2.5-coder:7b \
+  --local-capability code
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config show
+hac local
+```
+
+`sd-server` lifecycle and image-model selection remain operator-managed. HAC
+retains only the explicit loopback HTTP endpoint, then composes it with the
+ordinary textual runtime. `hac local --runtime-config <PATH>` remains a
+complete alternative and does not merge this retained companion.
+
 ### Ollama
 
 `runtime = "ollama"` selects Ollama, and `[ollama]` contains local adapter

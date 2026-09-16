@@ -28,6 +28,7 @@ from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
     create_multi_binding_local_app_composition,
+    create_textual_with_image_generation_companion_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -165,6 +166,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     retained_values = retained.local.runtime if retained.local is not None else None
     if retained.local is not None:
         args.retained_execution_limit = retained.local.execution_limit
+    if needs_retained_runtime:
+        args.retained_image_generation = retained.image_generation
     validate_local_runtime_arguments(
         parser,
         args,
@@ -356,9 +359,16 @@ def main(argv: Sequence[str] | None = None) -> None:
                     "vllm_base_url": values.vllm_base_url,
                     "vllm_model": values.vllm_model,
                 }
+            image_generation = getattr(args, "retained_image_generation", None)
+            if image_generation is not None:
+                return create_textual_with_image_generation_companion_composition(
+                    values,
+                    image_generation_base_url=image_generation.base_url,
+                    execution_limit=getattr(args, "retained_execution_limit", None)
+                    or 1,
+                )
             return create_local_runtime_composition(
-                **arguments,
-                capabilities=caller_local_capabilities,
+                **arguments, capabilities=caller_local_capabilities
             )
         return create_multi_binding_local_app_composition(
             values,
@@ -379,6 +389,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 local_app_composition, declarations.local_capabilities
             )
             if isinstance(values, MultiBindingRuntimeCompositionValues)
+            or getattr(args, "retained_image_generation", None) is not None
             else None
         )
         collection_arguments = {"local_app_composition": local_app_composition}
@@ -395,6 +406,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 local_app_composition, args.local_capability
             )
             if isinstance(values, MultiBindingRuntimeCompositionValues)
+            or getattr(args, "retained_image_generation", None) is not None
             else None
         )
         inline_arguments = {"local_app_composition": local_app_composition}
@@ -413,6 +425,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 local_app_composition, args.local_capability
             )
             if isinstance(values, MultiBindingRuntimeCompositionValues)
+            or getattr(args, "retained_image_generation", None) is not None
             else None
         )
         collection_arguments = {"local_app_composition": local_app_composition}

@@ -137,7 +137,10 @@ def test_bare_config_delegates_to_successful_config_discovery(
 
     assert captured.err == ""
     assert "usage: home-ai-cluster config" in captured.out
-    assert "{local,node,external-information,chat,reset,show}" in captured.out
+    assert (
+        "{local,image-generation,node,external-information,chat,reset,show}"
+        in captured.out
+    )
 
 
 @pytest.mark.parametrize("name", tuple(command._COMMANDS))

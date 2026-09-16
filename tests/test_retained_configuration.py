@@ -12,12 +12,15 @@ from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionVal
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
+    RetainedImageGenerationConfiguration,
     RetainedLocalConfiguration,
     load_retained_configuration,
     remove_retained_configuration,
     replace_retained_external_information_plugin,
+    replace_retained_image_generation_configuration,
     replace_retained_local_configuration,
     replace_retained_remote_node,
+    reset_retained_local_configuration,
     retained_configuration_file,
     save_retained_configuration,
 )
@@ -106,6 +109,49 @@ def test_unrelated_retained_mutations_do_not_overlap_or_lose_updates(
     configuration = original_load(path)
     assert configuration.local == local
     assert configuration.remote_nodes == (remote,)
+
+
+def test_image_generation_companion_round_trips_and_survives_other_mutations(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained-config.json"
+    image_generation = RetainedImageGenerationConfiguration(
+        base_url="http://127.0.0.1:7860"
+    )
+    replace_retained_image_generation_configuration(image_generation, path)
+
+    replace_retained_local_configuration(
+        RetainedLocalConfiguration(LocalRuntimeCompositionValues(runtime="ollama")),
+        path,
+    )
+    replace_retained_external_information_plugin("tavily", path)
+    replace_retained_remote_node(
+        RemoteNodeDeclaration("remote", "http://192.0.2.1:25042", ("chat",)), path
+    )
+    reset_retained_local_configuration(path)
+
+    assert load_retained_configuration(path).image_generation == image_generation
+
+
+def test_invalid_retained_image_generation_configuration_fails_locally(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "retained-config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "local": None,
+                "remote_nodes": [],
+                "external_information_plugin": None,
+                "chat_external_information_fallback": False,
+                "image_generation": {"base_url": "https://127.0.0.1:7860"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RetainedConfigurationError):
+        load_retained_configuration(path)
 
 
 def test_retained_mutation_lock_excludes_independent_processes(tmp_path: Path) -> None:

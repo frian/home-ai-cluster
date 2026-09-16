@@ -3,11 +3,23 @@ import asyncio
 import signal
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi import FastAPI
 
 from home_ai_cluster import local_runtime
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.stable_diffusion_cpp import StableDiffusionCppAdapter
+from home_ai_cluster.core.models import Capability
+from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
+from home_ai_cluster.main import create_receiver_app
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedImageGenerationConfiguration,
+    RetainedLocalConfiguration,
+    load_retained_configuration,
+    save_retained_configuration,
+)
 
 
 def test_parse_args_defaults_to_ollama() -> None:
@@ -458,6 +470,189 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "llama3.2"
     assert adapter.disable_thinking is False
+
+
+def test_retained_image_generation_companion_composes_with_default_textual_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    save_retained_configuration(
+        RetainedConfiguration(
+            image_generation=RetainedImageGenerationConfiguration(
+                base_url="http://127.0.0.1:7860"
+            )
+        )
+    )
+    local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
+
+    composition = captured["composition"]
+    assert [
+        adapter.name for adapter in composition.adapter_registry.list_adapters()
+    ] == ["ollama", "stable-diffusion-cpp"]
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        ).name
+        == "stable-diffusion-cpp"
+    )
+
+
+def _retained_textual_and_image_configuration(
+    *, model: str = "model-a", execution_limit: int | None = None
+) -> RetainedConfiguration:
+    return RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(runtime="ollama", ollama_model=model),
+            execution_limit=execution_limit,
+        ),
+        image_generation=RetainedImageGenerationConfiguration(
+            base_url="http://127.0.0.1:7860"
+        ),
+    )
+
+
+def _captured_local_composition(monkeypatch: pytest.MonkeyPatch, argv: list[str]):
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    local_runtime.create_local_runtime_app(local_runtime.parse_args(argv))
+    return captured["composition"]
+
+
+def test_retained_textual_and_image_companion_bind_their_exact_adapters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+
+    composition = _captured_local_composition(monkeypatch, [])
+    adapters = composition.adapter_registry.list_adapters()
+
+    assert isinstance(adapters[0], OllamaAdapter)
+    assert adapters[0].model == "model-a"
+    assert isinstance(adapters[1], StableDiffusionCppAdapter)
+    assert adapters[1].base_url == "http://127.0.0.1:7860"
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="code"))
+        is adapters[0]
+    )
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        )
+        is adapters[1]
+    )
+
+
+def test_textual_overrides_preserve_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    retained = _retained_textual_and_image_configuration()
+    save_retained_configuration(retained)
+
+    composition = _captured_local_composition(
+        monkeypatch, ["--ollama-model", "model-b", "--temperature", "0"]
+    )
+    textual, image = composition.adapter_registry.list_adapters()
+
+    assert textual.model == "model-b"
+    assert textual.temperature == 0
+    assert image.base_url == "http://127.0.0.1:7860"
+    assert load_retained_configuration() == retained
+
+
+def test_textual_runtime_replacement_preserves_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+
+    composition = _captured_local_composition(
+        monkeypatch,
+        [
+            "--runtime",
+            "llama-server",
+            "--llama-server-base-url",
+            "http://127.0.0.1:8080",
+            "--llama-server-model",
+            "replacement",
+        ],
+    )
+    textual, image = composition.adapter_registry.list_adapters()
+
+    assert textual.name == "llama-server"
+    assert textual.base_url == "http://127.0.0.1:8080"
+    assert textual.model == "replacement"
+    assert image.name == "stable-diffusion-cpp"
+
+
+def test_runtime_config_bypasses_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+    runtime_config = tmp_path / "runtime.toml"
+    runtime_config.write_text('runtime = "ollama"\n[ollama]\nmodel = "file-model"\n')
+
+    composition = _captured_local_composition(
+        monkeypatch, ["--runtime-config", str(runtime_config)]
+    )
+
+    adapters = composition.adapter_registry.list_adapters()
+    assert len(adapters) == 1
+    assert adapters[0].name == "ollama"
+    assert adapters[0].model == "file-model"
+
+
+def test_retained_execution_limit_is_shared_by_textual_and_image_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        _retained_textual_and_image_configuration(execution_limit=2)
+    )
+
+    composition = _captured_local_composition(monkeypatch, [])
+
+    async def entries() -> tuple[bool, bool, bool]:
+        return (
+            await composition.execution_intervals.try_enter(),
+            await composition.execution_intervals.try_enter(),
+            await composition.execution_intervals.try_enter(),
+        )
+
+    assert asyncio.run(entries()) == (True, True, False)
+
+
+def test_retained_image_companion_keeps_multi_adapter_status_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+    composition = _captured_local_composition(monkeypatch, [])
+    for adapter in composition.adapter_registry.list_adapters():
+        monkeypatch.setattr(
+            adapter,
+            "health",
+            lambda: pytest.fail("multi-adapter status must not observe health"),
+        )
+    app = create_receiver_app(local_app_composition=composition)
+
+    async def observe() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.get("/internal/cluster/status")
+
+    response = asyncio.run(observe())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Unable to inspect local runtime status"}
 
 
 def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(

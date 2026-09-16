@@ -160,6 +160,20 @@ hac local
 Later compatible runtime CLI values are temporary one-invocation overrides and
 do not rewrite retained configuration.
 
+To use the optional local Image Generation companion with the same ordinary
+process, start and manage `sd-server` yourself, then retain only its loopback
+endpoint:
+
+```sh
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config show
+hac local
+```
+
+HAC does not configure an image model or manage `sd-server`. The companion is
+ignored when `hac local --runtime-config <PATH>` is explicitly selected; add an
+Image Generation binding to that complete file when it is needed there.
+
 ## 5. Start Home AI Cluster
 
 Start the ordinary local process:

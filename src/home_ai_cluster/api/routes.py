@@ -99,6 +99,15 @@ def _resolve_local_registries(
     )
 
 
+def _caller_local_node_registry(http_request: Request) -> NodeRegistry | None:
+    """Return static caller-local eligibility without introducing remote fallback."""
+    if http_request.app.state.static_remote_wiring is not None:
+        return http_request.app.state.static_remote_wiring.node_registry
+    if http_request.app.state.static_remote_collection_wiring is not None:
+        return http_request.app.state.static_remote_collection_wiring.node_registry
+    return None
+
+
 async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest
     | SummarizeRequest
@@ -107,8 +116,11 @@ async def handle_static_local_cluster_request(
     local_app_composition: LocalAppComposition | None = None,
     *,
     originating: bool = True,
+    caller_local_node_registry: NodeRegistry | None = None,
 ) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
+    if caller_local_node_registry is not None:
+        node_registry = caller_local_node_registry
 
     try:
         if local_app_composition is not None and originating:
@@ -589,6 +601,7 @@ async def chat_external_information_decision(
         lambda: handle_static_local_cluster_request(
             decision.classify_request(),
             local_app_composition=http_request.app.state.local_app_composition,
+            caller_local_node_registry=_caller_local_node_registry(http_request),
         ),
     )
 

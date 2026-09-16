@@ -96,6 +96,9 @@ hac config local \
   --vllm-model <SERVED_MODEL_IDENTIFIER>
 hac config local --reset
 
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config image-generation --reset
+
 hac config node <NODE_ID> --base-url <BASE_URL>
 hac config node <NODE_ID> --base-url <BASE_URL> --capability code
 hac config node <NODE_ID> --remove
@@ -123,6 +126,15 @@ option while configuring a complete local record leaves the limit `not retained`
 so the effective limit remains `1`. There is no invocation-time execution-limit
 override. `--reset` removes only the retained local facts and is mutually exclusive with
 all local mutation options.
+
+`image-generation` retains the one accepted local stable-diffusion.cpp
+companion endpoint. `--base-url` must be an explicit loopback `http` origin;
+it replaces only this companion and does not contact `sd-server`, inspect a
+model, or configure generation controls. `--reset` removes only the companion.
+The operator continues to own `sd-server` lifecycle and its model. When no
+explicit `--runtime-config <PATH>` is selected, ordinary `hac local` composes
+this companion with the effective textual runtime. An explicit runtime-config
+is complete and ignores both retained execution-composition domains.
 
 `node` adds a retained remote declaration or completely replaces the existing
 declaration with the same node ID. New nodes append; replacement preserves that

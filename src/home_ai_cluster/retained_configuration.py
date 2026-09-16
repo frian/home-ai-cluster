@@ -7,7 +7,7 @@ import sys
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ else:
     import fcntl
 
 from home_ai_cluster.core.static_capabilities import validate_static_capabilities
+from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
@@ -34,7 +35,9 @@ _TOP_LEVEL_KEYS = (
     "remote_nodes",
     "external_information_plugin",
     "chat_external_information_fallback",
+    "image_generation",
 )
+_IMAGE_GENERATION_KEYS = ("base_url",)
 _LEGACY_LOCAL_KEYS = (
     "runtime",
     "ollama_model",
@@ -128,6 +131,13 @@ class RetainedLocalConfiguration:
 
 
 @dataclass(frozen=True)
+class RetainedImageGenerationConfiguration:
+    """The one accepted retained stable-diffusion.cpp companion fact."""
+
+    base_url: str
+
+
+@dataclass(frozen=True)
 class RetainedConfiguration:
     """The complete ordered retained configuration baseline."""
 
@@ -135,6 +145,7 @@ class RetainedConfiguration:
     remote_nodes: tuple[RemoteNodeDeclaration, ...] = ()
     external_information_plugin: str | None = None
     chat_external_information_fallback: bool = False
+    image_generation: RetainedImageGenerationConfiguration | None = None
 
 
 _BROWSER_LOCAL_FIELDS = (
@@ -211,34 +222,43 @@ def replace_retained_local_configuration(
     """Replace only the complete retained-local domain through HAC persistence."""
     with _retained_mutation_lock(path):
         configuration = load_retained_configuration(path)
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=local,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            ),
-            path,
-        )
+        save_retained_configuration(replace(configuration, local=local), path)
 
 
 def reset_retained_local_configuration(path: Path | None = None) -> None:
     """Clear only the retained-local domain through HAC persistence."""
     with _retained_mutation_lock(path):
         configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, local=None), path)
+
+
+def build_retained_image_generation_configuration(
+    *, base_url: str
+) -> RetainedImageGenerationConfiguration:
+    """Validate the closed retained stable-diffusion.cpp construction fact."""
+    try:
+        return RetainedImageGenerationConfiguration(base_url=local_http_url(base_url))
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+
+
+def replace_retained_image_generation_configuration(
+    image_generation: RetainedImageGenerationConfiguration,
+    path: Path | None = None,
+) -> None:
+    """Replace only the retained Image Generation companion."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
         save_retained_configuration(
-            RetainedConfiguration(
-                local=None,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            ),
-            path,
+            replace(configuration, image_generation=image_generation), path
         )
+
+
+def reset_retained_image_generation_configuration(path: Path | None = None) -> None:
+    """Clear only the retained Image Generation companion."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, image_generation=None), path)
 
 
 def build_retained_remote_node_declaration(
@@ -275,15 +295,7 @@ def replace_retained_remote_node(
         else:
             nodes.append(declaration)
         save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=tuple(nodes),
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            ),
-            path,
+            replace(configuration, remote_nodes=tuple(nodes)), path
         )
 
 
@@ -302,17 +314,7 @@ def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
         )
         if len(nodes) == len(configuration.remote_nodes):
             return False
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            ),
-            path,
-        )
+        save_retained_configuration(replace(configuration, remote_nodes=nodes), path)
     return True
 
 
@@ -324,15 +326,7 @@ def replace_retained_external_information_plugin(
     with _retained_mutation_lock(path):
         configuration = load_retained_configuration(path)
         save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            ),
-            path,
+            replace(configuration, external_information_plugin=plugin), path
         )
 
 
@@ -344,13 +338,7 @@ def set_retained_chat_external_information_fallback(
     with _retained_mutation_lock(path):
         configuration = load_retained_configuration(path)
         save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=authorized,
-            ),
-            path,
+            replace(configuration, chat_external_information_fallback=authorized), path
         )
 
 
@@ -547,6 +535,7 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     if keys == {"local", "remote_nodes"}:
         external_information_plugin = None
         chat_external_information_fallback = False
+        image_generation = None
     elif keys == {
         "local",
         "remote_nodes",
@@ -554,11 +543,19 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     }:
         external_information_plugin = document["external_information_plugin"]
         chat_external_information_fallback = False
+        image_generation = None
+    elif keys == set(_TOP_LEVEL_KEYS[:-1]):
+        external_information_plugin = document["external_information_plugin"]
+        chat_external_information_fallback = document[
+            "chat_external_information_fallback"
+        ]
+        image_generation = None
     elif keys == set(_TOP_LEVEL_KEYS):
         external_information_plugin = document["external_information_plugin"]
         chat_external_information_fallback = document[
             "chat_external_information_fallback"
         ]
+        image_generation = _parse_image_generation(document["image_generation"])
     else:
         raise RetainedConfigurationError("invalid retained configuration shape")
     local_value = document["local"]
@@ -578,7 +575,21 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
             external_information_plugin
         ),
         chat_external_information_fallback=chat_external_information_fallback,
+        image_generation=image_generation,
     )
+
+
+def _parse_image_generation(value: Any) -> RetainedImageGenerationConfiguration | None:
+    if value is None:
+        return None
+    _require_exact_keys(value, _IMAGE_GENERATION_KEYS, "retained Image Generation")
+    base_url = value["base_url"]
+    if not isinstance(base_url, str):
+        raise RetainedConfigurationError("invalid retained Image Generation")
+    try:
+        return build_retained_image_generation_configuration(base_url=base_url)
+    except ValueError as error:
+        raise RetainedConfigurationError("invalid retained Image Generation") from error
 
 
 def _parse_external_information_plugin(value: Any) -> str | None:
@@ -687,6 +698,9 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
             "chat_external_information_fallback": (
                 configuration.chat_external_information_fallback
             ),
+            "image_generation": _serialize_image_generation(
+                configuration.image_generation
+            ),
         }
     )
     _validate_unique_remote_nodes(validated.remote_nodes)
@@ -699,7 +713,18 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
         "chat_external_information_fallback": (
             validated.chat_external_information_fallback
         ),
+        "image_generation": _serialize_image_generation(validated.image_generation),
     }
+
+
+def _serialize_image_generation(
+    image_generation: RetainedImageGenerationConfiguration | None,
+) -> dict[str, object] | None:
+    if image_generation is None:
+        return None
+    if not isinstance(image_generation, RetainedImageGenerationConfiguration):
+        raise RetainedConfigurationError("invalid retained Image Generation")
+    return {"base_url": image_generation.base_url}
 
 
 def _serialize_local(

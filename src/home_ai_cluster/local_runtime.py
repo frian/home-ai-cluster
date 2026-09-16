@@ -15,6 +15,7 @@ from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
     create_multi_binding_local_app_composition,
+    create_textual_with_image_generation_companion_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -107,6 +108,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             if needs_retained_runtime:
                 retained_values = retained.local.runtime
             args.retained_execution_limit = retained.local.execution_limit
+        if needs_retained_runtime:
+            args.retained_image_generation = retained.image_generation
     validate_local_runtime_arguments(parser, args, retained_values)
     if args.host != LOCAL_RUNTIME_HOST:
         parser.error("--host must be exactly 127.0.0.1")
@@ -131,6 +134,15 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     if isinstance(values, MultiBindingRuntimeCompositionValues):
         composition = create_multi_binding_local_app_composition(
             values, execution_limit=execution_limit
+        )
+        app = create_app(local_app_composition=composition)
+        return add_loopback_browser_routes(app)
+    image_generation = getattr(args, "retained_image_generation", None)
+    if image_generation is not None:
+        composition = create_textual_with_image_generation_companion_composition(
+            values,
+            image_generation_base_url=image_generation.base_url,
+            execution_limit=execution_limit,
         )
         app = create_app(local_app_composition=composition)
         return add_loopback_browser_routes(app)

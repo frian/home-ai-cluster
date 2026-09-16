@@ -8,6 +8,7 @@ from home_ai_cluster.core.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
 )
+from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
@@ -18,14 +19,17 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     RetainedLocalConfiguration,
+    build_retained_image_generation_configuration,
     build_retained_local_configuration,
     build_retained_remote_node_declaration,
     load_retained_configuration,
     remove_retained_configuration,
     remove_retained_remote_node,
     replace_retained_external_information_plugin,
+    replace_retained_image_generation_configuration,
     replace_retained_local_configuration,
     replace_retained_remote_node,
+    reset_retained_image_generation_configuration,
     reset_retained_local_configuration,
     set_retained_chat_external_information_fallback,
     validate_external_information_plugin_name,
@@ -53,6 +57,22 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     )
     local.add_argument(
         "--reset", action="store_true", help="Clear retained local configuration."
+    )
+
+    image_generation = commands.add_parser(
+        "image-generation",
+        help="Configure or reset the retained local Image Generation companion.",
+        description="Configure or reset the retained local Image Generation companion.",
+    )
+    image_generation.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear the retained Image Generation companion.",
+    )
+    image_generation.add_argument(
+        "--base-url",
+        type=local_http_url,
+        help="Retained stable-diffusion.cpp loopback HTTP base URL.",
     )
     local.add_argument(
         "--runtime", choices=LOCAL_RUNTIMES, help="Retained local runtime."
@@ -320,6 +340,16 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
             )
         )
 
+    lines.append("Image Generation:")
+    if configuration.image_generation is None:
+        lines.append("  not configured")
+    else:
+        lines.extend(
+            [
+                "  runtime: stable-diffusion-cpp",
+                f"  base URL: {configuration.image_generation.base_url}",
+            ]
+        )
     lines.append("Remote nodes:")
     if not configuration.remote_nodes:
         lines.append("  none")
@@ -358,6 +388,27 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
     local = _local_configuration(parser, args)
     replace_retained_local_configuration(local)
     print("local configuration retained")
+
+
+def _mutate_image_generation(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    if args.reset and args.base_url is not None:
+        parser.error("--reset cannot be combined with --base-url")
+    if not args.reset and args.base_url is None:
+        parser.error("--base-url is required unless --reset")
+    if args.reset:
+        reset_retained_image_generation_configuration()
+        print("image-generation configuration reset")
+        return
+    try:
+        configuration = build_retained_image_generation_configuration(
+            base_url=args.base_url
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    replace_retained_image_generation_configuration(configuration)
+    print("image-generation configuration retained")
 
 
 def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -421,6 +472,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             _reset_retained_configuration()
         elif args.command == "local":
             _mutate_local(parser, args)
+        elif args.command == "image-generation":
+            _mutate_image_generation(parser, args)
         elif args.command == "node":
             _mutate_node(parser, args)
         elif args.command == "chat":

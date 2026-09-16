@@ -8,6 +8,12 @@ from fastapi import FastAPI
 
 from home_ai_cluster import local_runtime
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.core.models import Capability
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedImageGenerationConfiguration,
+    save_retained_configuration,
+)
 
 
 def test_parse_args_defaults_to_ollama() -> None:
@@ -458,6 +464,41 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "llama3.2"
     assert adapter.disable_thinking is False
+
+
+def test_retained_image_generation_companion_composes_with_default_textual_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    save_retained_configuration(
+        RetainedConfiguration(
+            image_generation=RetainedImageGenerationConfiguration(
+                base_url="http://127.0.0.1:7860"
+            )
+        )
+    )
+
+    local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
+
+    composition = captured["composition"]
+    assert [
+        adapter.name for adapter in composition.adapter_registry.list_adapters()
+    ] == [
+        "ollama",
+        "stable-diffusion-cpp",
+    ]
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        ).name
+        == "stable-diffusion-cpp"
+    )
 
 
 def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(

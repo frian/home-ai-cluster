@@ -58,6 +58,8 @@ def test_config_local_vllm_retains_execution_limit_and_show(
         "  temperature: not retained\n"
         "  caller-local capabilities: not retained\n"
         "  HAC execution limit: 2\n"
+        "Image Generation:\n"
+        "  not configured\n"
         "Remote nodes:\n"
         "  none\n"
         "External information:\n"

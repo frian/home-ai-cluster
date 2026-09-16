@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
@@ -24,6 +25,8 @@ from home_ai_cluster.core.models import (
     ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    ImageGenerationRequest,
+    ImageGenerationResult,
     InternalClusterStatusResponse,
     RequestConstraints,
     SourceEvidence,
@@ -330,6 +333,67 @@ async def handle_classify_cluster_request(
         raise HTTPException(status_code=500, detail="execution-failed") from exc
 
 
+async def handle_image_generation_request(
+    image_request: ImageGenerationRequest,
+    static_remote_wiring: StaticRemoteWiring | None = None,
+    static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
+    local_app_composition: LocalAppComposition | None = None,
+) -> ImageGenerationResult:
+    """Execute Image Generation only through the caller-local routing view."""
+    if static_remote_wiring is not None:
+        node_registry = static_remote_wiring.node_registry
+        adapter_registry = static_remote_wiring.adapter_registry
+        execution_intervals = static_remote_wiring.execution_intervals
+    elif static_remote_collection_wiring is not None:
+        node_registry = static_remote_collection_wiring.node_registry
+        adapter_registry = static_remote_collection_wiring.adapter_registry
+        execution_intervals = static_remote_collection_wiring.execution_intervals
+    else:
+        try:
+            return await handle_static_local_cluster_request(
+                image_request,
+                local_app_composition=local_app_composition,
+            )
+        except RuntimeAdapterUnavailableError as exc:
+            raise HTTPException(
+                status_code=503, detail="Runtime adapter unavailable"
+            ) from exc
+        except ExecutionPermissionDeniedError as exc:
+            raise HTTPException(
+                status_code=409, detail="execution permission denied"
+            ) from exc
+        except NoMatchingAdapterError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="No adapter provides capability: image-generation",
+            ) from exc
+
+    try:
+        if execution_intervals is None:
+            return await orchestrate_request(
+                image_request, node_registry, adapter_registry
+            )
+        return await orchestrate_composed_request(
+            image_request,
+            node_registry,
+            adapter_registry,
+            execution_intervals,
+        )
+    except RuntimeAdapterUnavailableError as exc:
+        raise HTTPException(
+            status_code=503, detail="Runtime adapter unavailable"
+        ) from exc
+    except ExecutionPermissionDeniedError as exc:
+        raise HTTPException(
+            status_code=409, detail="execution permission denied"
+        ) from exc
+    except NoMatchingAdapterError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No adapter provides capability: image-generation",
+        ) from exc
+
+
 @router.post("/v1/chat", response_model=ClusterResult)
 async def chat(request: ChatRequest, http_request: Request) -> ClusterResult:
     static_remote_wiring = http_request.app.state.static_remote_wiring
@@ -478,6 +542,28 @@ async def classify(http_request: Request) -> ClassifyResult:
             local_app_composition=http_request.app.state.local_app_composition,
         ),
     )
+
+
+@router.post("/v1/image-generation")
+async def image_generation(http_request: Request) -> Response:
+    """Project one completed local Image Generation result as raw PNG bytes."""
+    try:
+        image_request = ImageGenerationRequest.model_validate(await http_request.json())
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422, detail="Invalid image generation request"
+        ) from None
+
+    result = await run_routable_execution(
+        http_request,
+        lambda: handle_image_generation_request(
+            image_request,
+            http_request.app.state.static_remote_wiring,
+            http_request.app.state.static_remote_collection_wiring,
+            http_request.app.state.local_app_composition,
+        ),
+    )
+    return Response(content=result.image_bytes, media_type="image/png")
 
 
 @router.post(

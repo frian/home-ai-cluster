@@ -997,9 +997,22 @@ mapping is useful for compatibility or reference:
 | `hac static-cluster` | `uv run home-ai-cluster-static-cluster` |
 | `hac compatibility` | `uv run home-ai-cluster-openai-compatibility` |
 | `hac chat` | `uv run home-ai-cluster-chat` |
+| `hac image-generation` | `uv run home-ai-cluster-image-generation` |
 | `hac preflight` | `uv run home-ai-cluster-preflight` |
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
+
+### Image Generation
+
+`hac image-generation "<INSTRUCTION>" [--timeout-seconds N]` sends one
+instruction-only request to an already-running ordinary HAC process with an
+eligible local `image-generation` capability. Successful output is raw PNG
+bytes on stdout. Direct TTY stdout is refused before a request is made, so use
+an appropriate non-TTY byte sink. HAC owns no output path or file; shell and
+pipeline behavior after stdout is outside HAC's contract. There is no JSON,
+verbose, output-path, model, runtime, or generation-control option. Image
+Generation remains local-only, and unchanged `hac static-cluster` permission
+does not make it eligible there.
 
 `hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
 ordinary root command; none has a separate installed checkout script.

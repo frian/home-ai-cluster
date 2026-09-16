@@ -93,6 +93,10 @@ architecture.
   and Mistral NeMo, including repeated Qwen 3.5 temperature=0 evidence,
   without selecting models, generation defaults, or a new configuration
   contract.
+- [Qwen 3.5 Workspace Code composition study](qwen35-workspace-code-composition-study.md)
+  — retains bounded Qwen 3.5 composition evidence across model size, thinking
+  ON/OFF, Ollama, and vLLM without selecting models, defaults, runtimes, or new
+  configuration semantics.
 - [stable-diffusion.cpp Image Generation proof](stable-diffusion-cpp-image-generation-proof.md)
   — retains one privacy-safe real local RFC-0121 proof through ordinary local
   routing, including truthful untagged still-PNG normalization and the

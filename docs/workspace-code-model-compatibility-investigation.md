@@ -79,7 +79,8 @@ All CLI comparisons used this initial file:
 def square(n):
     return n * n
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     print(square(5))
 ```
 

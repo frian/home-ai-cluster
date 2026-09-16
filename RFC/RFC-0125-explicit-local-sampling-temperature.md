@@ -1,6 +1,6 @@
 # RFC-0125: Explicit Local Sampling Temperature
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-14
 
@@ -255,7 +255,7 @@ The proof need not repeat model experiments or prove behavioral equivalence.
 
 ## Decision
 
-Draft. Home AI Cluster proposes one optional finite non-negative,
+Home AI Cluster accepts one optional finite non-negative,
 operator-facing local textual-runtime sampling-temperature control for Ollama,
 llama-server, and vLLM. It requests the explicit numeric value through the
 selected runtime's native ordinary free-text mechanism; omission preserves

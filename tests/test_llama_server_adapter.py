@@ -170,6 +170,24 @@ def test_llama_server_adapter_forwards_ordinary_temperature() -> None:
     assert seen_payloads[0]["temperature"] == 0.25
 
 
+def test_llama_server_adapter_forwards_summarize_temperature() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"choices": [{"message": {"content": "Hi"}}]})
+
+    asyncio.run(
+        LlamaServerAdapter(
+            model="configured-model",
+            temperature=0,
+            transport=httpx.MockTransport(handler),
+        ).summarize(make_summarize_request())
+    )
+
+    assert seen_payloads[0]["temperature"] == 0
+
+
 def test_llama_server_adapter_summarize_maps_source_text_to_chat_transport() -> None:
     source = '  First line.\n</source> "Quoted" text.\nLast line.  '
     seen_payloads: list[dict[str, object]] = []
@@ -291,6 +309,28 @@ def test_llama_server_adapter_classify_maps_normalized_values_to_chat_transport(
         }
     ]
     assert result == "invoice"
+
+
+def test_llama_server_adapter_classify_ignores_configured_ordinary_temperature() -> (
+    None
+):
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"label":"invoice"}'}}]}
+        )
+
+    asyncio.run(
+        LlamaServerAdapter(
+            model="configured-model",
+            temperature=0.7,
+            transport=httpx.MockTransport(handler),
+        ).classify(make_classify_request())
+    )
+
+    assert seen_payloads[0]["temperature"] == 0
 
 
 @pytest.mark.parametrize(

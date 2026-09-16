@@ -316,6 +316,22 @@ def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() 
     assert result == "invoice"
 
 
+def test_ollama_adapter_classify_ignores_configured_ordinary_temperature() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": '"invoice"'}})
+
+    asyncio.run(
+        OllamaAdapter(temperature=0.7, transport=httpx.MockTransport(handler)).classify(
+            make_classify_request()
+        )
+    )
+
+    assert seen_payloads[0]["options"] == {"temperature": 0}
+
+
 def test_ollama_adapter_disable_thinking_adds_false_to_classify_request() -> None:
     seen_payloads: list[dict[str, object]] = []
 

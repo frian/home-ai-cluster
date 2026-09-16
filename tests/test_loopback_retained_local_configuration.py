@@ -149,6 +149,42 @@ def test_complete_mutation_preserves_other_retained_domains_and_composition() ->
     assert app.state.local_app_composition is composition
 
 
+def test_retained_local_facade_preserves_zero_and_clears_it_on_runtime_replacement():
+    app = native_app()
+    original = local_document(temperature=0)
+
+    saved = request(
+        app,
+        "PUT",
+        "/retained-local-configuration",
+        headers=native_mutation_headers(),
+        json=original,
+    )
+    assert saved.status_code == 200
+    assert request(app, "GET", "/retained-local-configuration").json() == {
+        "local": original
+    }
+
+    replacement = local_document(
+        runtime="vllm",
+        vllm_base_url="http://127.0.0.1:8000",
+        vllm_model="served-name",
+        temperature=None,
+    )
+    replaced = request(
+        app,
+        "PUT",
+        "/retained-local-configuration",
+        headers=native_mutation_headers(),
+        json=replacement,
+    )
+
+    assert replaced.status_code == 200
+    assert request(app, "GET", "/retained-local-configuration").json() == {
+        "local": replacement
+    }
+
+
 def test_invalid_mutation_does_not_change_retained_configuration() -> None:
     original = local_document(ollama_model="retained")
     valid = request(

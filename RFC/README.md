@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0127: Bounded One-Shot Local Image Generation Operator Edge](RFC-0127-bounded-one-shot-local-image-generation-operator-edge.md)
+  — accepts one instruction-only native local Image Generation operation with
+  raw `image/png` success and one thin `hac image-generation` client that
+  writes exact PNG bytes to non-TTY stdout, while preserving filesystem
+  authority, RFC-0059 static permission, remote/receiver boundaries, and
+  RFC-0082 disconnect cancellation coverage.
+
 - [RFC-0126: Explicit stable-diffusion.cpp Local Capability-Binding Configuration](RFC-0126-explicit-stable-diffusion-cpp-local-binding-configuration.md)
   — extends RFC-0110's explicitly selected multi-binding runtime-config
   vocabulary with one closed `stable-diffusion-cpp` binding requiring explicit

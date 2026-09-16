@@ -1,6 +1,6 @@
 # RFC-0127: Bounded One-Shot Local Image Generation Operator Edge
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-16
 
@@ -354,9 +354,9 @@ Image Generation require separate RFC decisions.
 
 ## Decision
 
-Draft.
+Accepted.
 
-If accepted, Home AI Cluster will add exactly one bounded local native
+Home AI Cluster will add exactly one bounded local native
 `POST /v1/image-generation` projection and one thin one-shot
 `hac image-generation` client under the conditions above, while preserving
 accepted Image Generation semantics and all static, remote, receiver,

@@ -1,0 +1,17 @@
+# Each binding explicitly owns its listed local execution capabilities.
+[[bindings]]
+capabilities = ["chat", "summarize", "classify"]
+runtime = "ollama"
+# Replace with an already-installed operator-owned Ollama model.
+model = "replace-with-installed-model"
+# This illustrative value is an operator choice, not a HAC recommendation.
+# Classify keeps its own accepted request shaping and does not use it.
+temperature = 0.2
+
+[[bindings]]
+capabilities = ["code"]
+runtime = "vllm"
+# Adapt this loopback port to the already-running local vLLM server.
+base_url = "http://127.0.0.1:8000"
+# Replace with that server's served model identifier.
+model = "replace-with-served-model"

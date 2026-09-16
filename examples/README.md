@@ -45,11 +45,26 @@ and command boundaries.
 
 ## Local runtime-composition files
 
-`runtime-ollama.toml` and `runtime-llama-server.toml` configure only this
-process's local adapter composition. Select one explicitly with
-`--runtime-config`; it does not configure topology, and there is no implicit
-config discovery. A runtime-composition file cannot be combined with an
-equivalent runtime CLI argument explicitly supplied by the operator.
+The three single-runtime files construct one local runtime composition:
+
+- `runtime-ollama.toml` is the ordinary Ollama composition. It intentionally
+  omits temperature, preserving the runtime's native sampling behavior.
+- `runtime-llama-server.toml` is the minimal llama-server composition.
+- `runtime-vllm.toml` is the minimal vLLM composition.
+
+`runtime-ollama-explicit-temperature.toml` demonstrates an operator-controlled
+RFC-0125 temperature without recommending a value. Omission and an explicit
+zero or non-zero value are distinct operator choices.
+
+`runtime-multi-binding.toml` demonstrates multiple explicit local capability
+bindings. Each binding owns its concrete runtime composition; any temperature
+belongs to that binding rather than to a capability.
+
+Select a file explicitly with `--runtime-config`; it does not configure
+topology, and there is no implicit config discovery. A runtime-composition file
+cannot be combined with an equivalent runtime CLI argument explicitly supplied
+by the operator. Files are self-contained and do not inherit retained
+runtime-composition values.
 
 The `[ollama]` table and its `model` and `disable_thinking` values are optional
 under the accepted schema. Their omission preserves existing defaults.
@@ -63,6 +78,14 @@ adapter for the current process.
 ```sh
 hac local --runtime-config examples/runtime-ollama.toml
 
+hac local --runtime-config examples/runtime-llama-server.toml
+
+hac local --runtime-config examples/runtime-vllm.toml
+
+hac local --runtime-config examples/runtime-ollama-explicit-temperature.toml
+
+hac local --runtime-config examples/runtime-multi-binding.toml
+
 hac static-cluster \
   --declaration examples/static-cluster-two-remotes.toml \
   --runtime-config examples/runtime-ollama.toml
@@ -71,3 +94,23 @@ hac status \
   --declaration examples/static-cluster-two-remotes.toml \
   --runtime-config examples/runtime-ollama.toml
 ```
+
+## Other post-1.0 operator surfaces
+
+Retain one local runtime composition for ordinary later invocations with
+[`hac config local`](../docs/command-reference.md#hac-config), for example:
+
+```sh
+hac config local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
+```
+
+Use bounded workspace-aware Code with explicit local authority:
+
+```sh
+hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
+```
+
+Bounded local Image Generation currently has no CLI or runtime-configuration
+surface; see the
+[stable-diffusion.cpp Image Generation proof](../docs/stable-diffusion-cpp-image-generation-proof.md)
+for its current local composition boundary.

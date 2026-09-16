@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0128: Retained Local Image Generation Companion Composition](RFC-0128-retained-local-image-generation-companion-composition.md)
+  — accepts one optional HAC-managed retained local Image Generation companion
+  with fixed stable-diffusion.cpp composition, separately configured from the
+  unchanged complete `config local` domain; ordinary local composition may add
+  it, while `--runtime-config` remains a complete non-merging alternative.
+
 - [RFC-0127: Bounded One-Shot Local Image Generation Operator Edge](RFC-0127-bounded-one-shot-local-image-generation-operator-edge.md)
   — accepts one instruction-only native local Image Generation operation with
   raw `image/png` success and one thin `hac image-generation` client that

@@ -203,15 +203,26 @@ For a successful completed response, the command writes exactly the PNG
 response bytes to its stdout byte stream: no encoding, decoding/re-encoding,
 newline, prefix, suffix, status, attribution, decoration, or logging. Stderr
 is silent on success. It must establish the expected bounded binary response
-before beginning stdout output, so the observable result is all-or-nothing:
+before beginning stdout output. The truthful process-boundary guarantee is:
 
 ```text
-failure -> zero image bytes on stdout
-success -> exact PNG bytes on stdout
+any request/HTTP/response failure detected before stdout emission begins
+    -> zero bytes written to stdout
+
+successful complete stdout delivery
+    -> exact PNG bytes, byte-for-byte and in order
 ```
 
 A bounded whole-result buffer is acceptable; RFC-0120's encoded-PNG bound is
 approximately 40 MiB. This does not introduce generic streaming.
+
+Once stdout emission has begun, a failure of that sink may leave an
+already-written PNG prefix; HAC cannot retract or repair accepted bytes. An
+observable stdout-write failure exits non-zero according to ordinary process
+behavior and may produce one bounded human-readable stderr error if that stream
+remains usable. It authorizes no retry, re-generation, restarted emission,
+temporary file, filesystem authority, transactional output abstraction, or
+generic streaming architecture.
 
 Before network activity, the client tests its immediate stdout. If it is a TTY,
 it fails locally, sends no Image Generation request, invokes no HAC inference,
@@ -228,6 +239,9 @@ HAC ownership and not part of the normalized result. The contract ends at the
 bytes HAC writes to stdout; it does not promise byte-preserving behavior from
 every shell or version. RFC-0097's Windows installation path makes no broader
 PowerShell binary-redirection promise or minimum-version requirement.
+Stdout delivery is a byte-stream boundary, not a transactional persistence
+guarantee: a pipe, shell redirection target, or downstream process owns its
+behavior after accepting bytes.
 
 ### Timeout and failure behavior
 
@@ -242,8 +256,10 @@ no capability, execution permission denial, runtime unavailability, client
 timeout, unavailable HAC, and unexpected/invalid native response retain their
 ordinary meanings. This RFC creates no Image Generation failure taxonomy.
 Existing command conventions may choose strings and exit codes where none is
-architecturally necessary. Every failure emits no PNG bytes on stdout and
-human-readable failure only on stderr.
+architecturally necessary. Every failure detected before successful PNG
+emission begins writes zero stdout bytes. A stdout-sink failure after emission
+begins may leave an unretractable prefix; HAC must never intentionally mix
+textual failure output into stdout. Human-readable failures remain on stderr.
 
 ## Rationale
 
@@ -316,11 +332,14 @@ Implementation must prove at least:
 3. no JSON/base64/multipart/path/result URL is involved;
 4. non-TTY CLI stdout is exact PNG, with silent successful stderr;
 5. TTY stdout fails before HTTP request or adapter invocation;
-6. every client/server failure leaves stdout with zero PNG bytes;
-7. RFC-0060 timeout behavior remains and RFC-0082 covers this route without
+6. every request/client/server/response failure before stdout emission leaves
+   stdout with zero bytes;
+7. a simulated stdout sink failure after accepting a prefix causes no retry,
+   re-generation, textual stdout contamination, or filesystem fallback;
+8. RFC-0060 timeout behavior remains and RFC-0082 covers this route without
    promising `sd-server` termination;
-8. a physical static binding remains ineligible under unchanged RFC-0059;
-9. no remote route, receiver route, filesystem destination, browser surface,
+9. a physical static binding remains ineligible under unchanged RFC-0059;
+10. no remote route, receiver route, filesystem destination, browser surface,
    generation control, model/runtime choice, or lifecycle behavior appears.
 
 The smallest proof may use an in-process/test adapter with known valid PNG;

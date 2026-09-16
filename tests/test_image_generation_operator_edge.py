@@ -6,6 +6,7 @@ import zlib
 import httpx
 import pytest
 
+from home_ai_cluster import local_runtime_composition
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api import routes
 from home_ai_cluster.api.wiring import (
@@ -29,6 +30,10 @@ from home_ai_cluster.core.orchestrator import ExecutionPermissionDeniedError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
+from home_ai_cluster.local_runtime_composition import (
+    LocalRuntimeCompositionValues,
+    create_textual_with_image_generation_companion_composition,
+)
 from home_ai_cluster.main import create_app, create_receiver_app
 
 
@@ -115,6 +120,37 @@ def test_native_image_generation_returns_exact_validated_png() -> None:
     assert response.headers["content-type"] == "image/png"
     assert response.content == adapter.result
     assert adapter.requests == [ImageGenerationRequest(instruction="a fox")]
+
+
+def test_retained_style_textual_and_image_composition_selects_image_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RecordingStableDiffusionAdapter(_ImageAdapter):
+        def __init__(self, base_url: str) -> None:
+            super().__init__()
+            self.base_url = base_url
+            self.name = "stable-diffusion-cpp"
+
+    monkeypatch.setattr(
+        local_runtime_composition,
+        "StableDiffusionCppAdapter",
+        RecordingStableDiffusionAdapter,
+    )
+    composition = create_textual_with_image_generation_companion_composition(
+        LocalRuntimeCompositionValues(runtime="ollama", ollama_model="textual"),
+        image_generation_base_url="http://127.0.0.1:7860",
+    )
+    image_adapter = composition.adapter_registry.bound_adapter_for(
+        Capability(name="image-generation")
+    )
+
+    response = _post(
+        create_app(local_app_composition=composition), {"instruction": "a fox"}
+    )
+
+    assert response.status_code == 200
+    assert image_adapter.base_url == "http://127.0.0.1:7860"
+    assert image_adapter.requests == [ImageGenerationRequest(instruction="a fox")]
 
 
 @pytest.mark.parametrize(

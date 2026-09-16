@@ -10,6 +10,7 @@ from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionVal
 from home_ai_cluster.main import create_app, create_receiver_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
+    RetainedImageGenerationConfiguration,
     RetainedLocalConfiguration,
     browser_retained_local_shape_is_supported,
     build_retained_local_configuration,
@@ -147,6 +148,36 @@ def test_complete_mutation_preserves_other_retained_domains_and_composition() ->
     assert retained.external_information_plugin == "tavily"
     assert retained.chat_external_information_fallback is True
     assert app.state.local_app_composition is composition
+
+
+def test_browser_local_mutation_preserves_image_generation_companion() -> None:
+    image_generation = RetainedImageGenerationConfiguration(
+        base_url="http://127.0.0.1:7860"
+    )
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(
+                    runtime="ollama", ollama_model="model-a"
+                )
+            ),
+            image_generation=image_generation,
+        )
+    )
+
+    response = request(
+        native_app(),
+        "PUT",
+        "/retained-local-configuration",
+        headers=native_mutation_headers(),
+        json=local_document(ollama_model="model-b"),
+    )
+
+    assert response.status_code == 200
+    retained = load_retained_configuration()
+    assert retained.local is not None
+    assert retained.local.runtime.ollama_model == "model-b"
+    assert retained.image_generation == image_generation
 
 
 def test_retained_local_facade_preserves_zero_and_clears_it_on_runtime_replacement():

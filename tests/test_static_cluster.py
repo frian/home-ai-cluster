@@ -40,10 +40,17 @@ from home_ai_cluster.core.routing_candidates import (
     select_automatic_capability_routing_candidate,
 )
 from home_ai_cluster.local_runtime_composition import (
+    LocalRuntimeCompositionValues,
     create_llama_server_local_app_composition,
     create_local_runtime_composition,
 )
 from home_ai_cluster.main import create_app
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedImageGenerationConfiguration,
+    RetainedLocalConfiguration,
+    save_retained_configuration,
+)
 from home_ai_cluster.static_cluster import (
     LOCAL_NODE_ID,
     REMOTE_HTTP_ADAPTER_NAME,
@@ -536,6 +543,57 @@ def test_main_passes_toml_local_capabilities_to_caller_composition(
         ),
         "local_capabilities": [Capability(name="chat")],
     }
+
+
+def test_retained_image_companion_is_physical_but_not_static_routable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama"),
+                local_capabilities=("chat",),
+            ),
+            remote_nodes=(
+                ParsedRemoteNodeDeclaration(
+                    "remote", "http://192.0.2.1:25042", ("chat",)
+                ),
+            ),
+            image_generation=RetainedImageGenerationConfiguration(
+                base_url="http://127.0.0.1:7860"
+            ),
+        )
+    )
+    recorded: dict[str, object] = {}
+
+    def create_collection_app(
+        _remote_nodes: object,
+        *,
+        local_app_composition: LocalAppComposition,
+        **kwargs: object,
+    ) -> FastAPI:
+        recorded["physical"] = local_app_composition
+        recorded["routing"] = kwargs["routing_node_registry"]
+        return FastAPI()
+
+    monkeypatch.setattr(
+        static_cluster, "create_static_cluster_collection_app", create_collection_app
+    )
+    monkeypatch.setattr(static_cluster.uvicorn, "run", lambda *_1, **_2: None)
+
+    main([])
+
+    physical = recorded["physical"]
+    routing = recorded["routing"]
+    assert [adapter.name for adapter in physical.adapter_registry.list_adapters()] == [
+        "ollama",
+        "stable-diffusion-cpp",
+    ]
+    assert [capability.name for capability in routing.list_nodes()[0].capabilities] == [
+        "chat"
+    ]
 
 
 def test_static_cluster_app_construction_is_inert_and_closes_its_client() -> None:

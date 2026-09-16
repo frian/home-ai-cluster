@@ -222,6 +222,7 @@ def test_whole_reset_removes_valid_configuration_and_show_is_empty(
     _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
     _run(capsys, ["external-information", "--plugin", "tavily"])
     _run(capsys, ["chat", "--external-information-fallback"])
+    _run(capsys, ["image-generation", "--base-url", "http://127.0.0.1:7860"])
 
     assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
     assert _run(capsys, ["show"]) == (

@@ -337,6 +337,6 @@ configuration-to-concrete-adapter uncertainty.
 
 ## Decision
 
-Draft. If accepted, RFC-0110 gains exactly the closed
+Accepted. RFC-0110 gains exactly the closed
 `stable-diffusion-cpp` multi-binding construction form defined here, and no
 other Image Generation surface or authority.

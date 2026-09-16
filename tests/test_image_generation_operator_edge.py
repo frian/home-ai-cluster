@@ -6,6 +6,7 @@ import zlib
 import httpx
 import pytest
 
+from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api import routes
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
@@ -24,6 +25,7 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
+from home_ai_cluster.core.orchestrator import ExecutionPermissionDeniedError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
@@ -130,6 +132,25 @@ def test_native_image_generation_rejects_invalid_public_bodies(payload: object) 
 def test_native_image_generation_has_ordinary_no_capability_boundary() -> None:
     response = _post(create_app(), {"instruction": "a fox"})
     assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("failure", "status_code"),
+    [
+        (ExecutionPermissionDeniedError(), 409),
+        (RuntimeAdapterUnavailableError("unavailable"), 503),
+    ],
+)
+def test_native_image_generation_preserves_ordinary_failure_statuses(
+    monkeypatch: pytest.MonkeyPatch, failure: Exception, status_code: int
+) -> None:
+    async def execute(*args: object, **kwargs: object) -> object:
+        raise failure
+
+    monkeypatch.setattr(routes, "handle_static_local_cluster_request", execute)
+    response = _post(create_app(), {"instruction": "a fox"})
+
+    assert response.status_code == status_code
 
 
 def test_receiver_app_does_not_expose_image_generation() -> None:
@@ -246,15 +267,22 @@ def test_native_image_generation_uses_routable_disconnect_boundary(
 
 
 class _Response:
-    status_code = 200
-    headers = {"content-type": "image/png"}
-
-    def __init__(self, content: bytes) -> None:
+    def __init__(
+        self,
+        content: bytes,
+        *,
+        status_code: int = 200,
+        content_type: str = "image/png",
+    ) -> None:
         self.content = content
+        self.status_code = status_code
+        self.headers = {"content-type": content_type}
 
 
 class _Client:
-    def __init__(self, response: _Response, calls: list[tuple[str, object]]) -> None:
+    def __init__(
+        self, response: _Response | Exception, calls: list[tuple[str, object]]
+    ) -> None:
         self.response, self.calls = response, calls
 
     def __enter__(self):
@@ -265,7 +293,37 @@ class _Client:
 
     def post(self, url: str, *, json: object) -> _Response:
         self.calls.append((url, json))
+        if isinstance(self.response, Exception):
+            raise self.response
         return self.response
+
+
+class _ShortWriteOutput:
+    def __init__(self, sizes: list[int], *, fail_flush: bool = False) -> None:
+        self.sizes = sizes
+        self.fail_flush = fail_flush
+        self.value = bytearray()
+        self.flushes = 0
+
+    def isatty(self) -> bool:
+        return False
+
+    def write(self, data: bytes) -> int:
+        size = self.sizes.pop(0) if self.sizes else len(data)
+        self.value.extend(data[:size])
+        return size
+
+    def flush(self) -> None:
+        self.flushes += 1
+        if self.fail_flush:
+            raise OSError("flush failed")
+
+
+class _PrefixThenFailureOutput(_ShortWriteOutput):
+    def write(self, data: bytes) -> int:
+        if self.value:
+            raise OSError("write failed")
+        return super().write(data)
 
 
 def test_image_generation_command_writes_exact_png_to_non_tty_stdout() -> None:
@@ -290,6 +348,93 @@ def test_image_generation_command_writes_exact_png_to_non_tty_stdout() -> None:
             {"instruction": "a fox"},
         )
     ]
+
+
+def test_image_generation_command_completes_short_writes_and_flushes() -> None:
+    output, errors, calls = _ShortWriteOutput([1, 2, 3]), io.StringIO(), []
+
+    image_generation_command.main(
+        ["a fox"],
+        _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+        _stdout=output,
+        _stderr=errors,
+    )
+
+    assert bytes(output.value) == _png()
+    assert output.flushes == 1
+    assert errors.getvalue() == ""
+    assert len(calls) == 1
+
+
+def test_image_generation_command_does_not_retry_after_prefix_write_failure() -> None:
+    output, errors, calls = _PrefixThenFailureOutput([3]), io.StringIO(), []
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["a fox"],
+            _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+            _stdout=output,
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert bytes(output.value) == _png()[:3]
+    assert errors.getvalue() == "error: image generation stdout write failed\n"
+    assert len(calls) == 1
+
+
+def test_image_generation_command_reports_flush_failure_without_retry() -> None:
+    output, errors, calls = _ShortWriteOutput([], fail_flush=True), io.StringIO(), []
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["a fox"],
+            _client_factory=lambda **kwargs: _Client(_Response(_png()), calls),
+            _stdout=output,
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert bytes(output.value) == _png()
+    assert output.flushes == 1
+    assert errors.getvalue() == "error: image generation stdout write failed\n"
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("argv", "outcome", "expected_requests"),
+    [
+        (["a fox", "extra"], None, 0),
+        (["a fox", "--timeout-seconds", "00"], None, 0),
+        (["a fox"], httpx.ConnectError("down"), 1),
+        (["a fox"], httpx.ReadTimeout("late"), 1),
+        (["a fox"], httpx.RequestError("failed"), 1),
+        (["a fox"], _Response(b"", status_code=422), 1),
+        (["a fox"], _Response(b"", status_code=404), 1),
+        (["a fox"], _Response(b"", status_code=409), 1),
+        (["a fox"], _Response(b"", status_code=503), 1),
+        (["a fox"], _Response(b"", status_code=500), 1),
+        (["a fox"], _Response(_png(), content_type="application/json"), 1),
+        (["a fox"], _Response(b"not a png"), 1),
+    ],
+)
+def test_image_generation_command_pre_emission_failures_leave_stdout_empty(
+    argv: list[str], outcome: object, expected_requests: int
+) -> None:
+    output, errors, requests = io.BytesIO(), io.StringIO(), []
+
+    def factory(**kwargs: object) -> _Client:
+        assert isinstance(outcome, (_Response, Exception))
+        return _Client(outcome, requests)
+
+    with pytest.raises(SystemExit):
+        image_generation_command.main(
+            argv, _client_factory=factory, _stdout=output, _stderr=errors
+        )
+
+    assert output.getvalue() == b""
+    assert errors.getvalue().startswith("error: ")
+    assert len(requests) == expected_requests
 
 
 class _TTYOutput(io.BytesIO):

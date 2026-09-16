@@ -231,6 +231,38 @@ def test_registered_sources_disconnect_cancels_execution(monkeypatch):
     asyncio.run(run())
 
 
+def test_registered_image_generation_disconnect_cancels_execution(monkeypatch):
+    async def run():
+        from home_ai_cluster.api import routes
+
+        app, state = create_app(), BodyFirstState({"instruction": "a fox"})
+        started, cancelled = asyncio.Event(), asyncio.Event()
+        calls = 0
+
+        async def execute(*_, **__):
+            nonlocal calls
+            calls += 1
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        monkeypatch.setattr(routes, "handle_image_generation_request", execute)
+        task = asyncio.create_task(
+            _endpoint(app, "/v1/image-generation")(request(app, state))
+        )
+        await asyncio.wait_for(started.wait(), 1)
+        state.send_disconnect()
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert cancelled.is_set()
+        assert calls == 1
+
+    asyncio.run(run())
+
+
 def summarize_endpoint(app):
     return _endpoint(app, "/v1/summarize")
 

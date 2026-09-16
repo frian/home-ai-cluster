@@ -93,6 +93,22 @@ def _expected_png(response: httpx.Response) -> bytes:
     return validate_still_png(response.content)
 
 
+def _write_png(stdout: BinaryIO, png: bytes) -> None:
+    """Submit one established PNG completely, including its observable flush."""
+    remaining = memoryview(png)
+    while remaining:
+        written = stdout.write(remaining)
+        if (
+            not isinstance(written, int)
+            or isinstance(written, bool)
+            or written <= 0
+            or written > len(remaining)
+        ):
+            raise OSError("stdout sink did not make progress")
+        remaining = remaining[written:]
+    stdout.flush()
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -138,6 +154,6 @@ def main(
     except Exception:
         _fail(_INVALID_CLUSTER_RESPONSE, 1, stderr)
     try:
-        stdout.write(png)
+        _write_png(stdout, png)
     except Exception:
         _fail(_STDOUT_WRITE_FAILED, 1, stderr)

@@ -311,6 +311,32 @@ def test_local_ollama_replacement_and_optional_fields(
     )
 
 
+def test_local_temperature_is_complete_runtime_composition_fact(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(capsys, ["local", "--runtime", "ollama", "--temperature", "0"])[0] == 0
+    assert load_retained_configuration().local is not None
+    assert load_retained_configuration().local.runtime.temperature == 0
+    assert "temperature: 0.0" in _run(capsys, ["show"])[1]
+
+    assert (
+        _run(
+            capsys,
+            [
+                "local",
+                "--runtime",
+                "vllm",
+                "--vllm-base-url",
+                "http://127.0.0.1:8000",
+                "--vllm-model",
+                "served-name",
+            ],
+        )[0]
+        == 0
+    )
+    assert load_retained_configuration().local.runtime.temperature is None
+
+
 def test_local_runtime_validation_and_reset_conflicts(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -649,6 +675,7 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "  runtime: llama-server\n"
         "  llama-server base URL: http://127.0.0.1:8080\n"
         "  llama-server model: model\n"
+        "  temperature: not retained\n"
         "  caller-local capabilities: not retained\n"
         "  HAC execution limit: not retained\n"
         "Remote nodes:\n"

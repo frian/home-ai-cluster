@@ -142,6 +142,7 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
         llama_server_model=values.llama_server_model,
         vllm_base_url=values.vllm_base_url,
         vllm_model=values.vllm_model,
+        temperature=values.temperature,
     )
     if getattr(args, "retained_execution_limit", None) is not None:
         composition_arguments["execution_limit"] = args.retained_execution_limit

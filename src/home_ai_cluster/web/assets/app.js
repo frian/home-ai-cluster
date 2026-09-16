@@ -166,6 +166,7 @@
     document.querySelector("#configuration-llama-server-model").value = local.llama_server_model || "";
     document.querySelector("#configuration-vllm-base-url").value = local.vllm_base_url || "";
     document.querySelector("#configuration-vllm-model").value = local.vllm_model || "";
+    document.querySelector("#configuration-temperature").value = local.temperature === null ? "" : String(local.temperature);
     configurationCapabilitiesAbsent.checked = local.local_capabilities === null;
     document.querySelectorAll("#configuration-capabilities input").forEach((input) => {
       input.checked = local.local_capabilities !== null && local.local_capabilities.includes(input.value);
@@ -260,7 +261,10 @@
     }
   }
 
-  configurationRuntime.addEventListener("change", updateConfigurationRuntimeFields);
+  configurationRuntime.addEventListener("change", () => {
+    document.querySelector("#configuration-temperature").value = "";
+    updateConfigurationRuntimeFields();
+  });
   configurationCapabilitiesAbsent.addEventListener("change", updateConfigurationCapabilities);
   remoteNodeCancel.addEventListener("click", resetRemoteNodeForm);
   updateConfigurationRuntimeFields();
@@ -280,6 +284,7 @@
       llama_server_model: document.querySelector("#configuration-llama-server-model").value || null,
       vllm_base_url: document.querySelector("#configuration-vllm-base-url").value || null,
       vllm_model: document.querySelector("#configuration-vllm-model").value || null,
+      temperature: document.querySelector("#configuration-temperature").value === "" ? null : Number(document.querySelector("#configuration-temperature").value),
       local_capabilities: configurationCapabilitiesAbsent.checked ? null : Array.from(document.querySelectorAll("#configuration-capabilities input:checked"), (input) => input.value),
       execution_limit: limit === "" ? null : Number(limit),
     };

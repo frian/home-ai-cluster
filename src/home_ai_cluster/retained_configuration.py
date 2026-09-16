@@ -51,10 +51,21 @@ _LOCAL_KEYS = (
     "llama_server_model",
     "vllm_base_url",
     "vllm_model",
+    "temperature",
     "local_capabilities",
 )
 _LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LEGACY_LOCAL_KEYS + ("execution_limit",)
 _LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LOCAL_KEYS + ("execution_limit",)
+_LOCAL_KEYS_WITHOUT_TEMPERATURE = tuple(
+    key for key in _LOCAL_KEYS if key != "temperature"
+)
+_LOCAL_KEYS_WITHOUT_TEMPERATURE_AND_EXECUTION_LIMIT = (
+    _LOCAL_KEYS_WITHOUT_TEMPERATURE + ("execution_limit",)
+)
+_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE = _LEGACY_LOCAL_KEYS + ("temperature",)
+_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE_AND_EXECUTION_LIMIT = (
+    _LEGACY_LOCAL_KEYS_WITH_TEMPERATURE + ("execution_limit",)
+)
 _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
 
 if sys.platform == "win32":
@@ -139,6 +150,7 @@ _BROWSER_RUNTIME_FIELDS = (
     "llama_server_model",
     "vllm_base_url",
     "vllm_model",
+    "temperature",
 )
 
 
@@ -151,6 +163,7 @@ def build_retained_local_configuration(
     llama_server_model: str | None,
     vllm_base_url: str | None,
     vllm_model: str | None,
+    temperature: float | None = None,
     local_capabilities: list[str] | tuple[str, ...] | None,
     execution_limit: int | None,
 ) -> RetainedLocalConfiguration:
@@ -163,6 +176,7 @@ def build_retained_local_configuration(
         llama_server_model=llama_server_model,
         vllm_base_url=vllm_base_url,
         vllm_model=vllm_model,
+        temperature=temperature,
     )
     if local_capabilities is None:
         capabilities = None
@@ -183,6 +197,7 @@ def build_retained_local_configuration(
             llama_server_model=llama_server_model,
             vllm_base_url=normalized_vllm_base_url,
             vllm_model=vllm_model,
+            temperature=temperature,
         ),
         local_capabilities=capabilities,
         execution_limit=execution_limit,
@@ -579,10 +594,17 @@ def _parse_external_information_plugin(value: Any) -> str | None:
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
     keys = set(value)
-    no_limit_shapes = {frozenset(_LEGACY_LOCAL_KEYS), frozenset(_LOCAL_KEYS)}
+    no_limit_shapes = {
+        frozenset(_LEGACY_LOCAL_KEYS),
+        frozenset(_LOCAL_KEYS),
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE),
+        frozenset(_LOCAL_KEYS_WITHOUT_TEMPERATURE),
+    }
     limit_shapes = {
         frozenset(_LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
         frozenset(_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE_AND_EXECUTION_LIMIT),
+        frozenset(_LOCAL_KEYS_WITHOUT_TEMPERATURE_AND_EXECUTION_LIMIT),
     }
     frozen_keys = frozenset(keys)
     if frozen_keys in no_limit_shapes:
@@ -599,6 +621,7 @@ def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
     llama_model = value["llama_server_model"]
     vllm_base_url = value.get("vllm_base_url")
     vllm_model = value.get("vllm_model")
+    temperature = value.get("temperature")
     local_capabilities = value["local_capabilities"]
     if not isinstance(runtime, str) or not isinstance(disable_thinking, bool):
         raise RetainedConfigurationError("invalid retained local configuration")
@@ -616,6 +639,7 @@ def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
         llama_server_model=llama_model,
         vllm_base_url=vllm_base_url,
         vllm_model=vllm_model,
+        temperature=temperature,
     )
     return RetainedLocalConfiguration(
         runtime=values,
@@ -694,6 +718,7 @@ def _serialize_local(
         "ollama_disable_thinking": values.ollama_disable_thinking,
         "llama_server_base_url": values.llama_server_base_url,
         "llama_server_model": values.llama_server_model,
+        "temperature": values.temperature,
         "local_capabilities": (
             None if local.local_capabilities is None else list(local.local_capabilities)
         ),
@@ -725,6 +750,7 @@ def _validated_runtime_values(
     llama_server_model: str | None,
     vllm_base_url: str | None,
     vllm_model: str | None,
+    temperature: float | None,
 ) -> LocalRuntimeCompositionValues:
     try:
         llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
@@ -735,6 +761,7 @@ def _validated_runtime_values(
             llama_server_model=llama_server_model,
             vllm_base_url=vllm_base_url,
             vllm_model=vllm_model,
+            temperature=temperature,
         )
     except LocalRuntimeCompositionError as error:
         raise RetainedConfigurationError(
@@ -748,6 +775,7 @@ def _validated_runtime_values(
         llama_server_model=llama_server_model,
         vllm_base_url=normalized_vllm_base_url,
         vllm_model=vllm_model,
+        temperature=temperature,
     )
 
 

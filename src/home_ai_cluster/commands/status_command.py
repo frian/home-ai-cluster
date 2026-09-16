@@ -130,6 +130,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         llama_server_model=values.llama_server_model,
         vllm_base_url=values.vllm_base_url,
         vllm_model=values.vllm_model,
+        temperature=values.temperature,
     )
 
     try:

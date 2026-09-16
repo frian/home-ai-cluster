@@ -12,6 +12,7 @@ from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
     non_empty_value,
+    temperature_value,
 )
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
@@ -73,6 +74,11 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         help="Retained llama-server model identifier.",
     )
     local.add_argument("--vllm-base-url", help="Retained vLLM base URL.")
+    local.add_argument(
+        "--temperature",
+        type=temperature_value,
+        help="Finite non-negative retained local free-text sampling temperature.",
+    )
     local.add_argument(
         "--vllm-model",
         type=non_empty_value,
@@ -214,6 +220,7 @@ def _local_configuration(
             llama_server_model=args.llama_server_model,
             vllm_base_url=args.vllm_base_url,
             vllm_model=args.vllm_model,
+            temperature=args.temperature,
             local_capabilities=args.local_capability,
             execution_limit=args.execution_limit,
         )
@@ -245,6 +252,7 @@ def _validate_reset(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         or args.llama_server_model is not None
         or args.vllm_base_url is not None
         or args.vllm_model is not None
+        or args.temperature is not None
         or args.local_capability is not None
         or args.execution_limit is not None
     ):
@@ -287,6 +295,14 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                     f"  vLLM model: {values.vllm_model}",
                 ]
             )
+        lines.append(
+            "  temperature: "
+            + (
+                "not retained"
+                if values.temperature is None
+                else str(values.temperature)
+            )
+        )
         lines.append(
             "  caller-local capabilities: "
             + (

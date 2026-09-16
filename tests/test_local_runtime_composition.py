@@ -74,6 +74,27 @@ def test_shared_runtime_arguments_accept_ollama_disable_thinking() -> None:
     assert args.ollama_disable_thinking is True
 
 
+@pytest.mark.parametrize("value", ["0", "0.25", "1000000"])
+def test_shared_runtime_arguments_accept_finite_non_negative_temperature(
+    value: str,
+) -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    args = parser.parse_args(["--temperature", value])
+
+    assert args.temperature == float(value)
+
+
+@pytest.mark.parametrize("value", ["-1", "nan", "inf", "-inf", "nope"])
+def test_shared_runtime_arguments_reject_invalid_temperature(value: str) -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--temperature", value])
+
+
 def test_shared_runtime_argument_validation_uses_supplied_parser_error(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -313,6 +334,51 @@ def test_explicit_vllm_runtime_replaces_retained_ollama_domain() -> None:
         vllm_base_url="http://127.0.0.1:8000",
         vllm_model="served-name",
     )
+
+
+def test_retained_temperature_is_baseline_and_explicit_value_is_temporary() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+    retained = local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="ollama", temperature=0.7
+    )
+
+    baseline = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, parser.parse_args([]), retained
+    )
+    override = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, parser.parse_args(["--temperature", "0"]), retained
+    )
+
+    assert baseline.temperature == 0.7
+    assert override.temperature == 0
+    assert retained.temperature == 0.7
+
+
+def test_explicit_runtime_replacement_does_not_carry_retained_temperature() -> None:
+    parser = argparse.ArgumentParser()
+    local_runtime_composition.add_local_runtime_arguments(parser)
+    retained = local_runtime_composition.LocalRuntimeCompositionValues(
+        runtime="ollama", temperature=0.7
+    )
+    arguments = [
+        "--runtime",
+        "vllm",
+        "--vllm-base-url",
+        "http://127.0.0.1:8000",
+        "--vllm-model",
+        "served-name",
+    ]
+
+    absent = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, parser.parse_args(arguments), retained
+    )
+    explicit = local_runtime_composition.resolve_local_runtime_composition_values(
+        parser, parser.parse_args([*arguments, "--temperature", "0.25"]), retained
+    )
+
+    assert absent.temperature is None
+    assert explicit.temperature == 0.25
 
 
 @pytest.mark.parametrize(

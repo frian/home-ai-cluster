@@ -13,6 +13,7 @@ from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionVal
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedLocalConfiguration,
+    load_retained_configuration,
     retained_configuration_file,
     save_retained_configuration,
 )
@@ -90,6 +91,28 @@ def test_local_uses_all_retained_ollama_facts_without_runtime_options() -> None:
     assert isinstance(adapter, OllamaAdapter)
     assert (adapter.model, adapter.disable_thinking) == ("retained-model", True)
     assert retained_configuration_file().read_bytes() == before
+
+
+def test_runtime_config_does_not_inherit_retained_temperature(tmp_path: Path) -> None:
+    save_retained_configuration(
+        RetainedConfiguration(
+            local=RetainedLocalConfiguration(
+                runtime=LocalRuntimeCompositionValues(runtime="ollama", temperature=0.7)
+            )
+        )
+    )
+    config = tmp_path / "runtime.toml"
+    config.write_text('runtime = "ollama"\n', encoding="utf-8")
+
+    app = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(["--runtime-config", str(config)])
+    )
+    adapter = app.state.local_app_composition.adapter_registry.list_adapters()[0]
+
+    assert isinstance(adapter, OllamaAdapter)
+    assert adapter.temperature is None
+    assert load_retained_configuration().local is not None
+    assert load_retained_configuration().local.runtime.temperature == 0.7
 
 
 def test_local_retained_execution_limit_reaches_the_composed_interval_policy() -> None:

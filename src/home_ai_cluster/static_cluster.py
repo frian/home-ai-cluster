@@ -338,6 +338,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         if values.runtime == "vllm":
             composition_arguments["vllm_base_url"] = values.vllm_base_url
             composition_arguments["vllm_model"] = values.vllm_model
+        if values.temperature is not None:
+            composition_arguments["temperature"] = values.temperature
         if getattr(args, "retained_execution_limit", None) is not None:
             composition_arguments["execution_limit"] = args.retained_execution_limit
 

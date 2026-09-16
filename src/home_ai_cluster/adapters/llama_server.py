@@ -27,10 +27,12 @@ class LlamaServerAdapter:
         model: str,
         base_url: str = "http://localhost:8080",
         *,
+        temperature: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url
         self.model = model
+        self.temperature = temperature
         self._transport = transport
 
     @property
@@ -72,13 +74,16 @@ class LlamaServerAdapter:
                 timeout=None,
                 trust_env=False,
             ) as client:
+                payload: dict[str, object] = {
+                    "model": self.model,
+                    "messages": messages,
+                    "stream": False,
+                }
+                if self.temperature is not None:
+                    payload["temperature"] = self.temperature
                 response = await client.post(
                     "/v1/chat/completions",
-                    json={
-                        "model": self.model,
-                        "messages": messages,
-                        "stream": False,
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:
@@ -108,21 +113,24 @@ class LlamaServerAdapter:
                 timeout=None,
                 trust_env=False,
             ) as client:
+                payload: dict[str, object] = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": (
+                                "Summarize the following source text concisely.\n\n"
+                                f"<source>\n{request.text}\n</source>"
+                            ),
+                        }
+                    ],
+                    "stream": False,
+                }
+                if self.temperature is not None:
+                    payload["temperature"] = self.temperature
                 response = await client.post(
                     "/v1/chat/completions",
-                    json={
-                        "model": self.model,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": (
-                                    "Summarize the following source text concisely.\n\n"
-                                    f"<source>\n{request.text}\n</source>"
-                                ),
-                            }
-                        ],
-                        "stream": False,
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:

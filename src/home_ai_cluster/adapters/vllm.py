@@ -26,10 +26,12 @@ class VllmAdapter:
         *,
         base_url: str,
         model: str,
+        temperature: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url
         self.model = model
+        self.temperature = temperature
         self._transport = transport
 
     @property
@@ -64,7 +66,9 @@ class VllmAdapter:
             for message in request.messages
         ]
 
-        return await self._post_chat_completion({"messages": messages})
+        return await self._post_chat_completion(
+            {"messages": messages}, use_temperature=True
+        )
 
     async def summarize(self, request: SummarizeRequest) -> RuntimeResult:
         """Map bounded source text to vLLM's chat transport."""
@@ -79,7 +83,8 @@ class VllmAdapter:
                         ),
                     }
                 ]
-            }
+            },
+            use_temperature=True,
         )
 
     async def classify(self, request: ClassifyRequest) -> str:
@@ -97,17 +102,22 @@ class VllmAdapter:
                     }
                 ],
                 "structured_outputs": {"choice": list(request.labels)},
-            }
+            },
+            use_temperature=False,
         )
 
         return result.content
 
-    async def _post_chat_completion(self, payload: dict[str, object]) -> RuntimeResult:
+    async def _post_chat_completion(
+        self, payload: dict[str, object], *, use_temperature: bool
+    ) -> RuntimeResult:
         payload = {
             "model": self.model,
             **payload,
             "stream": False,
         }
+        if use_temperature and self.temperature is not None:
+            payload["temperature"] = self.temperature
 
         try:
             async with httpx.AsyncClient(

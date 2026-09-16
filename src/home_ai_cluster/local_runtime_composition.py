@@ -1,6 +1,7 @@
 """Concrete local compositions for the supported ordinary runtimes."""
 
 import argparse
+import math
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -39,6 +40,7 @@ class LocalRuntimeCompositionValues:
     llama_server_model: str | None = None
     vllm_base_url: str | None = None
     vllm_model: str | None = None
+    temperature: float | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,7 @@ class LocalCapabilityBindingValues:
     model: str | None = None
     base_url: str | None = None
     disable_thinking: bool = False
+    temperature: float | None = None
 
 
 @dataclass(frozen=True)
@@ -59,12 +62,14 @@ class MultiBindingRuntimeCompositionValues:
     bindings: tuple[LocalCapabilityBindingValues, ...]
 
 
-_RUNTIME_CONFIG_KEYS = frozenset({"runtime", "ollama", "llama_server", "vllm"})
+_RUNTIME_CONFIG_KEYS = frozenset(
+    {"runtime", "ollama", "llama_server", "vllm", "temperature"}
+)
 _OLLAMA_CONFIG_KEYS = frozenset({"model", "disable_thinking"})
 _LLAMA_SERVER_CONFIG_KEYS = frozenset({"base_url", "model"})
 _VLLM_CONFIG_KEYS = frozenset({"base_url", "model"})
 _BINDING_CONFIG_KEYS = frozenset(
-    {"capabilities", "runtime", "model", "base_url", "disable_thinking"}
+    {"capabilities", "runtime", "model", "base_url", "disable_thinking", "temperature"}
 )
 _EXPLICIT_RUNTIME_ARGUMENTS = "_explicit_runtime_composition_arguments"
 _RESOLVED_RUNTIME_VALUES = "_resolved_runtime_composition_values"
@@ -115,9 +120,46 @@ def non_empty_value(value: str) -> str:
     return value
 
 
+def temperature_value(value: str) -> float:
+    """Require one finite non-negative local sampling temperature."""
+    try:
+        parsed = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "temperature must be a finite non-negative number"
+        ) from error
+    if not math.isfinite(parsed) or parsed < 0:
+        raise argparse.ArgumentTypeError(
+            "temperature must be a finite non-negative number"
+        )
+    return parsed
+
+
+def validate_temperature(value: object) -> float | None:
+    """Validate the narrow RFC-0125 temperature domain."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise LocalRuntimeCompositionError(
+            "temperature must be a finite non-negative number"
+        )
+    parsed = float(value)
+    if not math.isfinite(parsed) or parsed < 0:
+        raise LocalRuntimeCompositionError(
+            "temperature must be a finite non-negative number"
+        )
+    return parsed
+
+
 def add_local_runtime_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the closed local runtime argument set to one ordinary parser."""
     parser.set_defaults(**{_EXPLICIT_RUNTIME_ARGUMENTS: frozenset()})
+    parser.add_argument(
+        "--temperature",
+        type=temperature_value,
+        action=_ExplicitRuntimeValueAction,
+        help="Finite non-negative local free-text sampling temperature.",
+    )
     parser.add_argument(
         "--runtime",
         choices=LOCAL_RUNTIMES,
@@ -253,7 +295,7 @@ def _load_multi_binding_runtime_config(
             raise LocalRuntimeCompositionError(
                 "runtime config binding runtime must be ollama, llama-server, or vllm"
             )
-        allowed_keys = {"capabilities", "runtime"}
+        allowed_keys = {"capabilities", "runtime", "temperature"}
         if runtime == "ollama":
             allowed_keys.update({"model", "disable_thinking"})
         else:
@@ -262,6 +304,13 @@ def _load_multi_binding_runtime_config(
             raise LocalRuntimeCompositionError(
                 "runtime config binding has keys for another runtime"
             )
+        try:
+            temperature = validate_temperature(raw_binding.get("temperature"))
+        except LocalRuntimeCompositionError as error:
+            raise LocalRuntimeCompositionError(
+                "runtime config binding temperature must be a finite non-negative "
+                "number"
+            ) from error
 
         if runtime == "ollama":
             model = (
@@ -280,6 +329,7 @@ def _load_multi_binding_runtime_config(
                     runtime=runtime,
                     model=model,
                     disable_thinking=disable_thinking,
+                    temperature=temperature,
                 )
             )
             continue
@@ -303,6 +353,7 @@ def _load_multi_binding_runtime_config(
                 runtime=runtime,
                 base_url=llama_base_url if runtime == "llama-server" else vllm_base_url,
                 model=model,
+                temperature=temperature,
             )
         )
     return MultiBindingRuntimeCompositionValues(bindings=tuple(bindings))
@@ -326,6 +377,12 @@ def load_local_runtime_config(
         raise LocalRuntimeCompositionError(
             "runtime config runtime must be ollama, llama-server, or vllm"
         )
+    try:
+        temperature = validate_temperature(document.get("temperature"))
+    except LocalRuntimeCompositionError as error:
+        raise LocalRuntimeCompositionError(
+            "runtime config temperature must be a finite non-negative number"
+        ) from error
 
     ollama = _config_table(document, "ollama")
     llama_server = _config_table(document, "llama_server")
@@ -338,7 +395,9 @@ def load_local_runtime_config(
         if vllm is not None:
             raise LocalRuntimeCompositionError("vllm table requires runtime vllm")
         if ollama is None:
-            return LocalRuntimeCompositionValues(runtime="ollama")
+            return LocalRuntimeCompositionValues(
+                runtime="ollama", temperature=temperature
+            )
         if ollama.keys() - _OLLAMA_CONFIG_KEYS:
             raise LocalRuntimeCompositionError("unknown ollama runtime config key")
         model = (
@@ -355,6 +414,7 @@ def load_local_runtime_config(
             runtime="ollama",
             ollama_model=model,
             ollama_disable_thinking=disable_thinking,
+            temperature=temperature,
         )
 
     if runtime == "llama-server":
@@ -386,6 +446,7 @@ def load_local_runtime_config(
             runtime="llama-server",
             llama_server_base_url=base_url,
             llama_server_model=model,
+            temperature=temperature,
         )
         assert normalized_base_url is not None
         return LocalRuntimeCompositionValues(
@@ -416,6 +477,7 @@ def load_local_runtime_config(
         llama_server_model=None,
         vllm_base_url=base_url,
         vllm_model=model,
+        temperature=temperature,
     )
     assert normalized_base_url is not None
     return LocalRuntimeCompositionValues(
@@ -456,6 +518,7 @@ def resolve_local_runtime_composition_values(
                 llama_server_model=args.llama_server_model,
                 vllm_base_url=args.vllm_base_url,
                 vllm_model=args.vllm_model,
+                temperature=args.temperature,
             )
         except LocalRuntimeCompositionError as error:
             parser.error(str(error))
@@ -467,6 +530,7 @@ def resolve_local_runtime_composition_values(
             llama_server_model=args.llama_server_model,
             vllm_base_url=vllm_base_url,
             vllm_model=args.vllm_model,
+            temperature=validate_temperature(args.temperature),
         )
     else:
         explicit_arguments = getattr(args, _EXPLICIT_RUNTIME_ARGUMENTS, frozenset())
@@ -482,6 +546,7 @@ def resolve_local_runtime_composition_values(
             llama_server_model = args.llama_server_model
             vllm_base_url = args.vllm_base_url
             vllm_model = args.vllm_model
+            temperature = args.temperature
         else:
             runtime = retained_values.runtime
             ollama_model = retained_values.ollama_model
@@ -490,6 +555,7 @@ def resolve_local_runtime_composition_values(
             llama_server_model = retained_values.llama_server_model
             vllm_base_url = retained_values.vllm_base_url
             vllm_model = retained_values.vllm_model
+            temperature = retained_values.temperature
             if "--ollama-model" in explicit_arguments:
                 ollama_model = args.ollama_model
             if "--ollama-disable-thinking" in explicit_arguments:
@@ -502,6 +568,8 @@ def resolve_local_runtime_composition_values(
                 vllm_base_url = args.vllm_base_url
             if "--vllm-model" in explicit_arguments:
                 vllm_model = args.vllm_model
+            if "--temperature" in explicit_arguments:
+                temperature = args.temperature
         try:
             llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
                 runtime=runtime,
@@ -511,6 +579,7 @@ def resolve_local_runtime_composition_values(
                 llama_server_model=llama_server_model,
                 vllm_base_url=vllm_base_url,
                 vllm_model=vllm_model,
+                temperature=temperature,
             )
         except LocalRuntimeCompositionError as error:
             parser.error(str(error))
@@ -522,6 +591,7 @@ def resolve_local_runtime_composition_values(
             llama_server_model=llama_server_model,
             vllm_base_url=normalized_vllm_base_url,
             vllm_model=vllm_model,
+            temperature=validate_temperature(temperature),
         )
     setattr(args, _RESOLVED_RUNTIME_VALUES, values)
     return values
@@ -536,12 +606,14 @@ def validate_local_runtime_values(
     vllm_model: str | None = None,
     ollama_model: str | None = None,
     ollama_disable_thinking: bool = False,
+    temperature: float | None = None,
 ) -> tuple[str | None, str | None]:
     """Validate local runtime values and normalize one runtime base URL."""
     if runtime not in LOCAL_RUNTIMES:
         raise LocalRuntimeCompositionError(
             "runtime must be ollama, llama-server, or vllm"
         )
+    validate_temperature(temperature)
 
     if runtime == "ollama":
         if ollama_model is not None and not ollama_model:
@@ -643,13 +715,15 @@ def create_ollama_local_app_composition(
     disable_thinking: bool = False,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
     execution_limit: int = 1,
+    temperature: float | None = None,
 ) -> LocalAppComposition:
     """Construct the ordinary local Ollama composition with existing defaults."""
-    adapter = (
-        OllamaAdapter(disable_thinking=disable_thinking)
-        if model is None
-        else OllamaAdapter(model=model, disable_thinking=disable_thinking)
-    )
+    adapter_arguments: dict[str, object] = {"disable_thinking": disable_thinking}
+    if model is not None:
+        adapter_arguments["model"] = model
+    if temperature is not None:
+        adapter_arguments["temperature"] = temperature
+    adapter = OllamaAdapter(**adapter_arguments)
     return _create_single_adapter_local_app_composition(
         adapter, capabilities, execution_limit
     )
@@ -661,9 +735,13 @@ def create_llama_server_local_app_composition(
     model: str,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
     execution_limit: int = 1,
+    temperature: float | None = None,
 ) -> LocalAppComposition:
     """Construct one ordinary local llama-server composition."""
-    adapter = LlamaServerAdapter(base_url=base_url, model=model)
+    adapter_arguments: dict[str, object] = {"base_url": base_url, "model": model}
+    if temperature is not None:
+        adapter_arguments["temperature"] = temperature
+    adapter = LlamaServerAdapter(**adapter_arguments)
     return _create_single_adapter_local_app_composition(
         adapter, capabilities, execution_limit
     )
@@ -675,9 +753,10 @@ def create_vllm_local_app_composition(
     model: str,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
     execution_limit: int = 1,
+    temperature: float | None = None,
 ) -> LocalAppComposition:
     """Construct one ordinary local vLLM composition."""
-    adapter = VllmAdapter(base_url=base_url, model=model)
+    adapter = VllmAdapter(base_url=base_url, model=model, temperature=temperature)
     return _create_single_adapter_local_app_composition(
         adapter, capabilities, execution_limit
     )
@@ -688,18 +767,28 @@ def _create_adapter_for_binding(
 ) -> OllamaAdapter | LlamaServerAdapter | VllmAdapter:
     if binding.runtime == "ollama":
         return (
-            OllamaAdapter(disable_thinking=binding.disable_thinking)
+            OllamaAdapter(
+                disable_thinking=binding.disable_thinking,
+                temperature=binding.temperature,
+            )
             if binding.model is None
             else OllamaAdapter(
                 model=binding.model,
                 disable_thinking=binding.disable_thinking,
+                temperature=binding.temperature,
             )
         )
     assert binding.base_url is not None
     assert binding.model is not None
     if binding.runtime == "llama-server":
-        return LlamaServerAdapter(base_url=binding.base_url, model=binding.model)
-    return VllmAdapter(base_url=binding.base_url, model=binding.model)
+        return LlamaServerAdapter(
+            base_url=binding.base_url,
+            model=binding.model,
+            temperature=binding.temperature,
+        )
+    return VllmAdapter(
+        base_url=binding.base_url, model=binding.model, temperature=binding.temperature
+    )
 
 
 def create_multi_binding_local_app_composition(
@@ -750,6 +839,7 @@ def create_local_runtime_composition(
     llama_server_model: str | None = None,
     vllm_base_url: str | None = None,
     vllm_model: str | None = None,
+    temperature: float | None = None,
     capabilities: Sequence[str] = LOCAL_RUNTIME_CAPABILITY_NAMES,
     execution_limit: int = 1,
 ) -> LocalAppComposition:
@@ -762,6 +852,7 @@ def create_local_runtime_composition(
         llama_server_model=llama_server_model,
         vllm_base_url=vllm_base_url,
         vllm_model=vllm_model,
+        temperature=temperature,
     )
 
     if runtime == "ollama":
@@ -770,6 +861,7 @@ def create_local_runtime_composition(
             disable_thinking=ollama_disable_thinking,
             capabilities=capabilities,
             execution_limit=execution_limit,
+            temperature=temperature,
         )
 
     if runtime == "llama-server":
@@ -780,6 +872,7 @@ def create_local_runtime_composition(
             model=llama_server_model,
             capabilities=capabilities,
             execution_limit=execution_limit,
+            temperature=temperature,
         )
 
     assert normalized_vllm_base_url is not None
@@ -789,4 +882,5 @@ def create_local_runtime_composition(
         model=vllm_model,
         capabilities=capabilities,
         execution_limit=execution_limit,
+        temperature=temperature,
     )

@@ -54,6 +54,44 @@ def test_load_runtime_config_accepts_minimal_ollama(tmp_path: Path) -> None:
     )
 
 
+def test_load_runtime_config_accepts_explicit_temperature(tmp_path: Path) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(tmp_path, 'runtime = "ollama"\ntemperature = 0\n')
+    )
+
+    assert values.temperature == 0
+
+
+def test_multi_binding_runtime_config_owns_one_temperature_per_binding(
+    tmp_path: Path,
+) -> None:
+    values = local_runtime_composition.load_local_runtime_config(
+        write_runtime_config(
+            tmp_path,
+            '[[bindings]]\ncapabilities = ["chat", "classify"]\n'
+            'runtime = "ollama"\ntemperature = 0.25\n',
+        )
+    )
+
+    assert isinstance(
+        values, local_runtime_composition.MultiBindingRuntimeCompositionValues
+    )
+    assert values.bindings[0].capabilities == ("chat", "classify")
+    assert values.bindings[0].temperature == 0.25
+
+
+@pytest.mark.parametrize("value", ["-1", '"bad"', "nan", "inf"])
+def test_load_runtime_config_rejects_invalid_temperature(
+    tmp_path: Path, value: str
+) -> None:
+    with pytest.raises(local_runtime_composition.LocalRuntimeCompositionError):
+        local_runtime_composition.load_local_runtime_config(
+            write_runtime_config(
+                tmp_path, f'runtime = "ollama"\ntemperature = {value}\n'
+            )
+        )
+
+
 def test_load_runtime_config_accepts_ollama_options(tmp_path: Path) -> None:
     values = local_runtime_composition.load_local_runtime_config(
         write_runtime_config(
@@ -182,6 +220,7 @@ def test_runtime_config_does_not_conflict_with_implicit_cli_defaults(
         ["--runtime", "ollama"],
         ["--ollama-model", "local-model"],
         ["--ollama-disable-thinking"],
+        ["--temperature", "0"],
         ["--llama-server-base-url", "http://127.0.0.1:8080"],
         ["--llama-server-model", "local-model"],
     ],

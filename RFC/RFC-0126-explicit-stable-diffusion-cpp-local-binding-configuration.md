@@ -1,6 +1,6 @@
 # RFC-0126: Explicit stable-diffusion.cpp Local Capability-Binding Configuration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-16
 

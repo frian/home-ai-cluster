@@ -35,7 +35,7 @@ and no CORS authority. These checks protect browser-origin and DNS-rebinding
 boundaries, not network-client identity. Plain HTTP remains suitable only when
 both reachable peers and the network path are trusted for this bounded use.
 
-This Draft proposes no authentication, TLS, credentials, configuration,
+This RFC adds no authentication, TLS, credentials, configuration,
 workspace, discovery, proxy process, persistence, or new routing semantics.
 
 ## Context
@@ -122,7 +122,7 @@ This RFC does not add or decide:
 
 ### One explicit authority, two owning launchers
 
-This Draft proposes one optional trusted-LAN browser capability authority.
+This RFC accepts one optional trusted-LAN browser capability authority.
 It is neither a widening of RFC-0062 native/loopback browser authority nor a
 widening of RFC-0109 receiver authority:
 
@@ -151,7 +151,7 @@ or routing policy.
 preserves caller-local capability permission, local and remote eligibility,
 ordered remote declarations, routing/fallback behavior, and execution-limit
 accounting. It creates no parallel router and does not reinterpret permission.
-In particular, this Draft does not make Image Generation static-routable. A
+In particular, this RFC does not make Image Generation static-routable. A
 fixed view with no eligible candidate may show ordinary honest safe failure.
 
 ### Capability-only browser surface
@@ -267,7 +267,7 @@ Ethernet.
 
 The operator-facing spelling should use simple symmetry with RFC-0111's
 explicit receiver activation rather than a new configuration framework. This
-Draft proposes `--lan-browser-host <ADDRESS>` on both launchers. It does not
+RFC accepts `--lan-browser-host <ADDRESS>` on both launchers. It does not
 retain listener configuration.
 
 An optional `--lan-browser-port <PORT>` may override the port and requires
@@ -381,7 +381,7 @@ routing semantics rather than create an arbitrary product split.
 
 ### Add authentication or TLS first
 
-Deferred. This Draft limits exposure to an explicitly activated,
+Deferred. This RFC limits exposure to an explicitly activated,
 capability-only surface and states its trusted-network limitations honestly. It
 does not claim stronger protection is unnecessary for future authority.
 
@@ -473,7 +473,7 @@ authority require separate architectural consideration.
 
 ## Decision
 
-This Draft proposes one optional trusted-LAN browser capability authority for
+This RFC accepts one optional trusted-LAN browser capability authority for
 both `hac local` and `hac static-cluster`. It shares each launcher's existing
 execution composition and routing truth while remaining a distinct, closed
 application authority from loopback/native browser and receiver authority. It

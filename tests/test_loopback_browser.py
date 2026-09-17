@@ -319,19 +319,20 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     )
 
 
-def test_browser_request_state_is_scoped_to_each_view() -> None:
+def test_browser_capability_request_state_is_shared_across_views() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert "let requestActive" not in script
-    assert 'querySelectorAll("[data-submit]")' not in script
+    assert "let capabilityRequestActive = false;" in script
     assert "const requestContexts = {" in script
     for view in ("chat", "summarize", "classify", "code"):
         assert f"{view}: createRequestContext(" in script
         assert f'id="{view}-error"' in html
         assert f'id="{view}-status"' in html
-    assert 'function setRequestActive(context, active, message = "")' in script
+    assert "const capabilityRequestContexts = [" in script
+    assert "capabilityRequestActive = active;" in script
+    assert "capabilityContext.submit.disabled = active;" in script
     assert "context.submit.disabled = active;" in script
     assert "function clearError(context)" in script
     assert "function showError(context, message)" in script
@@ -339,7 +340,7 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     post_handler = script.split(
         "async function post(context, path, body, activeMessage)", 1
     )[1].split("function renderChat()", 1)[0]
-    assert "if (context.active) return null;" in post_handler
+    assert "if (capabilityRequestActive || context.active) return null;" in post_handler
     assert "setRequestActive(context, true, activeMessage);" in post_handler
     assert "clearError(context);" in post_handler
     assert "showError(context," in post_handler
@@ -361,12 +362,12 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     }
     for view, handler in handlers.items():
         assert f"const context = requestContexts.{view};" in handler
-        assert "if (context.active) return;" in handler
+        assert "if (capabilityRequestActive) return;" in handler
 
-    assert handlers["chat"].index("if (context.active) return;") < handlers[
+    assert handlers["chat"].index("if (capabilityRequestActive) return;") < handlers[
         "chat"
     ].index("messages.push(pendingMessage);")
-    assert handlers["code"].index("if (context.active) return;") < handlers[
+    assert handlers["code"].index("if (capabilityRequestActive) return;") < handlers[
         "code"
     ].index("codeMessages.push(pendingMessage);")
     assert 'context.status.scrollIntoView({ block: "nearest" });' in handlers["chat"]

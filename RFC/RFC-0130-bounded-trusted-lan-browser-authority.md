@@ -1,6 +1,6 @@
 # RFC-0130: Bounded Trusted-LAN Browser Authority
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-17
 

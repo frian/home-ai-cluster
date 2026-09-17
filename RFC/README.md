@@ -67,6 +67,15 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0130: Bounded Trusted-LAN Browser Authority](RFC-0130-bounded-trusted-lan-browser-authority.md)
+  — accepts one optional explicit trusted-LAN browser capability authority for
+  `hac local` and `hac static-cluster`, sharing their existing execution/routing
+  truth while exposing a closed Chat, text-only Code, Image Generation,
+  Summarize, and Classify surface; Configuration and Workspace remain excluded,
+  exact Host/same-origin Origin preserve the bounded browser boundary, plain
+  HTTP retains its explicit trusted-peer/network-path model without auth/TLS,
+  and loopback and receiver authorities remain separate.
+
 - [RFC-0129: Bounded Loopback Browser Image Generation](RFC-0129-bounded-loopback-browser-image-generation.md)
   — accepts one bounded Image Generation request view in the existing fixed
   loopback browser application, reusing RFC-0127's unchanged same-origin

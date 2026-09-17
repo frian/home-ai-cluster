@@ -100,6 +100,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert '"/v1/chat"' in script
     assert 'post(context, "/v1/summarize"' in script
     assert 'post(context, "/v1/classify"' in script
+    assert 'fetch("/v1/image-generation", {' in script
     assert 'accept="application/pdf,.pdf" id="summarize-pdf" type="file"' in html
     assert "const pdfByteLimit = 8388608;" in script
     assert 'const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";' in script
@@ -262,7 +263,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'input[type="file"]::file-selector-button' in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
     assert 'tabindex="0"' in html
-    assert html.count('tabindex="-1"') == 4
+    assert html.count('tabindex="-1"') == 5
     assert "function activateTab(tab, focus = false)" in script
     assert 'event.key === "ArrowRight"' in script
     assert 'event.key === "ArrowLeft"' in script
@@ -330,7 +331,11 @@ def test_browser_capability_request_state_is_shared_across_views() -> None:
         assert f"{view}: createRequestContext(" in script
         assert f'id="{view}-error"' in html
         assert f'id="{view}-status"' in html
+    assert "imageGeneration: createRequestContext(" in script
+    assert 'id="image-generation-error"' in html
+    assert 'id="image-generation-status"' in html
     assert "const capabilityRequestContexts = [" in script
+    assert "requestContexts.imageGeneration," in script
     assert "capabilityRequestActive = active;" in script
     assert "capabilityContext.submit.disabled = active;" in script
     assert "context.submit.disabled = active;" in script
@@ -376,6 +381,68 @@ def test_browser_capability_request_state_is_shared_across_views() -> None:
     assert "showError(requestContexts.classify," in script
 
 
+def test_image_generation_view_projects_the_native_png_operation() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert html.count('id="image-generation-tab"') == 1
+    assert html.count('id="image-generation-view" role="tabpanel"') == 1
+    assert html.index('id="code-tab"') < html.index('id="image-generation-tab"')
+    assert html.index('id="image-generation-tab"') < html.index(
+        'id="configuration-tab"'
+    )
+    image_view = html.split('id="image-generation-view"', 1)[1].split(
+        'id="configuration-view"', 1
+    )[0]
+    assert image_view.count("<textarea") == 1
+    assert 'id="image-generation-instruction"' in image_view
+    assert image_view.count("data-submit") == 1
+    assert ">Generate</button>" in image_view
+    assert 'id="generated-image"' in image_view
+    assert 'id="image-generation-error"' in image_view
+    assert 'id="image-generation-status"' in image_view
+    for forbidden in (
+        "dimension",
+        "aspect",
+        "negative",
+        "seed",
+        "sampler",
+        "scheduler",
+        "quality",
+        "download",
+        "gallery",
+        "history",
+        'type="file"',
+    ):
+        assert forbidden not in image_view.lower()
+
+    handler = script.split("async function postImageGeneration", 1)[1].split(
+        'document.querySelector("#image-generation-form")', 1
+    )[0]
+    assert 'fetch("/v1/image-generation", {' in handler
+    assert 'method: "POST"' in handler
+    assert 'headers: { "Content-Type": "application/json" }' in handler
+    assert "body: JSON.stringify({ instruction })" in handler
+    assert "response.json()" not in handler
+    assert "response.blob()" in handler
+    assert "URL.createObjectURL" in handler
+    assert "URL.revokeObjectURL(currentImageUrl)" in handler
+    assert handler.index("URL.revokeObjectURL(currentImageUrl)") < handler.index(
+        "currentImageUrl = imageUrl"
+    )
+    assert "node_id" not in handler
+    assert "adapter" not in handler
+    assert "model" not in handler
+    assert "runtime" not in handler
+    assert script.count("let currentImageUrl = null;") == 1
+    assert "localStorage" not in handler
+    assert "sessionStorage" not in handler
+    assert "indexedDB" not in handler
+    assert ".result-section img" in stylesheet
+
+
 def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access() -> (
     None
 ):
@@ -384,12 +451,14 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert html.count('role="tab"') == 5
-    assert html.count('role="tabpanel"') == 5
+    assert html.count('role="tab"') == 6
+    assert html.count('role="tabpanel"') == 6
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html
-    code_view = html.split('id="code-view"', 1)[1].split("</main>", 1)[0]
+    code_view = html.split('id="code-view"', 1)[1].split(
+        'id="image-generation-view"', 1
+    )[0]
     code_section = code_view
     assert code_view.index('id="code-result-region"') < code_view.index(
         'id="code-form"'

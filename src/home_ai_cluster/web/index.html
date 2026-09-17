@@ -36,6 +36,7 @@
         <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" tabindex="-1" type="button">Summarize</button>
         <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" tabindex="-1" type="button">Classify</button>
         <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
+        <button aria-controls="image-generation-view" aria-selected="false" id="image-generation-tab" role="tab" tabindex="-1" type="button">Image Generation</button>
         <button aria-controls="configuration-view" aria-selected="false" id="configuration-tab" role="tab" tabindex="-1" type="button">Configuration</button>
       </nav>
 
@@ -103,6 +104,21 @@
         </form>
         <p aria-live="polite" class="error" id="code-error" role="status"></p>
         <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
+      </section>
+
+      <section aria-labelledby="image-generation-tab" class="capability-panel" hidden id="image-generation-view" role="tabpanel">
+        <header class="panel-heading"><h2>Image Generation</h2><p>Generate one image from an instruction.</p></header>
+        <form id="image-generation-form">
+          <label for="image-generation-instruction">Instruction</label>
+          <textarea id="image-generation-instruction" placeholder="Describe the image you want to generate…" required rows="6"></textarea>
+          <div class="form-actions"><button data-submit type="submit">Generate</button></div>
+        </form>
+        <p aria-live="polite" class="error" id="image-generation-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="image-generation-status" role="status"></p>
+        <section aria-labelledby="image-generation-result-heading" class="result-section" hidden id="image-generation-result-region">
+          <h3 id="image-generation-result-heading">Generated image</h3>
+          <img alt="Generated from the submitted instruction" id="generated-image">
+        </section>
       </section>
 
       <section aria-labelledby="configuration-tab" class="capability-panel" hidden id="configuration-view" role="tabpanel">

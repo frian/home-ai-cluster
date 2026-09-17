@@ -26,6 +26,7 @@ from home_ai_cluster.retained_configuration import (
     retained_configuration_file,
 )
 from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
+from home_ai_cluster.web.trusted_lan_browser import create_trusted_lan_browser_app
 
 LOCAL_RUNTIME_HOST = "127.0.0.1"
 LOCAL_RUNTIME_PORT = 25042
@@ -88,6 +89,8 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         type=int,
         help="Port on which to serve the HAC receiver.",
     )
+    parser.add_argument("--lan-browser-host")
+    parser.add_argument("--lan-browser-port", type=int)
     return parser
 
 
@@ -124,6 +127,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error("--receiver-host must be a concrete non-loopback IP address")
         if args.receiver_port is None:
             args.receiver_port = LOCAL_RUNTIME_PORT
+    if args.lan_browser_port is not None and args.lan_browser_host is None:
+        parser.error("--lan-browser-port requires --lan-browser-host")
+    if args.lan_browser_host is not None:
+        try:
+            lan_address = ipaddress.ip_address(args.lan_browser_host)
+        except ValueError:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if lan_address.is_loopback or lan_address.is_unspecified:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if args.lan_browser_port is None:
+            args.lan_browser_port = LOCAL_RUNTIME_PORT
     return args
 
 
@@ -194,9 +212,69 @@ async def _run_receiver_enabled_servers(
         signal.raise_signal(captured_signal)
 
 
+async def _run_lan_enabled_servers(
+    native_app: FastAPI, lan_app: FastAPI, args: argparse.Namespace
+) -> None:
+    native_server = _NativeServer(
+        uvicorn.Config(native_app, host=LOCAL_RUNTIME_HOST, port=args.port)
+    )
+    lan_server = _ReceiverServer(
+        uvicorn.Config(lan_app, host=args.lan_browser_host, port=args.lan_browser_port)
+    )
+    async with asyncio.TaskGroup() as task_group:
+        task_group.create_task(_serve_until_sibling_stops(native_server, lan_server))
+        task_group.create_task(_serve_until_sibling_stops(lan_server, native_server))
+    for captured_signal in reversed(native_server.pending_signals):
+        signal.raise_signal(captured_signal)
+
+
+async def _run_receiver_and_lan_servers(
+    native_app: FastAPI,
+    receiver_app: FastAPI,
+    lan_app: FastAPI,
+    args: argparse.Namespace,
+) -> None:
+    native_server = _NativeServer(
+        uvicorn.Config(native_app, host=LOCAL_RUNTIME_HOST, port=args.port)
+    )
+    receiver_server = _ReceiverServer(
+        uvicorn.Config(receiver_app, host=args.receiver_host, port=args.receiver_port)
+    )
+    lan_server = _ReceiverServer(
+        uvicorn.Config(lan_app, host=args.lan_browser_host, port=args.lan_browser_port)
+    )
+    async with asyncio.TaskGroup() as task_group:
+        task_group.create_task(
+            _serve_until_sibling_stops(native_server, receiver_server)
+        )
+        task_group.create_task(_serve_until_sibling_stops(receiver_server, lan_server))
+        task_group.create_task(_serve_until_sibling_stops(lan_server, native_server))
+    for captured_signal in reversed(native_server.pending_signals):
+        signal.raise_signal(captured_signal)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Run one ordinary local runtime composition on the selected address."""
     args = parse_args(argv)
+    if args.lan_browser_host is not None and args.receiver_host is not None:
+        native_app = create_local_runtime_app(args)
+        receiver_app = create_receiver_app(
+            local_app_composition=native_app.state.local_app_composition
+        )
+        lan_app = create_trusted_lan_browser_app(
+            native_app, host=args.lan_browser_host, port=args.lan_browser_port
+        )
+        asyncio.run(
+            _run_receiver_and_lan_servers(native_app, receiver_app, lan_app, args)
+        )
+        return
+    if args.lan_browser_host is not None and args.receiver_host is None:
+        native_app = create_local_runtime_app(args)
+        lan_app = create_trusted_lan_browser_app(
+            native_app, host=args.lan_browser_host, port=args.lan_browser_port
+        )
+        asyncio.run(_run_lan_enabled_servers(native_app, lan_app, args))
+        return
     if args.receiver_host is not None:
         native_app = create_local_runtime_app(args)
         receiver_app = create_receiver_app(

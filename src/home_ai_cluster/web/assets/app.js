@@ -18,6 +18,13 @@
     configuration: createRequestContext("#configuration-form", "#configuration-error", "#configuration-status"),
     remoteNodes: createRequestContext("#remote-node-form", "#remote-node-error", "#remote-node-status"),
   };
+  const capabilityRequestContexts = [
+    requestContexts.chat,
+    requestContexts.summarize,
+    requestContexts.classify,
+    requestContexts.code,
+  ];
+  let capabilityRequestActive = false;
 
   function createRequestContext(formSelector, errorSelector, statusSelector) {
     const form = document.querySelector(formSelector);
@@ -85,7 +92,14 @@
     context.active = active;
     context.status.dataset.active = String(active);
     context.status.textContent = active ? message : "";
-    context.submit.disabled = active;
+    if (capabilityRequestContexts.includes(context)) {
+      capabilityRequestActive = active;
+      capabilityRequestContexts.forEach((capabilityContext) => {
+        capabilityContext.submit.disabled = active;
+      });
+    } else {
+      context.submit.disabled = active;
+    }
   }
 
   function clearError(context) { context.error.textContent = ""; }
@@ -104,7 +118,7 @@
   }
 
   async function post(context, path, body, activeMessage) {
-    if (context.active) return null;
+    if (capabilityRequestActive || context.active) return null;
     setRequestActive(context, true, activeMessage);
     clearError(context);
     try {
@@ -470,7 +484,7 @@
   document.querySelector("#chat-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const context = requestContexts.chat;
-    if (context.active) return;
+    if (capabilityRequestActive) return;
     const input = document.querySelector("#chat-message");
     if (!input.value.trim()) return showError(context, "Message is required");
     const pendingMessage = { role: "user", content: input.value };
@@ -500,7 +514,7 @@
   document.querySelector("#code-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const context = requestContexts.code;
-    if (context.active) return;
+    if (capabilityRequestActive) return;
     renderWorkspaceActivity(null);
     const input = document.querySelector("#code-text");
     const pendingMessage = { role: "user", content: input.value };
@@ -617,7 +631,7 @@
   document.querySelector("#summarize-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const context = requestContexts.summarize;
-    if (context.active) return;
+    if (capabilityRequestActive) return;
     const text = document.querySelector("#summarize-text").value;
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit) {
       return showError(context, "Text must be non-blank and within the accepted limit");
@@ -679,7 +693,7 @@
   document.querySelector("#classify-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const context = requestContexts.classify;
-    if (context.active) return;
+    if (capabilityRequestActive) return;
     const text = document.querySelector("#classify-text").value;
     const labels = Array.from(document.querySelectorAll(".classify-label"), (input) => input.value);
     if (!text.trim() || new TextEncoder().encode(text).length > byteLimit || labels.length < 2) {

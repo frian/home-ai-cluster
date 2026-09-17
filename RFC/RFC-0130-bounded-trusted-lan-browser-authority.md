@@ -192,11 +192,25 @@ inherit future native or framework routes. A route is reachable through this
 authority only when this RFC or a later explicit architectural decision admits
 it.
 
-The first route domain contains only the fixed capability-only page, its fixed
-packaged assets, and operations needed for Chat, text-only Code, Image
-Generation, Summarize, and Classify. Fixed packaged browser assets may include
-the existing PDF.js assets needed for browser-local Summarize preprocessing.
-This authorizes no arbitrary filesystem static serving, directory listing,
+The first route domain is exactly:
+
+```text
+GET  /
+GET  fixed packaged assets required by the capability-only page
+
+POST /v1/chat
+     capability = chat | code only
+
+POST /v1/summarize
+POST /v1/classify
+POST /v1/image-generation
+```
+
+The fixed packaged asset set remains closed, but individual asset paths and
+filenames are implementation details. It may include existing PDF.js assets
+needed for browser-local Summarize preprocessing, a dedicated capability-only
+JavaScript asset, or other safe fixed assets required by the page. This
+authorizes no arbitrary filesystem static serving, directory listing,
 user-provided asset path, runtime file, generated-image URL, or media store.
 
 The following are structurally excluded at minimum:
@@ -424,9 +438,10 @@ A later implementation should prove at least that:
    creating another node, composition, router, or execution accounting scope;
 5. static-cluster requests preserve existing local/remote routing, permission,
    fallback, and declaration order;
-6. the route set is closed and excludes receiver, Configuration, Workspace,
-   caller-internal, framework, compatibility, inspection, and future unrelated
-   native routes;
+6. the LAN authority exposes exactly the positive execution route set in this
+   RFC, plus only its fixed page and required packaged assets, and excludes
+   receiver, Configuration, Workspace, caller-internal, framework,
+   compatibility, inspection, and future unrelated native routes;
 7. LAN `/v1/chat` accepts only `chat` and `code` capability values;
 8. Configuration and `/workspace-code` are structurally absent, and LAN Code is
    text-only;

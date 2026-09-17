@@ -443,6 +443,53 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
     assert ".result-section img" in stylesheet
 
 
+def test_browser_stylesheet_keeps_all_views_shrinkable_at_narrow_widths() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
+
+    assert "body {" in stylesheet
+    assert "min-width: 20rem" not in stylesheet
+    for selector in (
+        ".page {",
+        ".tabs {",
+        ".capability-panel {",
+        "form {",
+        "fieldset {",
+    ):
+        block = stylesheet.split(selector, 1)[1].split("}", 1)[0]
+        assert "min-width: 0" in block
+    controls = stylesheet.split("textarea, input {", 1)[1].split("}", 1)[0]
+    assert "max-width: 100%" in controls
+    assert "min-width: 0" in controls
+    assert "width: 100%" in controls
+    remote_node = stylesheet.split(".remote-node {", 1)[1].split("}", 1)[0]
+    assert "min-width: 0" in remote_node
+    assert "overflow-wrap: anywhere" in remote_node
+    assert ".conversation, .result" in stylesheet
+    assert ".message-content { overflow-wrap: anywhere;" in stylesheet
+    assert ".error, .request-status { overflow-wrap: anywhere; }" in stylesheet
+    assert (
+        ".result-section img { display: block; height: auto; max-width: 100%; }"
+        in stylesheet
+    )
+
+    narrow_layout = stylesheet.split("@media (max-width: 40rem)", 1)[1]
+    assert ".page-header { align-items: start; flex-direction: column;" in narrow_layout
+    assert (
+        ".tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }"
+        in narrow_layout
+    )
+    assert ".file-options, .label-row { grid-template-columns: 1fr; }" in narrow_layout
+    assert (
+        ".form-actions, .remote-node-actions { align-items: stretch; "
+        "flex-direction: column; }" in narrow_layout
+    )
+    assert (
+        ".remote-node-actions { display: flex; flex-wrap: wrap; gap: .5rem; }"
+        in stylesheet
+    )
+
+
 def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access() -> (
     None
 ):

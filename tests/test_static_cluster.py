@@ -273,6 +273,58 @@ def test_parse_args_normalizes_valid_remote_base_url() -> None:
     assert args.remote_base_url == "https://remote.example:8000"
 
 
+def test_parse_args_canonicalizes_lan_ipv6_and_retains_port_80() -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example",
+            "--lan-browser-host",
+            "2001:0db8:0:0:0:0:0:10",
+            "--lan-browser-port",
+            "80",
+        ]
+    )
+
+    assert args.lan_browser_host == "2001:db8::10"
+    assert args.lan_browser_port == 80
+
+
+@pytest.mark.parametrize("port", ["0", "-1", "65536"])
+def test_parse_args_rejects_invalid_lan_browser_port(port: str) -> None:
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--remote-node-id",
+                "operator-remote",
+                "--remote-base-url",
+                "https://remote.example",
+                "--lan-browser-host",
+                "192.0.2.10",
+                "--lan-browser-port",
+                port,
+            ]
+        )
+
+
+def test_parse_args_accepts_lan_browser_port_65535() -> None:
+    args = parse_args(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example",
+            "--lan-browser-host",
+            "192.0.2.10",
+            "--lan-browser-port",
+            "65535",
+        ]
+    )
+
+    assert args.lan_browser_port == 65535
+
+
 def test_remote_declaration_is_neutral_and_has_fixed_rfc_facts() -> None:
     declaration = create_remote_declaration("operator-remote", "https://remote.test")
 
@@ -471,6 +523,137 @@ def test_main_wraps_the_fixed_loopback_static_cluster_application(
         "host": STATIC_CLUSTER_HOST,
         "port": 25042,
     }
+
+
+def test_lan_main_shares_static_client_and_wiring_until_runner_completes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    class Client:
+        is_closed = False
+
+        def __init__(self) -> None:
+            self.close_calls = 0
+
+        async def aclose(self) -> None:
+            self.close_calls += 1
+            self.is_closed = True
+
+    client = Client()
+    lan_app = FastAPI()
+    received: dict[str, object] = {}
+    created_clients: list[Client] = []
+
+    create_static_app = static_cluster.create_static_cluster_app
+
+    def create_client() -> Client:
+        created_clients.append(client)
+        return client
+
+    def record_static_app(*args: object, **kwargs: object) -> FastAPI:
+        received["close_client"] = kwargs["close_client"]
+        return create_static_app(*args, **kwargs)
+
+    monkeypatch.setattr(
+        static_cluster, "create_static_cluster_http_client", create_client
+    )
+    monkeypatch.setattr(static_cluster, "create_static_cluster_app", record_static_app)
+    monkeypatch.setattr(
+        static_cluster,
+        "add_loopback_browser_routes",
+        lambda app: received.setdefault("api_app", app) and app,
+    )
+
+    def create_lan_app(app: FastAPI, *, host: str, port: int) -> FastAPI:
+        received.update(lan_source=app, lan_host=host, lan_port=port)
+        return lan_app
+
+    monkeypatch.setattr(
+        static_cluster, "create_trusted_lan_browser_app", create_lan_app
+    )
+
+    async def run_servers(native: FastAPI, lan: FastAPI, _: object) -> None:
+        assert native is received["api_app"]
+        assert lan is lan_app
+        assert native.state.static_cluster_http_client is client
+        assert not client.is_closed
+        received["runner_wiring"] = native.state.static_remote_wiring
+
+    monkeypatch.setattr(
+        "home_ai_cluster.local_runtime._run_lan_enabled_servers", run_servers
+    )
+
+    main(
+        [
+            "--remote-node-id",
+            "operator-remote",
+            "--remote-base-url",
+            "https://remote.example",
+            "--lan-browser-host",
+            "192.0.2.10",
+        ]
+    )
+
+    assert received["close_client"] is False
+    assert created_clients == [client]
+    assert received["lan_source"] is received["api_app"]
+    assert received["runner_wiring"] is received["api_app"].state.static_remote_wiring
+    assert client.close_calls == 1
+
+
+def test_lan_main_closes_static_client_after_runner_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    class Client:
+        def __init__(self) -> None:
+            self.close_calls = 0
+
+        async def aclose(self) -> None:
+            self.close_calls += 1
+
+    client = Client()
+    app = FastAPI()
+    failure = RuntimeError("runner failed")
+
+    monkeypatch.setattr(
+        static_cluster, "create_local_runtime_composition", lambda **_: object()
+    )
+
+    def create_static_app(*_args: object, **kwargs: object) -> FastAPI:
+        assert kwargs["close_client"] is False
+        app.state.static_cluster_http_client = client
+        return app
+
+    monkeypatch.setattr(static_cluster, "create_static_cluster_app", create_static_app)
+    monkeypatch.setattr(static_cluster, "add_loopback_browser_routes", lambda _: app)
+    monkeypatch.setattr(
+        static_cluster, "create_trusted_lan_browser_app", lambda *_args, **_kwargs: app
+    )
+
+    async def fail_runner(*_: object) -> None:
+        raise failure
+
+    monkeypatch.setattr(
+        "home_ai_cluster.local_runtime._run_lan_enabled_servers", fail_runner
+    )
+
+    with pytest.raises(RuntimeError) as raised:
+        main(
+            [
+                "--remote-node-id",
+                "operator-remote",
+                "--remote-base-url",
+                "https://remote.example",
+                "--lan-browser-host",
+                "192.0.2.10",
+            ]
+        )
+
+    assert raised.value is failure
+    assert client.close_calls == 1
 
 
 def test_reusable_static_cluster_factory_remains_page_free() -> None:

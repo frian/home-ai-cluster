@@ -35,6 +35,14 @@ async def _confirmed_client_disconnect_response(
     return _AbandonedRequestResponse()
 
 
+def install_common_exception_handlers(app: FastAPI) -> None:
+    """Install the bounded ordinary request containment handlers."""
+    app.add_exception_handler(RemoteTransportError, _remote_transport_error_response)
+    app.add_exception_handler(
+        ConfirmedClientDisconnect, _confirmed_client_disconnect_response
+    )
+
+
 def create_app(
     *,
     local_app_composition: LocalAppComposition | None = None,
@@ -43,10 +51,7 @@ def create_app(
     lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Home AI Cluster", lifespan=lifespan)
-    app.add_exception_handler(RemoteTransportError, _remote_transport_error_response)
-    app.add_exception_handler(
-        ConfirmedClientDisconnect, _confirmed_client_disconnect_response
-    )
+    install_common_exception_handlers(app)
     app.state.static_remote_wiring = static_remote_wiring
     app.state.static_remote_collection_wiring = static_remote_collection_wiring
     app.state.local_app_composition = local_app_composition
@@ -63,10 +68,7 @@ def create_receiver_app(*, local_app_composition: LocalAppComposition) -> FastAP
         redoc_url=None,
         openapi_url=None,
     )
-    app.add_exception_handler(RemoteTransportError, _remote_transport_error_response)
-    app.add_exception_handler(
-        ConfirmedClientDisconnect, _confirmed_client_disconnect_response
-    )
+    install_common_exception_handlers(app)
     app.state.local_app_composition = local_app_composition
     app.include_router(receiver_router)
     return app

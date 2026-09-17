@@ -1,0 +1,7 @@
+body { background: #f7f8fa; color: #18212f; font: 1rem system-ui, sans-serif; margin: 0; }
+main { margin: auto; max-width: 48rem; padding: 1rem; }
+section { background: white; border: 1px solid #ccd2db; margin: 1rem 0; padding: 1rem; }
+textarea, input { box-sizing: border-box; display: block; margin: .5rem 0; min-height: 3rem; width: 100%; }
+button { padding: .5rem .75rem; }
+img { height: auto; max-width: 100%; }
+@media (max-width: 40rem) { main { padding: .5rem; } }

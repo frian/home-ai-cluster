@@ -195,6 +195,7 @@ hac local
 hac local --host 127.0.0.1 --port 25042
 hac local --receiver-host <LAN_IP>
 hac local --receiver-host <LAN_IP> --receiver-port <PORT>
+hac local --lan-browser-host <LAN_IP> [--lan-browser-port <PORT>]
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
 hac local --runtime ollama --temperature 0
@@ -314,6 +315,14 @@ Classify preserves ordered labels and sends no multipart data or filename.
 Non-`127.0.0.1` generic `--host` values are rejected. LAN receiver activation
 uses `--receiver-host` and has no browser surface; the page is not a LAN browser
 interface, dashboard, operator console, or compatibility interface.
+
+`--lan-browser-host <LAN_IP>` additively serves the bounded RFC-0130 browser
+from one concrete non-loopback IP (default port `25042`; `--lan-browser-port`
+overrides it) for both `hac local` and `hac static-cluster`. It exposes only
+Chat, text-only Code, Image Generation, Summarize, and Classify; Configuration
+and Workspace remain loopback-only. It is plain HTTP: reachable peers and the
+network path must be trusted. Host and Origin checks protect browser authority,
+not client identity; this first boundary has no TLS or authentication.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 

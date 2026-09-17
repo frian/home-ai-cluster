@@ -1,6 +1,8 @@
 """Ordinary static local-plus-remote application process."""
 
 import argparse
+import asyncio
+import ipaddress
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -52,6 +54,7 @@ from home_ai_cluster.static_cluster_validation import (
     remote_node_id,
 )
 from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
+from home_ai_cluster.web.trusted_lan_browser import create_trusted_lan_browser_app
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 25042
@@ -91,6 +94,8 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         help="Inline remote capability; repeat as needed.",
     )
     add_local_runtime_arguments(parser)
+    parser.add_argument("--lan-browser-host")
+    parser.add_argument("--lan-browser-port", type=int)
     return parser
 
 
@@ -100,6 +105,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if argv in (["-h"], ["--help"]):
         parser.prog = "home-ai-cluster static-cluster"
     args = parser.parse_args(argv)
+
+    if args.lan_browser_port is not None and args.lan_browser_host is None:
+        parser.error("--lan-browser-port requires --lan-browser-host")
+    if args.lan_browser_host is not None:
+        try:
+            lan_address = ipaddress.ip_address(args.lan_browser_host)
+        except ValueError:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if lan_address.is_loopback or lan_address.is_unspecified:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if args.lan_browser_port is None:
+            args.lan_browser_port = STATIC_CLUSTER_PORT
+        elif not 1 <= args.lan_browser_port <= 65535:
+            parser.error("--lan-browser-port must be from 1 through 65535")
+        args.lan_browser_host = str(lan_address)
 
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
@@ -234,6 +258,7 @@ def create_static_cluster_app(
     local_app_composition: LocalAppComposition,
     routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
+    close_client: bool = True,
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
@@ -252,7 +277,7 @@ def create_static_cluster_app(
     app = create_app(
         local_app_composition=local_app_composition,
         static_remote_wiring=wiring,
-        lifespan=_create_lifespan(process_client),
+        lifespan=_create_lifespan(process_client) if close_client else None,
     )
     app.state.static_cluster_http_client = process_client
     return app
@@ -264,6 +289,7 @@ def create_static_cluster_collection_app(
     local_app_composition: LocalAppComposition,
     routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
+    close_client: bool = True,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
     process_client = client or create_static_cluster_http_client()
@@ -290,7 +316,7 @@ def create_static_cluster_collection_app(
     app = create_app(
         local_app_composition=local_app_composition,
         static_remote_collection_wiring=wiring,
-        lifespan=_create_lifespan(process_client),
+        lifespan=_create_lifespan(process_client) if close_client else None,
     )
     app.state.static_cluster_http_client = process_client
     return app
@@ -393,6 +419,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             else None
         )
         collection_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            collection_arguments["close_client"] = False
         if routing_node_registry is not None:
             collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
@@ -410,6 +438,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             else None
         )
         inline_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            inline_arguments["close_client"] = False
         if routing_node_registry is not None:
             inline_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_app(
@@ -429,6 +459,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             else None
         )
         collection_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            collection_arguments["close_client"] = False
         if routing_node_registry is not None:
             collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
@@ -436,8 +468,21 @@ def main(argv: Sequence[str] | None = None) -> None:
             **collection_arguments,
         )
 
-    uvicorn.run(
-        add_loopback_browser_routes(app),
-        host=STATIC_CLUSTER_HOST,
-        port=STATIC_CLUSTER_PORT,
-    )
+    native_app = add_loopback_browser_routes(app)
+    if args.lan_browser_host is not None:
+        from home_ai_cluster.local_runtime import _run_lan_enabled_servers
+
+        args.port = STATIC_CLUSTER_PORT
+        lan_app = create_trusted_lan_browser_app(
+            native_app, host=args.lan_browser_host, port=args.lan_browser_port
+        )
+
+        async def run_lan_servers() -> None:
+            try:
+                await _run_lan_enabled_servers(native_app, lan_app, args)
+            finally:
+                await app.state.static_cluster_http_client.aclose()
+
+        asyncio.run(run_lan_servers())
+        return
+    uvicorn.run(native_app, host=STATIC_CLUSTER_HOST, port=STATIC_CLUSTER_PORT)

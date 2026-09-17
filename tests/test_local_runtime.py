@@ -388,6 +388,22 @@ def test_parse_args_rejects_receiver_port_without_receiver_host() -> None:
         local_runtime.parse_args(["--receiver-port", "26000"])
 
 
+@pytest.mark.parametrize("port", ["0", "-1", "65536"])
+def test_parse_args_rejects_invalid_lan_browser_port(port: str) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(
+            ["--lan-browser-host", "192.0.2.10", "--lan-browser-port", port]
+        )
+
+
+def test_parse_args_canonicalizes_lan_browser_ipv6_and_port_80() -> None:
+    args = local_runtime.parse_args(
+        ["--lan-browser-host", "2001:0db8:0:0:0:0:0:10", "--lan-browser-port", "80"]
+    )
+    assert args.lan_browser_host == "2001:db8::10"
+    assert args.lan_browser_port == 80
+
+
 def test_create_local_runtime_app_passes_composition_to_create_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -969,6 +985,185 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
 
     assert len(created) == 2
     assert created[1].should_exit is True
+
+
+def test_receiver_and_lan_lifecycle_stops_all_three_servers() -> None:
+    created: list[object] = []
+    served: list[object] = []
+    completed: list[object] = []
+
+    class NativeServer:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            served.append(self)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    class ReceiverServer(NativeServer):
+        pass
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = NativeServer
+    local_runtime._NativeServer = NativeServer
+    local_runtime._ReceiverServer = ReceiverServer
+    try:
+
+        async def stop_receiver() -> None:
+            while len(served) != 3:
+                await asyncio.sleep(0)
+            created[1].should_exit = True
+
+        async def run() -> None:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(
+                    local_runtime._run_receiver_and_lan_servers(
+                        FastAPI(),
+                        FastAPI(),
+                        FastAPI(),
+                        argparse.Namespace(
+                            port=25042,
+                            receiver_host="192.0.2.10",
+                            receiver_port=25043,
+                            lan_browser_host="2001:db8::10",
+                            lan_browser_port=25044,
+                        ),
+                    )
+                )
+                group.create_task(stop_receiver())
+
+        asyncio.run(run())
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 3
+    assert served == created
+    assert set(completed) == set(created)
+    assert all(server.should_exit for server in created)
+    assert [(server.config.host, server.config.port) for server in created] == [
+        ("127.0.0.1", 25042),
+        ("192.0.2.10", 25043),
+        ("2001:db8::10", 25044),
+    ]
+    assert type(created[0]) is NativeServer
+    assert all(type(server) is ReceiverServer for server in created[1:])
+
+
+def test_receiver_and_lan_lifecycle_stops_siblings_after_server_failure() -> None:
+    created: list[object] = []
+
+    class Server:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise RuntimeError("startup failed")
+            while not self.should_exit:
+                await asyncio.sleep(0)
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
+    local_runtime._ReceiverServer = Server
+    try:
+        with pytest.raises(ExceptionGroup):
+            asyncio.run(
+                local_runtime._run_receiver_and_lan_servers(
+                    FastAPI(),
+                    FastAPI(),
+                    FastAPI(),
+                    argparse.Namespace(
+                        port=25042,
+                        receiver_host="192.0.2.10",
+                        receiver_port=25043,
+                        lan_browser_host="192.0.2.11",
+                        lan_browser_port=25044,
+                    ),
+                )
+            )
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 3
+    assert created[0].should_exit is True
+    assert created[2].should_exit is True
+
+
+def test_lan_enabled_lifecycle_stops_both_servers_with_native_signal_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    served: list[object] = []
+    completed: list[object] = []
+
+    class NativeServer:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            served.append(self)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    class LanServer(NativeServer):
+        pass
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", NativeServer)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", LanServer)
+
+    async def stop_lan() -> None:
+        while len(served) != 2:
+            await asyncio.sleep(0)
+        created[1].should_exit = True
+
+    async def run() -> None:
+        async with asyncio.TaskGroup() as group:
+            group.create_task(
+                local_runtime._run_lan_enabled_servers(
+                    FastAPI(),
+                    FastAPI(),
+                    argparse.Namespace(
+                        port=25042,
+                        lan_browser_host="192.0.2.10",
+                        lan_browser_port=25043,
+                    ),
+                )
+            )
+            group.create_task(stop_lan())
+
+    asyncio.run(run())
+
+    assert len(created) == 2
+    assert served == created
+    assert set(completed) == set(created)
+    assert all(server.should_exit for server in created)
+    assert [(server.config.host, server.config.port) for server in created] == [
+        ("127.0.0.1", 25042),
+        ("192.0.2.10", 25043),
+    ]
+    assert isinstance(created[0], NativeServer)
+    assert type(created[1]) is LanServer
 
 
 def test_receiver_enabled_lifecycle_uses_one_signal_owner(

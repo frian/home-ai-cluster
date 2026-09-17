@@ -471,3 +471,36 @@ the exact requested geometry.
 None for this bounded decision. Future proposals may consider additional Image
 Generation semantics only with separate evidence and an RFC; they must not be
 inferred from this exact geometry pair.
+
+## Decision
+
+This Draft proposes that normalized `ImageGenerationRequest` gains optional
+first-class `width` and `height` fields. They are both absent or both present;
+exactly one is invalid. When present, both are integers, with booleans excluded
+from integer validity, and each lies in the inclusive `64..2048` range.
+
+Present width and height are exact semantic output requirements, not hints or
+preferences. A successful normalized PNG must have IHDR width and height
+exactly equal to the requested pair. HAC core owns this request-relative exact
+geometry verification; adapter/runtime claims do not substitute for it. HAC
+must not silently round, clamp, resize, crop, pad, scale, substitute an aspect
+ratio, or fall back to another geometry. When both fields are absent, HAC
+expresses no explicit geometry requirement and existing runtime/native
+configured defaults remain unchanged.
+
+Adapters privately project present semantic dimensions into their
+runtime-native mechanisms. Instruction-only requests must not gain explicit
+native dimensions merely to reproduce current runtime defaults. The same
+optional pair is added to the existing native `POST /v1/image-generation`
+request, `hac image-generation --width <PIXELS> --height <PIXELS>`, loopback
+browser Image Generation, and trusted-LAN browser Image Generation surfaces.
+
+This adds no route, capability, response representation, browser authority,
+filesystem authority, persistence, retained configuration, runtime/model
+discovery, negotiation, or generic generation-options abstraction. Remote
+Image Generation, receiver Image Generation, static remote Image Generation
+declarations, and Image Generation remote transport remain unauthorized.
+Existing static caller-local Image Generation permission behavior is unchanged.
+The normalized PNG representation and RFC-0120/RFC-0122 global image bounds
+also remain unchanged. The Proposal and Rationale sections define the detailed
+application of this decision.

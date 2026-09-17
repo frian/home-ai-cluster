@@ -138,6 +138,8 @@ This RFC does not add or define:
 - LAN, Wi-Fi, remote, authenticated, or non-loopback browser access;
 - CORS, proxying, a second browser process, frontend framework, Node.js,
   package manager, bundler, or build pipeline;
+- simultaneous active requests across browser capability views, or any change
+  to RFC-0062's existing browser-wide one-ordinary-request-at-a-time boundary;
 - changes to existing browser Chat, Code, Summarize, Classify, workspace,
   configuration, or theme semantics; or
 - remote/receiver Image Generation or transport changes.
@@ -248,10 +250,14 @@ current successful image.
 
 ### Request activity and cancellation
 
-The Image Generation view participates in the existing browser request-activity
-boundary. It adds no background generation, polling, automatic retry, parallel
-candidate generation, queue, job object, progress protocol, or cancellation
-button.
+RFC-0062's existing browser-wide one-ordinary-request-at-a-time boundary
+remains unchanged. The Image Generation view participates in that same
+boundary; this RFC does not authorize simultaneous active requests across
+capability views. Any future change to that concurrency boundary requires a
+separate architectural decision.
+
+It adds no background generation, polling, automatic retry, parallel candidate
+generation, queue, job object, progress protocol, or cancellation button.
 
 RFC-0127 already adds `POST /v1/image-generation` to RFC-0082 confirmed-client-
 disconnect cancellation. Navigation, page close, or another genuine browser
@@ -351,22 +357,25 @@ A later implementation must prove at least that:
 1. the loopback browser exposes one Image Generation request view;
 2. one submitted instruction produces exactly one same-origin
    `POST /v1/image-generation` request using the existing closed JSON shape;
-3. one successful `image/png` response is displayed without a browser-specific
+3. the implementation neither introduces nor relies on simultaneous active
+   browser capability requests and preserves RFC-0062's existing browser-wide
+   one-ordinary-request-at-a-time boundary;
+4. one successful `image/png` response is displayed without a browser-specific
    server endpoint, JSON/base64 response, multipart body, result URL, temporary
    server file, or generic media abstraction;
-4. browser state retains at most one current successful image and page reload
+5. browser state retains at most one current successful image and page reload
    clears it;
-5. safe failure rendering does not expose raw runtime/transport details or
+6. safe failure rendering does not expose raw runtime/transport details or
    create retained image state;
-6. no `node_id`, adapter, model, runtime, or invented metadata envelope is added
+7. no `node_id`, adapter, model, runtime, or invented metadata envelope is added
    to the raw-PNG native projection;
-7. existing RFC-0082 behavior remains applicable without adding jobs, polling,
+8. existing RFC-0082 behavior remains applicable without adding jobs, polling,
    retry, or runtime-termination promises;
-8. the API-only application and receiver/LAN compositions still expose no
+9. the API-only application and receiver/LAN compositions still expose no
    browser page or assets;
-9. static-cluster browser submission does not bypass unchanged RFC-0059 caller-
+10. static-cluster browser submission does not bypass unchanged RFC-0059 caller-
    local permission and does not gain remote Image Generation;
-10. no dimensions, generation controls, image input/editing, gallery/history,
+11. no dimensions, generation controls, image input/editing, gallery/history,
     filesystem authority, Image Generation browser configuration, LAN browser
     access, CORS, proxy, frontend framework, dependency, or persistence surface
     is introduced.

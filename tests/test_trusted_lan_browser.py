@@ -1,4 +1,5 @@
 import asyncio
+from importlib.resources import files
 
 import httpx
 
@@ -23,22 +24,36 @@ def test_trusted_lan_browser_has_only_closed_routes_and_requires_host():
         local_app_composition=create_local_runtime_composition(runtime="ollama")
     )
     app = create_trusted_lan_browser_app(owner, host="192.0.2.10", port=25042)
-    routes = {route.path for route in app.routes}
+    routes = {route.path: set(route.methods or ()) for route in app.routes}
 
     assert routes == {
-        "/",
-        "/assets/lan.css",
-        "/assets/lan.js",
-        "/v1/chat",
-        "/v1/summarize",
-        "/v1/classify",
-        "/v1/image-generation",
+        "/": {"GET"},
+        "/assets/lan.css": {"GET"},
+        "/assets/lan.js": {"GET"},
+        "/v1/chat": {"POST"},
+        "/v1/summarize": {"POST"},
+        "/v1/classify": {"POST"},
+        "/v1/image-generation": {"POST"},
     }
     assert request(app, "GET", "/").status_code == 400
     headers = {"host": "192.0.2.10:25042"}
     assert request(app, "GET", "/", headers=headers).status_code == 200
-    assert request(app, "GET", "/workspace-code", headers=headers).status_code == 404
-    assert request(app, "GET", "/docs", headers=headers).status_code == 404
+    for path in (
+        "/workspace-code",
+        "/retained-local-configuration",
+        "/retained-remote-nodes",
+        "/v1/chat/sources",
+        "/internal/chat/external-information-decision",
+        "/internal/cluster/request",
+        "/internal/cluster/status",
+        "/docs",
+        "/redoc",
+        "/openapi.json",
+    ):
+        assert request(app, "GET", path, headers=headers).status_code == 404
+    assert request(app, "GET", "/assets/lan.css", headers=headers).status_code == 200
+    assert request(app, "GET", "/assets/lan.js", headers=headers).status_code == 200
+    assert request(app, "GET", "/assets/lan.css").status_code == 400
 
 
 def test_trusted_lan_chat_rejects_non_chat_or_code_before_execution():
@@ -68,3 +83,24 @@ def test_trusted_lan_chat_rejects_non_chat_or_code_before_execution():
         ).status_code
         == 403
     )
+
+
+def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("lan.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "lan.js").read_text(encoding="utf-8")
+
+    assert "const conversations = { chat: [], code: [] };" in script
+    assert "let capabilityRequestActive = false;" in script
+    assert "capabilityRequestActive = true;" in script
+    assert script.index("capabilityRequestActive = true;") < script.index(
+        "const answer = await response.json();"
+    )
+    assert script.index("currentImageUrl = URL.createObjectURL") < script.rindex(
+        "capabilityRequestActive = false;"
+    )
+    assert "URL.revokeObjectURL(currentImageUrl)" in script
+    assert "localStorage" not in script
+    assert "sessionStorage" not in script
+    assert "Configuration" not in html
+    assert "workspace" not in html.lower()

@@ -1,6 +1,6 @@
 # RFC-0131: Bounded Image Generation Dimensions
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-17
 

@@ -15,6 +15,7 @@
     summarize: createRequestContext("#summarize-form", "#summarize-error", "#summarize-status"),
     classify: createRequestContext("#classify-form", "#classify-error", "#classify-status"),
     code: createRequestContext("#code-form", "#code-error", "#code-status"),
+    imageGeneration: createRequestContext("#image-generation-form", "#image-generation-error", "#image-generation-status"),
     configuration: createRequestContext("#configuration-form", "#configuration-error", "#configuration-status"),
     remoteNodes: createRequestContext("#remote-node-form", "#remote-node-error", "#remote-node-status"),
   };
@@ -23,6 +24,7 @@
     requestContexts.summarize,
     requestContexts.classify,
     requestContexts.code,
+    requestContexts.imageGeneration,
   ];
   let capabilityRequestActive = false;
 
@@ -480,6 +482,43 @@
     attribution.textContent = `Handled by node ${nodeId}`;
     container.append(value, attribution);
   }
+
+  let currentImageUrl = null;
+
+  async function postImageGeneration(context, instruction) {
+    if (capabilityRequestActive || context.active) return;
+    setRequestActive(context, true, "Generating image…");
+    clearError(context);
+    try {
+      const response = await fetch("/v1/image-generation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction }),
+      });
+      if (!response.ok) {
+        showError(context, await safeFailure(response));
+        return;
+      }
+      const imageUrl = URL.createObjectURL(await response.blob());
+      if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+      currentImageUrl = imageUrl;
+      document.querySelector("#generated-image").src = currentImageUrl;
+      document.querySelector("#image-generation-result-region").hidden = false;
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  }
+
+  document.querySelector("#image-generation-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.imageGeneration;
+    if (capabilityRequestActive) return;
+    const instruction = document.querySelector("#image-generation-instruction").value;
+    if (!instruction.trim()) return showError(context, "Instruction is required");
+    await postImageGeneration(context, instruction);
+  });
 
   document.querySelector("#chat-form").addEventListener("submit", async (event) => {
     event.preventDefault();

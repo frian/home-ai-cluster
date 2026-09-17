@@ -29,8 +29,6 @@ def test_trusted_lan_browser_has_only_closed_routes_and_requires_host():
         "/",
         "/assets/lan.css",
         "/assets/lan.js",
-        "/assets/pdfjs-6.2.108/pdf.min.mjs",
-        "/assets/pdfjs-6.2.108/pdf.worker.min.mjs",
         "/v1/chat",
         "/v1/summarize",
         "/v1/classify",

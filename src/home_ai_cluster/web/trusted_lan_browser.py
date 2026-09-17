@@ -5,9 +5,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
-from home_ai_cluster.api.routes import (
-    ChatRequest,
-)
+from home_ai_cluster.api.routes import ChatRequest
 from home_ai_cluster.api.routes import (
     chat as native_chat,
 )
@@ -20,20 +18,13 @@ from home_ai_cluster.api.routes import (
 from home_ai_cluster.api.routes import (
     summarize as native_summarize,
 )
+from home_ai_cluster.main import install_common_exception_handlers
 
 _WEB_DIRECTORY = Path(__file__).parent
 _CACHE_HEADERS = {"Cache-Control": "no-store"}
 _ASSETS = {
     "/assets/lan.css": ("assets/lan.css", "text/css"),
     "/assets/lan.js": ("assets/lan.js", "application/javascript"),
-    "/assets/pdfjs-6.2.108/pdf.min.mjs": (
-        "assets/pdfjs-6.2.108/pdf.min.mjs",
-        "application/javascript",
-    ),
-    "/assets/pdfjs-6.2.108/pdf.worker.min.mjs": (
-        "assets/pdfjs-6.2.108/pdf.worker.min.mjs",
-        "application/javascript",
-    ),
 }
 
 
@@ -58,6 +49,7 @@ def create_trusted_lan_browser_app(owner: FastAPI, *, host: str, port: int) -> F
         redoc_url=None,
         openapi_url=None,
     )
+    install_common_exception_handlers(app)
     app.state.trusted_lan_authority = _authority(host, port)
     app.state.local_app_composition = owner.state.local_app_composition
     app.state.static_remote_wiring = owner.state.static_remote_wiring

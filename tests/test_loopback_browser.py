@@ -462,6 +462,9 @@ def test_browser_stylesheet_keeps_all_views_shrinkable_at_narrow_widths() -> Non
     assert "max-width: 100%" in controls
     assert "min-width: 0" in controls
     assert "width: 100%" in controls
+    remote_node = stylesheet.split(".remote-node {", 1)[1].split("}", 1)[0]
+    assert "min-width: 0" in remote_node
+    assert "overflow-wrap: anywhere" in remote_node
     assert ".conversation, .result" in stylesheet
     assert ".message-content { overflow-wrap: anywhere;" in stylesheet
     assert ".error, .request-status { overflow-wrap: anywhere; }" in stylesheet

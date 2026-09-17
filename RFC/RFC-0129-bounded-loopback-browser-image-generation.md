@@ -1,6 +1,6 @@
 # RFC-0129: Bounded Loopback Browser Image Generation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-17
 
@@ -451,4 +451,15 @@ their existing architectural boundaries.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts one bounded Image Generation request view in the
+existing fixed loopback browser application. It reuses the unchanged RFC-0127
+same-origin `POST /v1/image-generation` operation, accepts only the existing
+bounded textual instruction, displays the unchanged successful raw `image/png`
+result, and retains at most one current successful image in ephemeral current-
+page state. It preserves RFC-0062's browser-wide one-ordinary-request-at-a-time
+boundary, loopback-only and same-origin browser composition, RFC-0059 static
+caller-local permission and honest no-capability behavior, and RFC-0082
+disconnect cancellation. It adds no dimensions, generation controls,
+gallery/history, persistence, filesystem authority, browser Image Generation
+configuration, remote Image Generation, generic media abstraction, responsive
+redesign, or LAN/non-loopback browser access.

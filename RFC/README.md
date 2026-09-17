@@ -67,6 +67,11 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0129: Bounded Loopback Browser Image Generation](RFC-0129-bounded-loopback-browser-image-generation.md)
+  — accepts one bounded Image Generation request view in the existing fixed
+  loopback browser application, reusing RFC-0127's unchanged same-origin
+  operation and raw `image/png` result with one ephemeral current image.
+
 - [RFC-0128: Retained Local Image Generation Companion Composition](RFC-0128-retained-local-image-generation-companion-composition.md)
   — accepts one optional HAC-managed retained local Image Generation companion
   with fixed stable-diffusion.cpp composition, separately configured from the

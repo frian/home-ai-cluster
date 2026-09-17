@@ -41,11 +41,12 @@ When dimensions are absent, existing instruction-only semantics remain
 unchanged: HAC expresses no caller-selected geometry requirement and an
 adapter/runtime may use its existing configured or native default dimensions.
 
-This RFC changes no capability, routing, transport, result representation,
-runtime selection, retained configuration, filesystem authority, or image
-product surface. It authorizes a later implementation to project a present
-semantic pair into the private adapter-native mechanism appropriate to an
-eligible runtime.
+This RFC adds the same optional paired geometry request vocabulary to existing
+Image Generation caller surfaces. It creates no new capability, route, result
+representation, routing, transport, runtime selection, retained configuration,
+filesystem authority, or browser authority. It authorizes a later
+implementation to project a present semantic pair into the private
+adapter-native mechanism appropriate to an eligible runtime.
 
 ## Context
 
@@ -288,7 +289,7 @@ POST /v1/image-generation
     success: unchanged raw image/png
 
 hac image-generation
-    existing instruction plus explicit optional paired dimensions
+    existing instruction plus --width <PIXELS> --height <PIXELS>
     success: unchanged exact PNG bytes on non-TTY stdout
 
 loopback and trusted-LAN Image Generation views
@@ -298,8 +299,39 @@ loopback and trusted-LAN Image Generation views
 
 Those projections must use the same core request validation. They do not add
 new routes, response envelopes, result metadata, output paths, browser
-authority, persistence, or filesystem authority. Exact CLI option spelling and
-browser controls are implementation details within this normalized contract.
+authority, persistence, or filesystem authority.
+
+### Bounded CLI geometry surface
+
+RFC-0127's existing operator command gains exactly these optional CLI options:
+
+```text
+hac image-generation ... --width <PIXELS> --height <PIXELS>
+```
+
+`--width` and `--height` are the RFC-owned operator-facing names. Their
+complete CLI rule is:
+
+```text
+neither supplied
+    -> existing instruction-only behavior
+
+both supplied
+    -> exact geometry request
+
+only one supplied
+    -> local CLI validation failure
+
+either outside 64..2048
+    -> local CLI validation failure
+```
+
+The command preserves RFC-0127's existing instruction grammar, timeout
+behavior, raw PNG success on stdout, non-TTY stdout requirement, stderr
+activity/failure behavior, and absence of filesystem output. It does not add
+`--size`, aspect ratio, presets, output format, output path, seed, sampler,
+steps, CFG, style, or other generation controls. Exact Python parser mechanics
+remain implementation details.
 
 ## Rationale
 
@@ -374,6 +406,48 @@ The lower bound intentionally excludes small but globally valid PNGs from
 caller-selected geometry. This is a deliberate product limit and can be
 revisited only by a later architectural decision.
 
+## Proof expectations
+
+A later implementation should prove the following focused boundary behavior;
+these are proof expectations, not a requirement to add redundant tests merely
+for completeness:
+
+1. Instruction-only normalized requests remain valid and behavior-compatible.
+2. Width and height are both absent or both present, and present values are
+   integers within `64..2048`.
+3. Strings, booleans, fractional values, partial pairs, and unknown request
+   fields remain invalid where applicable.
+4. An explicit exact geometry requirement survives the semantic request path
+   into the eligible adapter.
+5. The stable-diffusion.cpp projection sends native width and height only when
+   explicitly requested, while instruction-only requests retain current native
+   defaults and do not invent explicit dimensions.
+6. HAC core accepts an otherwise-valid normalized PNG whose IHDR exactly
+   matches the requested pair, and rejects both a width mismatch and a height
+   mismatch.
+7. Native `POST /v1/image-generation` accepts both the existing
+   instruction-only form and the exact instruction-plus-width-plus-height form;
+   it rejects a partial pair, invalid range/type, and extra fields before
+   execution, and its success remains exact raw `image/png`.
+8. The CLI accepts neither-or-both geometry options, rejects a partial or
+   invalid pair locally, and preserves existing raw-PNG stdout behavior.
+9. The loopback browser sends no geometry fields when both controls are blank,
+   sends both exact integer fields when both are present, and rejects a partial
+   or invalid pair locally.
+10. The trusted-LAN browser preserves the same optional-pair semantics without
+    widening its closed route, Host, Origin, media-type, Configuration,
+    Workspace, or receiver boundaries.
+11. Browser-wide one-capability-request-at-a-time behavior and current-image
+    replacement/Object URL revocation remain intact.
+12. Static caller-local Image Generation permission behavior remains unchanged.
+13. Image Generation remains absent from remote transport and receiver
+    execution.
+14. No runtime/model/configuration/discovery/output-format/filesystem authority
+    is introduced.
+
+Physical image-generation proof may be useful later but is not required to
+accept this RFC.
+
 ## Compatibility and impact
 
 Instruction-only `ImageGenerationRequest` construction remains valid and
@@ -385,12 +459,8 @@ loopback/trusted-LAN browser authority remain unchanged.
 A later implementation affects the request validators in the core model; core
 PNG validation and Image Generation orchestration; private adapter projection;
 the closed native HTTP request body; the one-shot CLI; and both fixed browser
-forms/JavaScript. It should add focused validation and cross-edge tests for:
-
-* neither dimension present, both present, and exactly one present;
-* integer and inclusive `64..2048` validation;
-* exact IHDR match, width mismatch, and height mismatch; and
-* absent dimensions retaining default-geometry behavior.
+forms/JavaScript. The focused proof expectations above apply across those
+affected seams.
 
 No migration is required for instruction-only clients. Clients that choose the
 new pair must handle ordinary safe failure when no eligible adapter can return

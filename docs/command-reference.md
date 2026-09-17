@@ -303,7 +303,7 @@ model = "served-model"
 
 The native authority is fixed to exact `127.0.0.1`; open
 `http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
-Chat, Summarize, Classify, Code, and Image Generation. The page keeps Chat only in memory, shows
+Chat, Code, Image Generation, Summarize, and Classify. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
 request is running. The browser permits at most one active capability request at
 a time; the selected node or runtime may still queue its execution. One explicitly

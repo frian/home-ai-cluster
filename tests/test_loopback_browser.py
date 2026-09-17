@@ -169,7 +169,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
     assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
-    chat_view = html.split('id="chat-view"', 1)[1].split('id="summarize-view"', 1)[0]
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
     assert chat_view.index('id="chat-result-region"') < chat_view.index(
         'id="chat-form"'
     )
@@ -394,7 +394,7 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
         'id="configuration-tab"'
     )
     image_view = html.split('id="image-generation-view"', 1)[1].split(
-        'id="configuration-view"', 1
+        'id="summarize-view"', 1
     )[0]
     assert image_view.count("<textarea") == 1
     assert 'id="image-generation-instruction"' in image_view
@@ -441,6 +441,36 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
     assert "sessionStorage" not in handler
     assert "indexedDB" not in handler
     assert ".result-section img" in stylesheet
+
+
+def test_browser_tab_and_panel_source_order_is_operator_facing_order() -> None:
+    html = (
+        files("home_ai_cluster")
+        .joinpath("web", "index.html")
+        .read_text(encoding="utf-8")
+    )
+
+    tab_ids = [
+        "chat-tab",
+        "code-tab",
+        "image-generation-tab",
+        "summarize-tab",
+        "classify-tab",
+        "configuration-tab",
+    ]
+    panel_ids = [
+        "chat-view",
+        "code-view",
+        "image-generation-view",
+        "summarize-view",
+        "classify-view",
+        "configuration-view",
+    ]
+
+    assert tab_ids == sorted(tab_ids, key=lambda tab_id: html.index(f'id="{tab_id}"'))
+    assert panel_ids == sorted(
+        panel_ids, key=lambda panel_id: html.index(f'id="{panel_id}"')
+    )
 
 
 def test_browser_stylesheet_keeps_all_views_shrinkable_at_narrow_widths() -> None:

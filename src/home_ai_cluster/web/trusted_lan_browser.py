@@ -29,7 +29,8 @@ _ASSETS = {
 
 
 def _authority(host: str, port: int) -> str:
-    return f"[{host}]:{port}" if ":" in host else f"{host}:{port}"
+    address = f"[{host}]" if ":" in host else host
+    return address if port == 80 else f"{address}:{port}"
 
 
 def _require_post_authority(request: Request) -> None:

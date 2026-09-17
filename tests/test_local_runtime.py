@@ -388,6 +388,22 @@ def test_parse_args_rejects_receiver_port_without_receiver_host() -> None:
         local_runtime.parse_args(["--receiver-port", "26000"])
 
 
+@pytest.mark.parametrize("port", ["0", "-1", "65536"])
+def test_parse_args_rejects_invalid_lan_browser_port(port: str) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(
+            ["--lan-browser-host", "192.0.2.10", "--lan-browser-port", port]
+        )
+
+
+def test_parse_args_canonicalizes_lan_browser_ipv6_and_port_80() -> None:
+    args = local_runtime.parse_args(
+        ["--lan-browser-host", "2001:0db8:0:0:0:0:0:10", "--lan-browser-port", "80"]
+    )
+    assert args.lan_browser_host == "2001:db8::10"
+    assert args.lan_browser_port == 80
+
+
 def test_create_local_runtime_app_passes_composition_to_create_app(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -4,6 +4,6 @@
 <section><h2>Chat</h2><form data-capability="chat"><textarea required></textarea><button>Send</button></form></section>
 <section><h2>Code</h2><form data-capability="code"><textarea required></textarea><button>Request code</button></form></section>
 <section><h2>Summarize</h2><form data-path="/v1/summarize"><textarea required></textarea><button>Summarize</button></form></section>
-<section><h2>Classify</h2><form data-path="/v1/classify"><textarea required></textarea><input placeholder="Labels, comma separated" required><button>Classify</button></form></section>
+<section><h2>Classify</h2><form data-path="/v1/classify"><textarea required></textarea><div id="label-inputs"><input class="classify-label" required><input class="classify-label" required></div><button id="add-label" type="button">Add label</button><button>Classify</button></form></section>
 <section><h2>Image Generation</h2><form data-path="/v1/image-generation"><textarea required></textarea><button>Generate</button></form><img hidden id="generated-image" alt="Generated image"></section>
 <output aria-live="polite" id="result"></output></main><script src="/assets/lan.js"></script></body></html>

@@ -142,6 +142,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             )
         if args.lan_browser_port is None:
             args.lan_browser_port = LOCAL_RUNTIME_PORT
+        elif not 1 <= args.lan_browser_port <= 65535:
+            parser.error("--lan-browser-port must be from 1 through 65535")
+        args.lan_browser_host = str(lan_address)
     return args
 
 

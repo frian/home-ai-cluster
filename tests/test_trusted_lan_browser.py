@@ -104,3 +104,26 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert "sessionStorage" not in script
     assert "Configuration" not in html
     assert "workspace" not in html.lower()
+    assert "selected_label" in script
+    assert (
+        'Array.from(document.querySelectorAll(".classify-label"), '
+        "(input) => input.value)" in script
+    )
+    assert ".split(" not in script
+    assert ".trim(" not in script
+    assert ".filter(" not in script
+
+
+def test_trusted_lan_authority_canonicalizes_ipv6_and_http_default_port():
+    owner = create_app(
+        local_app_composition=create_local_runtime_composition(runtime="ollama")
+    )
+    app = create_trusted_lan_browser_app(owner, host="2001:db8::10", port=80)
+    headers = {"host": "[2001:db8::10]", "origin": "http://[2001:db8::10]"}
+
+    assert app.state.trusted_lan_authority == "[2001:db8::10]"
+    assert request(app, "GET", "/", headers=headers).status_code == 200
+    assert (
+        request(app, "GET", "/", headers={"host": "[2001:db8::10]:80"}).status_code
+        == 400
+    )

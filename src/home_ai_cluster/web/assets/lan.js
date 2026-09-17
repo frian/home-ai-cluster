@@ -2,6 +2,13 @@ const result = document.querySelector("#result");
 const conversations = { chat: [], code: [] };
 let capabilityRequestActive = false;
 let currentImageUrl = null;
+function addLabel(value = "") {
+  const input = document.createElement("input"); input.className = "classify-label"; input.value = value;
+  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "Remove label";
+  remove.addEventListener("click", () => input.parentElement.remove());
+  const row = document.createElement("div"); row.append(input, remove); document.querySelector("#label-inputs").append(row);
+}
+document.querySelector("#add-label").addEventListener("click", () => addLabel());
 
 async function submit(path, body) {
   const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -13,7 +20,7 @@ async function submit(path, body) {
 }
 for (const form of document.querySelectorAll("form")) form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const [text, labels] = form.querySelectorAll("textarea, input");
+  const [text] = form.querySelectorAll("textarea");
   if (capabilityRequestActive) return;
   capabilityRequestActive = true;
   try {
@@ -24,8 +31,9 @@ for (const form of document.querySelectorAll("form")) form.addEventListener("sub
       conversations[capability].push({ role: "user", content: text.value }, { role: "assistant", content: answer.content });
       result.textContent = answer.content;
     } else if (form.dataset.path === "/v1/classify") {
-      const response = await submit(form.dataset.path, { text: text.value, labels: labels.value.split(",").map((label) => label.trim()).filter(Boolean) });
-      result.textContent = (await response.json()).label;
+      const labels = Array.from(document.querySelectorAll(".classify-label"), (input) => input.value);
+      const response = await submit(form.dataset.path, { text: text.value, labels });
+      result.textContent = (await response.json()).selected_label;
     } else if (form.dataset.path === "/v1/image-generation") {
       const response = await submit(form.dataset.path, { instruction: text.value });
       const image = document.querySelector("#generated-image");

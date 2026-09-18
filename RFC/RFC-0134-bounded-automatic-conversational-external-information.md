@@ -19,10 +19,11 @@ Chat surfaces, each with its own explicit, ephemeral authorization:
 The automation may decide whether to acquire external evidence. It must never
 generate, rewrite, derive, summarize, expand, resolve, or plan an acquisition
 `QUERY`. When an authorized conversational turn takes the external branch,
-`QUERY` is exactly the newest operator-supplied user turn, byte-for-byte. No
-earlier conversation content reaches acquisition. A turn such as `And
-tomorrow?` must remain ordinary if it is not useful unchanged as a standalone
-query.
+the HAC-owned acquisition disclosure is exactly the newest operator-supplied
+user turn, byte-for-byte. No prior conversation is passed through the
+RFC-0078 acquisition contract or deliberately serialized by HAC into the
+plugin/provider acquisition boundary. A turn such as `And tomorrow?` must
+remain ordinary if it is not useful unchanged as a standalone query.
 
 This proposal reuses the retained exact RFC-0095 plugin choice as selection,
 not authorization; the fixed caller-local RFC-0096 decision; RFC-0078's
@@ -185,9 +186,15 @@ plugin picker, enumeration, inferred/default provider, health or credential
 inference, or per-turn provider selection. The retained RFC-0096 boolean is
 irrelevant to them.
 
-For a browser turn, retained configuration is resolved and validated per
-explicitly authorized turn, consistent with the long-lived browser process and
-RFC-0133. For an eligible interactive invocation, existing TTY/input
+For each authorized browser turn, retained configuration is loaded and
+validated once before the decision. The exact retained plugin name, or absence,
+is then an immutable request-local selection snapshot for that complete
+foreground turn. HAC must not reread retained plugin selection between decision
+and acquisition. A Configuration change while that turn is in progress affects
+only a later browser turn; it creates neither retained operation state nor a
+server session. Each newly submitted authorized browser turn resolves its own
+selection independently, so this is not a page-lifetime snapshot. For an
+eligible interactive invocation, existing TTY/input
 eligibility is established first; retained configuration is then loaded and
 validated once. The exact plugin name, or absence, is a process-local session
 snapshot. Later configuration changes cannot mutate the running session.
@@ -245,6 +252,30 @@ Caller-local Classify unavailability, construction/request failure, or invalid
 result produces exactly one ordinary full-context Chat turn. It does not
 acquire, retry Classify, expose classifier details, or select a remote
 classifier.
+
+### HAC contractual disclosure and trusted plugin boundary
+
+HAC's acquisition contract supplies only:
+
+```text
+acquire(exact_newest_user_turn)
+```
+
+`prior_messages` are not an acquisition argument, are not serialized into
+`QUERY`, and are not deliberately forwarded by HAC as plugin/provider
+acquisition request data. The accepted provider-specific RFC-0079 and RFC-0093
+plugins remain governed by their own outbound request contracts, which derive
+their accepted provider request data from `QUERY`.
+
+This is a contractual HAC disclosure boundary, not a sandbox claim. An
+operator-installed RFC-0078 plugin is trusted in-process Python. In browser
+automatic acquisition it runs in the same long-lived ordinary HAC process that
+handles the conversation; in interactive acquisition it runs in the foreground
+CLI process that owns it. RFC-0134 does not claim to prevent arbitrary trusted
+plugin code from inspecting process-local state, stack frames, imported modules,
+or other memory by means outside the HAC acquisition contract. This preserves
+the accepted RFC-0133 module/process-state trust caveat rather than introducing
+a new plugin trust model.
 
 ### Contextual RFC-0077 extension
 
@@ -314,12 +345,13 @@ the page's explicit ephemeral authorization.
 ```text
 authorized browser turn
   -> validate conversation
-  -> validate retained configuration
-  -> no plugin / query or contextual ineligible
+  -> one retained configuration resolution
+  -> immutable plugin selection snapshot for this turn
+  -> no snapshotted plugin / query or contextual ineligible
        -> one ordinary full-context Chat
   -> one caller-local fixed decision on exact newest turn
        -> unavailable/failure/ordinary -> one ordinary full-context Chat
-       -> external -> exact retained plugin, invoked once with exact newest turn
+       -> external -> exact snapshotted plugin, invoked once with exact newest turn
           -> fresh RFC-0077 evidence
           -> contextual source-grounded Chat with prior successful conversation
 ```
@@ -380,11 +412,13 @@ absent snapshotted plugin / newest turn > 4,096
 otherwise
   -> one caller-local fixed decision on exact newest turn
      -> unavailable/failure/ordinary -> one ordinary full-context Chat
-     -> external -> invoke exact snapshotted plugin once with exact newest turn
+     -> external -> invoke exact session-snapshotted plugin once with exact newest turn
         -> fresh evidence -> one contextual source-grounded Chat request
 ```
 
-No history reaches the acquisition plugin and no query is generated from it.
+No prior history is passed through the acquisition callable or serialized into
+the query, and no query is generated from it. The trusted in-process plugin
+boundary remains as stated above.
 Before acquisition, decision failure produces ordinary Chat. After acquisition
 starts, missing/load/configuration/credential/provider/acquisition failure is
 the existing privacy-safe External Information failure: no ordinary fallback,
@@ -432,8 +466,9 @@ This proposal adds no HAC-owned persistence of conversation, queries,
 questions, sources, provider results, decisions, or acquisition results. It
 adds no browser content storage, cookie, server session, database, history
 service, cache, analytics, or telemetry. Arbitrary trusted plugin module state
-resident in the browser process remains the accepted RFC-0133 trusted-plugin
-trade-off, not HAC-owned persistence.
+resident in the browser process, and trusted in-process access outside HAC's
+acquisition contract, remain the accepted RFC-0133 trusted-plugin trade-off,
+not HAC-owned persistence or a sandbox guarantee.
 
 Independent browser pages may submit independent authorized turns concurrently;
 an existing page-local foreground gate may prevent deliberate overlap within a
@@ -509,8 +544,10 @@ makes disclosed text less obvious to the operator.
 
 ### Send entire history to the acquisition plugin, or classify it
 
-Rejected. Only the newest exact turn may need disclosure. The decision remains
-one bounded local question rather than a conversation resolver.
+Rejected. HAC supplies only the newest exact turn through the acquisition
+contract; the decision remains one bounded local question rather than a
+conversation resolver. This does not claim to sandbox arbitrary trusted
+in-process plugin code from unrelated process state.
 
 ### Drop context on source-grounded turns
 
@@ -564,8 +601,12 @@ A later implementation should demonstrate, without live provider/network tests:
 1. RFC-0096 remains one-shot only; browser control defaults off/current-page
    only with no persisted setting/storage; interactive mode requires the flag
    and rejects one-shot forms.
-2. The newest exact turn alone reaches both decision and acquisition; no prior
-   content reaches plugins/providers and non-self-contained turns cannot rewrite.
+2. The newest exact turn alone reaches the decision and is the only
+   HAC-supplied acquisition `QUERY`; no `prior_messages` or other conversation
+   history is passed through the acquisition callable or provider-specific
+   request construction, and non-self-contained turns cannot rewrite. Provider
+   request capture proves only accepted QUERY-derived outbound data; it makes no
+   claim that arbitrary trusted Python is sandboxed from process memory.
 3. Missing plugin or ineligibility produces ordinary Chat with no decision,
    discovery, provider, or credential work; decision is one caller-local
    Classify and decision failure produces ordinary Chat without disclosure.
@@ -587,6 +628,10 @@ A later implementation should demonstrate, without live provider/network tests:
 9. No global acquisition serialization, capability, query planner, provider
    framework, persistence, background work, retry/research loop, URL retrieval,
    or dependency is introduced.
+10. Each authorized browser turn loads retained configuration once, snapshots
+    its exact plugin selection before decision, and invokes that snapshot if
+    external; mid-turn Configuration changes affect only later turns, not the
+    in-progress foreground operation.
 
 Fake plugins, fake environment values, bounded request capture, and
 deterministic seams should be sufficient.

@@ -219,14 +219,19 @@ def internal_cluster_request_body(
             }
         )
     elif isinstance(request, SourceGroundedChatRequest):
+        source_grounded_body: dict[str, object] = {
+            "question": request.question,
+            "sources": [source.model_dump() for source in request.sources],
+            "constraints": request.constraints.model_dump(mode="json"),
+        }
+        if request.prior_messages:
+            source_grounded_body["prior_messages"] = [
+                message.model_dump() for message in request.prior_messages
+            ]
         envelope = SourceGroundedChatInternalRequest.model_validate(
             {
                 "kind": "source-grounded-chat",
-                "request": {
-                    "question": request.question,
-                    "sources": [source.model_dump() for source in request.sources],
-                    "constraints": request.constraints.model_dump(mode="json"),
-                },
+                "request": source_grounded_body,
             }
         )
     elif isinstance(request, ClassifyRequest):
@@ -238,7 +243,10 @@ def internal_cluster_request_body(
         )
     else:
         raise TypeError("Unsupported remote transport request")
-    return envelope.model_dump(mode="json")
+    body = envelope.model_dump(mode="json")
+    if isinstance(request, SourceGroundedChatRequest) and not request.prior_messages:
+        body["request"].pop("prior_messages", None)
+    return body
 
 
 def internal_cluster_status_url(declaration: RemoteNodeDeclaration) -> str:

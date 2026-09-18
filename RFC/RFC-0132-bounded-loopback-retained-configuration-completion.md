@@ -84,8 +84,9 @@ or from the existence of CLI commands.
   preserving receiver isolation.
 - Ensure configuration reads and mutations have no runtime, plugin, provider,
   health, discovery, or network side effects.
-- Preserve fail-closed behavior when a later unrepresented retained domain is
-  introduced.
+- Preserve fail-closed behavior for unrepresented growth inside browser-owned
+  complete domains while keeping later separate retained domains unauthorized
+  and safely preserved by unrelated domain mutations.
 
 ## Non-goals
 
@@ -101,9 +102,10 @@ controls, live reconfiguration, runtime/model/plugin/provider health or
 preflight, dashboard/control-plane behavior, database or session persistence,
 or automatic refresh.
 
-It also does not add Configuration to trusted LAN, receiver authority, remote
-nodes, or another machine; remote administration; configuration
-synchronization; topology/runtime discovery; or any network authority.
+It also does not add Configuration to trusted LAN or receiver authority,
+configuration or administration of a remote machine, remote administration,
+configuration synchronization, topology/runtime discovery, or any network
+authority.
 
 ## Proposal
 

@@ -466,6 +466,14 @@ source provenance. Interactive Chat is excluded.
 
 With no message, `hac chat` is interactive only when both stdin and stdout are
 TTYs; otherwise it fails locally without reading stdin or sending a request.
+`hac chat --external-information` is an explicit, session-local authorization
+for that TTY-only interactive mode. It snapshots the retained exact
+external-information plugin selection once at session entry. For an eligible
+turn, HAC decides using only the newest exact user text and, only on the
+external branch, supplies that same text as the acquisition query; earlier
+conversation is not disclosed to acquisition. This is independent of the
+retained one-shot fallback authorization and does not enable automatic browser
+Chat acquisition.
 Interactive mode is ordinary content-only presentation: `--json`, `--verbose`,
 and `-v` are invalid without a message. Successful exchanges are retained only
 in the foreground process, in chronological user/assistant order, and every

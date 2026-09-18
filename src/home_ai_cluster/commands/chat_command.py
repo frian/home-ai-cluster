@@ -16,6 +16,7 @@ from home_ai_cluster.core.models import (
     ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    SourceGroundedChatRequest,
     SourceGroundedChatResult,
 )
 from home_ai_cluster.retained_configuration import (
@@ -51,6 +52,7 @@ class _ChatCommandInput:
     message: str | None
     output_mode: str
     timeout_seconds: float
+    interactive_external_information: bool
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -94,6 +96,11 @@ def _parse_input(
     )
     parser.add_argument(
         "--timeout-seconds", help="One-shot request timeout in seconds."
+    )
+    parser.add_argument(
+        "--external-information",
+        action="store_true",
+        help="Authorize bounded external information for TTY-only interactive Chat.",
     )
     output_options = parser.add_mutually_exclusive_group()
     output_options.add_argument(
@@ -139,6 +146,8 @@ def _parse_input(
     if message is None:
         if output_mode != "content":
             raise _InvalidRequestInput
+    elif args.external_information:
+        raise _InvalidRequestInput
     elif not message.strip():
         raise _InvalidRequestInput
 
@@ -146,6 +155,7 @@ def _parse_input(
         message=message,
         output_mode=output_mode,
         timeout_seconds=timeout_seconds,
+        interactive_external_information=args.external_information,
     )
 
 
@@ -380,6 +390,22 @@ def _aggregate_content_size(messages: Sequence[ChatMessage]) -> int:
     return sum(len(message.content.encode("utf-8")) for message in messages)
 
 
+def _write_interactive_source_provenance(
+    result: SourceGroundedChatResult, *, stdout: TextIO
+) -> None:
+    """Present supplied provenance without retaining or interpreting it."""
+    _write_content(result.content, stdout=stdout)
+    stdout.write("Supplied sources:\n")
+    for index, source in enumerate(result.sources, 1):
+        stdout.write(
+            f"  {index}. Title: {json.dumps(source.title, ensure_ascii=False)}\n"
+        )
+        stdout.write(f"     URL: {json.dumps(source.url, ensure_ascii=False)}\n")
+        stdout.write(
+            f"     Content: {json.dumps(source.content, ensure_ascii=False)}\n"
+        )
+
+
 def _run_interactive(
     *,
     timeout_seconds: float,
@@ -387,6 +413,7 @@ def _run_interactive(
     stdin: TextIO,
     stdout: TextIO,
     stderr: TextIO,
+    external_information_plugin: str | None = None,
 ) -> None:
     """Run one process-owned terminal Chat conversation until EOF or Ctrl-C."""
     retained_messages: list[ChatMessage] = []
@@ -407,11 +434,49 @@ def _run_interactive(
                 continue
 
             print("…", file=stderr)
-            result, failure = _send_native_request(
-                candidate,
-                timeout_seconds=timeout_seconds,
-                client_factory=client_factory,
-            )
+            source_result: SourceGroundedChatResult | None = None
+            if (
+                external_information_plugin is not None
+                and len(message.encode("utf-8")) <= 4_096
+                and _decision(
+                    message,
+                    timeout_seconds=timeout_seconds,
+                    client_factory=client_factory,
+                )
+                == "external"
+            ):
+                from home_ai_cluster.commands import external_information_command
+
+                try:
+                    acquired_request = (
+                        external_information_command._acquire_source_grounded_request(
+                            external_information_plugin, message, message
+                        )
+                    )
+                    source_request = SourceGroundedChatRequest(
+                        question=message,
+                        sources=acquired_request.sources,
+                        prior_messages=retained_messages,
+                    )
+                except (
+                    external_information_command._AcquisitionFailure,
+                    ValidationError,
+                    ValueError,
+                ):
+                    print(external_information_command._ACQUISITION_FAILED, file=stderr)
+                    continue
+                source_result, failure = _send_source_grounded(
+                    source_request,
+                    timeout_seconds=timeout_seconds,
+                    client_factory=client_factory,
+                )
+                result = source_result
+            else:
+                result, failure = _send_native_request(
+                    candidate,
+                    timeout_seconds=timeout_seconds,
+                    client_factory=client_factory,
+                )
             if failure is not None:
                 print(failure, file=stderr)
                 continue
@@ -424,7 +489,10 @@ def _run_interactive(
                 *candidate,
                 ChatMessage(role="assistant", content=result.content),
             ]
-            _write_content(result.content, stdout=stdout)
+            if source_result is None:
+                _write_content(result.content, stdout=stdout)
+            else:
+                _write_interactive_source_provenance(source_result, stdout=stdout)
     except KeyboardInterrupt:
         return
 
@@ -449,12 +517,21 @@ def main(
     if command_input.message is None:
         if not stdin.isatty() or not stdout.isatty():
             _exit_with_failure(_INVALID_INPUT, 2, stderr=stderr)
+        external_information_plugin: str | None = None
+        if command_input.interactive_external_information:
+            try:
+                external_information_plugin = (
+                    load_retained_configuration().external_information_plugin
+                )
+            except RetainedConfigurationError as error:
+                _exit_with_failure(f"error: {error}", 1, stderr=stderr)
         _run_interactive(
             timeout_seconds=command_input.timeout_seconds,
             client_factory=_client_factory,
             stdin=stdin,
             stdout=stdout,
             stderr=stderr,
+            external_information_plugin=external_information_plugin,
         )
         return
 

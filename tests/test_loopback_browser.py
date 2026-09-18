@@ -249,7 +249,14 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "FormData" not in script
     assert "multipart/form-data" not in script
     assert ".name" not in script
-    for view in ("chat", "summarize", "classify", "code", "configuration"):
+    for view in (
+        "chat",
+        "external-information",
+        "summarize",
+        "classify",
+        "code",
+        "configuration",
+    ):
         assert (
             f'aria-live="polite" class="error" id="{view}-error" role="status"' in html
         )
@@ -271,7 +278,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'input[type="file"]::file-selector-button' in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
     assert 'tabindex="0"' in html
-    assert html.count('tabindex="-1"') == 5
+    assert html.count('tabindex="-1"') == 6
     assert "function activateTab(tab, focus = false)" in script
     assert 'event.key === "ArrowRight"' in script
     assert 'event.key === "ArrowLeft"' in script
@@ -281,7 +288,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "function updateLabelAccessibleNames()" in script
     assert "Classification label ${labelNumber}" in script
     assert "Remove classification label ${labelNumber}" in script
-    for heading in ("Chat", "Summarize", "Classify", "Code"):
+    for heading in ("Chat", "External Information", "Summarize", "Classify", "Code"):
         assert f">{heading}</h2>" in html
     for heading in ("Response", "Summary", "Classification", "Generated code"):
         assert f">{heading}</h3>" in html
@@ -335,10 +342,16 @@ def test_browser_capability_request_state_is_shared_across_views() -> None:
 
     assert "let capabilityRequestActive = false;" in script
     assert "const requestContexts = {" in script
-    for view in ("chat", "summarize", "classify", "code"):
-        assert f"{view}: createRequestContext(" in script
-        assert f'id="{view}-error"' in html
-        assert f'id="{view}-status"' in html
+    for script_view, document_view in (
+        ("chat", "chat"),
+        ("externalInformation", "external-information"),
+        ("summarize", "summarize"),
+        ("classify", "classify"),
+        ("code", "code"),
+    ):
+        assert f"{script_view}: createRequestContext(" in script
+        assert f'id="{document_view}-error"' in html
+        assert f'id="{document_view}-status"' in html
     assert "imageGeneration: createRequestContext(" in script
     assert 'id="image-generation-error"' in html
     assert 'id="image-generation-status"' in html
@@ -544,8 +557,8 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert html.count('role="tab"') == 6
-    assert html.count('role="tabpanel"') == 6
+    assert html.count('role="tab"') == 7
+    assert html.count('role="tabpanel"') == 7
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html

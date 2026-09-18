@@ -12,6 +12,7 @@
   const root = document.documentElement;
   const requestContexts = {
     chat: createRequestContext("#chat-form", "#chat-error", "#chat-status"),
+    externalInformation: createRequestContext("#external-information-form", "#external-information-error", "#external-information-status"),
     summarize: createRequestContext("#summarize-form", "#summarize-error", "#summarize-status"),
     classify: createRequestContext("#classify-form", "#classify-error", "#classify-status"),
     code: createRequestContext("#code-form", "#code-error", "#code-status"),
@@ -24,6 +25,7 @@
   };
   const capabilityRequestContexts = [
     requestContexts.chat,
+    requestContexts.externalInformation,
     requestContexts.summarize,
     requestContexts.classify,
     requestContexts.code,
@@ -665,6 +667,22 @@
     container.append(value, attribution);
   }
 
+  function renderExternalInformationSources(sources) {
+    const container = document.querySelector("#external-information-sources");
+    container.replaceChildren();
+    sources.forEach((source) => {
+      const item = document.createElement("article");
+      const title = document.createElement("h4");
+      const url = document.createElement("p");
+      const content = document.createElement("p");
+      title.textContent = source.title;
+      url.textContent = `URL provenance: ${source.url}`;
+      content.textContent = source.content;
+      item.append(title, url, content);
+      container.append(item);
+    });
+  }
+
   let currentImageUrl = null;
 
   async function postImageGeneration(context, body) {
@@ -718,6 +736,21 @@
       body.height = numericHeight;
     }
     await postImageGeneration(context, body);
+  });
+
+  document.querySelector("#external-information-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.externalInformation;
+    const result = await post(context, "/external-information", {
+      plugin: document.querySelector("#external-information-plugin").value,
+      query: document.querySelector("#external-information-query").value,
+      question: document.querySelector("#external-information-question").value,
+    }, "Acquiring supplied sources…");
+    if (!result || typeof result.content !== "string" || !Array.isArray(result.sources)) return;
+    const region = document.querySelector("#external-information-result-region");
+    region.hidden = false;
+    renderResult(document.querySelector("#external-information-result"), result.content, result.node_id);
+    renderExternalInformationSources(result.sources);
   });
 
   document.querySelector("#chat-form").addEventListener("submit", async (event) => {

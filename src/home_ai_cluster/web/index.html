@@ -33,6 +33,7 @@
 
       <nav aria-label="Capabilities" class="tabs" role="tablist">
         <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" tabindex="0" type="button">Chat</button>
+        <button aria-controls="external-information-view" aria-selected="false" id="external-information-tab" role="tab" tabindex="-1" type="button">External Information</button>
         <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
         <button aria-controls="image-generation-view" aria-selected="false" id="image-generation-tab" role="tab" tabindex="-1" type="button">Image Generation</button>
         <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" tabindex="-1" type="button">Summarize</button>
@@ -53,6 +54,25 @@
         </form>
         <p aria-live="polite" class="error" id="chat-error" role="status"></p>
         <p aria-live="polite" class="request-status" id="chat-status" role="status"></p>
+      </section>
+
+      <section aria-labelledby="external-information-tab" class="capability-panel" hidden id="external-information-view" role="tabpanel">
+        <header class="panel-heading"><h2>External Information</h2><p>Acquire supplied source evidence with one explicitly selected plugin, then ask a distinct source-grounded question.</p></header>
+        <form id="external-information-form">
+          <label for="external-information-plugin">Plugin name override (optional)</label>
+          <input id="external-information-plugin" maxlength="64" placeholder="Use retained plugin choice when blank">
+          <label for="external-information-query">QUERY — sent only to the acquisition plugin</label>
+          <textarea id="external-information-query" maxlength="4096" required rows="4"></textarea>
+          <label for="external-information-question">QUESTION — answered by source-grounded Chat</label>
+          <textarea id="external-information-question" required rows="4"></textarea>
+          <div class="form-actions"><button data-submit type="submit">Acquire and ask</button></div>
+        </form>
+        <p aria-live="polite" class="error" id="external-information-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="external-information-status" role="status"></p>
+        <section aria-labelledby="external-information-result-heading" class="result-section" hidden id="external-information-result-region">
+          <h3 id="external-information-result-heading">Response</h3><output class="result" hidden id="external-information-result"></output>
+          <h3>Supplied sources</h3><div id="external-information-sources"></div>
+        </section>
       </section>
 
       <section aria-labelledby="code-tab" class="capability-panel" hidden id="code-view" role="tabpanel">

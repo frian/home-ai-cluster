@@ -1,6 +1,6 @@
 # RFC-0132: Bounded Loopback Retained Configuration Completion
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-18
 

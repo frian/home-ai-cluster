@@ -1,6 +1,6 @@
 # RFC-0134: Bounded Automatic Conversational External Information
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-18
 
@@ -647,4 +647,60 @@ acquisition, or acquisition becomes a capability.
 
 ## Decision
 
-Pending.
+HAC accepts bounded automatic External Information for exactly two
+conversational surfaces: explicitly authorized ordinary/native loopback browser
+Chat and explicitly authorized RFC-0087 interactive Chat started with
+`hac chat --external-information`. RFC-0096 retained
+`chat_external_information_fallback` remains one-shot only and authorizes
+neither surface.
+
+Browser authorization is visible, current-page-only, defaults OFF, and is not
+retained or browser-persisted. Interactive authorization is process-local and
+ephemeral. Both surfaces reuse the exact RFC-0095 retained plugin selection,
+but selection is not disclosure authority. Browser selection is snapshotted
+once per authorized foreground turn before decision; interactive selection is
+snapshotted once on session entry.
+
+The exact newest operator user turn is the sole decision subject and sole
+HAC-supplied acquisition `QUERY`. HAC performs no query generation, rewriting,
+expansion, reference resolution, or planning. The fixed RFC-0096-style
+decision remains one caller-local `classify` inference with only `ordinary` or
+`external`; `external` means both that evidence may materially improve the
+response and that the unchanged question is suitable as its acquisition QUERY.
+
+RFC-0077 is narrowly amended with optional validated `prior_messages` of
+complete successful prior user/assistant pairs. Their content plus `question`
+is bounded to 65,536 UTF-8 bytes. Source-grounded projection is the existing
+source-evidence system guard, prior conversational messages, untrusted evidence
+data, then current exact question. With no prior messages, historical RFC-0077
+behavior remains unchanged. Validated prior Chat context may traverse the
+source-grounded remote/internal transport; plugin, provider, credential, and
+acquisition metadata may not.
+
+Successful external turns retain only user text and generated assistant text.
+Supplied sources are turn-local provenance and never automatically become later
+conversation context. `/v1/chat` remains acquisition-neutral. Automatic browser
+acquisition uses a separate native-loopback facade with RFC-0133
+Host/Origin/JSON authority. Trusted-LAN, receiver, OpenAI-compatible Chat, and
+other capabilities gain no automatic acquisition authority.
+
+Browser plugin execution occurs in the ordinary HAC process only after explicit
+page authorization and an `external` decision. Interactive plugin execution
+occurs in the foreground CLI process only after explicit CLI authorization and
+an `external` decision. HAC passes only the exact newest turn through
+`acquire(query)` and deliberately forwards no prior conversation. This is a
+contractual disclosure boundary, not a sandbox guarantee for arbitrary trusted
+in-process Python.
+
+Before acquisition begins, decision failure may produce ordinary Chat. Once
+acquisition begins, failure never falls back to ordinary Chat. Browser
+disconnect ownership spans decision through final Chat and prevents a later
+HAC-owned phase from starting after disconnect wins. Each turn has at most one
+decision and one plugin acquisition, and exactly one ordinary or
+source-grounded final Chat path where acquisition succeeds.
+
+This accepts no new executable Capability, query planner, research loop,
+provider fallback or framework, persistent source memory, database, worker,
+queue, scheduler, global serialization, arbitrary URL retrieval, or dependency.
+RFC-0133 explicit browser External Information and historical
+`hac external-information` remain distinct and unchanged.

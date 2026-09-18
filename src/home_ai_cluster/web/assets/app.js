@@ -179,11 +179,33 @@
     });
   }
 
+  function clearConfigurationLocalForm() {
+    document.querySelector("#configuration-form").reset();
+    configurationRuntime.value = "";
+    document.querySelector("#configuration-ollama-model").value = "";
+    document.querySelector("#configuration-ollama-disable-thinking").checked = false;
+    document.querySelector("#configuration-llama-server-base-url").value = "";
+    document.querySelector("#configuration-llama-server-model").value = "";
+    document.querySelector("#configuration-vllm-base-url").value = "";
+    document.querySelector("#configuration-vllm-model").value = "";
+    document.querySelector("#configuration-temperature").value = "";
+    configurationCapabilitiesAbsent.checked = true;
+    document.querySelectorAll("#configuration-capabilities input").forEach((input) => {
+      input.checked = false;
+    });
+    document.querySelector("#configuration-execution-limit").value = "";
+    updateConfigurationRuntimeFields();
+    updateConfigurationCapabilities();
+  }
+
   function setConfigurationLocal(local) {
     document.querySelector("#configuration-absence").textContent = local === null
       ? "No retained local configuration exists. Enter one complete configuration to retain it."
       : "Editing retained local configuration for future HAC launches.";
-    if (local === null) return;
+    if (local === null) {
+      clearConfigurationLocalForm();
+      return;
+    }
     configurationRuntime.value = local.runtime;
     document.querySelector("#configuration-ollama-model").value = local.ollama_model || "";
     document.querySelector("#configuration-ollama-disable-thinking").checked = local.ollama_disable_thinking;
@@ -211,7 +233,7 @@
   function setExternalInformationConfiguration(plugin) {
     document.querySelector("#external-information-configuration-absence").textContent = plugin === null
       ? "No retained external-information plugin choice exists."
-      : "Editing retained external-information plugin choice for future explicit operations.";
+      : "Editing retained external-information plugin choice for accepted external-information flows.";
     externalInformationConfigurationPlugin.value = plugin || "";
   }
 
@@ -438,7 +460,7 @@
       if (!response.ok) return showError(context, await safeFailure(response));
       const body = await response.json();
       setExternalInformationConfiguration(body.plugin);
-      context.status.textContent = "Plugin choice saved for future explicit operations.";
+      context.status.textContent = "Plugin choice saved as retained external-information configuration.";
     } catch (_) {
       showError(context, "Request failed");
     } finally {
@@ -455,7 +477,7 @@
       const response = await fetch("/retained-external-information-configuration", { method: "DELETE" });
       if (!response.ok) return showError(context, await safeFailure(response));
       setExternalInformationConfiguration(null);
-      context.status.textContent = "Plugin choice cleared for future explicit operations.";
+      context.status.textContent = "Plugin choice cleared from retained external-information configuration.";
     } catch (_) {
       showError(context, "Request failed");
     } finally {

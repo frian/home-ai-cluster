@@ -247,3 +247,53 @@ def test_image_generation_browser_shape_guard_fails_closed(
 
     assert response.status_code == 400
     assert load_retained_configuration().image_generation is None
+
+
+@pytest.mark.parametrize(
+    ("path", "guard_name", "configuration"),
+    [
+        (
+            "/retained-local-configuration",
+            "browser_retained_local_shape_is_supported",
+            RetainedConfiguration(
+                local=build_retained_local_configuration(
+                    runtime="ollama",
+                    ollama_model="retained-model",
+                    ollama_disable_thinking=False,
+                    llama_server_base_url=None,
+                    llama_server_model=None,
+                    vllm_base_url=None,
+                    vllm_model=None,
+                    local_capabilities=None,
+                    execution_limit=None,
+                ),
+                external_information_plugin="searxng",
+            ),
+        ),
+        (
+            "/retained-image-generation-configuration",
+            "browser_retained_image_generation_shape_is_supported",
+            RetainedConfiguration(
+                image_generation=RetainedImageGenerationConfiguration(
+                    base_url="http://127.0.0.1:7860"
+                ),
+                external_information_plugin="searxng",
+            ),
+        ),
+    ],
+)
+def test_complete_domain_reset_fails_closed_without_gating_unrelated_domains(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    guard_name: str,
+    configuration: RetainedConfiguration,
+) -> None:
+    import home_ai_cluster.web.loopback_browser as loopback_browser
+
+    save_retained_configuration(configuration)
+    monkeypatch.setattr(loopback_browser, guard_name, lambda _: False)
+
+    response = request(native_app(), "DELETE", path, headers=headers())
+
+    assert response.status_code == 400
+    assert load_retained_configuration() == configuration

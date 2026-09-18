@@ -369,8 +369,13 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
         if request.headers.get("origin") != f"http://{authority}":
             raise HTTPException(status_code=403, detail="invalid native origin")
         try:
+            local = load_retained_configuration().local
+            if local is not None and not browser_retained_local_shape_is_supported(
+                local
+            ):
+                raise ValueError("unsupported retained local configuration shape")
             reset_retained_local_configuration()
-        except RetainedConfigurationError:
+        except (RetainedConfigurationError, ValueError):
             raise HTTPException(
                 status_code=400, detail="unable to reset retained local configuration"
             ) from None
@@ -444,8 +449,15 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
         if request.headers.get("origin") != f"http://{authority}":
             raise HTTPException(status_code=403, detail="invalid native origin")
         try:
+            image_generation = load_retained_configuration().image_generation
+            if image_generation is not None and not (
+                browser_retained_image_generation_shape_is_supported(image_generation)
+            ):
+                raise ValueError(
+                    "unsupported retained Image Generation configuration shape"
+                )
             reset_retained_image_generation_configuration()
-        except RetainedConfigurationError:
+        except (RetainedConfigurationError, ValueError):
             raise HTTPException(
                 status_code=400,
                 detail="unable to reset retained Image Generation configuration",

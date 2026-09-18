@@ -4,6 +4,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
@@ -246,6 +247,40 @@ def test_automatic_chat_rejects_closed_conversation_and_is_absent_elsewhere() ->
     assert asyncio.run(post_path(lan)) == 404
     receiver = create_receiver_app(local_app_composition=object())
     assert asyncio.run(post_path(receiver)) == 404
+
+
+def test_automatic_chat_invalid_decision_does_not_retry_failed_ordinary_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        RetainedConfiguration(external_information_plugin="selected")
+    )
+    ordinary_attempts = 0
+
+    async def invalid_decision(*_, **__) -> object:
+        return object()
+
+    async def failed_ordinary_chat(*_) -> object:
+        nonlocal ordinary_attempts
+        ordinary_attempts += 1
+        raise HTTPException(status_code=503, detail="Runtime adapter unavailable")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+        invalid_decision,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request",
+        failed_ordinary_chat,
+    )
+
+    response = automatic_request(
+        native_app(), headers=headers(), json=automatic_document()
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert ordinary_attempts == 1
 
 
 def test_operation_uses_exact_override_once_without_retained_selection(

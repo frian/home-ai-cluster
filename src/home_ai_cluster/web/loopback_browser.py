@@ -436,6 +436,7 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                 or contextual_size > 65_536
             ):
                 return ("ordinary", await ordinary())
+            decision_is_external = False
             try:
                 decision = ChatExternalInformationDecisionRequest(
                     question=question
@@ -445,18 +446,18 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                     local_app_composition=request.app.state.local_app_composition,
                     caller_local_node_registry=_caller_local_node_registry(request),
                 )
-                if not isinstance(
-                    decision_result, ClassifyResult
-                ) or decision_result.selected_label not in {"ordinary", "external"}:
-                    return ("ordinary", await ordinary())
+                decision_is_external = (
+                    isinstance(decision_result, ClassifyResult)
+                    and decision_result.selected_label == "external"
+                )
             except Exception:
                 # Classify is advisory; all construction and execution failure is
                 # deliberately indistinguishable from an ordinary decision.
-                return ("ordinary", await ordinary())
-            if decision_result.selected_label == "ordinary":
-                return ("ordinary", await ordinary())
+                decision_is_external = False
             if cancellation_has_won():
                 raise asyncio.CancelledError
+            if not decision_is_external:
+                return ("ordinary", await ordinary())
             try:
                 acquired_request = await (
                     external_information_command._acquire_source_grounded_request_async(

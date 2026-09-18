@@ -82,6 +82,7 @@ class SourceGroundedChatPublicRequest(BaseModel):
 
     question: str
     sources: list[SourceEvidence]
+    prior_messages: list[ChatMessage] = Field(default_factory=list)
 
 
 def _resolve_local_registries(
@@ -455,6 +456,7 @@ async def source_grounded_chat(
         cluster_request = SourceGroundedChatRequest(
             question=public_request.question,
             sources=public_request.sources,
+            prior_messages=public_request.prior_messages,
             constraints=(
                 RequestConstraints(local_only=False)
                 if (

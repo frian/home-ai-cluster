@@ -241,10 +241,15 @@ def _acquire_request(command_input: _CommandInput) -> SourceGroundedChatRequest:
 
 def _public_request(request: SourceGroundedChatRequest) -> dict[str, object]:
     """Serialize only the accepted public source-grounded body."""
-    return {
+    public_request: dict[str, object] = {
         "question": request.question,
         "sources": [source.model_dump() for source in request.sources],
     }
+    if request.prior_messages:
+        public_request["prior_messages"] = [
+            message.model_dump() for message in request.prior_messages
+        ]
+    return public_request
 
 
 def _post_source_grounded_request(

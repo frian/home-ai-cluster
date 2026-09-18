@@ -97,6 +97,14 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "https://" not in html
     assert "http://" not in script
     assert "https://" not in script
+    assert "function clearConfigurationLocalForm()" in script
+    assert "if (local === null) {\n      clearConfigurationLocalForm();" in script
+    assert 'configurationRuntime.value = "";' in script
+    assert "configurationCapabilitiesAbsent.checked = true;" in script
+    assert 'document.querySelector("#configuration-temperature").value = "";' in script
+    assert (
+        'document.querySelector("#configuration-execution-limit").value = "";' in script
+    )
     assert '"/v1/chat"' in script
     assert 'post(context, "/v1/summarize"' in script
     assert 'post(context, "/v1/classify"' in script

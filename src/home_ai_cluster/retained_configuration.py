@@ -163,6 +163,7 @@ _BROWSER_RUNTIME_FIELDS = (
     "vllm_model",
     "temperature",
 )
+_BROWSER_IMAGE_GENERATION_FIELDS = ("base_url",)
 
 
 def build_retained_local_configuration(
@@ -351,6 +352,16 @@ def browser_retained_local_shape_is_supported(local: object) -> bool:
         == _BROWSER_LOCAL_FIELDS
         and tuple(field.name for field in fields(LocalRuntimeCompositionValues))
         == _BROWSER_RUNTIME_FIELDS
+    )
+
+
+def browser_retained_image_generation_shape_is_supported(
+    image_generation: object,
+) -> bool:
+    """Keep browser replacement closed when this companion domain grows."""
+    return isinstance(image_generation, RetainedImageGenerationConfiguration) and (
+        tuple(field.name for field in fields(RetainedImageGenerationConfiguration))
+        == _BROWSER_IMAGE_GENERATION_FIELDS
     )
 
 

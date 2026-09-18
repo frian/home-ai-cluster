@@ -1,9 +1,16 @@
 import asyncio
+import json
 from pathlib import Path
 
 import httpx
 import pytest
+from fastapi.routing import APIRoute
+from starlette.requests import Request
 
+from home_ai_cluster.api.client_disconnect import (
+    ConfirmedClientDisconnect,
+    cancellation_has_won,
+)
 from home_ai_cluster.commands import external_information_command
 from home_ai_cluster.core.models import SourceGroundedChatResult
 from home_ai_cluster.main import create_app, create_receiver_app
@@ -227,3 +234,89 @@ def test_authority_and_other_application_boundaries_do_not_expose_operation() ->
         asyncio.run(post_path(create_receiver_app(local_app_composition=object())))
         == 404
     )
+
+
+def test_disconnect_discards_late_plugin_result_before_source_grounded_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrowserState:
+        def __init__(self) -> None:
+            self.body = json.dumps(document(plugin="selected")).encode()
+            self.body_consumed = False
+            self.disconnected = False
+
+        async def receive(self) -> dict[str, object]:
+            if not self.body_consumed:
+                self.body_consumed = True
+                return {"type": "http.request", "body": self.body, "more_body": False}
+            if self.disconnected:
+                return {"type": "http.disconnect"}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def run() -> None:
+        app = native_app()
+        endpoint = next(
+            route.endpoint
+            for route in app.routes
+            if isinstance(route, APIRoute)
+            and route.path == "/external-information"
+            and "POST" in route.methods
+        )
+        state = BrowserState()
+        started, cancelled, disconnect_won, routed = (
+            asyncio.Event(),
+            asyncio.Event(),
+            asyncio.Event(),
+            asyncio.Event(),
+        )
+
+        async def acquire(_: str) -> list[dict[str, str]]:
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                assert cancellation_has_won()
+                disconnect_won.set()
+                cancelled.set()
+                return [candidate()]
+
+        monkeypatch.setattr(
+            external_information_command.importlib.metadata,
+            "entry_points",
+            lambda: EntryPoints([EntryPoint("selected", acquire)]),
+        )
+
+        async def must_not_route(*_) -> object:
+            routed.set()
+            raise AssertionError("late acquisition result must not route")
+
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request",
+            must_not_route,
+        )
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/external-information",
+                "headers": [
+                    (b"host", b"127.0.0.1:25042"),
+                    (b"origin", b"http://127.0.0.1:25042"),
+                    (b"content-type", b"application/json"),
+                ],
+                "app": app,
+                "server": ("127.0.0.1", 25042),
+            },
+            receive=state.receive,
+        )
+        task = asyncio.create_task(endpoint(request))
+        await asyncio.wait_for(started.wait(), 1)
+        state.disconnected = True
+
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert cancelled.is_set()
+        assert disconnect_won.is_set()
+        assert not routed.is_set()
+
+    asyncio.run(run())

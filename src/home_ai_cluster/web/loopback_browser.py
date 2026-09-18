@@ -1,5 +1,6 @@
 """Fixed browser assets for the RFC-0062 loopback application composition."""
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,10 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 
-from home_ai_cluster.api.client_disconnect import run_routable_execution
+from home_ai_cluster.api.client_disconnect import (
+    cancellation_has_won,
+    run_routable_execution,
+)
 from home_ai_cluster.api.routes import handle_chat_cluster_request
 from home_ai_cluster.commands import external_information_command
 from home_ai_cluster.core.models import (
@@ -307,6 +311,8 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                     status_code=502,
                     detail="external-information-acquisition-failed",
                 ) from None
+            if cancellation_has_won():
+                raise asyncio.CancelledError
             source_request = source_request.model_copy(
                 update={
                     "constraints": RequestConstraints(

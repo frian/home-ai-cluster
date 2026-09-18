@@ -27,6 +27,17 @@ def test_decision_projects_one_fixed_local_classify_request() -> None:
     assert json.loads(request.text.removeprefix(DECISION_POLICY)) == question
 
 
+def test_decision_policy_requires_an_unchanged_self_contained_query() -> None:
+    assert "external evidence is likely to materially improve" in DECISION_POLICY
+    assert "sufficiently self-contained" in DECISION_POLICY
+    assert "unchanged use as an acquisition query" in DECISION_POLICY
+    assert "without earlier conversational context" in DECISION_POLICY
+    assert "Do not treat conversation history as available" in DECISION_POLICY
+    assert "will not rewrite, expand, resolve, summarize, transform, or generate" in (
+        DECISION_POLICY
+    )
+
+
 @pytest.mark.parametrize(
     "payload",
     [

@@ -1,6 +1,6 @@
 # RFC-0133: Bounded Explicit Loopback Browser External Information
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-18
 
@@ -539,4 +539,24 @@ remote acquisition execution require later architectural decisions.
 
 ## Decision
 
-Pending.
+Accepted: HAC adds one explicit External Information operation only to the
+ordinary/native loopback browser.  It accepts an optional exact plugin override
+or else the RFC-0095 retained selection, distinct operator-supplied `QUERY` and
+`QUESTION`, and exactly one selected RFC-0078 acquisition-plugin invocation.
+Only for that explicit browser operation, the plugin executes in the already-
+running ordinary HAC process; HAC reconstructs fresh RFC-0077 evidence, then
+uses ordinary source-grounded `capability=chat` routing.  Generated content and
+supplied-source provenance remain distinct.  Exact native Host, same-origin
+Origin, and bounded JSON authorize the browser action; bounded disconnect
+abandonment/cancellation spans acquisition through source-grounded Chat.
+
+This accepts neither process-global acquisition serialization nor HAC-owned
+query/source/result persistence.  Trusted in-process plugin state may remain
+resident until process exit.  RFC-0079 SearXNG and RFC-0093 Tavily contracts
+remain unchanged except for this browser invocation location; Tavily reads
+`TAVILY_API_KEY` from the ordinary HAC process environment for browser
+acquisition, while historical CLI acquisition reads it from its one-shot caller
+environment.  No browser credential field/transfer, secrets or configuration
+framework, plugin discovery UI, generic acquisition API, new Capability,
+automatic browser Chat acquisition, trusted-LAN/receiver acquisition, provider
+fallback, retry/research loop, or arbitrary URL retrieval is accepted.

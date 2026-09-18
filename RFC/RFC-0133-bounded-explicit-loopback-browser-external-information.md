@@ -84,6 +84,8 @@ and source-grounding ordering without granting general server plugin authority.
 - Preserve exact native Host and same-origin mutation authority.
 - Keep results ephemeral and present generated content separately from supplied
   source provenance.
+- Apply a bounded confirmed-disconnect cancellation and result-abandonment rule
+  to the whole HAC-owned browser operation.
 - Preserve zero-activity behavior unless a person submits this operation.
 
 ## Non-goals
@@ -131,9 +133,10 @@ implementation details where they do not affect this authority.
 
 The operation is a bounded same-origin browser-facade request, not a new stable
 general native API.  It is available only after a human uses that explicit
-native-loopback control.  The operation is foreground-only and may reuse the
-existing browser-wide foreground request gate; it creates no task manager or
-overlap with another page submission.
+native-loopback control.  The current-page UI may reuse its existing browser-
+wide foreground request gate so that page does not intentionally overlap its
+own capability and External Information submissions.  That is page-local
+presentation behavior, not a server-global concurrency guarantee.
 
 ### Narrow amendment to RFC-0078
 
@@ -168,16 +171,22 @@ submission and never schedules it as repeated/background work.
 Effective selection extends RFC-0095 only to this explicit browser operation:
 
 ```text
-explicit nonblank browser override  -> that exact name, for this operation only
-blank browser override              -> retained RFC-0095 exact name
-no effective name                   -> fail before discovery/import/network
+explicit nonblank valid browser override -> resolve that exact name only
+blank/no browser override                -> resolve retained RFC-0095 exact name
+blank/no override and no retained name   -> fail before discovery/import/network
 ```
 
-An override never mutates retained configuration.  HAC must not infer a sole
-installed plugin, a provider from credentials, a default, a healthy provider,
-or a fallback.  The UI accepts optional exact text only; it must not discover
-or enumerate plugins to populate a dropdown.  Explicit names retain RFC-0078's
-nonblank maximum-64-UTF-8-byte entry-point-name contract in
+An explicit valid override never consults retained plugin selection merely to
+choose a plugin and never mutates retained configuration.  When retained
+selection is required but is malformed or unavailable, HAC must not repair,
+infer, or replace it; the operation fails before plugin discovery, import, or
+provider activity under the existing retained-configuration safety boundary.
+This selection clarification does not make malformed unrelated configuration
+generally ignorable.  HAC must not infer a sole installed plugin, a provider
+from credentials, a default, a healthy provider, or a fallback.  The UI accepts
+optional exact text only; it must not discover or enumerate plugins to populate
+a dropdown.  Explicit names retain RFC-0078's nonblank maximum-64-UTF-8-byte
+entry-point-name contract in
 `home_ai_cluster.external_information_acquisition.v1`; configuration-time
 retained-name rules remain RFC-0095's responsibility.
 
@@ -225,9 +234,35 @@ and ordered source title, URL provenance string, and bounded content snippet.
 It must label these as supplied sources/source evidence, not verified
 citations, and must not claim a source is true, current, used, or supports a
 particular sentence.  URLs are inert plain text: HAC does not fetch, preview,
-resolve, enrich, or follow them.  Page state is current-page ephemeral only;
-no query, question, result, source, localStorage, session, database, or
-history persistence is introduced.
+resolve, enrich, or follow them.
+
+HAC-owned browser/server-facade state is ephemeral.  RFC-0133 introduces no
+HAC-owned query, question, source, or result history; cache; database;
+localStorage/session storage; or retained External Information execution state.
+HAC must not deliberately retain `QUERY`, `QUESTION`, acquired sources, or a
+result after the request beyond existing transient execution ownership.
+
+This does not promise that arbitrary trusted plugin code cannot retain memory.
+The acquisition plugin is operator-installed trusted Python; because it runs
+in the long-lived ordinary process, its imported module and plugin-owned Python
+state may remain resident until process exit.  RFC-0133 does not inspect,
+scrub, unload, reset, sandbox, or otherwise control arbitrary plugin-owned
+in-process state, and does not normalize it into HAC retained configuration.
+RFC-0078's package-installation trust decision and provider/plugin-specific
+contracts remain authoritative.
+
+### Independent operation concurrency
+
+RFC-0133 adds no process-global External Information scheduler, mutex, queue,
+semaphore, or one-at-a-time acquisition authority.  Independently submitted
+valid loopback operations, including from another tab or client, may be in
+flight concurrently.  Each independently resolves one exact plugin selection,
+invokes one callable once, reconstructs one RFC-0077 request, and performs at
+most one source-grounded Chat execution, without retry or loop.
+
+This RFC neither makes a trusted plugin thread-safe/reentrant nor introduces
+generic concurrency management.  The operator-installed trusted-code boundary
+remains authoritative.
 
 ### Browser authority and structural exclusions
 
@@ -265,12 +300,34 @@ topology; do not try another plugin; and never silently continue as ordinary
 Chat.  Once a valid source-grounded request exists, RFC-0077 and ordinary Chat
 execution failure ownership remains authoritative.
 
+After an accepted browser request, HAC owns one foreground operation:
+
+```text
+acquisition -> RFC-0077 reconstruction -> source-grounded Chat
+```
+
+RFC-0082 does not automatically cover this new acquisition route, so this RFC
+extends its bounded abandoned-request principle to that complete HAC-owned
+operation.  If the HTTP edge confirms client disconnect while the operation is
+pending, disconnect wins: HAC abandons the operation, propagates ordinary
+asynchronous cancellation through work it owns best-effort, discards every
+later acquisition success or failure, and must not begin source-grounded Chat.
+It must not retry, select another plugin, fall back to ordinary Chat, or create
+background continuation authority.  If a terminal operation result is already
+owned before disconnect wins, normal completion retains RFC-0082's existing
+completion-versus-disconnect precedence.
+
+This is HAC-side best-effort cancellation and result abandonment, not rollback
+of external effects.  It cannot retract a `QUERY` already disclosed, cancel a
+provider request already observed externally, forcibly terminate arbitrary
+trusted Python, unload a plugin module, kill a thread/process, or guarantee
+provider-side termination.  Once source-grounded routable execution begins,
+RFC-0082's accepted ordinary execution semantics apply.
+
 The RFC adds no generic plugin timeout or forced-cancellation mechanism.
-RFC-0078's plugin-owned finite provider transport limits remain authoritative,
-and HAC cannot truthfully claim to terminate arbitrary trusted in-process
-Python.  Browser disconnection creates neither retry nor background-work
-authority; existing ordinary request/disconnect behavior applies once
-source-grounded execution starts.
+RFC-0078's plugin-owned finite provider transport limits remain authoritative.
+There is no cancellation endpoint, job ID, deadline, worker, subprocess, or
+new timeout architecture.
 
 When no explicit External Information submission occurs, startup, retained
 plugin presence, Configuration reads/writes, ordinary browser Chat, other
@@ -340,12 +397,15 @@ one input would obscure that boundary.
 
 Web usability moves one explicit acquisition execution from a short-lived CLI
 caller to an already-running native HAC process.  The selected trusted plugin
-may consequently stay imported for that process lifetime, without claimed
-isolation.  Excluding trusted LAN leaves remote household browsers unable to
-perform this operation.  Separate query and question fields are less
-convenient, and lack of plugin discovery UI requires an operator to know or
-retain an exact name.  These restrictions preserve explicit provider choice,
-source-grounding semantics, and installation-versus-authority separation.
+and its plugin-owned process-local state may consequently remain resident for
+that process lifetime, without HAC-controlled cleanup or claimed isolation.
+Independently explicit requests may share that imported module state; this RFC
+does not assert thread safety or serialize them globally.  Excluding trusted
+LAN leaves remote household browsers unable to perform this operation.  Separate
+query and question fields are less convenient, and lack of plugin discovery UI
+requires an operator to know or retain an exact name.  These restrictions
+preserve explicit provider choice, source-grounding semantics, and
+installation-versus-authority separation.
 
 ## Impact
 
@@ -367,8 +427,9 @@ A later implementation must prove at least that:
 1. the view and action exist only in ordinary/native loopback, never
    trusted-LAN or receiver authority;
 2. exact native Host, exact same-origin Origin, and JSON are required;
-3. an explicit override has one-operation precedence, while blank uses the
-   retained RFC-0095 name;
+3. an explicit valid override has one-operation precedence without consulting
+   retained selection for plugin choice, while blank uses the retained RFC-0095
+   name and unavailable/malformed required retained selection fails safely;
 4. missing/invalid selection or invalid `QUERY` fails before discovery or
    network activity;
 5. exactly one selected entry point is discovered, loaded, and invoked per
@@ -381,11 +442,18 @@ A later implementation must prove at least that:
    normalized question/evidence only;
 9. result URLs are never fetched or followed, and generated content remains
    distinct from ordered supplied-source provenance;
-10. acquisition failures reveal no private plugin/provider/query detail and
+10. a confirmed disconnect during acquisition abandons HAC-owned work,
+    discards late results, and cannot start source-grounded Chat or publish a
+    late result; completion already owned retains RFC-0082 precedence;
+11. acquisition failures reveal no private plugin/provider/query detail and
     create no fallback, retry, repeated acquisition, or ordinary-Chat fallback;
-11. page state is ephemeral, no Capability is added, and no generic plugin,
-    provider, acquisition API, dependency, or persistence is introduced; and
-12. no live provider/network test is required: fake entry points and bounded
+12. HAC itself adds no query/question/source/result history, cache, or other
+    persistence; this does not require proving arbitrary trusted plugins cannot
+    retain process-local memory;
+13. independently submitted valid operations may be concurrent, with no
+    process-global scheduler or serialization guarantee; no Capability or
+    generic plugin/provider/acquisition API/dependency is added; and
+14. no live provider/network test is required: fake entry points and bounded
     request capture suffice for this boundary.
 
 ## Open questions

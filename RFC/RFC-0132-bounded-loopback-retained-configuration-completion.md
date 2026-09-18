@@ -133,9 +133,10 @@ config external-information  -> retained plugin-choice domain
 config chat                  -> retained Chat fallback-authorization domain
 ```
 
-Each browser mutation changes only its owned domain and preserves every other
-retained domain.  The facade must not construct a generic whole-configuration
-replacement endpoint, silently preserve hidden cross-domain values, or add
+Each browser mutation changes only its owned domain and preserves every
+independently owned unrelated retained domain.  The facade must not construct a
+generic whole-configuration replacement endpoint, implicitly preserve or merge
+unrepresented facts inside the complete domain being replaced, or add
 cross-domain PATCH/merge behavior.  Existing CLI and browser operators may use
 their respective domain facades interchangeably, subject only to accepted
 last-writer-wins behavior within a mutated retained domain.

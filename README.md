@@ -101,14 +101,20 @@ Summarize, Classify, Code, and retained configuration. External Information is
 one explicit loopback-only action: an operator supplies a distinct acquisition
 QUERY and source-grounded Chat QUESTION, optionally overrides the retained exact
 plugin name, and receives generated content separately from supplied source
-evidence. It does not make browser Chat acquire automatically. The loopback-only
-Configuration view changes
+evidence. Native loopback Chat also has a clearly visible, page-local
+authorization checkbox, OFF by default on every page load. When enabled,
+eligible newest turns may use the retained exact plugin selection: HAC's fixed
+decision sees only that exact turn, and the unchanged turn is the only
+acquisition QUERY. Prior conversation is not passed through HAC's acquisition
+contract; supplied-source provenance is displayed for that completed assistant
+turn only. This authorization is not retained, and trusted-LAN browser Chat
+does not receive it. The loopback-only Configuration view changes
 only retained local configuration, the optional stable-diffusion.cpp loopback
 base URL, caller-owned retained remote-node declarations, an explicit
 external-information plugin name, and the native one-shot Chat fallback
 authorization for future ordinary HAC launches; it does not reconfigure the
 running process. It does not discover plugins, inspect provider/runtime health,
-or make browser Chat automatically acquire external information. Remote
+or retain browser Chat authorization. Remote
 declarations are not remote administration, and saving them does not probe or
 contact the configured node. Configuration remains unavailable on the
 trusted-LAN browser. The same URL is available on the calling machine while the
@@ -148,7 +154,8 @@ acquisition plugin for one source-grounded Chat request. An operator may also
 authorize eligible one-shot `hac chat` to use that same bounded caller-owned
 plugin boundary. No provider is bundled, and the ordinary HAC server does not
 acquire external information by itself, except after an operator explicitly
-submits the separate loopback-browser External Information action.
+submits the separate loopback-browser External Information action or enables
+the page-local automatic Chat authorization for an eligible turn.
 Two published examples prove the same acquisition boundary with materially
 different provider ownership: the operator-managed local-service
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng) and

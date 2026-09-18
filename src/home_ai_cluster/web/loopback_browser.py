@@ -7,16 +7,25 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
+from pydantic import ValidationError
 
+from home_ai_cluster.api.chat_external_information_decision import (
+    ChatExternalInformationDecisionRequest,
+)
 from home_ai_cluster.api.client_disconnect import (
     cancellation_has_won,
     run_routable_execution,
 )
-from home_ai_cluster.api.routes import handle_chat_cluster_request
+from home_ai_cluster.api.routes import (
+    _caller_local_node_registry,
+    handle_chat_cluster_request,
+    handle_static_local_cluster_request,
+)
 from home_ai_cluster.commands import external_information_command
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
+    ClassifyResult,
     ClusterRequest,
     RequestConstraints,
     SourceGroundedChatRequest,
@@ -71,6 +80,7 @@ _CHAT_EXTERNAL_INFORMATION_DOCUMENT_KEYS = ("authorized",)
 _WORKSPACE_CODE_KEYS = ("root", "grants", "history", "instruction")
 _WORKSPACE_GRANTS = frozenset({"list", "read", "write", "create"})
 _EXTERNAL_INFORMATION_OPERATION_KEYS = ("plugin", "query", "question")
+_CHAT_EXTERNAL_INFORMATION_OPERATION_KEYS = ("messages",)
 
 
 def _workspace_code_document(
@@ -266,6 +276,39 @@ def _external_information_operation_document(value: Any) -> tuple[str, str, str]
         raise ValueError("invalid External Information request") from None
 
 
+def _chat_external_information_operation_document(
+    value: Any,
+) -> tuple[list[ChatMessage], list[ChatMessage], str]:
+    """Validate the closed, current-page-only automatic Chat conversation."""
+    if not isinstance(value, dict) or set(value) != set(
+        _CHAT_EXTERNAL_INFORMATION_OPERATION_KEYS
+    ):
+        raise ValueError("invalid Chat External Information request")
+    raw_messages = value["messages"]
+    if not isinstance(raw_messages, list) or not raw_messages:
+        raise ValueError("invalid Chat External Information request")
+    try:
+        if any(
+            not isinstance(message, dict) or set(message) != {"role", "content"}
+            for message in raw_messages
+        ):
+            raise ValueError
+        messages = [ChatMessage.model_validate(message) for message in raw_messages]
+    except (TypeError, ValueError):
+        raise ValueError("invalid Chat External Information request") from None
+    if (
+        messages[0].role != "user"
+        or messages[-1].role != "user"
+        or any(message.role not in {"user", "assistant"} for message in messages)
+        or any(
+            message.role != ("user" if index % 2 == 0 else "assistant")
+            for index, message in enumerate(messages)
+        )
+    ):
+        raise ValueError("invalid Chat External Information request")
+    return messages, messages[:-1], messages[-1].content
+
+
 def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
     """Attach only the fixed RFC-0062 browser page and assets to one API app."""
 
@@ -333,6 +376,120 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
 
         result = await run_routable_execution(request, execute)
         return JSONResponse(result.model_dump())
+
+    @app.post("/chat-external-information", include_in_schema=False)
+    async def chat_external_information(request: Request) -> JSONResponse:
+        """Run one explicitly authorized RFC-0134 browser Chat turn."""
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            messages, prior_messages, question = (
+                _chat_external_information_operation_document(await request.json())
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="invalid Chat External Information request"
+            ) from None
+        try:
+            # This is the sole retained-state read for this authorized turn.
+            plugin_name = load_retained_configuration().external_information_plugin
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400,
+                detail="retained external-information configuration unavailable",
+            ) from None
+
+        constraints = RequestConstraints(
+            local_only=(
+                request.app.state.static_remote_wiring is None
+                and request.app.state.static_remote_collection_wiring is None
+            )
+        )
+
+        async def ordinary() -> object:
+            if cancellation_has_won():
+                raise asyncio.CancelledError
+            return await handle_chat_cluster_request(
+                ClusterRequest(
+                    messages=messages,
+                    capability=Capability(name="chat"),
+                    constraints=constraints,
+                ),
+                request.app.state.static_remote_wiring,
+                request.app.state.static_remote_collection_wiring,
+                request.app.state.local_app_composition,
+            )
+
+        async def execute() -> object:
+            contextual_size = sum(
+                len(message.content.encode("utf-8")) for message in messages
+            )
+            if (
+                plugin_name is None
+                or len(question.encode("utf-8")) > 4_096
+                or contextual_size > 65_536
+            ):
+                return ("ordinary", await ordinary())
+            decision_is_external = False
+            try:
+                decision = ChatExternalInformationDecisionRequest(
+                    question=question
+                ).classify_request()
+                decision_result = await handle_static_local_cluster_request(
+                    decision,
+                    local_app_composition=request.app.state.local_app_composition,
+                    caller_local_node_registry=_caller_local_node_registry(request),
+                )
+                decision_is_external = (
+                    isinstance(decision_result, ClassifyResult)
+                    and decision_result.selected_label == "external"
+                )
+            except Exception:
+                # Classify is advisory; all construction and execution failure is
+                # deliberately indistinguishable from an ordinary decision.
+                decision_is_external = False
+            if cancellation_has_won():
+                raise asyncio.CancelledError
+            if not decision_is_external:
+                return ("ordinary", await ordinary())
+            try:
+                acquired_request = await (
+                    external_information_command._acquire_source_grounded_request_async(
+                        plugin_name, question, question
+                    )
+                )
+                source_request = SourceGroundedChatRequest(
+                    question=question,
+                    sources=acquired_request.sources,
+                    prior_messages=prior_messages,
+                    constraints=constraints,
+                )
+            except (
+                external_information_command._AcquisitionFailure,
+                ValidationError,
+                ValueError,
+            ):
+                raise HTTPException(
+                    status_code=502, detail="external-information-acquisition-failed"
+                ) from None
+            if cancellation_has_won():
+                raise asyncio.CancelledError
+            result = await handle_chat_cluster_request(
+                source_request,
+                request.app.state.static_remote_wiring,
+                request.app.state.static_remote_collection_wiring,
+                request.app.state.local_app_composition,
+            )
+            return ("source-grounded", result)
+
+        branch, result = await run_routable_execution(request, execute)
+        return JSONResponse({"branch": branch, "result": result.model_dump()})
 
     @app.post("/workspace-code", include_in_schema=False)
     async def workspace_code(request: Request) -> JSONResponse:

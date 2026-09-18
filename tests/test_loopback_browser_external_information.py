@@ -4,6 +4,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from fastapi.routing import APIRoute
 from starlette.requests import Request
 
@@ -12,7 +13,13 @@ from home_ai_cluster.api.client_disconnect import (
     cancellation_has_won,
 )
 from home_ai_cluster.commands import external_information_command
-from home_ai_cluster.core.models import SourceGroundedChatResult
+from home_ai_cluster.core.models import (
+    ClassifyResult,
+    ClusterResult,
+    SourceEvidence,
+    SourceGroundedChatRequest,
+    SourceGroundedChatResult,
+)
 from home_ai_cluster.main import create_app, create_receiver_app
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
@@ -88,6 +95,192 @@ def candidate() -> dict[str, str]:
         "url": "https://example.test/source",
         "content": "Supplied source content",
     }
+
+
+def automatic_document(
+    messages: list[dict[str, str]] | None = None,
+) -> dict[str, object]:
+    return {
+        "messages": messages or [{"role": "user", "content": "current exact question"}]
+    }
+
+
+def automatic_request(app, *, headers: dict[str, str] | None = None, json: object):
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://127.0.0.1:25042",
+        ) as client:
+            return await client.post(
+                "/chat-external-information", headers=headers, json=json
+            )
+
+    return asyncio.run(send())
+
+
+def test_automatic_chat_without_retained_plugin_is_one_ordinary_conversation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    decision_called = False
+
+    async def must_not_decide(*_) -> object:
+        nonlocal decision_called
+        decision_called = True
+        raise AssertionError("missing retained plugin must not classify")
+
+    async def route(request, *_):
+        assert [message.content for message in request.messages] == [
+            "earlier user",
+            "earlier assistant",
+            "current exact question",
+        ]
+        return ClusterResult(content="ordinary", node_id="local", adapter="test")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+        must_not_decide,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request", route
+    )
+    response = automatic_request(
+        native_app(),
+        headers=headers(),
+        json=automatic_document(
+            [
+                {"role": "user", "content": "earlier user"},
+                {"role": "assistant", "content": "earlier assistant"},
+                {"role": "user", "content": "current exact question"},
+            ]
+        ),
+    )
+
+    assert response.json()["branch"] == "ordinary"
+    assert response.json()["result"]["content"] == "ordinary"
+    assert not decision_called
+
+
+def test_automatic_chat_external_branch_uses_newest_turn_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        RetainedConfiguration(external_information_plugin="selected")
+    )
+    acquired: list[str] = []
+
+    async def decide(request, **_):
+        assert "current exact question" in request.text
+        assert "earlier user" not in request.text
+        return ClassifyResult(
+            selected_label="external", node_id="local", adapter="test"
+        )
+
+    async def acquire(query: str) -> list[dict[str, str]]:
+        acquired.append(query)
+        return [candidate()]
+
+    async def route(request, *_):
+        assert request.question == "current exact question"
+        assert [message.content for message in request.prior_messages] == [
+            "earlier user",
+            "earlier assistant",
+        ]
+        return SourceGroundedChatResult(
+            content="grounded", sources=request.sources, node_id="local", adapter="test"
+        )
+
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+        decide,
+    )
+    monkeypatch.setattr(
+        external_information_command.importlib.metadata,
+        "entry_points",
+        lambda: EntryPoints([EntryPoint("selected", acquire)]),
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request", route
+    )
+    response = automatic_request(
+        native_app(),
+        headers=headers(),
+        json=automatic_document(
+            [
+                {"role": "user", "content": "earlier user"},
+                {"role": "assistant", "content": "earlier assistant"},
+                {"role": "user", "content": "current exact question"},
+            ]
+        ),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["branch"] == "source-grounded"
+    assert acquired == ["current exact question"]
+
+
+def test_automatic_chat_rejects_closed_conversation_and_is_absent_elsewhere() -> None:
+    app = native_app()
+    assert (
+        automatic_request(app, headers=headers(), json={"messages": []}).status_code
+        == 400
+    )
+    assert (
+        automatic_request(
+            app,
+            headers=headers(),
+            json={"messages": [{"role": "system", "content": "no"}]},
+        ).status_code
+        == 400
+    )
+
+    owner = create_app()
+    lan = create_trusted_lan_browser_app(owner, host="192.0.2.10", port=25042)
+
+    async def post_path(app) -> int:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://192.0.2.10:25042",
+        ) as client:
+            response = await client.post("/chat-external-information", json={})
+            return response.status_code
+
+    assert asyncio.run(post_path(lan)) == 404
+    receiver = create_receiver_app(local_app_composition=object())
+    assert asyncio.run(post_path(receiver)) == 404
+
+
+def test_automatic_chat_invalid_decision_does_not_retry_failed_ordinary_chat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        RetainedConfiguration(external_information_plugin="selected")
+    )
+    ordinary_attempts = 0
+
+    async def invalid_decision(*_, **__) -> object:
+        return object()
+
+    async def failed_ordinary_chat(*_) -> object:
+        nonlocal ordinary_attempts
+        ordinary_attempts += 1
+        raise HTTPException(status_code=503, detail="Runtime adapter unavailable")
+
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+        invalid_decision,
+    )
+    monkeypatch.setattr(
+        "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request",
+        failed_ordinary_chat,
+    )
+
+    response = automatic_request(
+        native_app(), headers=headers(), json=automatic_document()
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Runtime adapter unavailable"}
+    assert ordinary_attempts == 1
 
 
 def test_operation_uses_exact_override_once_without_retained_selection(
@@ -317,6 +510,206 @@ def test_disconnect_discards_late_plugin_result_before_source_grounded_chat(
             await task
         assert cancelled.is_set()
         assert disconnect_won.is_set()
+        assert not routed.is_set()
+
+    asyncio.run(run())
+
+
+def test_automatic_chat_disconnect_discards_late_external_decision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrowserState:
+        def __init__(self) -> None:
+            self.body = json.dumps(automatic_document()).encode()
+            self.body_consumed = False
+            self.disconnected = False
+
+        async def receive(self) -> dict[str, object]:
+            if not self.body_consumed:
+                self.body_consumed = True
+                return {"type": "http.request", "body": self.body, "more_body": False}
+            if self.disconnected:
+                return {"type": "http.disconnect"}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def run() -> None:
+        save_retained_configuration(
+            RetainedConfiguration(external_information_plugin="selected")
+        )
+        app = native_app()
+        endpoint = next(
+            route.endpoint
+            for route in app.routes
+            if isinstance(route, APIRoute)
+            and route.path == "/chat-external-information"
+            and "POST" in route.methods
+        )
+        state = BrowserState()
+        started, cancellation_won, acquired, routed = (
+            asyncio.Event(),
+            asyncio.Event(),
+            asyncio.Event(),
+            asyncio.Event(),
+        )
+
+        async def late_decision(*_, **__) -> ClassifyResult:
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                assert cancellation_has_won()
+                cancellation_won.set()
+                return ClassifyResult(
+                    selected_label="external", node_id="local", adapter="test"
+                )
+
+        async def must_not_acquire(*_) -> object:
+            acquired.set()
+            raise AssertionError("late external decision must not acquire")
+
+        async def must_not_route(*_) -> object:
+            routed.set()
+            raise AssertionError("late decision must not start Chat")
+
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+            late_decision,
+        )
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.external_information_command."
+            "_acquire_source_grounded_request_async",
+            must_not_acquire,
+        )
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request",
+            must_not_route,
+        )
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/chat-external-information",
+                "headers": [
+                    (b"host", b"127.0.0.1:25042"),
+                    (b"origin", b"http://127.0.0.1:25042"),
+                    (b"content-type", b"application/json"),
+                ],
+                "app": app,
+                "server": ("127.0.0.1", 25042),
+            },
+            receive=state.receive,
+        )
+        task = asyncio.create_task(endpoint(request))
+        await asyncio.wait_for(started.wait(), 1)
+        state.disconnected = True
+
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert cancellation_won.is_set()
+        assert not acquired.is_set()
+        assert not routed.is_set()
+
+    asyncio.run(run())
+
+
+def test_automatic_chat_disconnect_discards_late_acquisition_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrowserState:
+        def __init__(self) -> None:
+            self.body = json.dumps(automatic_document()).encode()
+            self.body_consumed = False
+            self.disconnected = False
+
+        async def receive(self) -> dict[str, object]:
+            if not self.body_consumed:
+                self.body_consumed = True
+                return {"type": "http.request", "body": self.body, "more_body": False}
+            if self.disconnected:
+                return {"type": "http.disconnect"}
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def run() -> None:
+        save_retained_configuration(
+            RetainedConfiguration(external_information_plugin="selected")
+        )
+        app = native_app()
+        endpoint = next(
+            route.endpoint
+            for route in app.routes
+            if isinstance(route, APIRoute)
+            and route.path == "/chat-external-information"
+            and "POST" in route.methods
+        )
+        state = BrowserState()
+        started, cancellation_won, routed = (
+            asyncio.Event(),
+            asyncio.Event(),
+            asyncio.Event(),
+        )
+
+        async def external_decision(*_, **__) -> ClassifyResult:
+            return ClassifyResult(
+                selected_label="external", node_id="local", adapter="test"
+            )
+
+        async def late_acquisition(*_) -> SourceGroundedChatRequest:
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                assert cancellation_has_won()
+                cancellation_won.set()
+                return SourceGroundedChatRequest(
+                    question="current exact question",
+                    sources=[
+                        SourceEvidence(
+                            title="title",
+                            url="https://example.test/source",
+                            content="content",
+                        )
+                    ],
+                )
+
+        async def must_not_route(*_) -> object:
+            routed.set()
+            raise AssertionError("late acquisition must not start Chat")
+
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.handle_static_local_cluster_request",
+            external_decision,
+        )
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.external_information_command."
+            "_acquire_source_grounded_request_async",
+            late_acquisition,
+        )
+        monkeypatch.setattr(
+            "home_ai_cluster.web.loopback_browser.handle_chat_cluster_request",
+            must_not_route,
+        )
+        request = Request(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/chat-external-information",
+                "headers": [
+                    (b"host", b"127.0.0.1:25042"),
+                    (b"origin", b"http://127.0.0.1:25042"),
+                    (b"content-type", b"application/json"),
+                ],
+                "app": app,
+                "server": ("127.0.0.1", 25042),
+            },
+            receive=state.receive,
+        )
+        task = asyncio.create_task(endpoint(request))
+        await asyncio.wait_for(started.wait(), 1)
+        state.disconnected = True
+
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert cancellation_won.is_set()
         assert not routed.is_set()
 
     asyncio.run(run())

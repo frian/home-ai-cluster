@@ -1024,9 +1024,11 @@ mapping is useful for compatibility or reference:
 
 ### Image Generation
 
-`hac image-generation "<INSTRUCTION>" [--timeout-seconds N]` sends one
-instruction-only request to an already-running ordinary HAC process with an
-eligible local `image-generation` capability. Successful output is raw PNG
+`hac image-generation "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
+request to an already-running ordinary HAC process with an eligible local
+`image-generation` capability. Width and height are optional but must be
+supplied together as whole pixels from 64 through 2048; when supplied, the
+successful PNG has exactly those dimensions. Successful output is raw PNG
 bytes on stdout. Direct TTY stdout is refused before a request is made, so use
 an appropriate non-TTY byte sink. HAC owns no output path or file; shell and
 pipeline behavior after stdout is outside HAC's contract. There is no JSON,

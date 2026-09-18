@@ -77,6 +77,10 @@
         <form id="image-generation-form">
           <label for="image-generation-instruction">Instruction</label>
           <textarea id="image-generation-instruction" placeholder="Describe the image you want to generate…" required rows="6"></textarea>
+          <label for="image-generation-width">Width (optional, 64–2048 px)</label>
+          <input id="image-generation-width" min="64" max="2048" step="1" type="number">
+          <label for="image-generation-height">Height (optional, 64–2048 px)</label>
+          <input id="image-generation-height" min="64" max="2048" step="1" type="number">
           <div class="form-actions"><button data-submit type="submit">Generate</button></div>
         </form>
         <p aria-live="polite" class="error" id="image-generation-error" role="status"></p>

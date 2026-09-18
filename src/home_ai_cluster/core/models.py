@@ -264,11 +264,33 @@ class ClassifyRequest(BaseModel):
 
 
 class ImageGenerationRequest(BaseModel):
-    """One bounded textual image-generation request."""
+    """One bounded Image Generation request with optional exact geometry."""
 
     model_config = ConfigDict(extra="forbid")
 
     instruction: str
+    width: int | None = None
+    height: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_dimensions(cls, value: object) -> object:
+        """Require an absent pair or one strict, bounded integer pair."""
+        if not isinstance(value, dict):
+            return value
+        has_width = "width" in value
+        has_height = "height" in value
+        if has_width != has_height:
+            raise ValueError("width and height must be supplied together")
+        if not has_width:
+            return value
+        for name in ("width", "height"):
+            dimension = value[name]
+            if type(dimension) is not int:
+                raise ValueError(f"{name} must be an integer")
+            if not 64 <= dimension <= 2048:
+                raise ValueError(f"{name} must be between 64 and 2048")
+        return value
 
     @field_validator("instruction")
     @classmethod

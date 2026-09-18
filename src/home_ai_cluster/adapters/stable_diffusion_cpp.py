@@ -107,7 +107,12 @@ class StableDiffusionCppAdapter:
                     "batch_count": 1,
                     "embed_image_metadata": False,
                     "output_format": "png",
-                },
+                }
+                | (
+                    {"width": request.width, "height": request.height}
+                    if request.width is not None
+                    else {}
+                ),
             )
         except httpx.ConnectError as exc:
             raise RuntimeConnectionUnavailableBeforeRequestError(

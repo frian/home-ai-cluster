@@ -155,6 +155,36 @@ def test_image_request_and_result_are_dedicated_local_models() -> None:
         ImageGenerationRequest(instruction="é" * 32_768 + "x")
 
 
+@pytest.mark.parametrize("width, height", [(64, 64), (2048, 2048), (512, 768)])
+def test_image_request_accepts_only_bounded_paired_dimensions(
+    width: int, height: int
+) -> None:
+    assert ImageGenerationRequest(instruction="draw", width=width, height=height) == (
+        ImageGenerationRequest(instruction="draw", width=width, height=height)
+    )
+
+
+@pytest.mark.parametrize(
+    "dimensions",
+    [
+        {"width": 512},
+        {"height": 512},
+        {"width": 63, "height": 64},
+        {"width": 64, "height": 2049},
+        {"width": "512", "height": 768},
+        {"width": True, "height": 768},
+        {"width": 512.0, "height": 768},
+        {"width": None, "height": None},
+        {"width": 512, "height": 768, "extra": "no"},
+    ],
+)
+def test_image_request_rejects_invalid_dimension_forms(
+    dimensions: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError):
+        ImageGenerationRequest(instruction="draw", **dimensions)
+
+
 def test_image_only_adapter_is_admitted_and_routed_locally() -> None:
     adapter = ImageAdapter({"image-generation"})
     nodes, adapters = composition(adapter)
@@ -164,6 +194,26 @@ def test_image_only_adapter_is_admitted_and_routed_locally() -> None:
     assert adapter.requests == [request]
     assert result.image_bytes == adapter.result
     assert result.node_id == "image-node"
+
+
+def test_dimensioned_image_requires_exact_validated_png_geometry() -> None:
+    request = ImageGenerationRequest(instruction="one tree", width=64, height=65)
+    adapter = ImageAdapter({"image-generation"}, png(width=64, height=65))
+    nodes, adapters = composition(adapter)
+    result = asyncio.run(
+        execute_local_routing_decision(request, route_request(request, nodes, adapters))
+    )
+    assert result.image_bytes == adapter.result
+
+    for candidate in (png(width=65, height=65), png(width=64, height=64)):
+        adapter = ImageAdapter({"image-generation"}, candidate)
+        nodes, adapters = composition(adapter)
+        with pytest.raises(ImageGenerationResultValidationError, match="geometry"):
+            asyncio.run(
+                execute_local_routing_decision(
+                    request, route_request(request, nodes, adapters)
+                )
+            )
 
 
 def test_positive_image_claim_requires_image_execution_contract() -> None:

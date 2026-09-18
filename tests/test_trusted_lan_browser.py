@@ -105,6 +105,10 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert "Configuration" not in html
     assert "workspace" not in html.lower()
     assert "selected_label" in script
+    assert 'id="image-generation-width"' in html
+    assert 'id="image-generation-height"' in html
+    assert '(width === "") !== (height === "")' in script
+    assert "body.width = numericWidth; body.height = numericHeight;" in script
     assert (
         'Array.from(document.querySelectorAll(".classify-label"), '
         "(input) => input.value)" in script

@@ -206,6 +206,27 @@ def test_native_submission_is_literal_private_and_exactly_one_image(
     ]
 
 
+def test_native_submission_projects_requested_dimensions() -> None:
+    requests: list[httpx.Request] = []
+    adapter = StableDiffusionCppAdapter(
+        base_url="http://127.0.0.1:7860",
+        transport=successful_transport(requests, runtime_png()),
+    )
+    assert asyncio.run(
+        adapter.generate_image(
+            ImageGenerationRequest(instruction="draw", width=512, height=768)
+        )
+    )
+    assert json.loads(requests[0].content) == {
+        "prompt": "draw",
+        "batch_count": 1,
+        "embed_image_metadata": False,
+        "output_format": "png",
+        "width": 512,
+        "height": 768,
+    }
+
+
 def test_native_job_polling_and_ordinary_local_vertical() -> None:
     requests: list[httpx.Request] = []
     adapter = StableDiffusionCppAdapter(

@@ -46,12 +46,12 @@ def _chunk(kind: bytes, payload: bytes) -> bytes:
     )
 
 
-def _png() -> bytes:
-    raw = b"\0\0\0\0"
+def _png(width: int = 1, height: int = 1) -> bytes:
+    raw = b"".join(b"\0" + bytes(width * 3) for _ in range(height))
     return b"".join(
         [
             b"\x89PNG\r\n\x1a\n",
-            _chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)),
+            _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)),
             _chunk(b"IDAT", zlib.compress(raw)),
             _chunk(b"IEND", b""),
         ]
@@ -157,12 +157,29 @@ def test_retained_style_textual_and_image_composition_selects_image_binding(
     "payload",
     [
         {"instruction": "a fox", "seed": 1},
+        {"instruction": "a fox", "width": 512},
+        {"instruction": "a fox", "height": 768},
+        {"instruction": "a fox", "width": 63, "height": 768},
+        {"instruction": "a fox", "width": True, "height": 768},
         {"instruction": "   "},
         {"instruction": "é" * 32_769},
     ],
 )
 def test_native_image_generation_rejects_invalid_public_bodies(payload: object) -> None:
     assert _post(create_app(), payload).status_code == 422
+
+
+def test_native_image_generation_keeps_valid_dimensions_intact() -> None:
+    adapter = _ImageAdapter()
+    adapter.result = _png(64, 64)
+    response = _post(
+        create_app(local_app_composition=_composition(adapter)),
+        {"instruction": "a fox", "width": 64, "height": 64},
+    )
+    assert response.status_code == 200
+    assert adapter.requests == [
+        ImageGenerationRequest(instruction="a fox", width=64, height=64)
+    ]
 
 
 def test_native_image_generation_has_ordinary_no_capability_boundary() -> None:
@@ -400,6 +417,25 @@ def test_image_generation_command_writes_exact_png_to_non_tty_stdout() -> None:
             {"instruction": "a fox"},
         )
     ]
+
+
+def test_image_generation_command_validates_dimension_pair() -> None:
+    output, errors, calls = io.BytesIO(), io.StringIO(), []
+    image_generation_command.main(
+        ["a fox", "--width", "64", "--height", "768"],
+        _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
+        _stdout=output,
+        _stderr=errors,
+    )
+    assert calls[0][2] == {"instruction": "a fox", "width": 64, "height": 768}
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["a fox", "--width", "64"],
+            _client_factory=lambda **kwargs: pytest.fail("client must not be created"),
+            _stdout=io.BytesIO(),
+            _stderr=io.StringIO(),
+        )
+    assert raised.value.code == 2
 
 
 def test_image_generation_command_acquires_all_streamed_png_chunks() -> None:

@@ -25,7 +25,11 @@ from home_ai_cluster.core.models import (
     SummarizeRequest,
     project_source_grounded_chat_request,
 )
-from home_ai_cluster.core.png_validation import validate_still_png
+from home_ai_cluster.core.png_validation import (
+    ImageGenerationResultValidationError,
+    still_png_dimensions,
+    validate_still_png,
+)
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
     RemoteNodeDeclaration,
@@ -111,10 +115,13 @@ async def execute_local_routing_decision(
             execution_intervals,
             interval_already_entered=interval_already_entered,
         )
-        return ImageGenerationResult(
-            image_bytes=validate_still_png(candidate),
-            node_id=decision.node.id,
-        )
+        image_bytes = validate_still_png(candidate)
+        if request.width is not None:
+            if still_png_dimensions(image_bytes) != (request.width, request.height):
+                raise ImageGenerationResultValidationError(
+                    "PNG geometry does not match requested dimensions"
+                )
+        return ImageGenerationResult(image_bytes=image_bytes, node_id=decision.node.id)
 
     if isinstance(request, ClassifyRequest):
         proposal = await _await_local_adapter_invocation(

@@ -79,8 +79,9 @@ or from the existence of CLI commands.
   configure/reset semantics.
 - Make retained absence explicit and preserve retained-state-only,
   future-invocation meaning.
-- Retain RFC-0112/RFC-0113 Host/Origin mutation authority and their receiver
-  isolation.
+- Require exact native Host authority for Configuration reads and RFC-0112/
+  RFC-0113 Host/Origin mutation authority for persistent writes, while
+  preserving receiver isolation.
 - Ensure configuration reads and mutations have no runtime, plugin, provider,
   health, discovery, or network side effects.
 - Preserve fail-closed behavior when a later unrepresented retained domain is
@@ -211,11 +212,15 @@ does not make the serving browser process acquire external information.
 
 ### Request authority and isolation
 
-Persistent mutation remains native-loopback only and reuses RFC-0112/RFC-0113:
-an exact accepted native Host authority, exact same-origin `Origin`, bounded
-JSON/non-simple mutation where applicable, and no CORS authority.  It does not
-add login, accounts, sessions, tokens, OAuth, TLS, or general authentication,
-nor weaken existing Host/Origin behavior.
+Every Configuration read belongs only to the ordinary/native application and
+requires the exact accepted native Host authority.  Persistent mutation also
+belongs only to that application and reuses RFC-0112/RFC-0113: exact accepted
+native Host authority, exact same-origin `Origin`, bounded JSON/non-simple
+mutation where applicable, and no CORS authority.  Accepted authority is pinned
+to HAC's effective native authority; attacker-controlled Host and Origin values
+must not validate one another.  Read-only GETs do not gain an Origin
+requirement.  This RFC adds no login, accounts, sessions, tokens, OAuth, TLS,
+or general authentication, and does not weaken existing Host/Origin behavior.
 
 The routes belong only to the ordinary/native application.  The trusted-LAN
 application remains without Configuration routes or view under RFC-0130, and
@@ -226,11 +231,20 @@ topology discovery, health probing, or control-plane behavior.
 ### Fail-closed evolution
 
 This RFC authorizes exactly the five enumerated current retained semantic
-domains.  A future retained domain does not become browser-readable or
-browser-writable merely because it appears in retained storage.  If a
-complete-domain browser operation would encounter an unrepresented future fact,
-implementation must fail closed rather than silently rewrite, drop, preserve,
-reset, or merge it.  The detection mechanism remains an implementation detail.
+domains.  A new separate retained domain does not become browser-readable or
+browser-writable merely because it appears in retained storage.  Its existence
+must not disable a mutation of another independently owned domain when that
+operation can preserve the separate domain unchanged under its established
+domain-isolation semantics.
+
+The fail-closed rule instead applies when a browser-owned complete semantic
+domain grows internally.  For example, if a future fact is added to the
+complete `local` domain but is not represented by its browser replacement,
+that operation must fail closed until an accepted architectural decision
+determines browser participation.  It must not silently preserve, reset, drop,
+merge, or otherwise rewrite that hidden fact.  This selects neither generic
+future-schema introspection nor browser authority over unknown domains; the
+detection mechanism remains an implementation detail.
 
 ## Rationale
 
@@ -307,12 +321,15 @@ A later implementation must prove at least that:
 5. Chat fallback enable/disable mutates only RFC-0096 authorization and
    triggers no classification, acquisition, or network work;
 6. remote-node behavior remains RFC-0113-compatible;
-7. every persistent mutation requires exact native Host and same-origin Origin;
+7. every Configuration read requires exact native Host authority, and every
+   persistent mutation additionally requires exact same-origin Origin;
 8. trusted-LAN and receiver applications contain neither Configuration routes
    nor a Configuration view;
 9. mutation of one retained domain preserves all other domains;
-10. a later unrepresented retained domain fails closed rather than being
-    silently rewritten;
+10. unrepresented growth within a browser-owned complete domain fails closed
+    rather than being silently rewritten, while a new separate retained domain
+    remains unauthorized and is preserved by unrelated domain mutations when
+    semantically safe;
 11. no runtime/model/plugin/provider health or discovery, or live process
     reconfiguration, occurs; and
 12. no dependency or public retained-storage-format expansion is introduced.
@@ -333,9 +350,12 @@ retained domain with its existing validator and semantics; configuration reads
 and writes retain future-state-only meaning, have no observation, discovery, or
 network side effects, and do not live-reconfigure the serving process.
 
-The proposal retains RFC-0112/RFC-0113 native Host and same-origin Origin
-authority, preserves trusted-LAN, receiver, remote, and synchronization
-exclusions, and requires fail-closed treatment of future unrepresented retained
-domains.  It does not add a generic configuration framework, whole-document
-editing, or dashboard/control-plane authority.  This RFC remains Draft pending
-operator acceptance after review.
+Configuration reads require exact native Host authority; persistent mutation
+additionally retains RFC-0112/RFC-0113 exact same-origin Origin authority.
+The proposal preserves trusted-LAN, receiver, remote, and synchronization
+exclusions.  Unrepresented growth within a browser-owned complete domain fails
+closed, while a new separate retained domain remains unauthorized and does not
+disable unrelated domain mutation that can preserve it safely.  It does not add
+a generic configuration framework, whole-document editing, or dashboard/control
+plane authority.  This RFC remains Draft pending operator acceptance after
+review.

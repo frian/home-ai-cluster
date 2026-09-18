@@ -13,14 +13,23 @@ from home_ai_cluster.core.models import Capability, ChatMessage, ClusterRequest
 from home_ai_cluster.core.workspace_authority import WorkspaceAuthorityError
 from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
+    RetainedImageGenerationConfiguration,
     RetainedLocalConfiguration,
+    browser_retained_image_generation_shape_is_supported,
     browser_retained_local_shape_is_supported,
+    build_retained_image_generation_configuration,
     build_retained_local_configuration,
     build_retained_remote_node_declaration,
     load_retained_configuration,
     remove_retained_remote_node,
+    replace_retained_external_information_plugin,
+    replace_retained_image_generation_configuration,
     replace_retained_local_configuration,
     replace_retained_remote_node,
+    reset_retained_image_generation_configuration,
+    reset_retained_local_configuration,
+    set_retained_chat_external_information_fallback,
+    validate_external_information_plugin_name,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.workspace_aware_code import (
@@ -45,6 +54,9 @@ _LOCAL_DOCUMENT_KEYS = (
     "execution_limit",
 )
 _REMOTE_NODE_DOCUMENT_KEYS = ("base_url", "capabilities")
+_IMAGE_GENERATION_DOCUMENT_KEYS = ("base_url",)
+_EXTERNAL_INFORMATION_DOCUMENT_KEYS = ("plugin",)
+_CHAT_EXTERNAL_INFORMATION_DOCUMENT_KEYS = ("authorized",)
 _WORKSPACE_CODE_KEYS = ("root", "grants", "history", "instruction")
 _WORKSPACE_GRANTS = frozenset({"list", "read", "write", "create"})
 
@@ -124,6 +136,43 @@ def _local_from_browser_document(document: Any) -> RetainedLocalConfiguration:
         local_capabilities=document["local_capabilities"],
         execution_limit=document["execution_limit"],
     )
+
+
+def _browser_image_generation_document(
+    image_generation: RetainedImageGenerationConfiguration,
+) -> dict[str, object]:
+    if not browser_retained_image_generation_shape_is_supported(image_generation):
+        raise ValueError("unsupported retained Image Generation configuration shape")
+    return {"runtime": "stable-diffusion-cpp", "base_url": image_generation.base_url}
+
+
+def _image_generation_from_browser_document(
+    document: Any,
+) -> RetainedImageGenerationConfiguration:
+    if not isinstance(document, dict) or set(document) != set(
+        _IMAGE_GENERATION_DOCUMENT_KEYS
+    ):
+        raise ValueError("invalid retained Image Generation configuration")
+    return build_retained_image_generation_configuration(base_url=document["base_url"])
+
+
+def _external_information_plugin_from_browser_document(document: Any) -> str:
+    if not isinstance(document, dict) or set(document) != set(
+        _EXTERNAL_INFORMATION_DOCUMENT_KEYS
+    ):
+        raise ValueError("invalid retained external-information configuration")
+    return validate_external_information_plugin_name(document["plugin"])
+
+
+def _chat_external_information_fallback_from_browser_document(document: Any) -> bool:
+    if not isinstance(document, dict) or set(document) != set(
+        _CHAT_EXTERNAL_INFORMATION_DOCUMENT_KEYS
+    ):
+        raise ValueError("invalid retained Chat configuration")
+    authorized = document["authorized"]
+    if not isinstance(authorized, bool):
+        raise ValueError("invalid retained Chat configuration")
+    return authorized
 
 
 def _browser_remote_node_document(node: RemoteNodeDeclaration) -> dict[str, object]:
@@ -311,6 +360,205 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                 status_code=400, detail="unable to retain local configuration"
             ) from None
         return JSONResponse({"local": _browser_local_document(local)})
+
+    @app.delete("/retained-local-configuration", include_in_schema=False)
+    def reset_retained_local_configuration_route(request: Request) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        try:
+            reset_retained_local_configuration()
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400, detail="unable to reset retained local configuration"
+            ) from None
+        return JSONResponse({"local": None})
+
+    @app.get("/retained-image-generation-configuration", include_in_schema=False)
+    def retained_image_generation_configuration(request: Request) -> JSONResponse:
+        if not _has_native_host_authority(request, _native_authority(request)):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        try:
+            image_generation = load_retained_configuration().image_generation
+            if image_generation is None:
+                return JSONResponse({"image_generation": None})
+            return JSONResponse(
+                {
+                    "image_generation": _browser_image_generation_document(
+                        image_generation
+                    )
+                }
+            )
+        except (RetainedConfigurationError, ValueError):
+            raise HTTPException(
+                status_code=400,
+                detail="retained Image Generation configuration unavailable",
+            ) from None
+
+    @app.put("/retained-image-generation-configuration", include_in_schema=False)
+    async def replace_retained_image_generation_configuration_route(
+        request: Request,
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            image_generation = _image_generation_from_browser_document(
+                await request.json()
+            )
+            if not browser_retained_image_generation_shape_is_supported(
+                image_generation
+            ):
+                raise ValueError(
+                    "unsupported retained Image Generation configuration shape"
+                )
+            replace_retained_image_generation_configuration(image_generation)
+        except (
+            json.JSONDecodeError,
+            RetainedConfigurationError,
+            TypeError,
+            ValueError,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="invalid retained Image Generation configuration",
+            ) from None
+        return JSONResponse(
+            {"image_generation": _browser_image_generation_document(image_generation)}
+        )
+
+    @app.delete("/retained-image-generation-configuration", include_in_schema=False)
+    def reset_retained_image_generation_configuration_route(
+        request: Request,
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        try:
+            reset_retained_image_generation_configuration()
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400,
+                detail="unable to reset retained Image Generation configuration",
+            ) from None
+        return JSONResponse({"image_generation": None})
+
+    @app.get("/retained-external-information-configuration", include_in_schema=False)
+    def retained_external_information_configuration(request: Request) -> JSONResponse:
+        if not _has_native_host_authority(request, _native_authority(request)):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        try:
+            plugin = load_retained_configuration().external_information_plugin
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400,
+                detail="retained external-information configuration unavailable",
+            ) from None
+        return JSONResponse({"plugin": plugin})
+
+    @app.put("/retained-external-information-configuration", include_in_schema=False)
+    async def replace_retained_external_information_configuration_route(
+        request: Request,
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            plugin = _external_information_plugin_from_browser_document(
+                await request.json()
+            )
+            replace_retained_external_information_plugin(plugin)
+        except (
+            json.JSONDecodeError,
+            RetainedConfigurationError,
+            TypeError,
+            ValueError,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="invalid retained external-information configuration",
+            ) from None
+        return JSONResponse({"plugin": plugin})
+
+    @app.delete("/retained-external-information-configuration", include_in_schema=False)
+    def reset_retained_external_information_configuration_route(
+        request: Request,
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        try:
+            replace_retained_external_information_plugin(None)
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400,
+                detail="unable to reset retained external-information configuration",
+            ) from None
+        return JSONResponse({"plugin": None})
+
+    @app.get(
+        "/retained-chat-external-information-configuration", include_in_schema=False
+    )
+    def retained_chat_external_information_configuration(
+        request: Request,
+    ) -> JSONResponse:
+        if not _has_native_host_authority(request, _native_authority(request)):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        try:
+            authorized = (
+                load_retained_configuration().chat_external_information_fallback
+            )
+        except RetainedConfigurationError:
+            raise HTTPException(
+                status_code=400, detail="retained Chat configuration unavailable"
+            ) from None
+        return JSONResponse({"authorized": authorized})
+
+    @app.put(
+        "/retained-chat-external-information-configuration", include_in_schema=False
+    )
+    async def set_retained_chat_external_information_configuration_route(
+        request: Request,
+    ) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            authorized = _chat_external_information_fallback_from_browser_document(
+                await request.json()
+            )
+            set_retained_chat_external_information_fallback(authorized)
+        except (
+            json.JSONDecodeError,
+            RetainedConfigurationError,
+            TypeError,
+            ValueError,
+        ):
+            raise HTTPException(
+                status_code=400, detail="invalid retained Chat configuration"
+            ) from None
+        return JSONResponse({"authorized": authorized})
 
     @app.get("/retained-remote-nodes", include_in_schema=False)
     def retained_remote_nodes(request: Request) -> JSONResponse:

@@ -138,10 +138,21 @@
           <label for="configuration-temperature">Sampling temperature (not retained when blank)</label><input id="configuration-temperature" inputmode="decimal" min="0" step="any" type="number">
           <fieldset><legend>Caller-local routing capabilities</legend><label><input id="configuration-capabilities-absent" type="checkbox" checked> Not retained</label><div id="configuration-capabilities"><label><input type="checkbox" value="chat"> chat</label><label><input type="checkbox" value="summarize"> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label></div></fieldset>
           <label for="configuration-execution-limit">Maximum concurrent HAC executions (not retained when blank)</label><input id="configuration-execution-limit" inputmode="numeric" type="number" min="1" placeholder="Positive integer">
-          <div class="form-actions"><button data-submit type="submit">Save retained configuration</button></div>
+          <div class="form-actions"><button data-submit type="submit">Save retained configuration</button><button id="configuration-local-reset" type="button">Remove retained local configuration</button></div>
         </form>
         <p aria-live="polite" class="error" id="configuration-error" role="status"></p>
         <p aria-live="polite" class="request-status" id="configuration-status" role="status"></p>
+        <section aria-labelledby="image-generation-configuration-heading">
+          <h3 id="image-generation-configuration-heading">Image Generation</h3>
+          <p>Retained stable-diffusion.cpp companion for future HAC launches. This configures only its loopback base URL; it does not inspect or start sd-server.</p>
+          <p id="image-generation-configuration-absence">Loading retained Image Generation configuration…</p>
+          <form id="image-generation-configuration-form">
+            <label for="image-generation-configuration-base-url">Loopback base URL</label><input id="image-generation-configuration-base-url" placeholder="Loopback HTTP base URL" required>
+            <div class="form-actions"><button data-submit type="submit">Save Image Generation configuration</button><button id="image-generation-configuration-clear" type="button">Clear Image Generation configuration</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="image-generation-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="image-generation-configuration-status" role="status"></p>
+        </section>
         <section class="remote-nodes" aria-labelledby="remote-nodes-heading">
           <h3 id="remote-nodes-heading">Remote nodes</h3>
           <p>Caller-owned retained declarations. Saving does not contact the configured node.</p>
@@ -155,6 +166,27 @@
           </form>
           <p aria-live="polite" class="error" id="remote-node-error" role="status"></p>
           <p aria-live="polite" class="request-status" id="remote-node-status" role="status"></p>
+        </section>
+        <section aria-labelledby="external-information-configuration-heading">
+          <h3 id="external-information-configuration-heading">External Information</h3>
+          <p>Retained exact acquisition-plugin name for explicit future external-information operations. This does not discover plugins or test providers.</p>
+          <p id="external-information-configuration-absence">Loading retained external-information configuration…</p>
+          <form id="external-information-configuration-form">
+            <label for="external-information-configuration-plugin">Plugin name</label><input id="external-information-configuration-plugin" required>
+            <div class="form-actions"><button data-submit type="submit">Save plugin choice</button><button id="external-information-configuration-clear" type="button">Clear plugin choice</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="external-information-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="external-information-configuration-status" role="status"></p>
+        </section>
+        <section aria-labelledby="chat-external-information-configuration-heading">
+          <h3 id="chat-external-information-configuration-heading">Chat external information</h3>
+          <p>This retained authorization affects only eligible future native one-shot Chat behavior. Browser Chat does not automatically acquire external information.</p>
+          <form id="chat-external-information-configuration-form">
+            <label><input id="chat-external-information-configuration-authorized" type="checkbox"> Authorize external-information fallback for eligible future native one-shot Chat</label>
+            <div class="form-actions"><button data-submit type="submit">Save Chat authorization</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="chat-external-information-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="chat-external-information-configuration-status" role="status"></p>
         </section>
       </section>
     </main>

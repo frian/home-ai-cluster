@@ -17,7 +17,10 @@
     code: createRequestContext("#code-form", "#code-error", "#code-status"),
     imageGeneration: createRequestContext("#image-generation-form", "#image-generation-error", "#image-generation-status"),
     configuration: createRequestContext("#configuration-form", "#configuration-error", "#configuration-status"),
+    imageGenerationConfiguration: createRequestContext("#image-generation-configuration-form", "#image-generation-configuration-error", "#image-generation-configuration-status"),
     remoteNodes: createRequestContext("#remote-node-form", "#remote-node-error", "#remote-node-status"),
+    externalInformationConfiguration: createRequestContext("#external-information-configuration-form", "#external-information-configuration-error", "#external-information-configuration-status"),
+    chatExternalInformationConfiguration: createRequestContext("#chat-external-information-configuration-form", "#chat-external-information-configuration-error", "#chat-external-information-configuration-status"),
   };
   const capabilityRequestContexts = [
     requestContexts.chat,
@@ -154,6 +157,12 @@
   const remoteNodeBaseUrl = document.querySelector("#remote-node-base-url");
   const remoteNodeCancel = document.querySelector("#remote-node-cancel");
   const remoteNodesList = document.querySelector("#remote-nodes-list");
+  const imageGenerationConfigurationForm = document.querySelector("#image-generation-configuration-form");
+  const imageGenerationConfigurationBaseUrl = document.querySelector("#image-generation-configuration-base-url");
+  const externalInformationConfigurationForm = document.querySelector("#external-information-configuration-form");
+  const externalInformationConfigurationPlugin = document.querySelector("#external-information-configuration-plugin");
+  const chatExternalInformationConfigurationForm = document.querySelector("#chat-external-information-configuration-form");
+  const chatExternalInformationConfigurationAuthorized = document.querySelector("#chat-external-information-configuration-authorized");
   let configurationLoaded = false;
   let editingRemoteNodeId = null;
 
@@ -190,6 +199,24 @@
     document.querySelector("#configuration-execution-limit").value = local.execution_limit === null ? "" : String(local.execution_limit);
     updateConfigurationRuntimeFields();
     updateConfigurationCapabilities();
+  }
+
+  function setImageGenerationConfiguration(imageGeneration) {
+    document.querySelector("#image-generation-configuration-absence").textContent = imageGeneration === null
+      ? "No retained Image Generation configuration exists."
+      : "Editing retained stable-diffusion.cpp configuration for future HAC launches.";
+    imageGenerationConfigurationBaseUrl.value = imageGeneration === null ? "" : imageGeneration.base_url;
+  }
+
+  function setExternalInformationConfiguration(plugin) {
+    document.querySelector("#external-information-configuration-absence").textContent = plugin === null
+      ? "No retained external-information plugin choice exists."
+      : "Editing retained external-information plugin choice for future explicit operations.";
+    externalInformationConfigurationPlugin.value = plugin || "";
+  }
+
+  function setChatExternalInformationConfiguration(authorized) {
+    chatExternalInformationConfigurationAuthorized.checked = authorized;
   }
 
   function resetRemoteNodeForm() {
@@ -261,14 +288,27 @@
     setRequestActive(context, true, "Loading retained configuration…");
     clearError(context);
     try {
-      const [localResponse] = await Promise.all([
+      const [localResponse, imageGenerationResponse, externalInformationResponse, chatExternalInformationResponse] = await Promise.all([
         fetch("/retained-local-configuration"),
+        fetch("/retained-image-generation-configuration"),
+        fetch("/retained-external-information-configuration"),
+        fetch("/retained-chat-external-information-configuration"),
         loadRemoteNodes(),
       ]);
       if (!localResponse.ok) return showError(context, await safeFailure(localResponse));
+      if (!imageGenerationResponse.ok) return showError(context, await safeFailure(imageGenerationResponse));
+      if (!externalInformationResponse.ok) return showError(context, await safeFailure(externalInformationResponse));
+      if (!chatExternalInformationResponse.ok) return showError(context, await safeFailure(chatExternalInformationResponse));
       const responseBody = await localResponse.json();
       if (!Object.hasOwn(responseBody, "local")) return showError(context, "Request failed");
+      const imageGenerationBody = await imageGenerationResponse.json();
+      const externalInformationBody = await externalInformationResponse.json();
+      const chatExternalInformationBody = await chatExternalInformationResponse.json();
+      if (!Object.hasOwn(imageGenerationBody, "image_generation") || !Object.hasOwn(externalInformationBody, "plugin") || typeof chatExternalInformationBody.authorized !== "boolean") return showError(context, "Request failed");
       setConfigurationLocal(responseBody.local);
+      setImageGenerationConfiguration(imageGenerationBody.image_generation);
+      setExternalInformationConfiguration(externalInformationBody.plugin);
+      setChatExternalInformationConfiguration(chatExternalInformationBody.authorized);
       configurationLoaded = true;
     } catch (_) {
       showError(context, "Request failed");
@@ -324,6 +364,126 @@
       setRequestActive(context, false);
     }
     if (saved) context.status.textContent = "Retained configuration saved for future HAC launches.";
+  });
+
+  document.querySelector("#configuration-local-reset").addEventListener("click", async () => {
+    const context = requestContexts.configuration;
+    if (context.active) return;
+    setRequestActive(context, true, "Removing retained local configuration…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-local-configuration", { method: "DELETE" });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      setConfigurationLocal(null);
+      context.status.textContent = "Retained local configuration removed for future HAC launches.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  });
+
+  imageGenerationConfigurationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.imageGenerationConfiguration;
+    if (context.active) return;
+    setRequestActive(context, true, "Saving Image Generation configuration…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-image-generation-configuration", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base_url: imageGenerationConfigurationBaseUrl.value }),
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      const body = await response.json();
+      setImageGenerationConfiguration(body.image_generation);
+      context.status.textContent = "Image Generation configuration saved for future HAC launches.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  });
+
+  document.querySelector("#image-generation-configuration-clear").addEventListener("click", async () => {
+    const context = requestContexts.imageGenerationConfiguration;
+    if (context.active) return;
+    setRequestActive(context, true, "Clearing Image Generation configuration…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-image-generation-configuration", { method: "DELETE" });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      setImageGenerationConfiguration(null);
+      context.status.textContent = "Image Generation configuration cleared for future HAC launches.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  });
+
+  externalInformationConfigurationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.externalInformationConfiguration;
+    if (context.active) return;
+    setRequestActive(context, true, "Saving plugin choice…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-external-information-configuration", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plugin: externalInformationConfigurationPlugin.value }),
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      const body = await response.json();
+      setExternalInformationConfiguration(body.plugin);
+      context.status.textContent = "Plugin choice saved for future explicit operations.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  });
+
+  document.querySelector("#external-information-configuration-clear").addEventListener("click", async () => {
+    const context = requestContexts.externalInformationConfiguration;
+    if (context.active) return;
+    setRequestActive(context, true, "Clearing plugin choice…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-external-information-configuration", { method: "DELETE" });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      setExternalInformationConfiguration(null);
+      context.status.textContent = "Plugin choice cleared for future explicit operations.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
+  });
+
+  chatExternalInformationConfigurationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const context = requestContexts.chatExternalInformationConfiguration;
+    if (context.active) return;
+    setRequestActive(context, true, "Saving Chat authorization…");
+    clearError(context);
+    try {
+      const response = await fetch("/retained-chat-external-information-configuration", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authorized: chatExternalInformationConfigurationAuthorized.checked }),
+      });
+      if (!response.ok) return showError(context, await safeFailure(response));
+      const body = await response.json();
+      setChatExternalInformationConfiguration(body.authorized);
+      context.status.textContent = "Chat authorization saved for future eligible native one-shot Chat.";
+    } catch (_) {
+      showError(context, "Request failed");
+    } finally {
+      setRequestActive(context, false);
+    }
   });
 
   remoteNodeForm.addEventListener("submit", async (event) => {

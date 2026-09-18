@@ -9,7 +9,14 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from home_ai_cluster.api.client_disconnect import run_routable_execution
 from home_ai_cluster.api.routes import handle_chat_cluster_request
-from home_ai_cluster.core.models import Capability, ChatMessage, ClusterRequest
+from home_ai_cluster.commands import external_information_command
+from home_ai_cluster.core.models import (
+    Capability,
+    ChatMessage,
+    ClusterRequest,
+    RequestConstraints,
+    SourceGroundedChatRequest,
+)
 from home_ai_cluster.core.workspace_authority import WorkspaceAuthorityError
 from home_ai_cluster.retained_configuration import (
     RetainedConfigurationError,
@@ -59,6 +66,7 @@ _EXTERNAL_INFORMATION_DOCUMENT_KEYS = ("plugin",)
 _CHAT_EXTERNAL_INFORMATION_DOCUMENT_KEYS = ("authorized",)
 _WORKSPACE_CODE_KEYS = ("root", "grants", "history", "instruction")
 _WORKSPACE_GRANTS = frozenset({"list", "read", "write", "create"})
+_EXTERNAL_INFORMATION_OPERATION_KEYS = ("plugin", "query", "question")
 
 
 def _workspace_code_document(
@@ -220,6 +228,40 @@ def _has_native_host_authority(request: Request, authority: str | None) -> bool:
     return authority is not None and request.headers.get("host") == authority
 
 
+def _external_information_operation_document(value: Any) -> tuple[str, str, str]:
+    """Validate the browser edge without moving RFC-0077 validation earlier."""
+    if not isinstance(value, dict) or set(value) != set(
+        _EXTERNAL_INFORMATION_OPERATION_KEYS
+    ):
+        raise ValueError("invalid External Information request")
+    plugin, query, question = value["plugin"], value["query"], value["question"]
+    if (
+        not isinstance(plugin, str)
+        or not isinstance(query, str)
+        or not isinstance(question, str)
+    ):
+        raise ValueError("invalid External Information request")
+    try:
+        selected_plugin = validate_external_information_plugin_name(
+            plugin
+            if plugin.strip()
+            else load_retained_configuration().external_information_plugin
+        )
+        if selected_plugin is None:
+            raise ValueError("missing plugin selection")
+        return (
+            selected_plugin,
+            external_information_command._validate_query(query),
+            question,
+        )
+    except (
+        RetainedConfigurationError,
+        ValueError,
+        external_information_command._InvalidRequestInput,
+    ):
+        raise ValueError("invalid External Information request") from None
+
+
 def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
     """Attach only the fixed RFC-0062 browser page and assets to one API app."""
 
@@ -233,6 +275,58 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                 "Content-Security-Policy": "frame-ancestors 'self'",
             },
         )
+
+    @app.post("/external-information", include_in_schema=False)
+    async def external_information(request: Request) -> JSONResponse:
+        authority = _native_authority(request)
+        if not _has_native_host_authority(request, authority):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        if request.headers.get("origin") != f"http://{authority}":
+            raise HTTPException(status_code=403, detail="invalid native origin")
+        content_type = request.headers.get("content-type", "").split(";", 1)[0]
+        if content_type.strip().lower() != "application/json":
+            raise HTTPException(status_code=415, detail="JSON required")
+        try:
+            plugin_name, query, question = _external_information_operation_document(
+                await request.json()
+            )
+        except (json.JSONDecodeError, TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="invalid External Information request"
+            ) from None
+
+        async def execute() -> SourceGroundedChatRequest | object:
+            try:
+                source_request = await (
+                    external_information_command._acquire_source_grounded_request_async(
+                        plugin_name, query, question
+                    )
+                )
+            except external_information_command._AcquisitionFailure:
+                raise HTTPException(
+                    status_code=502,
+                    detail="external-information-acquisition-failed",
+                ) from None
+            source_request = source_request.model_copy(
+                update={
+                    "constraints": RequestConstraints(
+                        local_only=(
+                            request.app.state.static_remote_wiring is None
+                            and request.app.state.static_remote_collection_wiring
+                            is None
+                        )
+                    )
+                }
+            )
+            return await handle_chat_cluster_request(
+                source_request,
+                request.app.state.static_remote_wiring,
+                request.app.state.static_remote_collection_wiring,
+                request.app.state.local_app_composition,
+            )
+
+        result = await run_routable_execution(request, execute)
+        return JSONResponse(result.model_dump())
 
     @app.post("/workspace-code", include_in_schema=False)
     async def workspace_code(request: Request) -> JSONResponse:

@@ -96,8 +96,13 @@ hac chat "Hello"
 ```
 
 With `hac local` running, open `http://127.0.0.1:25042/` in a browser on the
-same machine to use the fixed loopback interface for Chat, Summarize, Classify,
-Code, and retained configuration. The loopback-only Configuration view changes
+same machine to use the fixed loopback interface for Chat, External Information,
+Summarize, Classify, Code, and retained configuration. External Information is
+one explicit loopback-only action: an operator supplies a distinct acquisition
+QUERY and source-grounded Chat QUESTION, optionally overrides the retained exact
+plugin name, and receives generated content separately from supplied source
+evidence. It does not make browser Chat acquire automatically. The loopback-only
+Configuration view changes
 only retained local configuration, the optional stable-diffusion.cpp loopback
 base URL, caller-owned retained remote-node declarations, an explicit
 external-information plugin name, and the native one-shot Chat fallback
@@ -142,7 +147,8 @@ execution authority.
 acquisition plugin for one source-grounded Chat request. An operator may also
 authorize eligible one-shot `hac chat` to use that same bounded caller-owned
 plugin boundary. No provider is bundled, and the ordinary HAC server does not
-acquire external information by itself.
+acquire external information by itself, except after an operator explicitly
+submits the separate loopback-browser External Information action.
 Two published examples prove the same acquisition boundary with materially
 different provider ownership: the operator-managed local-service
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng) and

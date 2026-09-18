@@ -50,6 +50,7 @@
         <form id="chat-form">
           <label for="chat-message">Message</label>
           <textarea id="chat-message" placeholder="Write your message…" required rows="6"></textarea>
+          <label><input id="chat-external-information" type="checkbox"> Allow automatic External Information for this page. When enabled, the submitted Chat turn may be sent to the retained selected provider only if HAC chooses the external branch.</label>
           <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
         <p aria-live="polite" class="error" id="chat-error" role="status"></p>

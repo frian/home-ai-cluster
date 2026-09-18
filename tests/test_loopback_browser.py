@@ -176,7 +176,14 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".message-user" in stylesheet
     assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
-    assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
+    assert "assistantAttribution.set(assistantMessage, chatResult.node_id)" in script
+    assert 'id="chat-external-information" type="checkbox"' in html
+    assert (
+        "localStorage"
+        not in html.split('id="chat-view"', 1)[1].split(
+            'id="external-information-view"', 1
+        )[0]
+    )
     chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
     assert chat_view.index('id="chat-result-region"') < chat_view.index(
         'id="chat-form"'
@@ -208,8 +215,16 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert pending_message in chat_handler
     assert "messages.push(pendingMessage);" in chat_handler
     assert (
-        'renderChat();\n    input.value = "";\n    const request = post('
+        'renderChat();\n    input.value = "";\n    const automaticExternalInformation'
         in chat_handler
+    )
+    assert (
+        'post(context, "/chat-external-information", { messages }, '
+        '"Generating response…")' in chat_handler
+    )
+    assert (
+        'post(context, "/v1/chat", { capability: "chat", messages }, '
+        '"Generating response…")' in chat_handler
     )
     assert chat_handler.index(pending_message) < chat_handler.index(
         "messages.push(pendingMessage);"
@@ -217,7 +232,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert (
         chat_handler.index("messages.push(pendingMessage);")
         < chat_handler.index('input.value = "";')
-        < chat_handler.index("const request = post(")
+        < chat_handler.index("const automaticExternalInformation")
         < chat_handler.index('context.status.scrollIntoView({ block: "nearest" });')
         < chat_handler.index("const result = await request;")
     )

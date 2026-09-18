@@ -7,6 +7,7 @@
   const messages = [];
   const codeMessages = [];
   const assistantAttribution = new WeakMap();
+  const assistantSources = new WeakMap();
   const themeKey = "home-ai-cluster.theme";
   const themeSelect = document.querySelector("#theme-select");
   const root = document.documentElement;
@@ -584,6 +585,19 @@
         attribution.textContent = `Handled by node ${nodeId}`;
         entry.append(attribution);
       }
+      const sources = assistantSources.get(message);
+      if (sources) {
+        const heading = document.createElement("div");
+        heading.className = "attribution";
+        heading.textContent = "Supplied sources";
+        entry.append(heading);
+        sources.forEach((source) => {
+          const item = document.createElement("div");
+          item.className = "attribution";
+          item.textContent = `${source.title}\nURL provenance: ${source.url}\n${source.content}`;
+          entry.append(item);
+        });
+      }
       container.append(entry);
     });
     container.scrollTop = container.scrollHeight;
@@ -763,17 +777,19 @@
     messages.push(pendingMessage);
     renderChat();
     input.value = "";
-    const request = post(
-      context,
-      "/v1/chat",
-      { capability: "chat", messages },
-      "Generating response…",
-    );
+    const automaticExternalInformation = document.querySelector("#chat-external-information").checked;
+    const request = automaticExternalInformation
+      ? post(context, "/chat-external-information", { messages }, "Generating response…")
+      : post(context, "/v1/chat", { capability: "chat", messages }, "Generating response…");
     context.status.scrollIntoView({ block: "nearest" });
     const result = await request;
-    if (result && typeof result.content === "string" && typeof result.node_id === "string") {
-      const assistantMessage = { role: "assistant", content: result.content };
-      assistantAttribution.set(assistantMessage, result.node_id);
+    const chatResult = automaticExternalInformation && result ? result.result : result;
+    if (chatResult && typeof chatResult.content === "string" && typeof chatResult.node_id === "string") {
+      const assistantMessage = { role: "assistant", content: chatResult.content };
+      assistantAttribution.set(assistantMessage, chatResult.node_id);
+      if (automaticExternalInformation && result.branch === "source-grounded" && Array.isArray(chatResult.sources)) {
+        assistantSources.set(assistantMessage, chatResult.sources);
+      }
       messages.push(assistantMessage);
       renderChat();
     } else {

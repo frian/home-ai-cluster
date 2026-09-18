@@ -102,5 +102,10 @@ def validate_still_png(candidate: bytes) -> bytes:
     return candidate
 
 
+def still_png_dimensions(candidate: bytes) -> tuple[int, int]:
+    """Read IHDR dimensions from an already validated still PNG."""
+    return struct.unpack_from(">II", candidate, len(PNG_SIGNATURE) + 8)
+
+
 def _fail(message: str) -> None:
     raise ImageGenerationResultValidationError(message)

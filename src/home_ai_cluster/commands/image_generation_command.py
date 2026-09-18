@@ -55,12 +55,19 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         description="Send one local Image Generation request to ordinary HAC.",
     )
     parser.add_argument("instruction", metavar="INSTRUCTION")
+    parser.add_argument("--width", metavar="PIXELS")
+    parser.add_argument("--height", metavar="PIXELS")
     parser.add_argument(
         "--timeout-seconds", help="Native HAC request timeout in seconds."
     )
     args = parser.parse_args(argv)
     try:
-        request = ImageGenerationRequest(instruction=args.instruction)
+        dimensions = {}
+        if args.width is not None:
+            dimensions["width"] = int(args.width)
+        if args.height is not None:
+            dimensions["height"] = int(args.height)
+        request = ImageGenerationRequest(instruction=args.instruction, **dimensions)
         timeout_seconds = (
             _REQUEST_TIMEOUT_SECONDS
             if args.timeout_seconds is None
@@ -151,7 +158,7 @@ def main(
             with client.stream(
                 "POST",
                 _ORDINARY_IMAGE_GENERATION_URL,
-                json=command.request.model_dump(),
+                json=command.request.model_dump(exclude_none=True),
             ) as response:
                 failure = _failure_for_status(response.status_code)
                 if failure is not None:

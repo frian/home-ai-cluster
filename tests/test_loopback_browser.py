@@ -398,13 +398,15 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
     )[0]
     assert image_view.count("<textarea") == 1
     assert 'id="image-generation-instruction"' in image_view
+    assert 'id="image-generation-width"' in image_view
+    assert 'id="image-generation-height"' in image_view
+    assert 'min="64" max="2048" step="1" type="number"' in image_view
     assert image_view.count("data-submit") == 1
     assert ">Generate</button>" in image_view
     assert 'id="generated-image"' in image_view
     assert 'id="image-generation-error"' in image_view
     assert 'id="image-generation-status"' in image_view
     for forbidden in (
-        "dimension",
         "aspect",
         "negative",
         "seed",
@@ -424,7 +426,7 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
     assert 'fetch("/v1/image-generation", {' in handler
     assert 'method: "POST"' in handler
     assert 'headers: { "Content-Type": "application/json" }' in handler
-    assert "body: JSON.stringify({ instruction })" in handler
+    assert "body: JSON.stringify(body)" in handler
     assert "response.json()" not in handler
     assert "response.blob()" in handler
     assert "URL.createObjectURL" in handler
@@ -441,6 +443,12 @@ def test_image_generation_view_projects_the_native_png_operation() -> None:
     assert "sessionStorage" not in handler
     assert "indexedDB" not in handler
     assert ".result-section img" in stylesheet
+    submit_handler = script.split(
+        'document.querySelector("#image-generation-form")', 1
+    )[1].split('document.querySelector("#chat-form")', 1)[0]
+    assert '(width === "") !== (height === "")' in submit_handler
+    assert "body.width = numericWidth;" in submit_handler
+    assert "body.height = numericHeight;" in submit_handler
 
 
 def test_browser_tab_and_panel_source_order_is_operator_facing_order() -> None:

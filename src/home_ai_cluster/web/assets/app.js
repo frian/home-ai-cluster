@@ -485,7 +485,7 @@
 
   let currentImageUrl = null;
 
-  async function postImageGeneration(context, instruction) {
+  async function postImageGeneration(context, body) {
     if (capabilityRequestActive || context.active) return;
     setRequestActive(context, true, "Generating image…");
     clearError(context);
@@ -493,7 +493,7 @@
       const response = await fetch("/v1/image-generation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruction }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         showError(context, await safeFailure(response));
@@ -517,7 +517,25 @@
     if (capabilityRequestActive) return;
     const instruction = document.querySelector("#image-generation-instruction").value;
     if (!instruction.trim()) return showError(context, "Instruction is required");
-    await postImageGeneration(context, instruction);
+    const width = document.querySelector("#image-generation-width").value;
+    const height = document.querySelector("#image-generation-height").value;
+    if ((width === "") !== (height === "")) {
+      return showError(context, "Width and height are required together");
+    }
+    const body = { instruction };
+    if (width !== "") {
+      if (!/^\d+$/.test(width) || !/^\d+$/.test(height)) {
+        return showError(context, "Width and height must be whole pixels");
+      }
+      const numericWidth = Number(width);
+      const numericHeight = Number(height);
+      if (numericWidth < 64 || numericWidth > 2048 || numericHeight < 64 || numericHeight > 2048) {
+        return showError(context, "Width and height must be between 64 and 2048");
+      }
+      body.width = numericWidth;
+      body.height = numericHeight;
+    }
+    await postImageGeneration(context, body);
   });
 
   document.querySelector("#chat-form").addEventListener("submit", async (event) => {

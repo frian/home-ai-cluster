@@ -27,11 +27,12 @@ human External Information submission
         -> generated content plus supplied-source provenance
 ```
 
-This deliberately and narrowly amends RFC-0078's separate one-shot caller
-process rule.  It does not turn ordinary server startup, Configuration,
-ordinary browser Chat, `/v1/chat`, or any other capability handling into
-plugin authority.  It does not add an executable capability, a general
-acquisition API, a generic plugin system, or trusted-LAN/receiver acquisition.
+This deliberately and narrowly amends the plugin invocation-location rules of
+RFC-0078, RFC-0079, and RFC-0093 for this one browser operation.  It does not
+turn ordinary server startup, Configuration, ordinary browser Chat, `/v1/chat`,
+or any other capability handling into plugin authority.  It does not add an
+executable capability, a general acquisition API, a generic plugin system, or
+trusted-LAN/receiver acquisition.
 
 ## Context
 
@@ -165,6 +166,61 @@ claim unloading, isolation, sandboxing, process restart, IPC, or forced
 cancellation.  RFC-0078's operator-installed trusted-Python-code boundary
 remains authoritative; HAC invokes the selected callable once per explicit
 submission and never schedules it as repeated/background work.
+
+### Corresponding provider-specific invocation location
+
+This same narrow exception amends only the invocation-location portions of
+RFC-0079 and RFC-0093, as well as RFC-0078, for one accepted explicit
+ordinary/native loopback browser operation.  It does not generally supersede
+those RFCs:
+
+```text
+historical `hac external-information` operation
+        -> plugin executes in its one-shot caller process
+
+RFC-0133 explicit loopback-browser operation
+        -> plugin executes in the already-running ordinary HAC process
+           handling that explicitly authorized browser operation
+```
+
+For that browser operation only, the selected RFC-0079 SearXNG plugin may be
+discovered, lazy-loaded, and invoked in the ordinary process after the explicit
+native-loopback action is accepted.  It retains RFC-0079's one fixed literal
+loopback destination, exact request shape, transport limits, disabled redirects,
+deterministic normalization, no retry/pagination/result-URL fetch, and
+operator-owned SearXNG lifecycle.  This is not generic ordinary-process
+SearXNG authority: without an explicit browser submission, startup,
+Configuration, ordinary browser Chat, and other capabilities do not discover,
+import, or invoke it.
+
+For that browser operation only, the selected RFC-0093 Tavily plugin executes
+in the ordinary HAC process and therefore reads its nonblank `TAVILY_API_KEY`
+directly from that process environment when `acquire()` is invoked.  The
+historical CLI path remains unchanged: its plugin reads the key from the
+one-shot `hac external-information` caller process environment.  RFC-0133 does
+not copy a CLI environment into the server, forward/inject a per-request
+environment, reload an environment, or add a keyring/config-file/OAuth
+alternative.  A browser Tavily operation can succeed only when the already
+running ordinary HAC process has the plugin-required key under RFC-0093's
+existing environment-variable mechanism.
+
+HAC core and the browser protocol do not read, parse, accept, transfer, retain,
+return, log, persist, or expose that key.  The browser has no credential field
+or credential input; Configuration has no credential; the key does not enter
+routing, remote transport, RFC-0077 evidence, or results.  If it is missing,
+blank, malformed, rejected, or otherwise unusable in the ordinary process
+environment, the existing RFC-0078/RFC-0093 privacy-safe
+`external-information-acquisition-failed` result applies, without another
+plugin, ordinary-Chat fallback, prompt, or configuration mutation.
+
+RFC-0079 and RFC-0093 otherwise remain authoritative for their provider
+contracts: package and entry-point identity, fixed destination, exact query and
+provider request, transport and proxy/environment HTTP-client isolation,
+response bounds, normalization, candidate field limits, no provider metadata
+across the plugin boundary, no result URL fetch, no retry/pagination/alternate
+provider, privacy-safe failure, lifecycle ownership, and no generic provider
+framework.  RFC-0133 changes only this explicit browser operation's invocation
+location and its direct process-local state/environment credential consequence.
 
 ### Selection, input, and acquisition semantics
 
@@ -405,7 +461,13 @@ LAN leaves remote household browsers unable to perform this operation.  Separate
 query and question fields are less convenient, and lack of plugin discovery UI
 requires an operator to know or retain an exact name.  These restrictions
 preserve explicit provider choice, source-grounding semantics, and
-installation-versus-authority separation.
+installation-versus-authority separation.  Provider plugins also observe the
+long-lived ordinary-process environment: Tavily browser acquisition requires
+`TAVILY_API_KEY` already present there, unlike a fresh CLI shell invocation.
+That is less dynamically convenient but avoids browser credential transfer,
+secrets storage, environment forwarding, or provider configuration.  SearXNG
+has no equivalent credential consequence because its accepted first-hop
+contract is credential-free.
 
 ## Impact
 
@@ -453,8 +515,20 @@ A later implementation must prove at least that:
 13. independently submitted valid operations may be concurrent, with no
     process-global scheduler or serialization guarantee; no Capability or
     generic plugin/provider/acquisition API/dependency is added; and
-14. no live provider/network test is required: fake entry points and bounded
-    request capture suffice for this boundary.
+14. the explicit browser path may invoke the existing RFC-0079 SearXNG plugin
+    in the ordinary process only after explicit loopback submission, while
+    preserving its fixed destination/request/normalization/lifecycle rules;
+15. a browser Tavily operation uses only the existing plugin-owned
+    `TAVILY_API_KEY` mechanism from the ordinary HAC process environment; HAC
+    core/browser requests neither read, accept, transfer, persist, log, nor
+    expose it, and unusable credentials yield only the existing privacy-safe
+    acquisition failure;
+16. the historical CLI path retains caller-process environment credential
+    behavior, while startup, Configuration, ordinary browser Chat,
+    trusted-LAN, and receiver do not inspect credentials or invoke providers
+    merely because a plugin or environment variable exists; and
+17. no live provider/network test is required: fake plugin/environment proof
+    and bounded request capture suffice for this boundary.
 
 ## Open questions
 

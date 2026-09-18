@@ -472,13 +472,16 @@ external-information plugin selection once at session entry. For an eligible
 turn, HAC decides using only the newest exact user text and, only on the
 external branch, passes that same text as the acquisition query. Prior
 conversation is not passed through HAC's acquisition contract. This is
-independent of the retained one-shot fallback authorization and does not enable
-automatic browser Chat acquisition.
+independent of the retained one-shot fallback authorization. It authorizes only
+that foreground interactive CLI session: it neither enables nor persists the
+native loopback browser's separate, page-local, default-OFF authorization
+checkbox.
 Interactive mode is ordinary content-only presentation: `--json`, `--verbose`,
 and `-v` are invalid without a message. Successful exchanges are retained only
-in the foreground process, in chronological user/assistant order, and every
-new turn sends that complete context in one ordinary Chat request. Nothing is
-persisted; EOF/Ctrl-D and Ctrl-C end the session.
+in the foreground process, in chronological user/assistant order, and each
+turn performs exactly one final ordinary or source-grounded Chat request under
+the accepted bounded flow. Nothing is persisted; EOF/Ctrl-D and Ctrl-C end the
+session.
 
 Interactive candidate message content is limited to 65,536 UTF-8 bytes across
 all retained messages and the new turn. An over-limit or failed turn is not

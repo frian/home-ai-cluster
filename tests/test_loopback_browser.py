@@ -177,7 +177,19 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
     assert "assistantAttribution.set(assistantMessage, chatResult.node_id)" in script
-    assert 'id="chat-external-information" type="checkbox"' in html
+    automatic_chat_checkbox = (
+        html.split('id="chat-view"', 1)[1]
+        .split('id="external-information-view"', 1)[0]
+        .split("<input", 1)[1]
+        .split(">", 1)[0]
+    )
+    assert 'type="checkbox"' in automatic_chat_checkbox
+    assert 'autocomplete="off"' in automatic_chat_checkbox
+    assert "checked" not in automatic_chat_checkbox
+    assert (
+        'document.querySelector("#chat-external-information").checked = false;'
+        in script
+    )
     assert (
         "localStorage"
         not in html.split('id="chat-view"', 1)[1].split(
@@ -221,6 +233,9 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert (
         'post(context, "/chat-external-information", { messages }, '
         '"Generating response…")' in chat_handler
+    )
+    assert (
+        'document.querySelector("#chat-external-information").checked' in chat_handler
     )
     assert (
         'post(context, "/v1/chat", { capability: "chat", messages }, '

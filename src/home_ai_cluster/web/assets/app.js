@@ -95,6 +95,7 @@
   });
 
   initializeThemePreference();
+  document.querySelector("#chat-external-information").checked = false;
 
   function setRequestActive(context, active, message = "") {
     context.active = active;

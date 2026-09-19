@@ -1,5 +1,6 @@
 import asyncio
 import io
+import os
 import struct
 import zlib
 
@@ -785,3 +786,198 @@ def test_image_generation_command_refuses_tty_before_client_creation() -> None:
         )
     assert output.getvalue() == b""
     assert errors.getvalue() == "error: image generation requires non-TTY stdout\n"
+
+
+def test_image_generation_command_writes_validated_png_to_requested_output_file(
+    tmp_path,
+) -> None:
+    destination = tmp_path / "fox.png"
+    output, errors, calls = _TTYOutput(), io.StringIO(), []
+
+    image_generation_command.main(
+        ["--output", str(destination), "a fox", "--width", "64", "--height", "64"],
+        _client_factory=lambda **kwargs: _Client(_Response([_png(64, 64)]), calls),
+        _stdout=output,
+        _stderr=errors,
+    )
+
+    assert destination.read_bytes() == _png(64, 64)
+    assert output.getvalue() == b""
+    assert errors.getvalue() == ""
+    assert calls == [
+        (
+            "POST",
+            "http://127.0.0.1:25042/v1/image-generation",
+            {"instruction": "a fox", "width": 64, "height": 64},
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "destination_kind", ["missing-parent", "file-parent", "file", "directory"]
+)
+def test_image_generation_command_rejects_unavailable_output_destination(
+    tmp_path, destination_kind: str
+) -> None:
+    if destination_kind == "missing-parent":
+        destination = tmp_path / "missing" / "fox.png"
+    elif destination_kind == "file-parent":
+        parent = tmp_path / "parent"
+        parent.write_bytes(b"not a directory")
+        destination = parent / "fox.png"
+    else:
+        destination = tmp_path / "fox.png"
+        if destination_kind == "file":
+            destination.write_bytes(b"existing")
+        else:
+            destination.mkdir()
+    errors, calls = io.StringIO(), []
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: pytest.fail("client must not be created"),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert errors.getvalue() == "error: image generation output file write failed\n"
+    assert calls == []
+    if destination_kind == "file":
+        assert destination.read_bytes() == b"existing"
+    elif destination_kind == "directory":
+        assert destination.is_dir()
+    else:
+        assert not destination.exists()
+
+
+def test_image_generation_command_does_not_follow_existing_output_symlink(
+    tmp_path,
+) -> None:
+    destination, target = tmp_path / "fox.png", tmp_path / "target.png"
+    target.write_bytes(b"existing")
+    try:
+        destination.symlink_to(target)
+    except (NotImplementedError, OSError):
+        pytest.skip("symbolic links are unavailable on this platform")
+    errors = io.StringIO()
+
+    with pytest.raises(SystemExit):
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: pytest.fail("client must not be created"),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert target.read_bytes() == b"existing"
+    assert destination.is_symlink()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [_Response([_png()], content_type="text/plain"), _Response([b"not a png"])],
+)
+def test_image_generation_command_invalid_response_leaves_output_absent(
+    tmp_path, response: _Response
+) -> None:
+    destination, errors, calls = tmp_path / "fox.png", io.StringIO(), []
+
+    with pytest.raises(SystemExit):
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: _Client(response, calls),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert not destination.exists()
+    assert len(calls) == 1
+
+
+def test_image_generation_command_exclusive_creation_preserves_race_winner(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination, errors, calls = tmp_path / "fox.png", io.StringIO(), []
+    original_open = image_generation_command.os.open
+
+    def race_winner(path, flags, mode=0o777):
+        if path == destination:
+            descriptor = original_open(
+                path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666
+            )
+            os.close(descriptor)
+            destination.write_bytes(b"winner")
+        return original_open(path, flags, mode)
+
+    monkeypatch.setattr(image_generation_command.os, "open", race_winner)
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert destination.read_bytes() == b"winner"
+    assert len(calls) == 1
+
+
+def test_image_generation_command_post_creation_write_failure_keeps_partial_output(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination, errors, calls = tmp_path / "fox.png", io.StringIO(), []
+
+    def fail_after_prefix(output, png: bytes) -> None:
+        output.write(png[:3])
+        raise OSError("write failed")
+
+    monkeypatch.setattr(image_generation_command, "_write_png", fail_after_prefix)
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert destination.read_bytes() == _png()[:3]
+    assert len(calls) == 1
+
+
+def test_image_generation_command_close_failure_keeps_created_output(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination, errors, calls = tmp_path / "fox.png", io.StringIO(), []
+    original_fdopen = image_generation_command.os.fdopen
+
+    class _CloseFailingOutput:
+        def __init__(self, descriptor: int) -> None:
+            self.output = original_fdopen(descriptor, "wb")
+
+        def __enter__(self):
+            return self.output
+
+        def __exit__(self, *args: object) -> None:
+            self.output.close()
+            raise OSError("close failed")
+
+    monkeypatch.setattr(
+        image_generation_command.os,
+        "fdopen",
+        lambda descriptor, mode: _CloseFailingOutput(descriptor),
+    )
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", str(destination), "a fox"],
+            _client_factory=lambda **kwargs: _Client(_Response([_png()]), calls),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert destination.read_bytes() == _png()
+    assert len(calls) == 1

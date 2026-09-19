@@ -1039,14 +1039,22 @@ mapping is useful for compatibility or reference:
 
 ### Image Generation
 
-`hac image-generation "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
+`hac image-generation [--output FILE] "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
 closed request to an already-running ordinary HAC process. Width and height are
 optional but must be supplied together as whole pixels from 64 through 2048;
-when supplied, the successful PNG has exactly those dimensions. Successful
-output is raw PNG bytes on stdout. Direct TTY stdout is refused before a
-request is made, so use an appropriate non-TTY byte sink. HAC owns no output
-path or file; shell and pipeline behavior after stdout is outside HAC's
-contract. There is no JSON, verbose, output-path, node, remote toggle, model,
+when supplied, the successful PNG has exactly those dimensions. Without
+`--output`, successful output is raw PNG bytes on stdout; direct TTY stdout is
+refused before a request is made, so use an appropriate non-TTY byte sink.
+
+With `--output FILE`, stdout is not the result sink and may be a TTY. HAC
+creates only the explicitly selected missing leaf: its parent must already
+exist as a directory, HAC creates no parent directory, and it never overwrites
+an existing filesystem object. The file receives exactly the validated PNG
+bytes; successful stdout and stderr are empty. The output path remains
+caller-local and is not sent in the request or to routing, remote nodes, or the
+runtime. A write or close failure after creation may leave an incomplete file;
+HAC performs no rollback deletion, regeneration, or routing fallback. There is
+no JPEG or output-format selection, JSON, verbose, node, remote toggle, model,
 runtime, or generation-control option.
 
 In an ordinary non-static process, Image Generation remains local. With

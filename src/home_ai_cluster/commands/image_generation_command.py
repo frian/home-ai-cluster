@@ -1,9 +1,11 @@
 """One-shot client for the ordinary local Image Generation endpoint."""
 
 import argparse
+import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import BinaryIO, TextIO
 
 import httpx
@@ -30,6 +32,7 @@ _NO_CAPABILITY = "error: no available image-generation capability"
 _INVALID_CLUSTER_RESPONSE = "error: invalid image generation response"
 _TTY_STDOUT = "error: image generation requires non-TTY stdout"
 _STDOUT_WRITE_FAILED = "error: image generation stdout write failed"
+_OUTPUT_FILE_FAILED = "error: image generation output file write failed"
 
 
 class _InvalidRequestInput(Exception):
@@ -47,6 +50,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 class _ImageGenerationCommandInput:
     request: ImageGenerationRequest
     timeout_seconds: float
+    output_path: Path | None
 
 
 def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
@@ -55,6 +59,7 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         description="Send one local Image Generation request to ordinary HAC.",
     )
     parser.add_argument("instruction", metavar="INSTRUCTION")
+    parser.add_argument("--output", metavar="FILE")
     parser.add_argument("--width", metavar="PIXELS")
     parser.add_argument("--height", metavar="PIXELS")
     parser.add_argument(
@@ -75,7 +80,8 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         )
     except (ValidationError, ValueError):
         raise _InvalidRequestInput from None
-    return _ImageGenerationCommandInput(request, timeout_seconds)
+    output_path = None if args.output is None else Path(args.output)
+    return _ImageGenerationCommandInput(request, timeout_seconds, output_path)
 
 
 def _failure_for_status(status_code: int) -> str | None:
@@ -131,6 +137,23 @@ def _write_png(stdout: BinaryIO, png: bytes) -> None:
     stdout.flush()
 
 
+def _validate_output_destination(output_path: Path) -> None:
+    """Check the caller-selected destination without creating filesystem state."""
+    if not output_path.parent.is_dir() or os.path.lexists(output_path):
+        raise OSError("output destination is not an available missing leaf")
+
+
+def _write_new_output_file(output_path: Path, png: bytes) -> None:
+    """Exclusively create one leaf and write the already validated PNG to it."""
+    descriptor = os.open(
+        output_path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        0o666,
+    )
+    with os.fdopen(descriptor, "wb") as output:
+        _write_png(output, png)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -138,7 +161,7 @@ def main(
     _stdout: BinaryIO | None = None,
     _stderr: TextIO | None = None,
 ) -> None:
-    """Send once, validate the complete PNG, and write it only to non-TTY stdout."""
+    """Send once, validate a complete PNG, then emit it to its selected sink."""
     stdout = sys.stdout.buffer if _stdout is None else _stdout
     stderr = sys.stderr if _stderr is None else _stderr
     try:
@@ -146,8 +169,14 @@ def main(
     except _InvalidRequestInput:
         _fail(_INVALID_INPUT, 2, stderr)
 
-    if stdout.isatty():
+    if command.output_path is None and stdout.isatty():
         _fail(_TTY_STDOUT, 1, stderr)
+
+    if command.output_path is not None:
+        try:
+            _validate_output_destination(command.output_path)
+        except Exception:
+            _fail(_OUTPUT_FILE_FAILED, 1, stderr)
 
     try:
         with _client_factory(
@@ -180,7 +209,14 @@ def main(
     except Exception:
         _fail(_ORDINARY_REQUEST_FAILED, 1, stderr)
 
+    if command.output_path is None:
+        try:
+            _write_png(stdout, png)
+        except Exception:
+            _fail(_STDOUT_WRITE_FAILED, 1, stderr)
+        return
+
     try:
-        _write_png(stdout, png)
+        _write_new_output_file(command.output_path, png)
     except Exception:
-        _fail(_STDOUT_WRITE_FAILED, 1, stderr)
+        _fail(_OUTPUT_FILE_FAILED, 1, stderr)

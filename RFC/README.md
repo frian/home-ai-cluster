@@ -58,6 +58,14 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
+## Draft RFCs
+
+- [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
+  — proposes consolidating explicit External Information into a distinct
+  secondary Chat operation while preserving RFC-0133 and RFC-0134 semantics,
+  making loopback navigation capability-oriented, and retaining only
+  declarative plugin-selection display without discovery or provider activity.
+
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)

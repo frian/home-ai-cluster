@@ -1039,22 +1039,28 @@ mapping is useful for compatibility or reference:
 
 ### Image Generation
 
-`hac image-generation [--output FILE] "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
+`hac image-generation [--output FILE] [--jpeg] "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
 closed request to an already-running ordinary HAC process. Width and height are
 optional but must be supplied together as whole pixels from 64 through 2048;
 when supplied, the successful PNG has exactly those dimensions. Without
 `--output`, successful output is raw PNG bytes on stdout; direct TTY stdout is
 refused before a request is made, so use an appropriate non-TTY byte sink.
 
-With `--output FILE`, stdout is not the result sink and may be a TTY. HAC
+With `--output FILE`, stdout is not the result sink and may be a TTY. Without
+`--jpeg`, the file receives exactly the validated PNG bytes regardless of its
+suffix. `--jpeg` requires `--output FILE`; it creates one caller-local JPEG
+derivative only after HAC has fully received and validated the normalized PNG.
+JPEG export accepts only 8-bit RGB source PNGs, preserves dimensions, and uses
+fixed quality 95, 4:4:4 chroma subsampling, and non-progressive encoding. HAC
 creates only the explicitly selected missing leaf: its parent must already
 exist as a directory, HAC creates no parent directory, and it never overwrites
-an existing filesystem object. The file receives exactly the validated PNG
-bytes; successful stdout and stderr are empty. The output path remains
-caller-local and is not sent in the request or to routing, remote nodes, or the
-runtime. A write or close failure after creation may leave an incomplete file;
-HAC performs no rollback deletion, regeneration, or routing fallback. There is
-no JPEG or output-format selection, JSON, verbose, node, remote toggle, model,
+an existing filesystem object. The file receives the selected validated PNG or
+JPEG derivative bytes; successful stdout and stderr are empty. The output path
+remains caller-local and is not sent in the request or to routing, remote
+nodes, or the runtime. A write or close failure after creation may leave an
+incomplete file; HAC performs no rollback deletion, regeneration, or routing
+fallback. There is
+no generic output-format option, JSON, verbose, node, remote toggle, model,
 runtime, or generation-control option.
 
 In an ordinary non-static process, Image Generation remains local. With

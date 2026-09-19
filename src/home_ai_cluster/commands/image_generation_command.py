@@ -1,13 +1,16 @@
 """One-shot client for the ordinary local Image Generation endpoint."""
 
 import argparse
+import io
 import os
+import struct
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import BinaryIO, TextIO
 
 import httpx
+from PIL import Image
 from pydantic import ValidationError
 
 from home_ai_cluster.commands.chat_command import (
@@ -50,6 +53,7 @@ class _ImageGenerationCommandInput:
     request: ImageGenerationRequest
     timeout_seconds: float
     output_path: str | None
+    jpeg: bool
 
 
 def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
@@ -59,6 +63,7 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
     )
     parser.add_argument("instruction", metavar="INSTRUCTION")
     parser.add_argument("--output", metavar="FILE")
+    parser.add_argument("--jpeg", action="store_true")
     parser.add_argument("--width", metavar="PIXELS")
     parser.add_argument("--height", metavar="PIXELS")
     parser.add_argument(
@@ -79,7 +84,11 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         )
     except (ValidationError, ValueError):
         raise _InvalidRequestInput from None
-    return _ImageGenerationCommandInput(request, timeout_seconds, args.output)
+    if args.jpeg and args.output is None:
+        raise _InvalidRequestInput
+    return _ImageGenerationCommandInput(
+        request, timeout_seconds, args.output, args.jpeg
+    )
 
 
 def _failure_for_status(status_code: int) -> str | None:
@@ -153,6 +162,31 @@ def _write_new_output_file(output_path: str, png: bytes) -> None:
         _write_png(output, png)
 
 
+def _jpeg_source_is_eligible(png: bytes) -> bool:
+    """Accept only RFC-0137's 8-bit RGB normalized PNG source layout."""
+    bit_depth, color_type = struct.unpack_from(">BB", png, 24)
+    return bit_depth == 8 and color_type == 2
+
+
+def _encode_jpeg(png: bytes) -> bytes:
+    """Encode one fully validated eligible PNG as the fixed JPEG derivative."""
+    if not _jpeg_source_is_eligible(png):
+        raise ValueError("PNG layout is not eligible for JPEG export")
+    with Image.open(io.BytesIO(png)) as source:
+        source.load()
+        if source.mode != "RGB":
+            raise ValueError("PNG decoder changed the eligible source layout")
+        encoded = io.BytesIO()
+        source.save(
+            encoded,
+            format="JPEG",
+            quality=95,
+            subsampling=0,
+            progressive=False,
+        )
+    return encoded.getvalue()
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -216,6 +250,7 @@ def main(
         return
 
     try:
-        _write_new_output_file(command.output_path, png)
+        output = _encode_jpeg(png) if command.jpeg else png
+        _write_new_output_file(command.output_path, output)
     except Exception:
         _fail(_OUTPUT_FILE_FAILED, 1, stderr)

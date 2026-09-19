@@ -647,7 +647,7 @@ async def chat_external_information_decision(
 
 @receiver_router.post(
     "/internal/cluster/request",
-    response_model=None,
+    response_model=ClusterResult | ClassifyResult | SourceGroundedChatResult,
 )
 async def internal_cluster_request(
     http_request: Request,

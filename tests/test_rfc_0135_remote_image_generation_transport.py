@@ -149,12 +149,38 @@ def test_internal_image_envelope_round_trips_exact_dimensions_and_constraints() 
     )
 
 
+def test_internal_image_envelope_accepts_instruction_only_shape() -> None:
+    envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
+        {"kind": "image-generation", "request": {"instruction": "fox"}}
+    )
+
+    assert envelope.request.normalized_request() == ImageGenerationRequest(
+        instruction="fox"
+    )
+
+
 @pytest.mark.parametrize(
     "body",
     [
         {
             "kind": "image-generation",
             "request": {"instruction": "fox", "width": 64},
+        },
+        {
+            "kind": "image-generation",
+            "request": {"instruction": "fox", "height": 64},
+        },
+        {
+            "kind": "image-generation",
+            "request": {"instruction": "fox", "width": None, "height": 64},
+        },
+        {
+            "kind": "image-generation",
+            "request": {"instruction": "fox", "width": 64, "height": None},
+        },
+        {
+            "kind": "image-generation",
+            "request": {"instruction": "fox", "width": None, "height": None},
         },
         {
             "kind": "image-generation",
@@ -188,6 +214,23 @@ def test_receiver_executes_internal_image_locally_and_returns_raw_png() -> None:
     assert response.headers["content-type"] == "image/png"
     assert response.content == _png(64, 64)
     assert adapter.requests == [request]
+
+
+def test_receiver_rejects_asymmetric_internal_geometry_before_adapter_execution() -> (
+    None
+):
+    adapter = _ImageAdapter()
+    response = _post_receiver(
+        create_receiver_app(local_app_composition=_composition(adapter)),
+        {
+            "kind": "image-generation",
+            "request": {"instruction": "fox", "height": 64},
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid internal cluster request"}
+    assert adapter.requests == []
 
 
 async def _send_image(response: httpx.Response, request: ImageGenerationRequest):

@@ -348,6 +348,9 @@ def internal_cluster_request_body(
     body = envelope.model_dump(mode="json")
     if isinstance(request, SourceGroundedChatRequest) and not request.prior_messages:
         body["request"].pop("prior_messages", None)
+    if isinstance(request, ImageGenerationRequest) and request.width is None:
+        body["request"].pop("width", None)
+        body["request"].pop("height", None)
     return body
 
 

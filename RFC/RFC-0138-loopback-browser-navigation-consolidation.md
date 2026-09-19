@@ -228,10 +228,12 @@ the plugin is installed, discovered, unique in the entry-point group,
 importable, loadable, compatible, provider-configured, credential-ready,
 reachable, healthy, or currently usable.
 
-Page load and this display must not discover entry points, import or load a
-plugin, inspect credentials, contact a provider, perform DNS or HTTP, or
-trigger acquisition.  No new backend endpoint, plugin-status/health/discovery
-API, or retained field is authorized.
+The declarative display may use the existing same-origin retained-configuration
+read.  Page load and this display must not otherwise cause plugin/provider
+discovery, entry-point enumeration, import or loading, compatibility or
+readiness checks, credential inspection, provider contact, plugin/provider DNS
+or HTTP activity, health/reachability probing, or acquisition.  No new backend
+endpoint, plugin-status/health/discovery API, or retained field is authorized.
 
 ### Automatic-control presentation when selection is absent
 

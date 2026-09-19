@@ -23,12 +23,17 @@ from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
     ImageGenerationRequest,
+    ImageGenerationResult,
     NodeDescription,
     NodeHealth,
 )
 from home_ai_cluster.core.orchestrator import ExecutionPermissionDeniedError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
+from home_ai_cluster.core.remote_transport import (
+    RemoteExecutionPermissionDeniedError,
+    RemoteTransportError,
+)
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.local_runtime_composition import (
     LocalRuntimeCompositionValues,
@@ -227,6 +232,35 @@ class _RemoteTransport:
         raise AssertionError("Image Generation must not use remote transport")
 
 
+class _ImageRemoteTransport:
+    def __init__(self, outcomes: dict[str, object]) -> None:
+        self.outcomes = outcomes
+        self.requests: list[tuple[ImageGenerationRequest, str]] = []
+
+    async def send(
+        self, request: ImageGenerationRequest, declaration: RemoteNodeDeclaration
+    ) -> ImageGenerationResult:
+        self.requests.append((request, declaration.node.id))
+        outcome = self.outcomes[declaration.node.id]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return ImageGenerationResult(image_bytes=outcome, node_id="untrusted")
+
+
+def _image_remote(node_id: str) -> RemoteNodeDeclaration:
+    return RemoteNodeDeclaration(
+        node=NodeDescription(
+            id=node_id,
+            name=node_id,
+            availability="available",
+            health=NodeHealth(healthy=True),
+            capabilities=[Capability(name="image-generation")],
+            adapters=["remote-image"],
+        ),
+        transport_address=f"http://{node_id}.invalid",
+    )
+
+
 def test_static_caller_local_routing_excludes_physical_image_binding() -> None:
     adapter = _ImageAdapter()
     physical = _composition(adapter)
@@ -297,6 +331,140 @@ def test_static_collection_caller_local_routing_excludes_image_binding() -> None
     assert response.status_code == 404
     assert adapter.requests == []
     assert transport.calls == 0
+
+
+def test_static_image_generation_routes_to_declared_remote() -> None:
+    transport = _ImageRemoteTransport({"remote": _png()})
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(),
+        adapter_registry=AdapterRegistry(),
+        remote_declaration=_image_remote("remote"),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    response = _post(create_app(static_remote_wiring=wiring), {"instruction": "a fox"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == _png()
+    assert transport.requests == [
+        (
+            ImageGenerationRequest(
+                instruction="a fox", constraints={"local_only": False}
+            ),
+            "remote",
+        )
+    ]
+
+
+def test_static_image_generation_prefers_permitted_local_binding() -> None:
+    adapter = _ImageAdapter()
+    physical = _composition(adapter)
+    transport = _ImageRemoteTransport({"remote": _png(2, 1)})
+    wiring = build_static_remote_wiring(
+        node_registry=physical.node_registry,
+        adapter_registry=physical.adapter_registry,
+        remote_declaration=_image_remote("remote"),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=physical.execution_intervals,
+    )
+
+    response = _post(
+        create_app(local_app_composition=physical, static_remote_wiring=wiring),
+        {"instruction": "a fox"},
+    )
+
+    assert response.status_code == 200
+    assert adapter.requests == [
+        ImageGenerationRequest(instruction="a fox", constraints={"local_only": False})
+    ]
+    assert transport.requests == []
+
+
+def test_static_image_generation_excluded_local_permission_uses_remote() -> None:
+    adapter = _ImageAdapter()
+    physical = _composition(adapter)
+    transport = _ImageRemoteTransport({"remote": _png()})
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(),
+        adapter_registry=physical.adapter_registry,
+        remote_declaration=_image_remote("remote"),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=physical.execution_intervals,
+    )
+
+    response = _post(
+        create_app(local_app_composition=physical, static_remote_wiring=wiring),
+        {"instruction": "a fox"},
+    )
+
+    assert response.status_code == 200
+    assert adapter.requests == []
+    assert [node_id for _, node_id in transport.requests] == ["remote"]
+
+
+def test_static_image_generation_projects_remote_refusal_as_permission_denial() -> None:
+    transport = _ImageRemoteTransport(
+        {"remote": RemoteExecutionPermissionDeniedError("denied")}
+    )
+    wiring = build_static_remote_wiring(
+        node_registry=NodeRegistry(),
+        adapter_registry=AdapterRegistry(),
+        remote_declaration=_image_remote("remote"),
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    response = _post(create_app(static_remote_wiring=wiring), {"instruction": "a fox"})
+
+    assert response.status_code == 409
+    assert [node_id for _, node_id in transport.requests] == ["remote"]
+
+
+def test_static_collection_continues_after_exact_remote_refusal_in_order() -> None:
+    transport = _ImageRemoteTransport(
+        {
+            "remote-a": RemoteExecutionPermissionDeniedError("denied"),
+            "remote-b": _png(),
+        }
+    )
+    wiring = build_static_remote_collection_wiring(
+        node_registry=NodeRegistry(),
+        adapter_registry=AdapterRegistry(),
+        remote_declarations=[_image_remote("remote-a"), _image_remote("remote-b")],
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    response = _post(
+        create_app(static_remote_collection_wiring=wiring), {"instruction": "a fox"}
+    )
+
+    assert response.status_code == 200
+    assert [node_id for _, node_id in transport.requests] == ["remote-a", "remote-b"]
+
+
+def test_static_collection_does_not_continue_after_terminal_remote_failure() -> None:
+    transport = _ImageRemoteTransport(
+        {"remote-a": RemoteTransportError("malformed PNG"), "remote-b": _png()}
+    )
+    wiring = build_static_remote_collection_wiring(
+        node_registry=NodeRegistry(),
+        adapter_registry=AdapterRegistry(),
+        remote_declarations=[_image_remote("remote-a"), _image_remote("remote-b")],
+        remote_transport=transport,
+        selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+    )
+
+    response = _post(
+        create_app(static_remote_collection_wiring=wiring), {"instruction": "a fox"}
+    )
+
+    assert response.status_code == 500
+    assert [node_id for _, node_id in transport.requests] == ["remote-a"]
 
 
 def test_native_image_generation_uses_routable_disconnect_boundary(

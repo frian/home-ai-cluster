@@ -1,6 +1,6 @@
 # RFC-0136: Bounded Image Generation Output File
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-19
 
@@ -631,4 +631,26 @@ output formats, and JPEG remain later separate decisions.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will add one optional caller-local `--output FILE` destination
+to the existing one-shot Image Generation command. The path remains entirely
+outside Image Generation semantics, routing, remote transport, receiver
+execution, runtime adapters, normalized results, and retained configuration.
+
+The first accepted authority is deliberately limited to exclusive creation of
+one explicitly operator-selected missing leaf whose parent already exists,
+after one complete successful acceptable PNG result has reached the caller. The
+caller writes the exact PNG bytes, does not overwrite any existing filesystem
+object, creates no parent directories, and performs no rollback deletion after
+successful creation. A later write or close failure is terminal and may leave
+the newly created file present and incomplete.
+
+Filesystem failure never authorizes regeneration, retry, alternate remote
+execution, local fallback, destination substitution, overwrite, or deletion.
+Existing RFC-0127 stdout behavior remains unchanged when `--output` is absent,
+and RFC-0135 anti-double-execution semantics remain authoritative.
+
+This decision adds no overwrite mode, `--force`, automatic naming, retained
+storage, workspace authority, generic filesystem/media/storage abstraction, or
+JPEG support.

@@ -398,5 +398,6 @@ def test_image_generation_uses_a_closed_internal_remote_transport_envelope() -> 
             }
         )
     assert "image-generation" not in DEFAULT_STATIC_CAPABILITY_NAMES
-    with pytest.raises(ValueError, match="unknown test capability"):
-        validate_static_capabilities(["image-generation"], subject="test")
+    assert validate_static_capabilities(["image-generation"], subject="test") == (
+        "image-generation",
+    )

@@ -380,7 +380,10 @@ hac static-cluster \
 **Capabilities**
 
 - The accepted explicit capability names are `chat`, `summarize`, `classify`,
-  and `code`.
+  `code`, and `image-generation`. `image-generation` is explicit and
+  nondefault: it is caller-owned routing permission, not a claim of local or
+  remote runtime ownership. Ordinary remote Image Generation routing activation
+  follows in the remaining RFC-0135 implementation phase.
 - For remote declarations, use `capabilities = ["..."]` in ordered TOML
   entries, `remote_capabilities = ["..."]` in the legacy flat TOML form, or
   repeat `--remote-capability <NAME>` for the one-remote inline form.

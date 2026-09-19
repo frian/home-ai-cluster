@@ -346,10 +346,11 @@ def test_static_cluster_declaration_mode_consumes_separate_runtime_config(
         encoding="utf-8",
     )
     recorded: dict[str, object] = {}
+    original_create_composition = static_cluster.create_local_runtime_composition
 
     def create_composition(**kwargs: object) -> object:
         recorded["composition"] = kwargs
-        return object()
+        return original_create_composition(**kwargs)
 
     def create_app(remote_nodes: object, **kwargs: object) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
@@ -376,7 +377,7 @@ def test_static_cluster_declaration_mode_consumes_separate_runtime_config(
         "llama_server_model": "local-model",
         "vllm_base_url": None,
         "vllm_model": None,
-        "capabilities": ("chat", "summarize"),
+        "capabilities": ("chat", "summarize", "classify", "code"),
     }
 
     remote_nodes = recorded["remote_nodes"]
@@ -940,17 +941,19 @@ def test_static_cluster_does_not_expand_image_generation_permission(
     ] == ["image-generation"]
     assert app.state.static_remote_collection_wiring.node_registry.list_nodes() == []
     for capability_option in ("--local-capability", "--remote-capability"):
-        with pytest.raises(SystemExit):
-            static_cluster.parse_args(
-                [
-                    "--remote-node-id",
-                    "remote-a",
-                    "--remote-base-url",
-                    "http://remote-a.test:8000",
-                    capability_option,
-                    "image-generation",
-                ]
-            )
+        args = static_cluster.parse_args(
+            [
+                "--remote-node-id",
+                "remote-a",
+                "--remote-base-url",
+                "http://remote-a.test:8000",
+                capability_option,
+                "image-generation",
+            ]
+        )
+        assert getattr(
+            args, capability_option.removeprefix("--").replace("-", "_")
+        ) == ("image-generation",)
 
     asyncio.run(app.state.static_cluster_http_client.aclose())
 

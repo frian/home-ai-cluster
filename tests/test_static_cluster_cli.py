@@ -99,6 +99,7 @@ def test_parse_args_accepts_ollama_disable_thinking() -> None:
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
         (["classify"], ("classify",)),
+        (["image-generation"], ("image-generation",)),
         (["classify", "chat", "summarize"], ("classify", "chat", "summarize")),
     ],
 )
@@ -129,6 +130,7 @@ def test_parse_args_accepts_explicit_inline_remote_capabilities(
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
         (["summarize", "classify", "chat"], ("summarize", "classify", "chat")),
+        (["image-generation"], ("image-generation",)),
     ],
 )
 def test_parse_args_accepts_explicit_inline_local_capabilities(
@@ -449,6 +451,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition
@@ -520,7 +523,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         "llama_server_model": None,
         "vllm_base_url": None,
         "vllm_model": None,
-        "capabilities": ("chat", "summarize"),
+        "capabilities": ("chat", "summarize", "classify", "code"),
     }
     assert recorded["local_app_composition"] is local_composition
     assert recorded["app"] is app
@@ -541,7 +544,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         encoding="utf-8",
     )
     app = FastAPI()
-    selected_composition = object()
+    selected_composition = create_local_runtime_composition(runtime="ollama")
     recorded: dict[str, object] = {}
 
     def create_local_composition(**kwargs: object) -> object:
@@ -552,6 +555,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition
@@ -598,7 +602,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         "llama_server_model": "local-model",
         "vllm_base_url": None,
         "vllm_model": None,
-        "capabilities": ("chat", "summarize"),
+        "capabilities": ("chat", "summarize", "classify", "code"),
     }
     assert recorded["local_app_composition"] is selected_composition
     assert [vars(remote) for remote in recorded["remote_nodes"]] == [
@@ -672,6 +676,7 @@ def test_main_preserves_multiple_declaration_order_before_starting_server(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition

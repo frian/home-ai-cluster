@@ -170,6 +170,19 @@ def test_add_update_and_remove_preserve_retained_domains_and_composition() -> No
     assert app.state.local_app_composition is composition
 
 
+def test_remote_node_mutation_accepts_explicit_image_generation_permission() -> None:
+    response = request(
+        native_app(),
+        "PUT",
+        "/retained-remote-nodes/image-node",
+        headers=mutation_headers(),
+        json=node_document(capabilities=["image-generation"]),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["remote_node"]["capabilities"] == ["image-generation"]
+
+
 @pytest.mark.parametrize(
     "document",
     [

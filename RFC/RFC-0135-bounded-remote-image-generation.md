@@ -1,6 +1,6 @@
 # RFC-0135: Bounded Remote Image Generation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-18
 
@@ -531,4 +531,89 @@ control layout remain implementation details.
 
 ## Decision
 
-Pending.
+Home AI Cluster accepts bounded Remote Image Generation through its existing
+manually declared static-cluster architecture. `image-generation` is an
+explicit static capability for caller-local routing permission and declared
+remote-node permission, but is not a default. Static defaults remain exactly
+`chat` and `summarize`; existing declarations therefore gain no implicit Image
+Generation authority. Existing local-first selection, declared remote order,
+permission/refusal, safe-continuation, and anti-double-execution semantics
+remain authoritative.
+
+Caller-local static permission never creates physical Image Generation
+ownership. A caller-local candidate requires actual local Image Generation
+ownership intersected with explicit caller-local permission, and a textual
+runtime must not acquire ownership merely because the capability is permitted.
+The normalized request may carry internal routing constraints, while public and
+operator Image Generation remain closed to an instruction and optional paired
+exact width and height. Callers gain no node, local/remote, runtime/model, or
+arbitrary routing selection.
+
+The existing `POST /internal/cluster/request` is the single receiver execution
+endpoint and gains one closed `kind = image-generation` variant. Existing kinds
+retain their JSON success representations. Completed Image Generation success
+is exactly:
+
+```text
+HTTP 200 OK
+Content-Type: image/png
+body: exact normalized still-PNG bytes
+```
+
+Every non-`200` status, including every other `2xx`, is not Image Generation
+success and introduces neither jobs nor asynchronous result semantics. The
+successful decoded PNG entity body is bounded while reading to exactly
+41,943,040 bytes; `Content-Length` alone is not trusted. The caller
+independently applies the complete normalized still-PNG validator and any
+requested RFC-0131 exact geometry check. Receiver validation is not transitive
+network trust.
+
+Every response body consumed by this new remote transport is finite. RFC-0104
+refusal recognition uses a small finite bounded read. An oversized, malformed,
+truncated, unreadable, or otherwise unrecognized `409` is terminal and cannot
+authorize continuation; other error handling must not require unbounded body
+buffering. The exact RFC-0104 pre-execution refusal remains the only
+post-transmission non-success safe-continuation case. RFC-0028 affirmative
+pre-transmission connection unavailability remains separate. A malformed or
+oversized result, wrong media type or dimensions, read failure, non-`200`
+result, or any other ambiguous/post-transmission failure is terminal: no retry,
+alternate remote, or local regeneration may follow.
+
+The receiver executes this internal kind only against receiver-local
+composition. It cannot route onward and gains no public Image Generation route,
+topology authority, model/runtime selector, discovery, or configuration
+synchronization. Existing receiver execution-permission and refusal semantics
+remain authoritative. The caller owns the selected declaration's identity; the
+PNG carries no node metadata, and accepted remote `ImageGenerationResult.node_id`
+is attributed from that caller-owned declaration.
+
+Retained `local_capabilities` and retained remote-node capabilities may
+explicitly contain `image-generation`; the former remains routing permission
+only. RFC-0128's Image Generation companion remains separately owned physical
+composition. Native-loopback Configuration represents the capability in both
+caller-local routing capabilities and remote-node allowed capabilities.
+Trusted-LAN and receiver authority gain no Configuration authority.
+
+Existing `hac image-generation`, native `/v1/image-generation`, loopback
+browser Image Generation, and trusted-LAN browser Image Generation gain no new
+request vocabulary or node selector. They may receive a result from an
+explicitly eligible declared remote only through their owner HAC cluster's
+ordinary routing. This narrowly amends RFC-0129's previous prohibition on
+remote/static routing for loopback static-cluster browser Image Generation;
+its remaining loopback browser boundaries remain authoritative. It likewise
+narrowly amends RFC-0130's previous non-static-routable/no-remote-routing Image
+Generation restriction; its separate LAN application authority, Host/Origin
+rules, closed capability-only route set, no Configuration/topology/node
+selection authority, no discovery, and existing network trust model remain
+authoritative.
+
+RFC-0082 continues to own foreground cancellation, including remote wait and
+bounded result reading and validation. Disconnect does not authorize retry or
+fallback and does not guarantee that already-started runtime or GPU work stops.
+
+This decision adds no generic media/blob/asset abstraction, JPEG or alternate
+formats, multiple images, output-path/filesystem/storage architecture, remote
+runtime/model/GPU facts, discovery/probing, scheduling/load balancing/capacity
+awareness, OpenAI-compatible Image Generation, second receiver endpoint,
+generic streaming, authentication/TLS change, version negotiation, remote
+administration, or configuration synchronization.

@@ -240,6 +240,30 @@ async def _send_image(response: httpx.Response, request: ImageGenerationRequest)
         return await HttpRemoteTransport(client).send(request, _declaration())
 
 
+class _CloseFailResponse(httpx.Response):
+    """A streamed response whose required cleanup reports a transport failure."""
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)
+        self.close_attempts = 0
+
+    async def aclose(self) -> None:
+        self.close_attempts += 1
+        raise httpx.CloseError("close failed")
+
+
+class _CancellingStream(httpx.AsyncByteStream):
+    async def __aiter__(self):
+        task = asyncio.current_task()
+        assert task is not None
+        task.cancel()
+        await asyncio.sleep(0)
+        yield b"unreachable"
+
+    async def aclose(self) -> None:
+        return None
+
+
 def test_remote_image_transport_requires_exact_png_success_and_attributes() -> None:
     result = asyncio.run(
         _send_image(
@@ -250,6 +274,63 @@ def test_remote_image_transport_requires_exact_png_success_and_attributes() -> N
 
     assert result.image_bytes == _png()
     assert result.node_id == "declared-remote"
+
+
+def test_remote_image_transport_normalizes_sole_close_failure() -> None:
+    response = _CloseFailResponse(
+        200, content=_png(), headers={"content-type": "image/png"}
+    )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(_send_image(response, _request()))
+
+    assert isinstance(raised.value.__cause__, httpx.CloseError)
+    assert response.close_attempts == 1
+
+
+def test_remote_image_transport_preserves_terminal_failure_during_close() -> None:
+    response = _CloseFailResponse(
+        200, content=b"not png", headers={"content-type": "image/png"}
+    )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(_send_image(response, _request()))
+
+    assert isinstance(raised.value.__cause__, ValueError)
+    assert response.close_attempts == 1
+
+
+def test_remote_image_transport_preserves_503_during_close() -> None:
+    response = _CloseFailResponse(503, content=b"private diagnostic")
+
+    with pytest.raises(RuntimeAdapterUnavailableError):
+        asyncio.run(_send_image(response, _request()))
+
+    assert response.close_attempts == 1
+
+
+def test_remote_image_transport_preserves_refusal_during_close() -> None:
+    response = _CloseFailResponse(
+        409, content=b'{"detail":"execution-permission-denied"}'
+    )
+
+    with pytest.raises(RemoteExecutionPermissionDeniedError):
+        asyncio.run(_send_image(response, _request()))
+
+    assert response.close_attempts == 1
+
+
+def test_remote_image_transport_preserves_cancellation_during_close() -> None:
+    response = _CloseFailResponse(
+        200,
+        headers={"content-type": "image/png"},
+        stream=_CancellingStream(),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(_send_image(response, _request()))
+
+    assert response.close_attempts == 1
 
 
 @pytest.mark.parametrize("status", [201, 202, 204, 206])

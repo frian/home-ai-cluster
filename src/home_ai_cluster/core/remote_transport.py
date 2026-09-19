@@ -1,6 +1,7 @@
 """Remote transport boundary for normalized cluster objects."""
 
 import json
+import sys
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -228,7 +229,14 @@ class HttpRemoteTransport:
                 "HTTP remote transport returned invalid result"
             ) from exc
         finally:
-            await response.aclose()
+            propagating_exception = sys.exception()
+            try:
+                await response.aclose()
+            except httpx.HTTPError as exc:
+                if propagating_exception is None:
+                    raise RemoteTransportError(
+                        "HTTP remote transport could not send request"
+                    ) from exc
 
 
 class HttpRemoteStatusTransport:

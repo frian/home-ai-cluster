@@ -206,6 +206,23 @@ or, when absent:
 No External Information plugin configured
 ```
 
+The browser must distinguish all three retained-state outcomes:
+
+```text
+successfully read with a plugin name
+successfully read with no plugin selection
+retained-state read unavailable or failed
+```
+
+A failed or unavailable read must not be presented as `No External Information
+plugin configured`, because absence was not established.  It may instead show
+an implementation-defined safe state such as `External Information plugin
+configuration unavailable` and keep the automatic External Information control
+disabled until the state is successfully known.  This is presentation
+truthfulness only: it adds no endpoint, retry or polling requirement, recovery
+mechanism, plugin discovery, or retained semantics.  Existing Configuration
+error behavior remains authoritative.
+
 This is only declarative retained-configuration state.  It must not claim that
 the plugin is installed, discovered, unique in the entry-point group,
 importable, loadable, compatible, provider-configured, credential-ready,
@@ -313,17 +330,76 @@ A later implementation should demonstrate at least that:
    `QUERY`, and `QUESTION` from automatic and ordinary Chat;
 3. automatic Chat continues to use the RFC-0134 operation and defaults OFF;
 4. displayed plugin state comes only from retained configuration;
-5. absent retained selection disables only the automatic control, not valid
+5. a failed or unavailable retained-state read is not presented as confirmed
+   absence, and keeps the automatic control disabled until the state is known;
+6. absent retained selection disables only the automatic control, not valid
    explicit-override use;
-6. an in-page retained plugin save or clear can update presentation without
+7. an in-page retained plugin save or clear can update presentation without
    polling or persistence;
-7. page load/state display causes no plugin discovery, import, or provider
+8. page load/state display causes no plugin discovery, import, or provider
    activity;
-8. trusted-LAN remains capability-only with Chat, Code, Image, Summarize,
+9. trusted-LAN remains capability-only with Chat, Code, Image, Summarize,
    Classify order;
-9. responsive behavior remains intact; and
-10. existing External Information and Chat backend routes and contracts are
+10. responsive behavior remains intact; and
+11. existing External Information and Chat backend routes and contracts are
     unchanged.
 
 Existing structural or HTTP tests may prove these boundaries; this RFC does
 not require browser-automation infrastructure.
+
+## Alternatives considered
+
+Keeping External Information as a top-level tab is valid, but leaves the
+capability-oriented navigation problem unchanged.
+
+Removing the explicit RFC-0133 operation and retaining only automatic Chat
+assistance is rejected because it would remove the accepted distinct
+`QUERY`/`QUESTION` and plugin-override workflow.
+
+Merging the explicit `QUERY`/`QUESTION` fields into ordinary Chat `Send` is
+rejected because it would merge distinct operations and alter accepted request
+and authority semantics.
+
+Detecting installed or healthy plugins for the Chat control is rejected because
+retained selection is not installation or readiness truth, and detection would
+introduce discovery/status authority outside this RFC.
+
+## Trade-offs
+
+This consolidation makes primary navigation simpler and capability-oriented,
+presents External Information where it assists Chat, preserves explicit
+RFC-0133 functionality, and adds no backend or plugin authority.
+
+In return, the Chat panel is somewhat denser and explicit External Information
+is one level less prominent.  The configured/not-configured display remains
+intentionally weaker than actual plugin readiness, and an externally changed
+retained configuration may require a page reload to be reflected.
+
+## Impact
+
+Later implementation is limited mainly to the existing ordinary loopback
+browser HTML, JavaScript, and CSS; trusted-LAN presentation ordering where
+necessary; focused existing browser tests; and documentation only when
+user-facing browser instructions materially require alignment.
+
+No endpoint, core model, routing, adapter, receiver, transport, retained
+format, plugin package, dependency, or protocol change is authorized.
+
+## Open questions
+
+Remaining questions are implementation-level only:
+
+- the exact wording and layout of the secondary explicit External Information
+  section;
+- whether that section is always visible or collapsed/expandable; and
+- the exact wording for declarative plugin state and unavailable retained-state
+  display.
+
+The distinct operations, separate `QUERY` and `QUESTION`, prohibition on
+plugin discovery/readiness checks, trusted-LAN authority, automatic
+question-as-query behavior, and primary navigation order are not open
+questions.
+
+## Decision
+
+Pending.

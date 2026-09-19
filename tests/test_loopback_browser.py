@@ -446,17 +446,70 @@ def test_chat_external_information_presentation_keeps_operations_distinct() -> N
     ):
         assert f'id="{element_id}"' in chat_view
 
-    assert "function setChatExternalInformationPluginState(plugin)" in script
+    assert (
+        "function setChatExternalInformationPluginState("
+        "plugin, resetAuthorization = false)" in script
+    )
     assert "async function loadChatExternalInformationPluginState()" in script
     assert 'fetch("/retained-external-information-configuration")' in script
     assert "void loadChatExternalInformationPluginState();" in script
     assert "Retained External Information plugin: ${plugin}" in script
     assert '"No External Information plugin configured."' in script
     assert '"External Information plugin configuration unavailable."' in script
-    assert "checkbox.checked = false;" in script
+    chat_plugin_state = script.split(
+        "function setChatExternalInformationPluginState", 1
+    )[1].split("function publishPassiveChatExternalInformationPluginState", 1)[0]
+    assert "if (resetAuthorization) checkbox.checked = false;" in chat_plugin_state
+    assert chat_plugin_state.index(
+        'if (typeof plugin === "string" && plugin.trim())'
+    ) < chat_plugin_state.index("checkbox.checked = false;")
     assert "checkbox.disabled = false;" in script
     assert "checkbox.disabled = true;" in script
-    assert "setChatExternalInformationPluginState(plugin);" in script
+    assert (
+        "setChatExternalInformationPluginState(plugin, resetAuthorization);" in script
+    )
+    assert "let retainedPluginPresentationGeneration = 0;" in script
+    passive_publish = script.split(
+        "function publishPassiveChatExternalInformationPluginState", 1
+    )[1].split("async function loadChatExternalInformationPluginState", 1)[0]
+    assert "generation !== retainedPluginPresentationGeneration" in passive_publish
+    initial_load = script.split(
+        "async function loadChatExternalInformationPluginState", 1
+    )[1].split("void loadChatExternalInformationPluginState();", 1)[0]
+    assert "const generation = retainedPluginPresentationGeneration;" in initial_load
+    assert (
+        "publishPassiveChatExternalInformationPluginState(body.plugin, generation);"
+        in initial_load
+    )
+    configuration_load = script.split("async function loadConfiguration()", 1)[1].split(
+        "configurationRuntime.addEventListener", 1
+    )[0]
+    assert (
+        "const retainedPluginGeneration = retainedPluginPresentationGeneration;"
+        in configuration_load
+    )
+    assert (
+        "if (retainedPluginGeneration === retainedPluginPresentationGeneration)"
+        in configuration_load
+    )
+    assert (
+        "setExternalInformationConfiguration(externalInformationBody.plugin);"
+        in configuration_load
+    )
+    plugin_save = script.split(
+        "externalInformationConfigurationForm.addEventListener", 1
+    )[1].split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[0]
+    assert plugin_save.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_save.index("setExternalInformationConfiguration(body.plugin, true);")
+    plugin_clear = script.split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[1].split("chatExternalInformationConfigurationForm.addEventListener", 1)[0]
+    assert plugin_clear.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_clear.index("setExternalInformationConfiguration(null, true);")
     assert "setInterval" not in script
     assert "setTimeout" not in script
 

@@ -96,31 +96,39 @@
 
   initializeThemePreference();
   document.querySelector("#chat-external-information").checked = false;
+  let retainedPluginPresentationGeneration = 0;
 
-  function setChatExternalInformationPluginState(plugin) {
+  function setChatExternalInformationPluginState(plugin, resetAuthorization = false) {
     const checkbox = document.querySelector("#chat-external-information");
     const state = document.querySelector("#chat-external-information-plugin-state");
-    checkbox.checked = false;
     if (typeof plugin === "string" && plugin.trim()) {
       checkbox.disabled = false;
+      if (resetAuthorization) checkbox.checked = false;
       state.textContent = `Retained External Information plugin: ${plugin}`;
       return;
     }
+    checkbox.checked = false;
     checkbox.disabled = true;
     state.textContent = plugin === null
       ? "No External Information plugin configured."
       : "External Information plugin configuration unavailable.";
   }
 
+  function publishPassiveChatExternalInformationPluginState(plugin, generation) {
+    if (generation !== retainedPluginPresentationGeneration) return;
+    setChatExternalInformationPluginState(plugin);
+  }
+
   async function loadChatExternalInformationPluginState() {
+    const generation = retainedPluginPresentationGeneration;
     try {
       const response = await fetch("/retained-external-information-configuration");
-      if (!response.ok) return setChatExternalInformationPluginState(undefined);
+      if (!response.ok) return publishPassiveChatExternalInformationPluginState(undefined, generation);
       const body = await response.json();
-      if (!Object.hasOwn(body, "plugin")) return setChatExternalInformationPluginState(undefined);
-      setChatExternalInformationPluginState(body.plugin);
+      if (!Object.hasOwn(body, "plugin")) return publishPassiveChatExternalInformationPluginState(undefined, generation);
+      publishPassiveChatExternalInformationPluginState(body.plugin, generation);
     } catch (_) {
-      setChatExternalInformationPluginState(undefined);
+      publishPassiveChatExternalInformationPluginState(undefined, generation);
     }
   }
 
@@ -263,12 +271,12 @@
     imageGenerationConfigurationBaseUrl.value = imageGeneration === null ? "" : imageGeneration.base_url;
   }
 
-  function setExternalInformationConfiguration(plugin) {
+  function setExternalInformationConfiguration(plugin, resetAuthorization = false) {
     document.querySelector("#external-information-configuration-absence").textContent = plugin === null
       ? "No retained external-information plugin choice exists."
       : "Editing retained external-information plugin choice for accepted external-information flows.";
     externalInformationConfigurationPlugin.value = plugin || "";
-    setChatExternalInformationPluginState(plugin);
+    setChatExternalInformationPluginState(plugin, resetAuthorization);
   }
 
   function setChatExternalInformationConfiguration(authorized) {
@@ -341,6 +349,7 @@
   async function loadConfiguration() {
     if (configurationLoaded) return;
     const context = requestContexts.configuration;
+    const retainedPluginGeneration = retainedPluginPresentationGeneration;
     setRequestActive(context, true, "Loading retained configuration…");
     clearError(context);
     try {
@@ -353,17 +362,32 @@
       ]);
       if (!localResponse.ok) return showError(context, await safeFailure(localResponse));
       if (!imageGenerationResponse.ok) return showError(context, await safeFailure(imageGenerationResponse));
-      if (!externalInformationResponse.ok) return showError(context, await safeFailure(externalInformationResponse));
+      if (!externalInformationResponse.ok) {
+        publishPassiveChatExternalInformationPluginState(undefined, retainedPluginGeneration);
+        return showError(context, await safeFailure(externalInformationResponse));
+      }
       if (!chatExternalInformationResponse.ok) return showError(context, await safeFailure(chatExternalInformationResponse));
       const responseBody = await localResponse.json();
       if (!Object.hasOwn(responseBody, "local")) return showError(context, "Request failed");
       const imageGenerationBody = await imageGenerationResponse.json();
-      const externalInformationBody = await externalInformationResponse.json();
+      let externalInformationBody;
+      try {
+        externalInformationBody = await externalInformationResponse.json();
+      } catch (_) {
+        publishPassiveChatExternalInformationPluginState(undefined, retainedPluginGeneration);
+        return showError(context, "Request failed");
+      }
       const chatExternalInformationBody = await chatExternalInformationResponse.json();
-      if (!Object.hasOwn(imageGenerationBody, "image_generation") || !Object.hasOwn(externalInformationBody, "plugin") || typeof chatExternalInformationBody.authorized !== "boolean") return showError(context, "Request failed");
+      if (!Object.hasOwn(imageGenerationBody, "image_generation") || typeof chatExternalInformationBody.authorized !== "boolean") return showError(context, "Request failed");
       setConfigurationLocal(responseBody.local);
       setImageGenerationConfiguration(imageGenerationBody.image_generation);
-      setExternalInformationConfiguration(externalInformationBody.plugin);
+      if (!externalInformationBody || !Object.hasOwn(externalInformationBody, "plugin")) {
+        publishPassiveChatExternalInformationPluginState(undefined, retainedPluginGeneration);
+        return showError(context, "Request failed");
+      }
+      if (retainedPluginGeneration === retainedPluginPresentationGeneration) {
+        setExternalInformationConfiguration(externalInformationBody.plugin);
+      }
       setChatExternalInformationConfiguration(chatExternalInformationBody.authorized);
       configurationLoaded = true;
     } catch (_) {
@@ -493,7 +517,8 @@
       });
       if (!response.ok) return showError(context, await safeFailure(response));
       const body = await response.json();
-      setExternalInformationConfiguration(body.plugin);
+      retainedPluginPresentationGeneration += 1;
+      setExternalInformationConfiguration(body.plugin, true);
       context.status.textContent = "Plugin choice saved as retained external-information configuration.";
     } catch (_) {
       showError(context, "Request failed");
@@ -510,7 +535,8 @@
     try {
       const response = await fetch("/retained-external-information-configuration", { method: "DELETE" });
       if (!response.ok) return showError(context, await safeFailure(response));
-      setExternalInformationConfiguration(null);
+      retainedPluginPresentationGeneration += 1;
+      setExternalInformationConfiguration(null, true);
       context.status.textContent = "Plugin choice cleared from retained external-information configuration.";
     } catch (_) {
       showError(context, "Request failed");

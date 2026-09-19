@@ -1,6 +1,6 @@
 # RFC-0137: Bounded Caller-Local JPEG Export
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-19
 
@@ -639,4 +639,52 @@ remain separate decisions.
 
 ## Decision
 
-Pending.
+Accepted.
+
+Home AI Cluster will add one explicit caller-local JPEG export mode to the
+existing one-shot Image Generation output-file edge:
+
+    hac image-generation --output FILE --jpeg "<INSTRUCTION>"
+
+JPEG remains a caller-local derivative only. HAC Image Generation continues to
+have exactly one normalized successful representation: the accepted bounded
+still-PNG result. `ImageGenerationRequest`, `ImageGenerationResult`, native
+HTTP, receiver protocol, remote transport, routing, adapters, browser behavior,
+and retained configuration remain PNG-only.
+
+JPEG export requires `--output FILE`; there is no JPEG stdout mode and no
+filename-suffix inference. Existing `--output FILE` behavior without
+`--jpeg` remains exact PNG regardless of the destination suffix.
+
+The first accepted JPEG exporter is deliberately limited to normalized 8-bit
+RGB source PNGs. RGBA and 16-bit normalized PNG results remain valid Image
+Generation results but are not eligible for this export. HAC will not silently
+invent alpha compositing, background-color, alpha-dropping, or precision
+reduction policy.
+
+JPEG encoding uses the fixed first-version policy:
+
+    quality = 95
+    chroma subsampling = 4:4:4
+    progressive = false
+
+Those parameters are applied explicitly rather than inherited from encoder
+defaults. A mature maintained image codec library may be used; the
+implementation must establish source-layout eligibility before invoking any
+library behavior that could silently widen the accepted source layouts.
+
+The operation order is:
+
+    complete normalized PNG
+      -> complete caller-local JPEG conversion
+      -> RFC-0136 exclusive destination creation
+      -> JPEG byte write
+
+Conversion and filesystem failures are terminal caller-local failures. They
+authorize no retry, regeneration, alternate remote, local fallback, runtime
+fallback, destination substitution, PNG fallback, overwrite, or rollback
+deletion.
+
+This decision adds no generic format system, media abstraction, JPEG-normalized
+cluster result, browser JPEG surface, quality controls, alpha compositing,
+16-bit reduction, or runtime-native JPEG passthrough.

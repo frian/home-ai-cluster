@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
+  — accepts capability-oriented ordinary-loopback navigation and co-locates
+  RFC-0133's distinct explicit External Information operation with Chat while
+  preserving RFC-0134 automatic assistance, declarative-only retained plugin
+  state, and trusted-LAN exclusions.
+
 - [RFC-0130: Bounded Trusted-LAN Browser Authority](RFC-0130-bounded-trusted-lan-browser-authority.md)
   — accepts one optional explicit trusted-LAN browser capability authority for
   `hac local` and `hac static-cluster`, sharing their existing execution/routing

@@ -20,6 +20,8 @@ from home_ai_cluster.core.models import (
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
+    ImageGenerationRequest,
+    ImageGenerationResult,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
@@ -235,10 +237,19 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
 
     assert list(signature.parameters) == ["self", "request", "declaration"]
     assert hints["request"] == (
-        ClusterRequest | SummarizeRequest | ClassifyRequest | SourceGroundedChatRequest
+        ClusterRequest
+        | SummarizeRequest
+        | ClassifyRequest
+        | SourceGroundedChatRequest
+        | ImageGenerationRequest
     )
     assert hints["declaration"] is RemoteNodeDeclaration
-    assert hints["return"] == ClusterResult | ClassifyResult | SourceGroundedChatResult
+    assert hints["return"] == (
+        ClusterResult
+        | ClassifyResult
+        | SourceGroundedChatResult
+        | ImageGenerationResult
+    )
 
 
 def test_internal_cluster_request_url_uses_declaration_transport_address() -> None:

@@ -296,6 +296,7 @@ class ImageGenerationRequest(BaseModel):
     instruction: str
     width: int | None = None
     height: int | None = None
+    constraints: RequestConstraints = Field(default_factory=RequestConstraints)
 
     @model_validator(mode="before")
     @classmethod
@@ -418,6 +419,73 @@ class InternalSourceGroundedChatRequestBody(BaseModel):
         )
 
 
+class InternalImageGenerationConstraints(BaseModel):
+    """Strict internal representation of Image Generation routing constraints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    local_only: bool = True
+    prefer_fast_response: bool = False
+    min_context_size: int | None = Field(default=None, ge=1)
+
+    def normalized_constraints(self) -> RequestConstraints:
+        """Reconstruct the shared normalized constraints value."""
+        return RequestConstraints(
+            local_only=self.local_only,
+            prefer_fast_response=self.prefer_fast_response,
+            min_context_size=self.min_context_size,
+        )
+
+
+class InternalImageGenerationRequestBody(BaseModel):
+    """Strict Image Generation body used only by its closed internal envelope."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruction: str
+    width: int | None = None
+    height: int | None = None
+    constraints: InternalImageGenerationConstraints = Field(
+        default_factory=InternalImageGenerationConstraints
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_dimensions(cls, value: object) -> object:
+        """Reject malformed geometry before field defaults erase its presence."""
+        if not isinstance(value, dict):
+            return value
+        has_width = "width" in value
+        has_height = "height" in value
+        if has_width != has_height:
+            raise ValueError("width and height must be supplied together")
+        if not has_width:
+            return value
+        for name in ("width", "height"):
+            dimension = value[name]
+            if type(dimension) is not int:
+                raise ValueError(f"{name} must be an integer")
+            if not 64 <= dimension <= 2048:
+                raise ValueError(f"{name} must be between 64 and 2048")
+        return value
+
+    @model_validator(mode="after")
+    def validate_request(self) -> "InternalImageGenerationRequestBody":
+        self.normalized_request()
+        return self
+
+    def normalized_request(self) -> ImageGenerationRequest:
+        """Reconstruct and revalidate the accepted normalized request."""
+        values: dict[str, object] = {
+            "instruction": self.instruction,
+            "constraints": self.constraints.normalized_constraints(),
+        }
+        if self.width is not None:
+            values["width"] = self.width
+            values["height"] = self.height
+        return ImageGenerationRequest.model_validate(values)
+
+
 class ChatInternalRequest(BaseModel):
     """Legacy internal envelope for one ordinary ordered-message request."""
 
@@ -461,11 +529,21 @@ class SourceGroundedChatInternalRequest(BaseModel):
     request: InternalSourceGroundedChatRequestBody
 
 
+class ImageGenerationInternalRequest(BaseModel):
+    """The closed internal envelope for one normalized Image Generation request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["image-generation"]
+    request: InternalImageGenerationRequestBody
+
+
 InternalClusterRequest = Annotated[
     ChatInternalRequest
     | SummarizeInternalRequest
     | ClassifyInternalRequest
-    | SourceGroundedChatInternalRequest,
+    | SourceGroundedChatInternalRequest
+    | ImageGenerationInternalRequest,
     Field(discriminator="kind"),
 ]
 INTERNAL_CLUSTER_REQUEST_ADAPTER = TypeAdapter(InternalClusterRequest)
@@ -513,9 +591,15 @@ class ImageGenerationResult(BaseModel):
 
 
 type RemoteTransportRequest = (
-    ClusterRequest | SummarizeRequest | ClassifyRequest | SourceGroundedChatRequest
+    ClusterRequest
+    | SummarizeRequest
+    | ClassifyRequest
+    | SourceGroundedChatRequest
+    | ImageGenerationRequest
 )
-type RemoteTransportResult = ClusterResult | ClassifyResult | SourceGroundedChatResult
+type RemoteTransportResult = (
+    ClusterResult | ClassifyResult | SourceGroundedChatResult | ImageGenerationResult
+)
 type LocalRoutableRequest = RemoteTransportRequest | ImageGenerationRequest
 type LocalRoutableResult = RemoteTransportResult | ImageGenerationResult
 

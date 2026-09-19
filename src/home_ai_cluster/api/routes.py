@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.chat_external_information_decision import (
@@ -25,6 +25,7 @@ from home_ai_cluster.core.models import (
     ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    ImageGenerationInternalRequest,
     ImageGenerationRequest,
     ImageGenerationResult,
     InternalClusterStatusResponse,
@@ -75,6 +76,34 @@ class ClassifyPublicRequest(BaseModel):
     labels: list[str]
 
 
+class ImageGenerationPublicRequest(BaseModel):
+    """The deliberately closed public body for one Image Generation request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruction: str
+    width: int | None = None
+    height: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_dimensions(cls, value: object) -> object:
+        """Preserve the normalized request's absent-or-paired geometry boundary."""
+        if not isinstance(value, dict):
+            return value
+        if ("width" in value) != ("height" in value):
+            raise ValueError("width and height must be supplied together")
+        if "width" not in value:
+            return value
+        for name in ("width", "height"):
+            dimension = value[name]
+            if type(dimension) is not int:
+                raise ValueError(f"{name} must be an integer")
+            if not 64 <= dimension <= 2048:
+                raise ValueError(f"{name} must be between 64 and 2048")
+        return value
+
+
 class SourceGroundedChatPublicRequest(BaseModel):
     """The deliberately closed public body for source-grounded Chat."""
 
@@ -113,12 +142,13 @@ async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest
     | SummarizeRequest
     | ClassifyRequest
-    | SourceGroundedChatRequest,
+    | SourceGroundedChatRequest
+    | ImageGenerationRequest,
     local_app_composition: LocalAppComposition | None = None,
     *,
     originating: bool = True,
     caller_local_node_registry: NodeRegistry | None = None,
-) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
+) -> ClusterResult | ClassifyResult | SourceGroundedChatResult | ImageGenerationResult:
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
     if caller_local_node_registry is not None:
         node_registry = caller_local_node_registry
@@ -562,7 +592,14 @@ async def classify(http_request: Request) -> ClassifyResult:
 async def image_generation(http_request: Request) -> Response:
     """Project one completed local Image Generation result as raw PNG bytes."""
     try:
-        image_request = ImageGenerationRequest.model_validate(await http_request.json())
+        public_request = ImageGenerationPublicRequest.model_validate(
+            await http_request.json()
+        )
+        image_values: dict[str, object] = {"instruction": public_request.instruction}
+        if public_request.width is not None:
+            image_values["width"] = public_request.width
+            image_values["height"] = public_request.height
+        image_request = ImageGenerationRequest.model_validate(image_values)
     except (ValueError, ValidationError):
         raise HTTPException(
             status_code=422, detail="Invalid image generation request"
@@ -614,7 +651,7 @@ async def chat_external_information_decision(
 )
 async def internal_cluster_request(
     http_request: Request,
-) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
+) -> Response | ClusterResult | ClassifyResult | SourceGroundedChatResult:
     try:
         envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
             await http_request.json()
@@ -625,7 +662,9 @@ async def internal_cluster_request(
             detail="Invalid internal cluster request",
         ) from None
 
-    if isinstance(envelope, ChatInternalRequest):
+    if isinstance(envelope, ImageGenerationInternalRequest):
+        request = envelope.request.normalized_request()
+    elif isinstance(envelope, ChatInternalRequest):
         request = envelope.request
     elif isinstance(envelope, ClassifyInternalRequest):
         request = envelope.request.normalized_request()
@@ -635,19 +674,22 @@ async def internal_cluster_request(
         request = envelope.request.normalized_request()
     local_app_composition = http_request.app.state.local_app_composition
     if local_app_composition is None:
-        return await run_routable_execution(
+        result = await run_routable_execution(
             http_request,
             lambda: handle_static_local_cluster_request(request),
         )
-
-    return await run_routable_execution(
-        http_request,
-        lambda: handle_static_local_cluster_request(
-            request,
-            local_app_composition=local_app_composition,
-            originating=False,
-        ),
-    )
+    else:
+        result = await run_routable_execution(
+            http_request,
+            lambda: handle_static_local_cluster_request(
+                request,
+                local_app_composition=local_app_composition,
+                originating=False,
+            ),
+        )
+    if isinstance(result, ImageGenerationResult):
+        return Response(content=result.image_bytes, media_type="image/png")
+    return result
 
 
 @receiver_router.get(

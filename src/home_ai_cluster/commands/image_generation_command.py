@@ -158,7 +158,9 @@ def main(
             with client.stream(
                 "POST",
                 _ORDINARY_IMAGE_GENERATION_URL,
-                json=command.request.model_dump(exclude_none=True),
+                json=command.request.model_dump(
+                    include={"instruction", "width", "height"}, exclude_none=True
+                ),
             ) as response:
                 failure = _failure_for_status(response.status_code)
                 if failure is not None:

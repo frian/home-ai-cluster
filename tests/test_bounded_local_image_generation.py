@@ -384,17 +384,19 @@ def test_invalid_image_candidate_fails_after_adapter_invocation() -> None:
     assert adapter.requests == [request]
 
 
-def test_image_generation_stays_outside_closed_remote_transport() -> None:
-    request = ImageGenerationRequest(instruction="remote is not authorized")
+def test_image_generation_uses_a_closed_internal_remote_transport_envelope() -> None:
+    request = ImageGenerationRequest(instruction="remote is normalized")
+    envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
+        internal_cluster_request_body(request)
+    )
+    assert envelope.request.normalized_request() == request
     with pytest.raises(ValidationError):
         INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
             {
                 "kind": "image-generation",
-                "request": {"instruction": request.instruction},
+                "request": {"instruction": request.instruction, "unknown": True},
             }
         )
-    with pytest.raises(TypeError, match="Unsupported remote transport request"):
-        internal_cluster_request_body(request)  # type: ignore[arg-type]
     assert "image-generation" not in DEFAULT_STATIC_CAPABILITY_NAMES
     with pytest.raises(ValueError, match="unknown test capability"):
         validate_static_capabilities(["image-generation"], subject="test")

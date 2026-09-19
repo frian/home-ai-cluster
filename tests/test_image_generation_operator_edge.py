@@ -157,10 +157,12 @@ def test_retained_style_textual_and_image_composition_selects_image_binding(
     "payload",
     [
         {"instruction": "a fox", "seed": 1},
+        {"instruction": "a fox", "constraints": {"local_only": False}},
         {"instruction": "a fox", "width": 512},
         {"instruction": "a fox", "height": 768},
         {"instruction": "a fox", "width": 63, "height": 768},
         {"instruction": "a fox", "width": True, "height": 768},
+        {"instruction": "a fox", "width": None, "height": None},
         {"instruction": "   "},
         {"instruction": "é" * 32_769},
     ],

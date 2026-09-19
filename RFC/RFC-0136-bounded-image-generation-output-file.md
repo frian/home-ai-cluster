@@ -289,18 +289,21 @@ storage.
 
 If writing or closing the newly created file fails, the invocation fails.
 
-The implementation should make a best-effort attempt to remove the incomplete
-file that this invocation itself created.
+After exclusive creation succeeds, the caller performs no rollback deletion.
+The explicitly requested file may therefore remain present and incomplete after
+a later write or close failure.
 
-Failure to clean up must not cause retry, regeneration, alternate routing,
-overwrite, or deletion of any other path.
+This is deliberate. Once the new leaf is visible in the host namespace, another
+process may observe, move, replace, or otherwise race with that pathname. The
+caller does not attempt to recover object identity, lock the namespace, or
+delete by pathname after failure.
 
-The architecture therefore truthfully allows this rare failure outcome:
+A post-creation filesystem failure is terminal. It must not cause retry,
+regeneration, alternate routing, destination substitution, overwrite, or
+deletion.
 
-> a failed invocation may leave the explicitly requested newly created output
-> file present but incomplete if host filesystem cleanup also fails.
-
-HAC claims no stronger host-filesystem transactional or durability guarantee.
+HAC claims no stronger host-filesystem transactional, concurrency, rollback, or
+durability guarantee.
 
 ### Ordinary host permissions
 
@@ -332,8 +335,12 @@ Existing architectural observation surfaces remain separate.
 
 ### Failure behavior
 
-Failures before successful exclusive output-file creation leave the selected
-path absent.
+Before successful exclusive output-file creation, HAC creates no destination
+object and modifies no existing destination object.
+
+If the selected path was absent, failures before exclusive creation leave it
+absent. If another filesystem object already occupies or concurrently wins the
+selected path, the invocation fails and leaves that object unchanged.
 
 This includes:
 
@@ -350,10 +357,9 @@ This includes:
 - oversized response;
 - or any other unsuccessful Image Generation outcome.
 
-If exclusive creation succeeds but file writing later fails, the command exits
-non-zero and attempts bounded cleanup of only the file it created.
-
-Cleanup failure may leave that file behind.
+If exclusive creation succeeds but file writing or closing later fails, the
+command exits non-zero and performs no rollback deletion. The explicitly
+requested file may remain present and incomplete.
 
 No failure after a completed Image Generation result may trigger:
 
@@ -542,11 +548,11 @@ That is intentional.
 The benefit is a substantially smaller and safer first filesystem authority with
 no replacement semantics.
 
-A host write or cleanup failure may rarely leave an incomplete newly created
-file.
+A host write or close failure may leave an incomplete newly created file.
 
-Avoiding that possibility portably would require stronger publication machinery
-and filesystem semantics than this small convenience warrants.
+Avoiding that possibility portably would require stronger publication machinery,
+object-identity tracking, or filesystem semantics than this small convenience
+warrants. The caller deliberately performs no rollback deletion after creation.
 
 The path remains subject to ordinary host operating-system behavior and
 permissions.
@@ -565,7 +571,7 @@ implementation necessary for:
 - complete native Image Generation response acquisition before file creation;
 - exclusive creation of exactly one missing output leaf;
 - exact PNG byte writing;
-- bounded cleanup after post-creation write failure;
+- terminal post-creation write/close failure without rollback deletion;
 - appropriate CLI tests;
 - and user-facing command documentation.
 
@@ -606,8 +612,8 @@ A later implementation should prove at least:
     alternate remote attempt, or fallback;
 11. an exclusive-creation race never truncates or overwrites the object that won
     the path;
-12. post-creation write failure performs best-effort cleanup only of the file
-    created by this invocation, with truthful handling if cleanup itself fails;
+12. post-creation write or close failure performs no rollback deletion and may
+    leave the explicitly created file present and incomplete;
 13. no parent directory, sibling, automatic filename, retained state, generic
     filesystem API, workspace authority, storage abstraction, overwrite mode,
     or JPEG support appears.
@@ -617,8 +623,8 @@ A later implementation should prove at least:
 No architectural question is blocking if this boundary is retained.
 
 Implementation may choose internal command/helper names, error text, exit-code
-reuse, ordinary platform file-opening primitives, and bounded cleanup
-structure.
+reuse, and ordinary platform file-opening primitives. It must not add
+post-creation rollback deletion.
 
 Overwrite behavior, stronger publication guarantees, automatic naming, other
 output formats, and JPEG remain later separate decisions.

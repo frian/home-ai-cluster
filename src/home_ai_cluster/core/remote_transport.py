@@ -1,7 +1,6 @@
 """Remote transport boundary for normalized cluster objects."""
 
 import json
-import sys
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -186,57 +185,66 @@ class HttpRemoteTransport:
             ) from exc
 
         try:
-            if response.status_code == 503:
-                raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
-            if response.status_code == 409:
-                refusal = await _read_bounded_response(
-                    response, REMOTE_PERMISSION_REFUSAL_MAX_BYTES
-                )
-                if refusal is not None and _is_exact_permission_refusal(refusal):
-                    raise RemoteExecutionPermissionDeniedError(
-                        "Remote execution permission denied before adapter invocation"
+            try:
+                if response.status_code == 503:
+                    raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+                if response.status_code == 409:
+                    refusal = await _read_bounded_response(
+                        response, REMOTE_PERMISSION_REFUSAL_MAX_BYTES
                     )
+                    if refusal is not None and _is_exact_permission_refusal(refusal):
+                        raise RemoteExecutionPermissionDeniedError(
+                            "Remote execution permission denied before adapter "
+                            "invocation"
+                        )
+                    raise RemoteTransportError(
+                        "HTTP remote transport could not send request"
+                    )
+                if response.status_code != 200 or not _is_png_content_type(response):
+                    raise RemoteTransportError(
+                        "HTTP remote transport could not send request"
+                    )
+                candidate = await _read_bounded_response(
+                    response, MAX_ENCODED_PNG_BYTES
+                )
+                if candidate is None:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                image_bytes = validate_still_png(candidate)
+                if request.width is not None and still_png_dimensions(image_bytes) != (
+                    request.width,
+                    request.height,
+                ):
+                    raise ImageGenerationResultValidationError(
+                        "PNG geometry does not match requested dimensions"
+                    )
+                result = ImageGenerationResult(
+                    image_bytes=image_bytes,
+                    node_id=declaration.node.id,
+                )
+            except httpx.HTTPError as exc:
                 raise RemoteTransportError(
                     "HTTP remote transport could not send request"
-                )
-            if response.status_code != 200 or not _is_png_content_type(response):
-                raise RemoteTransportError(
-                    "HTTP remote transport could not send request"
-                )
-            candidate = await _read_bounded_response(response, MAX_ENCODED_PNG_BYTES)
-            if candidate is None:
+                ) from exc
+            except ImageGenerationResultValidationError as exc:
                 raise RemoteTransportError(
                     "HTTP remote transport returned invalid result"
-                )
-            image_bytes = validate_still_png(candidate)
-            if request.width is not None and still_png_dimensions(image_bytes) != (
-                request.width,
-                request.height,
-            ):
-                raise ImageGenerationResultValidationError(
-                    "PNG geometry does not match requested dimensions"
-                )
-            return ImageGenerationResult(
-                image_bytes=image_bytes,
-                node_id=declaration.node.id,
-            )
+                ) from exc
+        except BaseException:
+            try:
+                await response.aclose()
+            except httpx.HTTPError:
+                pass
+            raise
+
+        try:
+            await response.aclose()
         except httpx.HTTPError as exc:
             raise RemoteTransportError(
                 "HTTP remote transport could not send request"
             ) from exc
-        except ImageGenerationResultValidationError as exc:
-            raise RemoteTransportError(
-                "HTTP remote transport returned invalid result"
-            ) from exc
-        finally:
-            propagating_exception = sys.exception()
-            try:
-                await response.aclose()
-            except httpx.HTTPError as exc:
-                if propagating_exception is None:
-                    raise RemoteTransportError(
-                        "HTTP remote transport could not send request"
-                    ) from exc
+        return result
 
 
 class HttpRemoteStatusTransport:

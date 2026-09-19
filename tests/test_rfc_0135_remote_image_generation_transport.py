@@ -264,6 +264,10 @@ class _CancellingStream(httpx.AsyncByteStream):
         return None
 
 
+class _OuterError(Exception):
+    """An unrelated exception handled by the transport's caller."""
+
+
 def test_remote_image_transport_requires_exact_png_success_and_attributes() -> None:
     result = asyncio.run(
         _send_image(
@@ -283,6 +287,24 @@ def test_remote_image_transport_normalizes_sole_close_failure() -> None:
 
     with pytest.raises(RemoteTransportError) as raised:
         asyncio.run(_send_image(response, _request()))
+
+    assert isinstance(raised.value.__cause__, httpx.CloseError)
+    assert response.close_attempts == 1
+
+
+def test_outer_handled_exception_does_not_suppress_sole_close_failure() -> None:
+    response = _CloseFailResponse(
+        200, content=_png(), headers={"content-type": "image/png"}
+    )
+
+    async def send_inside_outer_exception_handler() -> object:
+        try:
+            raise _OuterError()
+        except _OuterError:
+            return await _send_image(response, _request())
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(send_inside_outer_exception_handler())
 
     assert isinstance(raised.value.__cause__, httpx.CloseError)
     assert response.close_attempts == 1

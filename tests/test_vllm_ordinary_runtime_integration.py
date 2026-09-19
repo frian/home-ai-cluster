@@ -147,16 +147,17 @@ def test_static_cluster_inline_vllm_passes_selected_runtime_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     recorded: dict[str, object] = {}
-    selected_composition = object()
+    original_create_composition = static_cluster.create_local_runtime_composition
 
     def create_local_composition(**kwargs: object) -> object:
         recorded["composition_arguments"] = kwargs
-        return selected_composition
+        return original_create_composition(**kwargs)
 
     def create_static_app(
         *_: object,
         capabilities: tuple[str, ...],
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_capabilities"] = capabilities
         recorded["local_app_composition"] = local_app_composition
@@ -185,7 +186,9 @@ def test_static_cluster_inline_vllm_passes_selected_runtime_fields(
         ]
     )
 
-    assert recorded == {
+    assert {
+        key: value for key, value in recorded.items() if key != "local_app_composition"
+    } == {
         "composition_arguments": {
             "runtime": "vllm",
             "ollama_model": None,
@@ -194,8 +197,13 @@ def test_static_cluster_inline_vllm_passes_selected_runtime_fields(
             "llama_server_model": None,
             "vllm_base_url": "http://127.0.0.1:8000",
             "vllm_model": "served-name",
-            "capabilities": ("chat", "summarize"),
+            "capabilities": ("chat", "summarize", "classify", "code"),
         },
         "remote_capabilities": ("chat", "summarize"),
-        "local_app_composition": selected_composition,
     }
+    assert [
+        capability.name
+        for capability in recorded["local_app_composition"]
+        .node_registry.list_nodes()[0]
+        .capabilities
+    ] == ["chat", "summarize", "classify", "code"]

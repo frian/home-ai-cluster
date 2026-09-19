@@ -489,11 +489,6 @@ def test_main_wraps_the_fixed_loopback_static_cluster_application(
 
     monkeypatch.setattr(
         static_cluster,
-        "create_local_runtime_composition",
-        lambda **_: object(),
-    )
-    monkeypatch.setattr(
-        static_cluster,
         "create_static_cluster_app",
         lambda *_args, **_kwargs: api_app,
     )
@@ -517,7 +512,9 @@ def test_main_wraps_the_fixed_loopback_static_cluster_application(
         ]
     )
 
-    assert recorded == {
+    assert {
+        key: value for key, value in recorded.items() if key != "routing_node_registry"
+    } == {
         "api_app": api_app,
         "app": browser_app,
         "host": STATIC_CLUSTER_HOST,
@@ -618,10 +615,6 @@ def test_lan_main_closes_static_client_after_runner_failure(
     app = FastAPI()
     failure = RuntimeError("runner failed")
 
-    monkeypatch.setattr(
-        static_cluster, "create_local_runtime_composition", lambda **_: object()
-    )
-
     def create_static_app(*_args: object, **kwargs: object) -> FastAPI:
         assert kwargs["close_client"] is False
         app.state.static_cluster_http_client = client
@@ -679,7 +672,7 @@ def test_reusable_static_cluster_factory_remains_page_free() -> None:
     asyncio.run(client.aclose())
 
 
-def test_main_passes_toml_local_capabilities_to_caller_composition(
+def test_main_projects_toml_local_capabilities_without_changing_physical_ownership(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -700,11 +693,15 @@ def test_main_passes_toml_local_capabilities_to_caller_composition(
         remote_nodes: tuple[ParsedRemoteNodeDeclaration, ...],
         *,
         local_app_composition: LocalAppComposition,
+        routing_node_registry: NodeRegistry,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_capabilities"] = (
             local_app_composition.node_registry.list_nodes()[0].capabilities
         )
+        recorded["routing_capabilities"] = routing_node_registry.list_nodes()[
+            0
+        ].capabilities
         return FastAPI()
 
     monkeypatch.setattr(
@@ -716,7 +713,9 @@ def test_main_passes_toml_local_capabilities_to_caller_composition(
 
     main(["--declaration", str(declaration_path)])
 
-    assert recorded == {
+    assert {
+        key: value for key, value in recorded.items() if key != "routing_node_registry"
+    } == {
         "remote_nodes": (
             ParsedRemoteNodeDeclaration(
                 node_id="summary-remote",
@@ -724,7 +723,13 @@ def test_main_passes_toml_local_capabilities_to_caller_composition(
                 capabilities=("summarize",),
             ),
         ),
-        "local_capabilities": [Capability(name="chat")],
+        "local_capabilities": [
+            Capability(name="chat"),
+            Capability(name="summarize"),
+            Capability(name="classify"),
+            Capability(name="code"),
+        ],
+        "routing_capabilities": [Capability(name="chat")],
     }
 
 
@@ -1275,10 +1280,11 @@ def test_main_runs_fixed_loopback_static_cluster_server(
     monkeypatch.setattr(
         static_cluster,
         "create_static_cluster_app",
-        lambda *_, capabilities, local_app_composition: (
+        lambda *_, capabilities, local_app_composition, **kwargs: (
             recorded.update(
                 capabilities=capabilities,
                 local_app_composition=local_app_composition,
+                routing_node_registry=kwargs["routing_node_registry"],
             )
             or app
         ),
@@ -1301,10 +1307,12 @@ def test_main_runs_fixed_loopback_static_cluster_server(
         ]
     )
 
-    assert recorded == {
+    assert {
+        key: value for key, value in recorded.items() if key != "routing_node_registry"
+    } == {
         "composition_arguments": {
             **composition_arguments,
-            "capabilities": ("chat", "summarize"),
+            "capabilities": ("chat", "summarize", "classify", "code"),
         },
         "capabilities": ("chat", "summarize"),
         "local_app_composition": local_composition,
@@ -1312,6 +1320,10 @@ def test_main_runs_fixed_loopback_static_cluster_server(
         "host": STATIC_CLUSTER_HOST,
         "port": 25042,
     }
+    assert [
+        capability.name
+        for capability in recorded["routing_node_registry"].list_nodes()[0].capabilities
+    ] == ["chat", "summarize"]
 
 
 def test_main_passes_explicit_inline_capabilities_to_static_app(
@@ -1320,7 +1332,7 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
     from home_ai_cluster import static_cluster
 
     recorded: dict[str, object] = {}
-    local_composition = object()
+    local_composition = create_local_runtime_composition(runtime="ollama")
 
     def create_local_composition(**kwargs: object) -> object:
         recorded["local_capabilities"] = kwargs["capabilities"]
@@ -1335,10 +1347,11 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
     monkeypatch.setattr(
         static_cluster,
         "create_static_cluster_app",
-        lambda *_, capabilities, local_app_composition: (
+        lambda *_, capabilities, local_app_composition, **kwargs: (
             recorded.update(
                 capabilities=capabilities,
                 local_app_composition=local_app_composition,
+                routing_node_registry=kwargs["routing_node_registry"],
             )
             or FastAPI()
         ),
@@ -1359,12 +1372,21 @@ def test_main_passes_explicit_inline_capabilities_to_static_app(
         ]
     )
 
-    assert recorded == {
-        "local_capabilities": ("chat",),
+    assert {
+        key: value for key, value in recorded.items() if key != "routing_node_registry"
+    } == {
+        "local_capabilities": ("chat", "summarize", "classify", "code"),
         "ollama_disable_thinking": True,
         "capabilities": ("summarize",),
         "local_app_composition": local_composition,
     }
+    assert [
+        capability.name
+        for capability in recorded["routing_node_registry"].list_nodes()[0].capabilities
+    ] == ["chat"]
+    assert recorded["routing_node_registry"].list_nodes()[0].capabilities == [
+        Capability(name="chat")
+    ]
 
 
 def test_static_cluster_constructors_accept_llama_server_composition_without_probe(

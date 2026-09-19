@@ -150,6 +150,22 @@ def test_complete_mutation_preserves_other_retained_domains_and_composition() ->
     assert app.state.local_app_composition is composition
 
 
+def test_complete_mutation_accepts_explicit_image_generation_permission() -> None:
+    document = local_document(local_capabilities=["chat", "image-generation"])
+
+    response = request(
+        native_app(),
+        "PUT",
+        "/retained-local-configuration",
+        headers=native_mutation_headers(),
+        json=document,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"local": document}
+    assert load_retained_configuration().image_generation is None
+
+
 def test_browser_local_mutation_preserves_image_generation_companion() -> None:
     image_generation = RetainedImageGenerationConfiguration(
         base_url="http://127.0.0.1:7860"

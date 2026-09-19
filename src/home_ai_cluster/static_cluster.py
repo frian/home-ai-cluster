@@ -26,6 +26,7 @@ from home_ai_cluster.core.static_capabilities import (
     validate_static_capabilities,
 )
 from home_ai_cluster.local_runtime_composition import (
+    LOCAL_RUNTIME_CAPABILITY_NAMES,
     MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
@@ -322,7 +323,7 @@ def create_static_cluster_collection_app(
     return app
 
 
-def _create_multi_binding_routing_node_registry(
+def _create_routing_node_registry(
     local_app_composition: LocalAppComposition,
     caller_local_capabilities: Sequence[str],
 ) -> NodeRegistry:
@@ -373,9 +374,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             composition_arguments["execution_limit"] = args.retained_execution_limit
 
     def create_local_composition(
-        caller_local_capabilities: Sequence[str],
-        *,
-        declaration_mode: bool = False,
+        *, declaration_mode: bool = False
     ) -> LocalAppComposition:
         if not isinstance(values, MultiBindingRuntimeCompositionValues):
             arguments = composition_arguments
@@ -394,7 +393,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                     or 1,
                 )
             return create_local_runtime_composition(
-                **arguments, capabilities=caller_local_capabilities
+                **arguments, capabilities=LOCAL_RUNTIME_CAPABILITY_NAMES
             )
         return create_multi_binding_local_app_composition(
             values,
@@ -406,17 +405,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        local_app_composition = create_local_composition(
-            declarations.local_capabilities,
-            declaration_mode=True,
-        )
-        routing_node_registry = (
-            _create_multi_binding_routing_node_registry(
-                local_app_composition, declarations.local_capabilities
-            )
-            if isinstance(values, MultiBindingRuntimeCompositionValues)
-            or getattr(args, "retained_image_generation", None) is not None
-            else None
+        local_app_composition = create_local_composition(declaration_mode=True)
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, declarations.local_capabilities
         )
         collection_arguments = {"local_app_composition": local_app_composition}
         if args.lan_browser_host is not None:
@@ -428,14 +419,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             **collection_arguments,
         )
     elif args.remote_node_id is not None:
-        local_app_composition = create_local_composition(args.local_capability)
-        routing_node_registry = (
-            _create_multi_binding_routing_node_registry(
-                local_app_composition, args.local_capability
-            )
-            if isinstance(values, MultiBindingRuntimeCompositionValues)
-            or getattr(args, "retained_image_generation", None) is not None
-            else None
+        local_app_composition = create_local_composition()
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, args.local_capability
         )
         inline_arguments = {"local_app_composition": local_app_composition}
         if args.lan_browser_host is not None:
@@ -449,14 +435,9 @@ def main(argv: Sequence[str] | None = None) -> None:
             **inline_arguments,
         )
     else:
-        local_app_composition = create_local_composition(args.local_capability)
-        routing_node_registry = (
-            _create_multi_binding_routing_node_registry(
-                local_app_composition, args.local_capability
-            )
-            if isinstance(values, MultiBindingRuntimeCompositionValues)
-            or getattr(args, "retained_image_generation", None) is not None
-            else None
+        local_app_composition = create_local_composition()
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, args.local_capability
         )
         collection_arguments = {"local_app_composition": local_app_composition}
         if args.lan_browser_host is not None:

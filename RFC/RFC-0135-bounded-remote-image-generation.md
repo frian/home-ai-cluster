@@ -44,8 +44,11 @@ normalized PNG bytes with `Content-Type: image/png`.  The caller bounds the
 decoded candidate body while reading it to 41,943,040 bytes, independently
 performs the complete normalized still-PNG validation, applies any requested
 exact dimensions, and attributes the accepted result to its selected declared
-remote node.  An invalid, oversized, or otherwise ambiguous post-send remote
-outcome is terminal and never causes retry, fallback, or local regeneration.
+remote node. Every response body consumed by this Image Generation transport is
+finite: the PNG has its exact normalized bound, RFC-0104 refusal recognition
+has a small bounded read, and other errors never require unbounded consumption.
+An invalid, oversized, or otherwise ambiguous post-send remote outcome is
+terminal and never causes retry, fallback, or local regeneration.
 
 ## Context
 
@@ -244,6 +247,25 @@ bound is on decoded entity bytes presented to HAC validation, not merely
 compressed wire bytes. Chunk sizes and HTTP client APIs remain implementation
 details. This is bounded whole-result reading, not streaming Image Generation.
 
+Every response body consumed by Image Generation remote transport is bounded:
+
+```text
+successful image/png candidate
+    -> <= 41,943,040 decoded entity bytes
+
+candidate RFC-0104 permission refusal
+    -> small finite bounded read sufficient for its exact internal JSON form
+
+other non-success response
+    -> no unbounded body consumption
+```
+
+The exact small byte limit for an RFC-0104 refusal remains an implementation
+detail. It must be finite, sufficient for the accepted refusal representation,
+and make excess data unrecognized rather than safe continuation evidence. This
+does not establish a generic HTTP response framework or alter textual request
+kinds.
+
 The successful response must identify `image/png`. A non-PNG successful media
 type is invalid. The caller independently applies the complete existing
 normalized still-PNG validation, including the encoded-size bound, signature,
@@ -264,12 +286,35 @@ acceptance, it constructs or rewrites `ImageGenerationResult.node_id` to that
 selected declared remote node. The receiver does not assert a trusted identity
 in the PNG or an HTTP header.
 
+RFC-0104 remains the only post-transmission non-success safe-continuation
+case. A `409` authorizes the next eligible declared remote only after its body
+is read within the finite refusal envelope and validates as the exact RFC-0104
+semantic:
+
+```json
+{"detail":"execution-permission-denied"}
+```
+
+A bare `409`, wrong JSON, extra semantic content, truncation, a refusal body
+that exceeds the bounded envelope, a body-read failure, or any other malformed
+or ambiguous `409` is not a validated refusal. It is terminal and must not
+authorize another candidate. An oversized `409` therefore cannot force
+unbounded buffering or become safe continuation evidence.
+
+No other non-success Image Generation response requires an unbounded body read
+to decide continuation. HAC must not buffer an arbitrarily large error body for
+diagnostics: it may avoid reading it or consume only a finite amount required
+by existing failure handling. Such responses remain terminal unless they are
+the bounded, exact RFC-0104 refusal. RFC-0028's affirmative connection
+unavailability before request transmission remains its separate continuation
+condition and has no response body.
+
 After transmission may have occurred, a body that is oversized, absent,
 truncated, wrong-media, invalid, unsupported, decode- or CRC-failing,
 color-invalid, geometrically invalid, dimension-mismatched, or otherwise
-ambiguous is terminal. Response read failure is terminal too. HAC must not
-retry another node or locally regenerate, because the remote execution may
-already have happened.
+ambiguous is terminal. This includes every unrecognized or unreadable `409`.
+Response read failure is terminal too. HAC must not retry another node or
+locally regenerate, because the remote execution may already have happened.
 
 ### Receiver-local execution
 
@@ -429,9 +474,12 @@ A later implementation should demonstrate that:
    one closed variant, and receivers execute it locally only;
 4. Image Generation success is raw `image/png`, bounded during decoded-body
    read to 41,943,040 bytes, completely revalidated by the caller, and checked
-   for requested exact geometry;
-5. invalid, oversized, wrong-media, or ambiguous remote outcomes cannot cause
-   a second execution attempt, and caller-owned node attribution is retained;
+   for requested exact geometry; exact RFC-0104 refusal recognition also uses
+   a finite bounded body read;
+5. an oversized, malformed, truncated, or otherwise unrecognized `409` cannot
+   become safe-continuation evidence; other error handling cannot force
+   unbounded body buffering; and none of these terminal outcomes can cause a
+   second execution attempt, while caller-owned node attribution is retained;
 6. existing JSON kinds remain wire-compatible;
 7. retained local and remote capability validation and both native-loopback
    Configuration projections accept explicit `image-generation`;

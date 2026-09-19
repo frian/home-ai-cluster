@@ -381,17 +381,18 @@ hac static-cluster \
 
 - The accepted explicit capability names are `chat`, `summarize`, `classify`,
   `code`, and `image-generation`. `image-generation` is explicit and
-  nondefault: it is caller-owned routing permission, not a claim of local or
-  remote runtime ownership. Ordinary remote Image Generation routing activation
-  follows in the remaining RFC-0135 implementation phase.
+  nondefault. Caller-local capability membership is routing permission, not
+  physical local ownership; remote capability membership is caller-owned
+  declared eligibility.
 - For remote declarations, use `capabilities = ["..."]` in ordered TOML
   entries, `remote_capabilities = ["..."]` in the legacy flat TOML form, or
   repeat `--remote-capability <NAME>` for the one-remote inline form.
 - Remote capability omission retains only `chat` plus `summarize`, so
-  `classify` and `code` eligibility are always explicit.
+  `classify`, `code`, and `image-generation` eligibility are always explicit.
 - Caller-local routing capabilities use `local_capabilities = ["..."]` at the
   TOML root or repeated `--local-capability <NAME>` in the complete inline
-  form. Omission also retains local `chat` plus `summarize`.
+  form. Omission retains only local `chat` plus `summarize`; it does not make
+  `image-generation` default.
 - Explicit local and remote capability sets must be non-empty and use only the
   accepted names; duplicates and unknown names are rejected.
 - Capability membership controls eligibility only. Capability order is not
@@ -1039,16 +1040,21 @@ mapping is useful for compatibility or reference:
 ### Image Generation
 
 `hac image-generation "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
-request to an already-running ordinary HAC process with an eligible local
-`image-generation` capability. Width and height are optional but must be
-supplied together as whole pixels from 64 through 2048; when supplied, the
-successful PNG has exactly those dimensions. Successful output is raw PNG
-bytes on stdout. Direct TTY stdout is refused before a request is made, so use
-an appropriate non-TTY byte sink. HAC owns no output path or file; shell and
-pipeline behavior after stdout is outside HAC's contract. There is no JSON,
-verbose, output-path, model, runtime, or generation-control option. Image
-Generation remains local-only, and unchanged `hac static-cluster` permission
-does not make it eligible there.
+closed request to an already-running ordinary HAC process. Width and height are
+optional but must be supplied together as whole pixels from 64 through 2048;
+when supplied, the successful PNG has exactly those dimensions. Successful
+output is raw PNG bytes on stdout. Direct TTY stdout is refused before a
+request is made, so use an appropriate non-TTY byte sink. HAC owns no output
+path or file; shell and pipeline behavior after stdout is outside HAC's
+contract. There is no JSON, verbose, output-path, node, remote toggle, model,
+runtime, or generation-control option.
+
+In an ordinary non-static process, Image Generation remains local. With
+ordinary static-cluster wiring, it uses the same existing local-first routing
+as other supported remote-capable operations: an eligible local Image
+Generation binding is preferred, then explicitly eligible declared remotes may
+be used under the existing fallback and declaration-order rules. This adds no
+node selector, discovery, probing, or scheduling.
 
 `hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
 ordinary root command; none has a separate installed checkout script.

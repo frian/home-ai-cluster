@@ -382,45 +382,67 @@ async def handle_image_generation_request(
     static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
     local_app_composition: LocalAppComposition | None = None,
 ) -> ImageGenerationResult:
-    """Execute Image Generation only through the caller-local routing view."""
+    """Execute Image Generation through ordinary static or local-only routing."""
     if static_remote_wiring is not None:
-        node_registry = static_remote_wiring.node_registry
-        adapter_registry = static_remote_wiring.adapter_registry
-        execution_intervals = static_remote_wiring.execution_intervals
-    elif static_remote_collection_wiring is not None:
-        node_registry = static_remote_collection_wiring.node_registry
-        adapter_registry = static_remote_collection_wiring.adapter_registry
-        execution_intervals = static_remote_collection_wiring.execution_intervals
-    else:
         try:
-            return await handle_static_local_cluster_request(
+            return await orchestrate_request_with_static_remote_fallback(
                 image_request,
-                local_app_composition=local_app_composition,
+                static_remote_wiring.node_registry,
+                static_remote_wiring.adapter_registry,
+                static_remote_wiring.remote_registry,
+                static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
-        except RuntimeAdapterUnavailableError as exc:
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
+        ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail="No adapter provides capability: image-generation",
+                ) from exc
             raise HTTPException(
                 status_code=503, detail="Runtime adapter unavailable"
             ) from exc
-        except ExecutionPermissionDeniedError as exc:
+
+    if static_remote_collection_wiring is not None:
+        try:
+            return await orchestrate_request_with_ordered_static_remote_fallback(
+                image_request,
+                static_remote_collection_wiring.node_registry,
+                static_remote_collection_wiring.adapter_registry,
+                static_remote_collection_wiring.remote_registry,
+                static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
+            )
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
+        ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail="No adapter provides capability: image-generation",
+                ) from exc
             raise HTTPException(
-                status_code=409, detail="execution permission denied"
-            ) from exc
-        except NoMatchingAdapterError as exc:
-            raise HTTPException(
-                status_code=404,
-                detail="No adapter provides capability: image-generation",
+                status_code=503, detail="Runtime adapter unavailable"
             ) from exc
 
     try:
-        if execution_intervals is None:
-            return await orchestrate_request(
-                image_request, node_registry, adapter_registry
-            )
-        return await orchestrate_composed_request(
+        return await handle_static_local_cluster_request(
             image_request,
-            node_registry,
-            adapter_registry,
-            execution_intervals,
+            local_app_composition=local_app_composition,
         )
     except RuntimeAdapterUnavailableError as exc:
         raise HTTPException(
@@ -599,6 +621,11 @@ async def image_generation(http_request: Request) -> Response:
         if public_request.width is not None:
             image_values["width"] = public_request.width
             image_values["height"] = public_request.height
+        if (
+            http_request.app.state.static_remote_wiring is not None
+            or http_request.app.state.static_remote_collection_wiring is not None
+        ):
+            image_values["constraints"] = RequestConstraints(local_only=False)
         image_request = ImageGenerationRequest.model_validate(image_values)
     except (ValueError, ValidationError):
         raise HTTPException(

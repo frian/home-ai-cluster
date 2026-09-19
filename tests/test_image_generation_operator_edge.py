@@ -6,6 +6,7 @@ import zlib
 
 import httpx
 import pytest
+from PIL import Image
 
 from home_ai_cluster import local_runtime_composition
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
@@ -58,6 +59,22 @@ def _png(width: int = 1, height: int = 1) -> bytes:
         [
             b"\x89PNG\r\n\x1a\n",
             _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)),
+            _chunk(b"IDAT", zlib.compress(raw)),
+            _chunk(b"IEND", b""),
+        ]
+    )
+
+
+def _png_with_layout(*, bit_depth: int, color_type: int) -> bytes:
+    channels = 3 if color_type == 2 else 4
+    raw = b"\0" + bytes(channels * (bit_depth // 8))
+    return b"".join(
+        [
+            b"\x89PNG\r\n\x1a\n",
+            _chunk(
+                b"IHDR",
+                struct.pack(">IIBBBBB", 1, 1, bit_depth, color_type, 0, 0, 0),
+            ),
             _chunk(b"IDAT", zlib.compress(raw)),
             _chunk(b"IEND", b""),
         ]
@@ -811,6 +828,115 @@ def test_image_generation_command_writes_validated_png_to_requested_output_file(
             {"instruction": "a fox", "width": 64, "height": 64},
         )
     ]
+
+
+def test_image_generation_command_exports_eligible_png_as_caller_local_jpeg(
+    tmp_path,
+) -> None:
+    destination, output, errors, calls = (
+        tmp_path / "fox.bin",
+        _TTYOutput(),
+        io.StringIO(),
+        [],
+    )
+
+    image_generation_command.main(
+        ["--output", str(destination), "--jpeg", "a fox"],
+        _client_factory=lambda **kwargs: _Client(_Response([_png(3, 2)]), calls),
+        _stdout=output,
+        _stderr=errors,
+    )
+
+    with Image.open(destination) as image:
+        assert image.format == "JPEG"
+        assert image.mode == "RGB"
+        assert image.size == (3, 2)
+        assert image.info.get("progressive") is None
+    assert output.getvalue() == b""
+    assert errors.getvalue() == ""
+    assert calls[0][2] == {"instruction": "a fox"}
+
+
+def test_image_generation_command_rejects_jpeg_without_output_before_client() -> None:
+    errors = io.StringIO()
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--jpeg", "a fox"],
+            _client_factory=lambda **kwargs: pytest.fail("client must not be created"),
+            _stdout=io.BytesIO(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 2
+    assert errors.getvalue() == "error: invalid request input\n"
+
+
+@pytest.mark.parametrize("bit_depth,color_type", [(8, 6), (16, 2), (16, 6)])
+def test_image_generation_command_rejects_ineligible_jpeg_layout_before_creation(
+    tmp_path, bit_depth: int, color_type: int
+) -> None:
+    destination, errors, calls = tmp_path / "fox.jpg", io.StringIO(), []
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", str(destination), "--jpeg", "a fox"],
+            _client_factory=lambda **kwargs: _Client(
+                _Response(
+                    [_png_with_layout(bit_depth=bit_depth, color_type=color_type)]
+                ),
+                calls,
+            ),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert not destination.exists()
+    assert errors.getvalue() == "error: image generation output file write failed\n"
+    assert len(calls) == 1
+
+
+def test_image_generation_command_encodes_jpeg_before_creating_destination(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "fox.jpg"
+
+    def encode_after_acquisition(png: bytes) -> bytes:
+        assert png == _png()
+        assert not destination.exists()
+        return b"complete JPEG"
+
+    monkeypatch.setattr(
+        image_generation_command, "_encode_jpeg", encode_after_acquisition
+    )
+
+    image_generation_command.main(
+        ["--output", str(destination), "--jpeg", "a fox"],
+        _client_factory=lambda **kwargs: _Client(_Response([_png()]), []),
+        _stdout=_TTYOutput(),
+        _stderr=io.StringIO(),
+    )
+
+    assert destination.read_bytes() == b"complete JPEG"
+
+
+def test_jpeg_encoding_uses_rfc_0137_fixed_policy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, object] = {}
+    original_save = Image.Image.save
+
+    def record_save(self, fp, format=None, **params):
+        seen.update(params)
+        return original_save(self, fp, format=format, **params)
+
+    monkeypatch.setattr(Image.Image, "save", record_save)
+
+    jpeg = image_generation_command._encode_jpeg(_png())
+
+    assert jpeg.startswith(b"\xff\xd8")
+    assert seen == {"quality": 95, "subsampling": 0, "progressive": False}
 
 
 @pytest.mark.parametrize("suffix", [os.sep, f"{os.sep}."])

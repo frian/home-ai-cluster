@@ -1060,7 +1060,7 @@ remains caller-local and is not sent in the request or to routing, remote
 nodes, or the runtime. A write or close failure after creation may leave an
 incomplete file; HAC performs no rollback deletion, regeneration, or routing
 fallback. There is
-no output-format selection, JSON, verbose, node, remote toggle, model,
+no generic output-format option, JSON, verbose, node, remote toggle, model,
 runtime, or generation-control option.
 
 In an ordinary non-static process, Image Generation remains local. With

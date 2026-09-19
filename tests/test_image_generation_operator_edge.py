@@ -813,6 +813,27 @@ def test_image_generation_command_writes_validated_png_to_requested_output_file(
     ]
 
 
+@pytest.mark.parametrize("suffix", [os.sep, f"{os.sep}."])
+def test_image_generation_command_preserves_directory_oriented_output_spelling(
+    tmp_path, suffix: str
+) -> None:
+    leaf = tmp_path / "new-output"
+    destination = f"{leaf}{suffix}"
+    errors = io.StringIO()
+
+    with pytest.raises(SystemExit) as raised:
+        image_generation_command.main(
+            ["--output", destination, "a fox"],
+            _client_factory=lambda **kwargs: pytest.fail("client must not be created"),
+            _stdout=_TTYOutput(),
+            _stderr=errors,
+        )
+
+    assert raised.value.code == 1
+    assert not leaf.exists()
+    assert errors.getvalue() == "error: image generation output file write failed\n"
+
+
 @pytest.mark.parametrize(
     "destination_kind", ["missing-parent", "file-parent", "file", "directory"]
 )
@@ -903,7 +924,7 @@ def test_image_generation_command_exclusive_creation_preserves_race_winner(
     original_open = image_generation_command.os.open
 
     def race_winner(path, flags, mode=0o777):
-        if path == destination:
+        if path == str(destination):
             descriptor = original_open(
                 path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666
             )

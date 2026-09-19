@@ -5,7 +5,6 @@ import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import BinaryIO, TextIO
 
 import httpx
@@ -50,7 +49,7 @@ class _ArgumentParser(argparse.ArgumentParser):
 class _ImageGenerationCommandInput:
     request: ImageGenerationRequest
     timeout_seconds: float
-    output_path: Path | None
+    output_path: str | None
 
 
 def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
@@ -80,8 +79,7 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         )
     except (ValidationError, ValueError):
         raise _InvalidRequestInput from None
-    output_path = None if args.output is None else Path(args.output)
-    return _ImageGenerationCommandInput(request, timeout_seconds, output_path)
+    return _ImageGenerationCommandInput(request, timeout_seconds, args.output)
 
 
 def _failure_for_status(status_code: int) -> str | None:
@@ -137,13 +135,14 @@ def _write_png(stdout: BinaryIO, png: bytes) -> None:
     stdout.flush()
 
 
-def _validate_output_destination(output_path: Path) -> None:
+def _validate_output_destination(output_path: str) -> None:
     """Check the caller-selected destination without creating filesystem state."""
-    if not output_path.parent.is_dir() or os.path.lexists(output_path):
+    parent = os.path.dirname(output_path) or os.curdir
+    if not os.path.isdir(parent) or os.path.lexists(output_path):
         raise OSError("output destination is not an available missing leaf")
 
 
-def _write_new_output_file(output_path: Path, png: bytes) -> None:
+def _write_new_output_file(output_path: str, png: bytes) -> None:
     """Exclusively create one leaf and write the already validated PNG to it."""
     descriptor = os.open(
         output_path,

@@ -946,6 +946,29 @@ def test_image_generation_command_exclusive_creation_preserves_race_winner(
     assert len(calls) == 1
 
 
+def test_image_generation_command_exclusive_output_creation_uses_binary_flag(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "fox.png"
+    binary_flag = 1 << 30
+    original_open = image_generation_command.os.open
+    flags_seen = []
+
+    def binary_open(path, flags, mode=0o777):
+        flags_seen.append(flags)
+        return original_open(path, flags & ~binary_flag, mode)
+
+    monkeypatch.setattr(
+        image_generation_command.os, "O_BINARY", binary_flag, raising=False
+    )
+    monkeypatch.setattr(image_generation_command.os, "open", binary_open)
+
+    image_generation_command._write_new_output_file(str(destination), _png())
+
+    assert flags_seen == [os.O_WRONLY | os.O_CREAT | os.O_EXCL | binary_flag]
+    assert destination.read_bytes() == _png()
+
+
 def test_image_generation_command_post_creation_write_failure_keeps_partial_output(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

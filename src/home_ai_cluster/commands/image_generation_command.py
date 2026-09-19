@@ -146,7 +146,7 @@ def _write_new_output_file(output_path: str, png: bytes) -> None:
     """Exclusively create one leaf and write the already validated PNG to it."""
     descriptor = os.open(
         output_path,
-        os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0),
         0o666,
     )
     with os.fdopen(descriptor, "wb") as output:

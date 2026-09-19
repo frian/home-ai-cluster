@@ -1,6 +1,6 @@
 # RFC-0138: Bounded Loopback Browser Navigation Consolidation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-19
 
@@ -404,4 +404,41 @@ questions.
 
 ## Decision
 
-Pending.
+HAC accepts the ordinary loopback primary navigation order:
+
+```text
+Chat
+Code
+Image
+Summarize
+Classify
+Configuration
+```
+
+Configuration remains last.  `Image` is presentation-only and does not rename
+`image-generation`.
+
+RFC-0133 explicit External Information moves from a top-level navigation item
+to a visibly distinct secondary operation inside Chat.  Its explicit plugin
+override, `QUERY`, `QUESTION`, `Acquire and ask`, provenance, authority,
+failure, and cancellation semantics remain unchanged.  Ordinary Chat `Send`
+and explicit `Acquire and ask` remain separate operations.
+
+RFC-0134 automatic conversational External Information remains a separate,
+semantically unchanged Chat operation: OFF by default, page-local,
+non-persistent, and newest-turn-only.  Chat may display only declarative
+retained RFC-0095 plugin state through the existing same-origin
+retained-configuration read.  That state distinguishes configured, confirmed
+absent, and read unavailable/failed; retained selection is not installation,
+readiness, health, credential, or provider truth.
+
+No plugin discovery, import/load, status/health probing, provider observation,
+new endpoint, polling, persistence, or background work is accepted.  Confirmed
+absence may disable only the automatic Chat External Information control; the
+explicit RFC-0133 plugin override remains usable without retained selection.
+
+Trusted-LAN remains capability-only and may present Chat, Code, Image,
+Summarize, and Classify without gaining External Information or Configuration
+authority.  Existing responsive behavior is preserved.  This accepts no
+routing, transport, runtime, adapter, receiver, retained-format, capability,
+or protocol architecture change.

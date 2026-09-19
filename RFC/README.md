@@ -58,14 +58,6 @@ highlight architecturally important or currently useful decisions. The `RFC/`
 directory is the complete canonical archive; omission from this selective index
 does not invalidate or supersede an RFC.
 
-## Draft RFCs
-
-- [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
-  — proposes consolidating explicit External Information into a distinct
-  secondary Chat operation while preserving RFC-0133 and RFC-0134 semantics,
-  making loopback navigation capability-oriented, and retaining only
-  declarative plugin-selection display without discovery or provider activity.
-
 ## Rejected RFCs
 
 - [RFC-0064: Bounded Public URL Summarization](RFC-0064-bounded-public-url-summarization.md)
@@ -74,6 +66,12 @@ does not invalidate or supersede an RFC.
   narrowing was not useful enough. No implementation was authorized.
 
 ## Selected accepted RFCs
+
+- [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
+  — accepts capability-oriented ordinary-loopback navigation and co-locates
+  RFC-0133's distinct explicit External Information operation with Chat while
+  preserving RFC-0134 automatic assistance, declarative-only retained plugin
+  state, and trusted-LAN exclusions.
 
 - [RFC-0130: Bounded Trusted-LAN Browser Authority](RFC-0130-bounded-trusted-lan-browser-authority.md)
   — accepts one optional explicit trusted-LAN browser capability authority for

@@ -202,12 +202,19 @@ Open this address in a browser on the same machine:
 http://127.0.0.1:25042/
 ```
 
-The current browser provides four ordinary views:
+The current browser navigation is:
 
 - Chat;
+- Code;
+- Image;
 - Summarize;
 - Classify;
-- Code.
+- Configuration.
+
+Chat includes an optional, page-local automatic External Information
+authorization and a separate explicit External Information operation. The
+explicit operation accepts an optional plugin override plus distinct QUERY and
+QUESTION fields; ordinary Chat Send does not submit those fields.
 
 The browser is intentionally local and small. It is not a dashboard, LAN
 control surface, runtime manager, or persistent server-side conversation store.

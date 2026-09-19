@@ -308,7 +308,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'input[type="file"]::file-selector-button' in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
     assert 'tabindex="0"' in html
-    assert html.count('tabindex="-1"') == 6
+    assert html.count('tabindex="-1"') == 5
     assert "function activateTab(tab, focus = false)" in script
     assert 'event.key === "ArrowRight"' in script
     assert 'event.key === "ArrowLeft"' in script
@@ -318,8 +318,16 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "function updateLabelAccessibleNames()" in script
     assert "Classification label ${labelNumber}" in script
     assert "Remove classification label ${labelNumber}" in script
-    for heading in ("Chat", "External Information", "Summarize", "Classify", "Code"):
+    for heading in ("Chat", "Summarize", "Classify", "Code"):
         assert f">{heading}</h2>" in html
+    assert "<summary>Explicit external information</summary>" in html
+    assert 'id="external-information-tab"' not in html
+    assert 'id="external-information-view"' not in html
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
+    assert 'id="external-information-form"' in chat_view
+    assert '<details class="explicit-external-information">' in chat_view
+    assert 'id="chat-external-information-plugin-state"' in chat_view
+    assert 'disabled id="chat-external-information"' in chat_view
     for heading in ("Response", "Summary", "Classification", "Generated code"):
         assert f">{heading}</h3>" in html
     assert ".conversation:empty { display: none; }" in stylesheet
@@ -401,6 +409,124 @@ def test_browser_capability_request_state_is_shared_across_views() -> None:
     assert "clearError(context);" in post_handler
     assert "showError(context," in post_handler
     assert "setRequestActive(context, false);" in post_handler
+
+
+def test_chat_external_information_presentation_keeps_operations_distinct() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    tab_labels = [
+        button.split("</button>", 1)[0].split(">", 1)[1]
+        for button in html.split('role="tab" tabindex=')[1:]
+    ]
+    assert tab_labels == [
+        "Chat",
+        "Code",
+        "Image",
+        "Summarize",
+        "Classify",
+        "Configuration",
+    ]
+    assert 'id="external-information-tab"' not in html
+    assert 'id="external-information-view"' not in html
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
+    assert '<details class="explicit-external-information">' in chat_view
+    assert "<summary>Explicit external information</summary>" in chat_view
+    for element_id in (
+        "external-information-form",
+        "external-information-plugin",
+        "external-information-query",
+        "external-information-question",
+        "external-information-error",
+        "external-information-status",
+        "external-information-result-region",
+        "external-information-result",
+        "external-information-sources",
+    ):
+        assert f'id="{element_id}"' in chat_view
+
+    assert (
+        "function setChatExternalInformationPluginState("
+        "plugin, resetAuthorization = false)" in script
+    )
+    assert "async function loadChatExternalInformationPluginState()" in script
+    assert 'fetch("/retained-external-information-configuration")' in script
+    assert "void loadChatExternalInformationPluginState();" in script
+    assert "Retained External Information plugin: ${plugin}" in script
+    assert '"No External Information plugin configured."' in script
+    assert '"External Information plugin configuration unavailable."' in script
+    chat_plugin_state = script.split(
+        "function setChatExternalInformationPluginState", 1
+    )[1].split("function publishPassiveChatExternalInformationPluginState", 1)[0]
+    assert "if (resetAuthorization) checkbox.checked = false;" in chat_plugin_state
+    assert chat_plugin_state.index(
+        'if (typeof plugin === "string" && plugin.trim())'
+    ) < chat_plugin_state.index("checkbox.checked = false;")
+    assert "checkbox.disabled = false;" in script
+    assert "checkbox.disabled = true;" in script
+    assert (
+        "setChatExternalInformationPluginState(plugin, resetAuthorization);" in script
+    )
+    assert "let retainedPluginPresentationGeneration = 0;" in script
+    passive_publish = script.split(
+        "function publishPassiveChatExternalInformationPluginState", 1
+    )[1].split("async function loadChatExternalInformationPluginState", 1)[0]
+    assert "generation !== retainedPluginPresentationGeneration" in passive_publish
+    initial_load = script.split(
+        "async function loadChatExternalInformationPluginState", 1
+    )[1].split("void loadChatExternalInformationPluginState();", 1)[0]
+    assert "const generation = retainedPluginPresentationGeneration;" in initial_load
+    assert (
+        "publishPassiveChatExternalInformationPluginState(body.plugin, generation);"
+        in initial_load
+    )
+    configuration_load = script.split("async function loadConfiguration()", 1)[1].split(
+        "configurationRuntime.addEventListener", 1
+    )[0]
+    assert (
+        "const retainedPluginGeneration = retainedPluginPresentationGeneration;"
+        in configuration_load
+    )
+    assert (
+        "if (retainedPluginGeneration === retainedPluginPresentationGeneration)"
+        in configuration_load
+    )
+    assert (
+        "setExternalInformationConfiguration(externalInformationBody.plugin);"
+        in configuration_load
+    )
+    plugin_save = script.split(
+        "externalInformationConfigurationForm.addEventListener", 1
+    )[1].split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[0]
+    assert plugin_save.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_save.index("setExternalInformationConfiguration(body.plugin, true);")
+    plugin_clear = script.split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[1].split("chatExternalInformationConfigurationForm.addEventListener", 1)[0]
+    assert plugin_clear.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_clear.index("setExternalInformationConfiguration(null, true);")
+    assert "setInterval" not in script
+    assert "setTimeout" not in script
+
+    chat_handler = script.split(
+        'document.querySelector("#chat-form").addEventListener(', 1
+    )[1].split('document.querySelector("#code-form")', 1)[0]
+    assert "/v1/chat" in chat_handler
+    assert "/chat-external-information" in chat_handler
+    assert "external-information-query" not in chat_handler
+    assert "external-information-question" not in chat_handler
+    assert "external-information-plugin" not in chat_handler
+
+    explicit_handler = script.split(
+        'document.querySelector("#external-information-form").addEventListener(', 1
+    )[1].split('document.querySelector("#chat-form")', 1)[0]
+    assert 'post(context, "/external-information", {' in explicit_handler
+    assert "messages" not in explicit_handler
 
     handlers = {
         "chat": script.split(
@@ -587,8 +713,8 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert html.count('role="tab"') == 7
-    assert html.count('role="tabpanel"') == 7
+    assert html.count('role="tab"') == 6
+    assert html.count('role="tabpanel"') == 6
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html

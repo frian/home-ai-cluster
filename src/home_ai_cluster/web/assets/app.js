@@ -97,6 +97,35 @@
   initializeThemePreference();
   document.querySelector("#chat-external-information").checked = false;
 
+  function setChatExternalInformationPluginState(plugin) {
+    const checkbox = document.querySelector("#chat-external-information");
+    const state = document.querySelector("#chat-external-information-plugin-state");
+    checkbox.checked = false;
+    if (typeof plugin === "string" && plugin.trim()) {
+      checkbox.disabled = false;
+      state.textContent = `Retained External Information plugin: ${plugin}`;
+      return;
+    }
+    checkbox.disabled = true;
+    state.textContent = plugin === null
+      ? "No External Information plugin configured."
+      : "External Information plugin configuration unavailable.";
+  }
+
+  async function loadChatExternalInformationPluginState() {
+    try {
+      const response = await fetch("/retained-external-information-configuration");
+      if (!response.ok) return setChatExternalInformationPluginState(undefined);
+      const body = await response.json();
+      if (!Object.hasOwn(body, "plugin")) return setChatExternalInformationPluginState(undefined);
+      setChatExternalInformationPluginState(body.plugin);
+    } catch (_) {
+      setChatExternalInformationPluginState(undefined);
+    }
+  }
+
+  void loadChatExternalInformationPluginState();
+
   function setRequestActive(context, active, message = "") {
     context.active = active;
     context.status.dataset.active = String(active);
@@ -239,6 +268,7 @@
       ? "No retained external-information plugin choice exists."
       : "Editing retained external-information plugin choice for accepted external-information flows.";
     externalInformationConfigurationPlugin.value = plugin || "";
+    setChatExternalInformationPluginState(plugin);
   }
 
   function setChatExternalInformationConfiguration(authorized) {

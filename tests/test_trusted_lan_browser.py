@@ -107,6 +107,8 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert "sessionStorage" not in script
     assert "Configuration" not in html
     assert "workspace" not in html.lower()
+    headings = [heading.split("</h2>", 1)[0] for heading in html.split("<h2>")[1:]]
+    assert headings == ["Chat", "Code", "Image", "Summarize", "Classify"]
     assert "selected_label" in script
     assert 'id="image-generation-width"' in html
     assert 'id="image-generation-height"' in html

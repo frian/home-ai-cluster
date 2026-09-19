@@ -96,9 +96,9 @@ hac chat "Hello"
 ```
 
 With `hac local` running, open `http://127.0.0.1:25042/` in a browser on the
-same machine to use the fixed loopback interface for Chat, External Information,
-Summarize, Classify, Code, and retained configuration. External Information is
-one explicit loopback-only action: an operator supplies a distinct acquisition
+same machine to use the fixed loopback navigation: Chat, Code, Image,
+Summarize, Classify, and Configuration. Chat includes a separate collapsed
+explicit External Information operation: an operator supplies a distinct acquisition
 QUERY and source-grounded Chat QUESTION, optionally overrides the retained exact
 plugin name, and receives generated content separately from supplied source
 evidence. Native loopback Chat also has a clearly visible, page-local

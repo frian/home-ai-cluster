@@ -39,8 +39,9 @@ caller-local static routing permission
 
 The existing `POST /internal/cluster/request` endpoint receives one new closed
 `image-generation` request variant.  Existing request kinds retain their JSON
-success representations; a successful Image Generation variant returns exact
-normalized PNG bytes with `Content-Type: image/png`.  The caller bounds the
+success representations; an Image Generation success is exactly HTTP `200 OK`
+with exact normalized PNG bytes and `Content-Type: image/png`. The caller
+bounds the
 decoded candidate body while reading it to 41,943,040 bytes, independently
 performs the complete normalized still-PNG validation, applies any requested
 exact dimensions, and attributes the accepted result to its selected declared
@@ -204,6 +205,11 @@ loopback browser Image Generation, and trusted-LAN browser Image Generation
 remain the only caller surfaces. They gain neither node chooser nor remote
 toggle, runtime/model selector, or provider field.
 
+The loopback and trusted-LAN browsers submit only that ordinary request to the
+owner HAC process. They neither choose nor contact a remote directly, know the
+executing node, nor bypass caller-local permission. The owner cluster may apply
+its explicitly authorized ordinary static routing to the request.
+
 ### One internal endpoint, one closed binary variant
 
 RFC-0014's existing cluster-internal endpoint remains the only endpoint:
@@ -222,6 +228,7 @@ Existing kinds retain their successful JSON representations. A successful
 Image Generation variant has exactly one success representation:
 
 ```text
+HTTP 200 OK
 Content-Type: image/png
 body: exact normalized still-PNG bytes
 ```
@@ -232,6 +239,14 @@ operations, and the validated PNG is Image Generation's normalized semantic
 result; no runtime-specific response format crosses the boundary. No PNG
 metadata, node-ID header, JSON sidecar, multipart wrapper, data URL, result
 URL, path, object storage, generic blob, asset, or media object is introduced.
+
+The caller may accept a completed remote Image Generation result only when the
+status is exactly `200 OK`, the content type identifies `image/png`, the body
+is read within the accepted finite PNG bound, complete PNG validation succeeds,
+and any requested exact geometry matches. Every other status, including `201`,
+`202`, `204`, `206`, and any future non-`200` `2xx`, is not a completed Image
+Generation success. Those statuses introduce neither implementation-defined
+alternate success nor asynchronous/job semantics.
 
 `ImageGenerationResult` remains the normalized core result containing
 `image_bytes` and `node_id`; the wire carries only `image_bytes`.
@@ -266,8 +281,9 @@ and make excess data unrecognized rather than safe continuation evidence. This
 does not establish a generic HTTP response framework or alter textual request
 kinds.
 
-The successful response must identify `image/png`. A non-PNG successful media
-type is invalid. The caller independently applies the complete existing
+Only an exact `200 OK` response may identify a successful `image/png`
+candidate. A non-PNG media type or any other status is invalid as Image
+Generation success. The caller independently applies the complete existing
 normalized still-PNG validation, including the encoded-size bound, signature,
 complete structure and end-of-input, accepted chunks/profile, CRC/decode
 checks, bit-depth and color-type rules, RFC-0122 color signaling,
@@ -357,7 +373,10 @@ RFC-0130's trusted-LAN Image Generation surface continues to delegate to the
 owner's ordinary routing truth. Therefore an instruction submitted there may
 reach an explicitly declared eligible Image Generation remote. The LAN browser
 still cannot declare, choose, mutate, or inspect topology; no additional
-authorization checkbox is introduced.
+authorization checkbox is introduced. Its separate application authority,
+exact Host and Origin rules, closed route set, capability-only scope, no
+Configuration, no discovery, no CORS widening, and no authentication or TLS
+change remain unchanged.
 
 ### Disconnect and compatibility
 
@@ -454,13 +473,25 @@ This Draft explicitly amends rather than rewrites accepted history:
 - RFC-0131’s remote Image Generation exclusion is lifted while its exact
   geometry contract remains mandatory at receiver and caller validation.
 - RFC-0132’s local and remote capability projections gain this explicit value.
+- RFC-0129 is amended only where it previously prevented static-cluster
+  loopback browser Image Generation from using remote routing. Its fixed
+  loopback and same-origin authority, browser state/retention, no node
+  selection, no direct runtime or `sd-server` contact, and no browser-specific
+  media framework remain authoritative.
+- RFC-0130 is amended only where it previously made trusted-LAN Image
+  Generation non-static-routable and excluded remote routing. Its separate
+  trusted-LAN application authority, Host/Origin rules, closed route set,
+  capability-only scope, no Configuration or topology mutation, no node picker
+  or remote-declaration authority, no discovery, no CORS widening, and no
+  authentication or TLS change remain authoritative.
 
 It remains compatible with RFC-0108 ownership, RFC-0109 receiver authority,
-RFC-0119 execution contracts, and RFC-0130’s trusted-LAN authority. After a
-future acceptance, implementation may make the smallest corresponding core,
-transport, receiver, retained-configuration, loopback Configuration, and
-focused test/documentation changes. This Draft itself authorizes no production
-implementation, migration, dependency, or retained-storage-format expansion.
+RFC-0119 execution contracts, and the remaining authority models of RFC-0129
+and RFC-0130. After a future acceptance, implementation may make the smallest
+corresponding core, transport, receiver, retained-configuration, loopback
+Configuration, and focused test/documentation changes. This Draft itself
+authorizes no production implementation, migration, dependency, or retained-
+storage-format expansion.
 
 ## Implementation proof expectations
 
@@ -472,21 +503,25 @@ A later implementation should demonstrate that:
    while declared eligible remotes use existing routing;
 3. public Image Generation remains closed, the internal envelope has exactly
    one closed variant, and receivers execute it locally only;
-4. Image Generation success is raw `image/png`, bounded during decoded-body
-   read to 41,943,040 bytes, completely revalidated by the caller, and checked
-   for requested exact geometry; exact RFC-0104 refusal recognition also uses
-   a finite bounded body read;
-5. an oversized, malformed, truncated, or otherwise unrecognized `409` cannot
+4. loopback static-cluster Image Generation and trusted-LAN Image Generation
+   may use accepted owner remote routing while preserving RFC-0129's and
+   RFC-0130's remaining browser and authority boundaries;
+5. Image Generation success is exactly `HTTP 200 OK` plus `image/png`, bounded
+   during decoded-body read to 41,943,040 bytes, completely revalidated by the
+   caller, and checked for requested exact geometry; every other `2xx` is not
+   accepted as Image Generation success; exact RFC-0104 refusal recognition
+   also uses a finite bounded body read;
+6. an oversized, malformed, truncated, or otherwise unrecognized `409` cannot
    become safe-continuation evidence; other error handling cannot force
    unbounded body buffering; and none of these terminal outcomes can cause a
    second execution attempt, while caller-owned node attribution is retained;
-6. existing JSON kinds remain wire-compatible;
-7. retained local and remote capability validation and both native-loopback
+7. existing JSON kinds remain wire-compatible;
+8. retained local and remote capability validation and both native-loopback
    Configuration projections accept explicit `image-generation`;
-8. existing CLI, native, loopback, and trusted-LAN caller surfaces gain no node
+9. existing CLI, native, loopback, and trusted-LAN caller surfaces gain no node
    selection while being able to use accepted remote routing;
-9. old configurations and declarations retain their prior behavior; and
-10. disconnect during remote execution or bounded reading cannot cause retry.
+10. old configurations and declarations retain their prior behavior; and
+11. disconnect during remote execution or bounded reading cannot cause retry.
 
 ## Open questions
 

@@ -623,6 +623,7 @@
 
   function renderChat() {
     const container = document.querySelector("#chat-conversation");
+    const status = document.querySelector("#chat-status");
     document.querySelector("#chat-result-region").hidden = messages.length === 0;
     container.replaceChildren();
     messages.forEach((message) => {
@@ -657,6 +658,7 @@
       }
       container.append(entry);
     });
+    container.append(status);
     container.scrollTop = container.scrollHeight;
   }
 
@@ -668,6 +670,7 @@
 
   function renderCode() {
     const container = document.querySelector("#code-conversation");
+    const status = document.querySelector("#code-status");
     document.querySelector("#code-result-region").hidden = codeMessages.length === 0;
     container.replaceChildren();
     codeMessages.forEach((message) => {
@@ -689,6 +692,7 @@
       }
       container.append(entry);
     });
+    container.append(status);
     container.scrollTop = container.scrollHeight;
   }
 

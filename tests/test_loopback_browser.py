@@ -207,9 +207,11 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
         'aria-live="polite" class="request-status" id="chat-status" role="status"'
         in chat_result_region
     )
-    assert chat_result_region.index(
-        'id="chat-conversation"'
-    ) < chat_result_region.index('id="chat-status"')
+    chat_conversation = chat_result_region.split('id="chat-conversation"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    assert 'id="chat-status"' in chat_conversation
+    assert chat_result_region.count('id="chat-status"') == 1
     assert (
         'id="chat-status"'
         not in chat_view.split('id="chat-form"', 1)[1].split(
@@ -219,14 +221,21 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "body {" in stylesheet
     body_block = stylesheet.split("body {", 1)[1].split("}", 1)[0]
     assert "min-height: 100vh;" in body_block
-    assert (
-        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
-        in stylesheet
-    )
+    assert "max-height: min(50vh, 32rem);" not in stylesheet
+    assert ".conversation { max-height" not in stylesheet
+    assert ".conversation { overflow-y: auto;" not in stylesheet
     render_chat = script.split("function renderChat()", 1)[1].split(
         "function rollbackPendingMessage", 1
     )[0]
     assert "container.scrollTop = container.scrollHeight;" in render_chat
+    assert 'const status = document.querySelector("#chat-status");' in render_chat
+    assert "container.replaceChildren();" in render_chat
+    assert "container.append(status);" in render_chat
+    assert (
+        render_chat.index("container.replaceChildren();")
+        < render_chat.index("container.append(status);")
+        < render_chat.index("container.scrollTop = container.scrollHeight;")
+    )
     assert "focus(" not in render_chat
     assert "scrollIntoView" not in render_chat
     assert "window.scroll" not in render_chat
@@ -349,7 +358,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'disabled id="chat-external-information"' in chat_view
     for heading in ("Response", "Summary", "Classification", "Generated code"):
         assert f">{heading}</h3>" in html
-    assert ".conversation:empty { display: none; }" in stylesheet
+    assert ".conversation:empty" not in stylesheet
     assert "[hidden] { display: none !important; }" in stylesheet
     assert 'class="result-section" hidden id="chat-result-region"' in html
     assert '<output class="result" hidden id="summarize-result"></output>' in html
@@ -751,11 +760,14 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
         'aria-live="polite" class="request-status" id="code-status" role="status"'
         in code_result_region
     )
-    assert (
-        code_result_region.index('id="code-conversation"')
-        < code_result_region.index('id="code-status"')
-        < code_result_region.index('id="workspace-activity"')
-    )
+    code_conversation = code_result_region.split('id="code-conversation"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    assert 'id="code-status"' in code_conversation
+    assert code_result_region.count('id="code-status"') == 1
+    assert code_result_region.index(
+        'id="code-conversation"'
+    ) < code_result_region.index('id="workspace-activity"')
     assert 'id="code-status"' not in code_view.split('id="code-form"', 1)[1]
     assert 'id="code-form"' in code_section
     assert 'for="code-text"' in code_section
@@ -771,10 +783,8 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     assert 'data-submit type="submit"' in code_section
     assert 'aria-live="polite" class="conversation" id="code-conversation"' in code_view
     assert 'type="file"' not in code_section
-    assert (
-        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
-        in stylesheet
-    )
+    assert "max-height: min(50vh, 32rem);" not in stylesheet
+    assert ".conversation { overflow-y: auto;" not in stylesheet
 
     code_handler = script.split(
         'document.querySelector("#code-form").addEventListener('
@@ -834,6 +844,14 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
         "function rollbackPendingCodeMessage", 1
     )[0]
     assert "container.scrollTop = container.scrollHeight;" in render_code
+    assert 'const status = document.querySelector("#code-status");' in render_code
+    assert "container.replaceChildren();" in render_code
+    assert "container.append(status);" in render_code
+    assert (
+        render_code.index("container.replaceChildren();")
+        < render_code.index("container.append(status);")
+        < render_code.index("container.scrollTop = container.scrollHeight;")
+    )
     assert "focus(" not in render_code
     assert "scrollIntoView" not in render_code
     assert "textContent = message.content;" in render_code

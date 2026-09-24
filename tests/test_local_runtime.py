@@ -987,6 +987,66 @@ def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None
     assert created[1].should_exit is True
 
 
+def test_serve_until_sibling_stops_captures_system_exit_and_stops_sibling() -> None:
+    exit_error = SystemExit(3)
+
+    class FailingServer:
+        async def serve(self) -> None:
+            raise exit_error
+
+    class SiblingServer:
+        should_exit = False
+
+    sibling = SiblingServer()
+
+    captured_exit = asyncio.run(
+        local_runtime._serve_until_sibling_stops(FailingServer(), sibling)
+    )
+
+    assert captured_exit is exit_error
+    assert sibling.should_exit is True
+
+
+def test_receiver_enabled_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[0]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_receiver_enabled_servers(
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    receiver_host="192.0.2.10",
+                    receiver_port=25042,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert completed == [created[1]]
+    assert all(server.should_exit for server in created)
+
+
 def test_receiver_and_lan_lifecycle_stops_all_three_servers() -> None:
     created: list[object] = []
     served: list[object] = []
@@ -1106,6 +1166,49 @@ def test_receiver_and_lan_lifecycle_stops_siblings_after_server_failure() -> Non
     assert created[2].should_exit is True
 
 
+def test_receiver_and_lan_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_receiver_and_lan_servers(
+                FastAPI(),
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    receiver_host="192.0.2.10",
+                    receiver_port=25043,
+                    lan_browser_host="192.0.2.11",
+                    lan_browser_port=25044,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert set(completed) == {created[0], created[2]}
+    assert all(server.should_exit for server in created)
+
+
 def test_lan_enabled_lifecycle_stops_both_servers_with_native_signal_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1164,6 +1267,46 @@ def test_lan_enabled_lifecycle_stops_both_servers_with_native_signal_owner(
     ]
     assert isinstance(created[0], NativeServer)
     assert type(created[1]) is LanServer
+
+
+def test_lan_enabled_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_lan_enabled_servers(
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    lan_browser_host="192.0.2.10",
+                    lan_browser_port=25043,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert completed == [created[0]]
+    assert all(server.should_exit for server in created)
 
 
 def test_receiver_enabled_lifecycle_uses_one_signal_owner(

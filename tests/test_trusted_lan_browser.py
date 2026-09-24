@@ -133,15 +133,38 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert "result-region`).hidden = conversations[capability].length === 0" in script
     assert 'id="chat-status"' in html
     assert 'id="code-status"' in html
+    chat_conversation = html.split('id="chat-conversation"', 1)[1].split("</div>", 1)[0]
+    code_conversation = html.split('id="code-conversation"', 1)[1].split("</div>", 1)[0]
+    assert 'id="chat-status"' in chat_conversation
+    assert 'id="code-status"' in code_conversation
+    assert html.count('id="chat-status"') == 1
+    assert html.count('id="code-status"') == 1
+    assert "max-height: min(50vh, 32rem);" not in css
+    assert ".conversation { overflow-y: auto;" not in css
+    assert ".conversation:empty" not in css
+    assert css.count("\n") > 50
+    assert ".conversation, .result {" in css
+    render_conversation = script.split("function renderConversation(capability)", 1)[
+        1
+    ].split('document.querySelectorAll("form")', 1)[0]
+    assert (
+        "const status = document.querySelector(`#${capability}-status`);"
+        in render_conversation
+    )
+    assert "container.replaceChildren();" in render_conversation
+    assert "container.append(status);" in render_conversation
+    assert render_conversation.index(
+        "container.replaceChildren();"
+    ) < render_conversation.index("container.append(status);")
     assert "Local AI, simply connected" in html
     assert "header-tools" in html
     assert "Capability-only · Trusted network required" in html
     assert "radial-gradient(circle at 94% 0" in css
-    assert ".tabs { display:flex; flex-wrap:wrap;" in css
-    assert "justify-content:flex-end" in css
-    assert "prefers-color-scheme:dark" in css
-    assert "prefers-reduced-motion:reduce" in css
-    assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css
+    assert ".tabs { display: flex; flex-wrap: wrap;" in css
+    assert "justify-content: flex-end" in css
+    assert "prefers-color-scheme: dark" in css
+    assert "prefers-reduced-motion: reduce" in css
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css
     assert "selected_label" in script
     assert 'id="image-generation-width"' in html
     assert 'id="image-generation-height"' in html

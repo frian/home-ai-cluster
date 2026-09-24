@@ -74,13 +74,14 @@ async function submit(path, body) {
   return response;
 }
 function renderConversation(capability) {
-  const container = document.querySelector(`#${capability}-conversation`); container.replaceChildren();
+  const container = document.querySelector(`#${capability}-conversation`); const status = document.querySelector(`#${capability}-status`); container.replaceChildren();
   document.querySelector(`#${capability}-result-region`).hidden = conversations[capability].length === 0;
   conversations[capability].forEach((message) => {
     const card = document.createElement("article"); card.className = `message message-${message.role}`;
     const role = document.createElement("span"); role.className = "message-role"; role.textContent = message.role === "user" ? "You" : "Home AI Cluster";
     const content = document.createElement("div"); content.textContent = message.content; card.append(role, content); container.append(card);
   });
+  container.append(status);
 }
 
 for (const form of document.querySelectorAll("form")) form.addEventListener("submit", async (event) => {

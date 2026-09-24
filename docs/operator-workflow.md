@@ -196,20 +196,29 @@ http://127.0.0.1:25042/v1/classify
 ```
 
 With this ordinary default exact host, the same process also serves the fixed
-browser page at `http://127.0.0.1:25042/`. Its only views are Chat, Summarize,
-Classify, and Code, which make same-origin calls to the existing native
-endpoints.
+browser page at `http://127.0.0.1:25042/`. Its navigation is Chat, Code, Image,
+Summarize, Classify, and Configuration, which make same-origin calls to the
+existing native endpoints. `Image` is the visible label for the
+`image-generation` capability. Configuration remains loopback-only. Loopback
+Chat may expose page-local automatic and separate explicit External Information
+surfaces.
 Chat is memory-only and shows discreet attribution per assistant response. The
 page provides accessible active feedback for each request. One explicitly
 selected Summarize or Classify file is read locally with strict UTF-8 decoding
 and populates that view's editable text area; the current textarea value is
 submitted through the existing JSON text contract. Classify labels remain in
-displayed order, and no multipart data or filename is submitted. This is not a
-dashboard, operator inspection surface, compatibility interface, or LAN browser
-interface.
+displayed order, and no multipart data or filename is submitted. This loopback
+page is not a dashboard, operator inspection surface, or compatibility
+interface; its authority remains distinct from the trusted-LAN browser.
 
 The page is attached to the loopback-only native authority. Receiver activation
-does not add browser routes to its trusted-LAN receiver authority.
+does not add browser routes to its trusted-LAN receiver authority. Separately,
+an operator may use `hac local --lan-browser-host <LAN_IP>` for the
+capability-only trusted-LAN browser. It is a distinct listener and authority:
+it exposes Chat, Code, Image, Summarize, and Classify, but excludes
+Configuration, Workspace, and External Information authority. It is plain HTTP
+with no TLS or client authentication and is appropriate only where reachable
+peers and the network path are trusted.
 
 ### 5. Send one native request
 

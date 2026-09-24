@@ -186,12 +186,16 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
 
 async def _serve_until_sibling_stops(
     server: uvicorn.Server, sibling: uvicorn.Server
-) -> None:
+) -> SystemExit | None:
     """Keep both receiver-enabled authorities in one foreground lifecycle."""
     try:
-        await server.serve()
+        try:
+            await server.serve()
+        except SystemExit as error:
+            return error
     finally:
         sibling.should_exit = True
+    return None
 
 
 async def _run_receiver_enabled_servers(
@@ -205,12 +209,15 @@ async def _run_receiver_enabled_servers(
         uvicorn.Config(receiver_app, host=args.receiver_host, port=args.receiver_port)
     )
     async with asyncio.TaskGroup() as task_group:
-        task_group.create_task(
+        native_task = task_group.create_task(
             _serve_until_sibling_stops(native_server, receiver_server)
         )
-        task_group.create_task(
+        receiver_task = task_group.create_task(
             _serve_until_sibling_stops(receiver_server, native_server)
         )
+    for task in (native_task, receiver_task):
+        if (server_exit := task.result()) is not None:
+            raise server_exit from None
     for captured_signal in reversed(native_server.pending_signals):
         signal.raise_signal(captured_signal)
 
@@ -225,8 +232,15 @@ async def _run_lan_enabled_servers(
         uvicorn.Config(lan_app, host=args.lan_browser_host, port=args.lan_browser_port)
     )
     async with asyncio.TaskGroup() as task_group:
-        task_group.create_task(_serve_until_sibling_stops(native_server, lan_server))
-        task_group.create_task(_serve_until_sibling_stops(lan_server, native_server))
+        native_task = task_group.create_task(
+            _serve_until_sibling_stops(native_server, lan_server)
+        )
+        lan_task = task_group.create_task(
+            _serve_until_sibling_stops(lan_server, native_server)
+        )
+    for task in (native_task, lan_task):
+        if (server_exit := task.result()) is not None:
+            raise server_exit from None
     for captured_signal in reversed(native_server.pending_signals):
         signal.raise_signal(captured_signal)
 
@@ -247,11 +261,18 @@ async def _run_receiver_and_lan_servers(
         uvicorn.Config(lan_app, host=args.lan_browser_host, port=args.lan_browser_port)
     )
     async with asyncio.TaskGroup() as task_group:
-        task_group.create_task(
+        native_task = task_group.create_task(
             _serve_until_sibling_stops(native_server, receiver_server)
         )
-        task_group.create_task(_serve_until_sibling_stops(receiver_server, lan_server))
-        task_group.create_task(_serve_until_sibling_stops(lan_server, native_server))
+        receiver_task = task_group.create_task(
+            _serve_until_sibling_stops(receiver_server, lan_server)
+        )
+        lan_task = task_group.create_task(
+            _serve_until_sibling_stops(lan_server, native_server)
+        )
+    for task in (native_task, receiver_task, lan_task):
+        if (server_exit := task.result()) is not None:
+            raise server_exit from None
     for captured_signal in reversed(native_server.pending_signals):
         signal.raise_signal(captured_signal)
 

@@ -732,3 +732,57 @@ def test_main_does_not_start_server_when_declaration_loading_fails(
     assert "invalid remote base URL declaration" in captured.err
     assert private_url not in captured.err
     assert "private.example" not in captured.err
+
+
+def test_lan_system_exit_still_closes_static_cluster_http_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    class Client:
+        closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    client = Client()
+    native_app = FastAPI()
+    native_app.state.static_cluster_http_client = client
+
+    monkeypatch.setattr(
+        static_cluster, "create_local_runtime_composition", lambda **_: object()
+    )
+    monkeypatch.setattr(
+        static_cluster, "_create_routing_node_registry", lambda *_: None
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_app",
+        lambda *_args, **_kwargs: native_app,
+    )
+    monkeypatch.setattr(static_cluster, "add_loopback_browser_routes", lambda app: app)
+    monkeypatch.setattr(
+        static_cluster,
+        "create_trusted_lan_browser_app",
+        lambda *_args, **_kwargs: FastAPI(),
+    )
+
+    async def raise_startup_exit(*_args: object, **_kwargs: object) -> None:
+        raise SystemExit(3)
+
+    monkeypatch.setattr(local_runtime, "_run_lan_enabled_servers", raise_startup_exit)
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            [
+                "--remote-node-id",
+                "operator-remote",
+                "--remote-base-url",
+                "https://remote.example:8000",
+                "--lan-browser-host",
+                "192.0.2.10",
+            ]
+        )
+
+    assert raised.value.code == 3
+    assert client.closed is True

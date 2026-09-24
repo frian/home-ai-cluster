@@ -45,6 +45,7 @@
         <section aria-labelledby="chat-result-heading" class="result-section" hidden id="chat-result-region">
           <h3 id="chat-result-heading">Response</h3>
           <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+          <p aria-live="polite" class="request-status" id="chat-status" role="status"></p>
         </section>
         <form id="chat-form">
           <label for="chat-message">Message</label>
@@ -54,7 +55,6 @@
           <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
         <p aria-live="polite" class="error" id="chat-error" role="status"></p>
-        <p aria-live="polite" class="request-status" id="chat-status" role="status"></p>
         <details class="explicit-external-information">
           <summary>Explicit external information</summary>
           <p>Acquire supplied source evidence with one explicitly selected plugin, then ask a distinct source-grounded question.</p>
@@ -81,6 +81,7 @@
         <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
           <h3 id="code-result-heading">Generated code</h3>
           <div aria-live="polite" class="conversation" id="code-conversation"></div>
+          <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
           <div aria-live="polite" id="workspace-activity"></div>
         </section>
         <form id="code-form">
@@ -90,7 +91,6 @@
           <div class="form-actions"><button data-submit type="submit">Request code</button></div>
         </form>
         <p aria-live="polite" class="error" id="code-error" role="status"></p>
-        <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
       </section>
 
       <section aria-labelledby="image-generation-tab" class="capability-panel" hidden id="image-generation-view" role="tabpanel">

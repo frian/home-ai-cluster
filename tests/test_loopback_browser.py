@@ -200,6 +200,25 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert chat_view.index('id="chat-result-region"') < chat_view.index(
         'id="chat-form"'
     )
+    chat_result_region = chat_view.split('id="chat-result-region"', 1)[1].split(
+        "</section>", 1
+    )[0]
+    assert (
+        'aria-live="polite" class="request-status" id="chat-status" role="status"'
+        in chat_result_region
+    )
+    assert chat_result_region.index(
+        'id="chat-conversation"'
+    ) < chat_result_region.index('id="chat-status"')
+    assert (
+        'id="chat-status"'
+        not in chat_view.split('id="chat-form"', 1)[1].split(
+            '<details class="explicit-external-information">', 1
+        )[0]
+    )
+    assert "body {" in stylesheet
+    body_block = stylesheet.split("body {", 1)[1].split("}", 1)[0]
+    assert "min-height: 100vh;" in body_block
     assert (
         ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
         in stylesheet
@@ -725,6 +744,19 @@ def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access(
     assert code_view.index('id="code-result-region"') < code_view.index(
         'id="code-form"'
     )
+    code_result_region = code_view.split('id="code-result-region"', 1)[1].split(
+        "</section>", 1
+    )[0]
+    assert (
+        'aria-live="polite" class="request-status" id="code-status" role="status"'
+        in code_result_region
+    )
+    assert (
+        code_result_region.index('id="code-conversation"')
+        < code_result_region.index('id="code-status"')
+        < code_result_region.index('id="workspace-activity"')
+    )
+    assert 'id="code-status"' not in code_view.split('id="code-form"', 1)[1]
     assert 'id="code-form"' in code_section
     assert 'for="code-text"' in code_section
     assert 'id="code-text"' in code_section

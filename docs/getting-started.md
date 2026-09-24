@@ -221,6 +221,21 @@ control surface, runtime manager, or persistent server-side conversation store.
 
 For a first test, open **Chat**, enter a short message, and submit it.
 
+### Optional: trusted-LAN capability browser
+
+Loopback remains the default. To expose the separate, capability-only browser
+to trusted peers, start HAC with one explicit concrete non-loopback LAN IP:
+
+```sh
+hac local --lan-browser-host <LAN_IP>
+```
+
+The loopback browser remains available. The trusted-LAN browser shows Chat,
+Code, Image, Summarize, and Classify, but does not expose Configuration,
+Workspace, or External Information authority. It is plain HTTP with no TLS or
+client authentication, so use it only where reachable peers and the network
+path are trusted. It is a separate listener from any receiver authority.
+
 ## 7. Try the command line
 
 Leave `hac local` running and open a second terminal.
@@ -287,6 +302,22 @@ and is not persisted.
 
 `hac code` returns text only. It does not execute generated code or grant shell,
 Git, repository, testing, or general filesystem authority.
+
+### Optional: Image Generation
+
+Image Generation requires an explicitly configured and available Image
+Generation binding or companion. HAC does not manage `sd-server` or its model.
+
+```sh
+hac image-generation \
+  --output generated.png \
+  "A small cabin in a snowy forest"
+```
+
+`generated.png` must not already exist and its parent directory must already
+exist. Without `--jpeg`, HAC writes validated PNG bytes regardless of the file
+suffix. See the [Command Reference](command-reference.md#image-generation) for
+the exact output and JPEG-export semantics.
 
 ## 8. Stop Home AI Cluster
 

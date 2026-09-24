@@ -217,8 +217,9 @@ explicit arguments; and vLLM requires its explicit loopback base URL and
 served-model identity. vLLM is a concrete runtime selection, not a generic
 OpenAI-compatible runtime abstraction. The application runs in the foreground.
 Home AI Cluster does not install, start, stop, download models for, or
-supervise the external runtime. Ordinary local compositions advertise and
-execute `chat`, `summarize`, `classify`, and `code`.
+supervise the external runtime. Ordinary textual runtime compositions advertise
+and execute `chat`, `summarize`, `classify`, and `code`; `image-generation`
+requires its separately explicit Image Generation binding or companion.
 
 `--temperature VALUE` is an optional finite non-negative local free-text
 sampling-temperature value for Ollama, llama-server, and vLLM. Explicit `0`
@@ -303,8 +304,11 @@ model = "served-model"
 ```
 
 The native authority is fixed to exact `127.0.0.1`; open
-`http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
-Chat, Code, Image Generation, Summarize, and Classify. The page keeps Chat only in memory, shows
+`http://127.0.0.1:25042/` for the fixed same-origin browser page. Its visible
+navigation is Chat, Code, Image, Summarize, Classify, and Configuration;
+`Image` is the presentation label for the `image-generation` capability.
+Loopback Chat includes page-local automatic External Information authorization
+and a separate explicit External Information operation. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
 request is running. The browser permits at most one active capability request at
 a time; the selected node or runtime may still queue its execution. One explicitly
@@ -312,14 +316,16 @@ selected Summarize or Classify file is read
 locally with strict UTF-8 decoding and populates that view's editable text area;
 the current textarea value is submitted through the existing JSON text request.
 Classify preserves ordered labels and sends no multipart data or filename.
-Non-`127.0.0.1` generic `--host` values are rejected. LAN receiver activation
-uses `--receiver-host` and has no browser surface; the page is not a LAN browser
-interface, dashboard, operator console, or compatibility interface.
+Non-`127.0.0.1` generic `--host` values are rejected. The loopback page remains
+bound to native loopback authority. LAN receiver activation uses
+`--receiver-host` and adds no browser routes to receiver authority; the
+receiver listener is distinct from the trusted-LAN browser listener. The
+loopback page is not a dashboard, operator console, or compatibility interface.
 
 `--lan-browser-host <LAN_IP>` additively serves the bounded RFC-0130 browser
 from one concrete non-loopback IP (default port `25042`; `--lan-browser-port`
 overrides it) for both `hac local` and `hac static-cluster`. It exposes only
-Chat, text-only Code, Image Generation, Summarize, and Classify; Configuration
+Chat, text-only Code, Image, Summarize, and Classify; Configuration
 and Workspace remain loopback-only. It is plain HTTP: reachable peers and the
 network path must be trusted. Host and Origin checks protect browser authority,
 not client identity; this first boundary has no TLS or authentication.

@@ -2,6 +2,28 @@ const conversations = { chat: [], code: [] };
 let capabilityRequestActive = false;
 let currentImageUrl = null;
 const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+const themeKey = "home-ai-cluster.theme";
+const themeSelect = document.querySelector("#theme-select");
+const root = document.documentElement;
+
+function useSystemTheme() { root.removeAttribute("data-theme"); themeSelect.value = "system"; }
+function initializeThemePreference() {
+  let theme;
+  try { theme = localStorage.getItem(themeKey); } catch (_) { useSystemTheme(); return; }
+  if (theme === "light" || theme === "dark") { root.setAttribute("data-theme", theme); themeSelect.value = theme; return; }
+  useSystemTheme();
+  if (theme !== null) { try { localStorage.removeItem(themeKey); } catch (_) { /* System remains safe. */ } }
+}
+themeSelect.addEventListener("change", () => {
+  const theme = themeSelect.value;
+  if (theme === "light" || theme === "dark") {
+    try { localStorage.setItem(themeKey, theme); } catch (_) { useSystemTheme(); return; }
+    root.setAttribute("data-theme", theme); return;
+  }
+  try { localStorage.removeItem(themeKey); } catch (_) { useSystemTheme(); return; }
+  useSystemTheme();
+});
+initializeThemePreference();
 
 function selectTab(tab, focus = false) {
   tabs.forEach((candidate) => {
@@ -42,6 +64,7 @@ function setActive(context, active, message = "") {
   if (active) capabilityRequestActive = true;
   else capabilityRequestActive = false;
   document.querySelectorAll("[data-submit]").forEach((button) => { button.disabled = active; });
+  context.status.dataset.active = String(active);
   context.status.textContent = message;
 }
 function showError(context, message) { context.error.textContent = message; }
@@ -52,6 +75,7 @@ async function submit(path, body) {
 }
 function renderConversation(capability) {
   const container = document.querySelector(`#${capability}-conversation`); container.replaceChildren();
+  document.querySelector(`#${capability}-result-region`).hidden = conversations[capability].length === 0;
   conversations[capability].forEach((message) => {
     const card = document.createElement("article"); card.className = `message message-${message.role}`;
     const role = document.createElement("span"); role.className = "message-role"; role.textContent = message.role === "user" ? "You" : "Home AI Cluster";

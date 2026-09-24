@@ -106,7 +106,13 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
         "finally { setActive(context, false); }"
     )
     assert "URL.revokeObjectURL(currentImageUrl)" in script
-    assert "localStorage" not in script
+    assert 'const themeKey = "home-ai-cluster.theme";' in script
+    assert 'id="theme-select"' in html
+    assert '<option value="system">System</option>' in html
+    assert '<option value="light">Light</option>' in html
+    assert '<option value="dark">Dark</option>' in html
+    assert "localStorage.getItem(themeKey)" in script
+    assert "localStorage.setItem(themeKey, theme)" in script
     assert "sessionStorage" not in script
     assert "IndexedDB" not in script
     assert "Configuration" not in html
@@ -122,8 +128,17 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert 'id="result"' not in html
     assert 'id="chat-conversation"' in html
     assert 'id="code-conversation"' in html
+    assert 'hidden id="chat-result-region"' in html
+    assert 'hidden id="code-result-region"' in html
+    assert "result-region`).hidden = conversations[capability].length === 0" in script
     assert 'id="chat-status"' in html
     assert 'id="code-status"' in html
+    assert "Local AI, simply connected" in html
+    assert "header-tools" in html
+    assert "Capability-only · Trusted network required" in html
+    assert "radial-gradient(circle at 94% 0" in css
+    assert ".tabs { display:flex; flex-wrap:wrap;" in css
+    assert "justify-content:flex-end" in css
     assert "prefers-color-scheme:dark" in css
     assert "prefers-reduced-motion:reduce" in css
     assert "grid-template-columns:repeat(2,minmax(0,1fr))" in css

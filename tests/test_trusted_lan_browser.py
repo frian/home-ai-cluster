@@ -91,24 +91,80 @@ def test_trusted_lan_chat_rejects_non_chat_or_code_before_execution():
 def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("lan.html").read_text(encoding="utf-8")
+    css = web.joinpath("assets", "lan.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "lan.js").read_text(encoding="utf-8")
 
     assert "const conversations = { chat: [], code: [] };" in script
     assert "let capabilityRequestActive = false;" in script
     assert "capabilityRequestActive = true;" in script
-    assert script.index("capabilityRequestActive = true;") < script.index(
-        "const answer = await response.json();"
-    )
-    assert script.index("currentImageUrl = URL.createObjectURL") < script.rindex(
-        "capabilityRequestActive = false;"
+    assert 'document.querySelectorAll("[data-submit]")' in script
+    assert "ArrowRight" in script
+    assert "ArrowLeft" in script
+    assert 'event.key === "Home"' in script
+    assert 'event.key === "End"' in script
+    assert script.index("currentImageUrl = URL.createObjectURL") < script.index(
+        "finally { setActive(context, false); }"
     )
     assert "URL.revokeObjectURL(currentImageUrl)" in script
-    assert "localStorage" not in script
+    assert 'const themeKey = "home-ai-cluster.theme";' in script
+    assert 'id="theme-select"' in html
+    assert '<option value="system">System</option>' in html
+    assert '<option value="light">Light</option>' in html
+    assert '<option value="dark">Dark</option>' in html
+    assert "localStorage.getItem(themeKey)" in script
+    assert "localStorage.setItem(themeKey, theme)" in script
     assert "sessionStorage" not in script
+    assert "IndexedDB" not in script
     assert "Configuration" not in html
     assert "workspace" not in html.lower()
-    headings = [heading.split("</h2>", 1)[0] for heading in html.split("<h2>")[1:]]
-    assert headings == ["Chat", "Code", "Image", "Summarize", "Classify"]
+    assert "External Information" not in html
+    assert html.count('role="tab"') == 5
+    assert html.count('role="tabpanel"') == 5
+    assert [
+        button.split("</button>", 1)[0].rsplit(">", 1)[1]
+        for button in html.split('role="tab"')[1:]
+    ] == ["Chat", "Code", "Image", "Summarize", "Classify"]
+    assert 'aria-selected="true" id="chat-tab"' in html
+    assert 'id="result"' not in html
+    assert 'id="chat-conversation"' in html
+    assert 'id="code-conversation"' in html
+    assert 'hidden id="chat-result-region"' in html
+    assert 'hidden id="code-result-region"' in html
+    assert "result-region`).hidden = conversations[capability].length === 0" in script
+    assert 'id="chat-status"' in html
+    assert 'id="code-status"' in html
+    chat_conversation = html.split('id="chat-conversation"', 1)[1].split("</div>", 1)[0]
+    code_conversation = html.split('id="code-conversation"', 1)[1].split("</div>", 1)[0]
+    assert 'id="chat-status"' in chat_conversation
+    assert 'id="code-status"' in code_conversation
+    assert html.count('id="chat-status"') == 1
+    assert html.count('id="code-status"') == 1
+    assert "max-height: min(50vh, 32rem);" not in css
+    assert ".conversation { overflow-y: auto;" not in css
+    assert ".conversation:empty" not in css
+    assert css.count("\n") > 50
+    assert ".conversation, .result {" in css
+    render_conversation = script.split("function renderConversation(capability)", 1)[
+        1
+    ].split('document.querySelectorAll("form")', 1)[0]
+    assert (
+        "const status = document.querySelector(`#${capability}-status`);"
+        in render_conversation
+    )
+    assert "container.replaceChildren();" in render_conversation
+    assert "container.append(status);" in render_conversation
+    assert render_conversation.index(
+        "container.replaceChildren();"
+    ) < render_conversation.index("container.append(status);")
+    assert "Local AI, simply connected" in html
+    assert "header-tools" in html
+    assert "Capability-only · Trusted network required" in html
+    assert "radial-gradient(circle at 94% 0" in css
+    assert ".tabs { display: flex; flex-wrap: wrap;" in css
+    assert "justify-content: flex-end" in css
+    assert "prefers-color-scheme: dark" in css
+    assert "prefers-reduced-motion: reduce" in css
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css
     assert "selected_label" in script
     assert 'id="image-generation-width"' in html
     assert 'id="image-generation-height"' in html
@@ -121,6 +177,10 @@ def test_lan_browser_assets_keep_current_page_state_and_full_request_gate():
     assert ".split(" not in script
     assert ".trim(" not in script
     assert ".filter(" not in script
+    assert 'href="/assets/lan.css"' in html
+    assert 'src="/assets/lan.js"' in html
+    assert "app.css" not in html
+    assert "app.js" not in html
 
 
 def test_trusted_lan_authority_canonicalizes_ipv6_and_http_default_port():

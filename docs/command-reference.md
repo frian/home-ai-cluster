@@ -67,7 +67,7 @@ The ordinary root surface has sixteen commands.
 | [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. |
 | [`code-workspace`](#hac-code-workspace) | Run one bounded workspace-aware Code interaction. |
 | [`classify`](#hac-classify) | Send one native bounded classification request. |
-| [`image-generation`](#image-generation) | Send one local Image Generation request. |
+| [`image-generation`](#hac-image-generation) | Send one Image Generation request. |
 | [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`health`](#hac-health) | Inspect local declared state and runtime health. |
@@ -777,6 +777,52 @@ initial instruction are ordinary local command-line arguments and may be
 visible to host process inspection, shell behavior, or shell history. The
 command grants no shell, process, Git, general-agent, or retained authority.
 
+## `hac image-generation`
+
+**Purpose:** Send one Image Generation request to an already-running ordinary
+HAC process.
+
+**Common forms:**
+
+```sh
+hac image-generation "<INSTRUCTION>"
+hac image-generation --output <FILE> "<INSTRUCTION>"
+hac image-generation --output <FILE> --jpeg "<INSTRUCTION>"
+hac image-generation --width <PIXELS> --height <PIXELS> "<INSTRUCTION>"
+hac image-generation --timeout-seconds <SECONDS> --output <FILE> "<INSTRUCTION>"
+```
+
+**Important behavior:** `hac image-generation [--output FILE] [--jpeg]
+"<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends
+one closed request. Width and height are optional but must be supplied together
+as whole pixels from 64 through 2048; when supplied, the successful PNG has
+exactly those dimensions. Without `--output`, successful output is raw PNG bytes
+on stdout; direct TTY stdout is refused before a request is made, so use an
+appropriate non-TTY byte sink.
+
+With `--output FILE`, stdout is not the result sink and may be a TTY. Without
+`--jpeg`, the file receives exactly the validated PNG bytes regardless of its
+suffix. `--jpeg` requires `--output FILE`; it creates one caller-local JPEG
+derivative only after HAC has fully received and validated the normalized PNG.
+JPEG export accepts only 8-bit RGB source PNGs, preserves dimensions, and uses
+fixed quality 95, 4:4:4 chroma subsampling, and non-progressive encoding. HAC
+creates only the explicitly selected missing leaf: its parent must already exist
+as a directory, HAC creates no parent directory, and it never overwrites an
+existing filesystem object. The file receives the selected validated PNG or JPEG
+derivative bytes; successful stdout and stderr are empty. The output path remains
+caller-local and is not sent in the request or to routing, remote nodes, or the
+runtime. A write or close failure after creation may leave an incomplete file;
+HAC performs no rollback deletion, regeneration, or routing fallback. There is
+no generic output-format option, JSON, verbose, node, remote toggle, model,
+runtime, or generation-control option.
+
+In an ordinary non-static process, Image Generation remains local. With ordinary
+static-cluster wiring, it uses the same existing local-first routing as other
+supported remote-capable operations: an eligible local Image Generation binding
+is preferred, then explicitly eligible declared remotes may be used under the
+existing fallback and declaration-order rules. This adds no node selector,
+discovery, probing, or scheduling.
+
 ## `hac aider`
 
 **Purpose:** Coordinate one bounded external Aider edit of one explicitly
@@ -1044,41 +1090,9 @@ mapping is useful for compatibility or reference:
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
 
-### Image Generation
-
-`hac image-generation [--output FILE] [--jpeg] "<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends one
-closed request to an already-running ordinary HAC process. Width and height are
-optional but must be supplied together as whole pixels from 64 through 2048;
-when supplied, the successful PNG has exactly those dimensions. Without
-`--output`, successful output is raw PNG bytes on stdout; direct TTY stdout is
-refused before a request is made, so use an appropriate non-TTY byte sink.
-
-With `--output FILE`, stdout is not the result sink and may be a TTY. Without
-`--jpeg`, the file receives exactly the validated PNG bytes regardless of its
-suffix. `--jpeg` requires `--output FILE`; it creates one caller-local JPEG
-derivative only after HAC has fully received and validated the normalized PNG.
-JPEG export accepts only 8-bit RGB source PNGs, preserves dimensions, and uses
-fixed quality 95, 4:4:4 chroma subsampling, and non-progressive encoding. HAC
-creates only the explicitly selected missing leaf: its parent must already
-exist as a directory, HAC creates no parent directory, and it never overwrites
-an existing filesystem object. The file receives the selected validated PNG or
-JPEG derivative bytes; successful stdout and stderr are empty. The output path
-remains caller-local and is not sent in the request or to routing, remote
-nodes, or the runtime. A write or close failure after creation may leave an
-incomplete file; HAC performs no rollback deletion, regeneration, or routing
-fallback. There is
-no generic output-format option, JSON, verbose, node, remote toggle, model,
-runtime, or generation-control option.
-
-In an ordinary non-static process, Image Generation remains local. With
-ordinary static-cluster wiring, it uses the same existing local-first routing
-as other supported remote-capable operations: an eligible local Image
-Generation binding is preferred, then explicitly eligible declared remotes may
-be used under the existing fallback and declaration-order rules. This adds no
-node selector, discovery, probing, or scheduling.
-
-`hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
-ordinary root command; none has a separate installed checkout script.
+`hac code`, `hac code-file`, `hac image-generation`, `hac summarize`, and
+`hac classify` are available through the ordinary root command; none has a
+separate installed checkout script.
 
 ## Specialized compatibility commands
 

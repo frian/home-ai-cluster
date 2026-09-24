@@ -53,7 +53,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has fifteen commands.
+The ordinary root surface has sixteen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -66,8 +66,9 @@ The ordinary root surface has fifteen commands.
 | [`code`](#hac-code) | Send one native bounded textual code request. |
 | [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. |
 | [`code-workspace`](#hac-code-workspace) | Run one bounded workspace-aware Code interaction. |
-| [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`classify`](#hac-classify) | Send one native bounded classification request. |
+| [`image-generation`](#image-generation) | Send one local Image Generation request. |
+| [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`health`](#hac-health) | Inspect local declared state and runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
@@ -1085,7 +1086,7 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the fifteen-command `hac` root and have no ordinary
+not ordinary commands in the sixteen-command `hac` root and have no ordinary
 `hac` equivalents.
 
 ## Historical proof commands

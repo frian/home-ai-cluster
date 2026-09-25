@@ -28,7 +28,7 @@ HAC provides these ordinary user-facing capabilities:
 - Summarize
 - Classify
 
-Use them through `hac` or the fixed browser interface. Local-only operation is
+Use them through `hac` or the fixed loopback browser interface. Local-only operation is
 the default and simplest path; an explicit static cluster is available when you
 want declared remote nodes. Image Generation requires an explicitly configured
 Image Generation binding or companion. Code is textual by default, with
@@ -76,8 +76,7 @@ HAC is local-first, privacy-first, capability-centered, and engine-independent.
 Its topology is explicit and static, while runtimes and models remain
 operator-owned. It has no automatic discovery or scheduler, runtime or model
 lifecycle management, general dashboard or control plane, broad
-OpenAI-compatible API, or Docker, Kubernetes, or database architecture by
-default.
+OpenAI-compatible API, or Docker, Kubernetes, or database architecture.
 
 Read the [Vision](VISION.md), [Foundations](FOUNDATIONS.md),
 [Principles](PRINCIPLES.md), and [Non-goals](NON_GOALS.md) for the complete

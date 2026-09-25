@@ -999,3 +999,35 @@ def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> No
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
     assert "document.cookie" not in script
+
+
+def test_source_provenance_uses_shared_collapsed_native_details_presentation() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    source_details = script.split("function createSuppliedSourceDetails(source)", 1)[
+        1
+    ].split("function renderExternalInformationSources", 1)[0]
+    assert 'document.createElement("details")' in source_details
+    assert 'document.createElement("summary")' in source_details
+    assert "summary.textContent = source.title;" in source_details
+    assert "url.textContent = `URL provenance: ${source.url}`;" in source_details
+    assert "content.textContent = source.content;" in source_details
+    assert "details.append(summary, url, content);" in source_details
+    assert 'document.createElement("a")' not in source_details
+    assert "open =" not in source_details
+    assert "localStorage" not in source_details
+    assert "sessionStorage" not in source_details
+
+    render_chat = script.split("function renderChat()", 1)[1].split(
+        "function rollbackPendingMessage", 1
+    )[0]
+    assert "entry.append(createSuppliedSourceDetails(source));" in render_chat
+
+    render_external_information_sources = script.split(
+        "function renderExternalInformationSources(sources)", 1
+    )[1].split("let currentImageUrl", 1)[0]
+    assert "container.replaceChildren();" in render_external_information_sources
+    assert "container.append(createSuppliedSourceDetails(source));" in (
+        render_external_information_sources
+    )

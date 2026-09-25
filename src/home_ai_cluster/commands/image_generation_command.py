@@ -62,7 +62,7 @@ def _parse_input(argv: Sequence[str] | None) -> _ImageGenerationCommandInput:
         description="Send one local Image Generation request to ordinary HAC.",
     )
     parser.add_argument("instruction", metavar="INSTRUCTION")
-    parser.add_argument("--output", metavar="FILE")
+    parser.add_argument("-o", "--output", metavar="FILE")
     parser.add_argument("--jpeg", action="store_true")
     parser.add_argument("--width", metavar="PIXELS")
     parser.add_argument("--height", metavar="PIXELS")

@@ -334,11 +334,10 @@ to your own local setup.
 
 ## 9. Optional: use external information
 
-Ordinary Home AI Cluster requests do not acquire Web information by themselves.
-External-information acquisition is an explicit optional caller edge using one
-separately installed compatible plugin. Installation alone does not select or
-perform acquisition, and ordinary Chat does not automatically use either
-provider.
+Ordinary Home AI Cluster requests do not acquire Web information by default.
+External Information uses one separately installed compatible plugin.
+Installation alone does not select or perform acquisition, and retaining a
+plugin choice alone does not authorize Chat to disclose a question.
 
 Choose either published plugin. The
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng#readme)
@@ -385,8 +384,10 @@ from the recreated environment. Repeat `--with` when installing multiple
 compatible packages. Installed packages and the one retained
 `hac config external-information --plugin NAME` selection are separate.
 
+### Explicit External Information
+
 With SearXNG and `hac local` already running, retain that choice once, then use
-it for explicit external-information requests:
+it for an explicit external-information request:
 
 ```sh
 hac config external-information --plugin searxng
@@ -395,6 +396,10 @@ hac external-information \
   "local AI inference developments" \
   "What are the main recent developments?"
 ```
+
+This explicitly acquires evidence for one source-grounded request: the first
+value is the acquisition query and the second is the question sent with the
+acquired evidence.
 
 An explicit one-off override remains possible and does not change the retained
 selection:
@@ -421,6 +426,46 @@ Manage or unset the environment credential according to your normal shell and
 security practice. Retaining `tavily` selects only that plugin for later
 explicit external-information operations; it does not retain or manage
 `TAVILY_API_KEY`.
+
+### One-shot Chat with retained automatic External Information authorization
+
+A retained External Information plugin choice is also required for this flow.
+It is separate from, and does not grant, Chat disclosure authority. To retain
+the one-shot Chat authorization, run:
+
+```sh
+hac config chat --external-information-fallback
+```
+
+Then use ordinary one-shot Chat, for example:
+
+```sh
+hac chat "What is the weather in Agnone today?"
+```
+
+For an eligible question, HAC makes its existing bounded `ordinary` / `external`
+decision. Only the `external` branch performs acquisition, using the exact user
+question as its acquisition query. The authorization remains retained until you
+explicitly remove it:
+
+```sh
+hac config chat --reset
+```
+
+### Interactive Chat with session-local External Information authorization
+
+To authorize the same bounded decision path only for one foreground interactive
+Chat session, use the no-message form:
+
+```sh
+hac chat --external-information
+```
+
+This is TTY-only interactive Chat and uses the retained External Information
+plugin selection. Each eligible new user turn may take the existing bounded
+`ordinary` / `external` decision path. The authorization lasts only for this
+foreground session: it does not persist or enable the retained one-shot
+fallback authorization. Ctrl-D or Ctrl-C ends the session.
 
 See the [SearXNG plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme),
 [Tavily plugin README](https://github.com/frian/home-ai-cluster-plugin-tavily#readme),

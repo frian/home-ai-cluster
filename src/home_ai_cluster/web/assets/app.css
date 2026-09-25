@@ -90,6 +90,9 @@ fieldset { border: 1px solid var(--border-subtle); border-radius: .8rem; display
 .message-label, .attribution { color: var(--text-secondary); font-size: .88rem; }
 .message-label { font-weight: 700; margin-bottom: .3rem; }
 .message-content { overflow-wrap: anywhere; white-space: pre-wrap; }
+.supplied-source { color: var(--text-secondary); font-size: .88rem; margin-top: .6rem; overflow-wrap: anywhere; }
+.supplied-source summary { color: var(--text-primary); cursor: pointer; font-weight: 700; }
+.supplied-source p { margin: .55rem 0 0; white-space: pre-wrap; }
 .error, .request-status { overflow-wrap: anywhere; }
 .error { border-radius: .65rem; color: var(--error-color); font-weight: 700; margin: 1rem auto 0; max-width: 60rem; min-height: 1.5rem; }
 .error:not(:empty) { background: var(--error-background); border: 1px solid currentcolor; padding: .7rem .85rem; }

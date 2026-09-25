@@ -650,10 +650,7 @@
         heading.textContent = "Supplied sources";
         entry.append(heading);
         sources.forEach((source) => {
-          const item = document.createElement("div");
-          item.className = "attribution";
-          item.textContent = `${source.title}\nURL provenance: ${source.url}\n${source.content}`;
-          entry.append(item);
+          entry.append(createSuppliedSourceDetails(source));
         });
       }
       container.append(entry);
@@ -742,19 +739,24 @@
     container.append(value, attribution);
   }
 
+  function createSuppliedSourceDetails(source) {
+    const details = document.createElement("details");
+    details.className = "supplied-source";
+    const summary = document.createElement("summary");
+    summary.textContent = source.title;
+    const url = document.createElement("p");
+    url.textContent = `URL provenance: ${source.url}`;
+    const content = document.createElement("p");
+    content.textContent = source.content;
+    details.append(summary, url, content);
+    return details;
+  }
+
   function renderExternalInformationSources(sources) {
     const container = document.querySelector("#external-information-sources");
     container.replaceChildren();
     sources.forEach((source) => {
-      const item = document.createElement("article");
-      const title = document.createElement("h4");
-      const url = document.createElement("p");
-      const content = document.createElement("p");
-      title.textContent = source.title;
-      url.textContent = `URL provenance: ${source.url}`;
-      content.textContent = source.content;
-      item.append(title, url, content);
-      container.append(item);
+      container.append(createSuppliedSourceDetails(source));
     });
   }
 

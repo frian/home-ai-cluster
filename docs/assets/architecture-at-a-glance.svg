@@ -1,78 +1,149 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1060" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1120" role="img" aria-labelledby="title desc">
   <title id="title">Home AI Cluster architecture at a glance</title>
-  <desc id="desc">A user or tool sends a code-capability request to the HAC endpoint, which routes it through the orchestrator to a local node or either of two remote nodes. Each node connects through its shown adapter or HAC app to a runtime.</desc>
-  <style>
-    :root { color-scheme: light dark; }
-    .background { fill: #fbfcfd; }
-    .heading, .label { fill: #17212b; }
-    .muted { fill: #5f6f79; }
-    .box { fill: #ffffff; stroke: #087f8c; }
-    .connector { fill: none; stroke: #087f8c; }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: #0b1218; }
-      .heading, .label { fill: #e7eef4; }
-      .muted { fill: #a9b9c3; }
-      .box { fill: #101a22; stroke: #55d6b3; }
-      .connector { stroke: #55d6b3; }
-    }
-  </style>
+  <desc id="desc">CLI and Web UI clients send native capability requests to a HAC endpoint. The orchestrator performs local-first capability-based routing across one local node and two explicitly eligible remote nodes. Example capabilities are distributed across the three nodes, and each node connects through a runtime adapter to an AI runtime.</desc>
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="strokeWidth">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#087f8c" class="arrowhead"/>
+    <linearGradient id="clientsFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6f9ff"/>
+      <stop offset="1" stop-color="#e8f1ff"/>
+    </linearGradient>
+    <linearGradient id="endpointFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbf8ff"/>
+      <stop offset="1" stop-color="#eee6ff"/>
+    </linearGradient>
+    <linearGradient id="orchestratorFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset="1" stop-color="#ffedc7"/>
+    </linearGradient>
+    <linearGradient id="localFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f5fcf8"/>
+      <stop offset="1" stop-color="#e5f5ec"/>
+    </linearGradient>
+    <linearGradient id="remoteAFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6faff"/>
+      <stop offset="1" stop-color="#e6f1ff"/>
+    </linearGradient>
+    <linearGradient id="remoteBFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff8f8"/>
+      <stop offset="1" stop-color="#ffe9e9"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="3" stdDeviation="7" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L16,8 L0,16 z" fill="#2f77d0"/>
     </marker>
+    <marker id="arrowPurple" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L16,8 L0,16 z" fill="#7b4ee8"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L16,8 L0,16 z" fill="#f59e0b"/>
+    </marker>
+    <style>
+      .title { fill:#0f1f36; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-weight:700; }
+      .text { fill:#0f1f36; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    </style>
   </defs>
-  <rect class="background" width="1440" height="1060" rx="16"/>
-  <style>@media (prefers-color-scheme: dark) { .arrowhead { fill: #55d6b3; } }</style>
 
-  <text x="720" y="70" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="38" font-weight="700">Home AI Cluster</text>
-  <text x="720" y="112" text-anchor="middle" class="muted" font-family="system-ui, sans-serif" font-size="24">“Many machines. One AI.”</text>
+  <rect width="1536" height="1120" fill="#ffffff"/>
 
-  <text x="720" y="190" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="26" font-weight="600">User / Tool</text>
-  <path class="connector" d="M720 210 V260" stroke-width="3" marker-end="url(#arrow)"/>
+  <!-- Clients -->
+  <g filter="url(#softShadow)">
+    <rect x="438" y="30" width="660" height="178" rx="20" fill="url(#clientsFill)" stroke="#5a94df" stroke-width="4"/>
+  </g>
+  <text x="768" y="80" text-anchor="middle" class="title" font-size="38">Clients</text>
 
-  <rect class="box" x="560" y="270" width="320" height="155" rx="12" stroke-width="3"/>
-  <text x="720" y="320" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="28" font-weight="700">HAC endpoint</text>
-  <text x="720" y="354" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="24">/v1/chat</text>
-  <text x="720" y="397" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="23">capability: code</text>
-  <path class="connector" d="M720 425 V475" stroke-width="3" marker-end="url(#arrow)"/>
+  <rect x="468" y="97" width="292" height="83" rx="14" fill="#ffffff" fill-opacity=".42" stroke="#9dbce8" stroke-width="2"/>
+  <text x="614" y="133" text-anchor="middle" class="title" font-size="28">CLI</text>
+  <text x="614" y="163" text-anchor="middle" class="text" font-size="20" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">hac &lt;command&gt;</text>
 
-  <rect class="box" x="560" y="485" width="320" height="155" rx="12" stroke-width="3"/>
-  <text x="720" y="540" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="28" font-weight="700">Orchestrator</text>
-  <text x="720" y="582" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="23">capability-based</text>
-  <text x="720" y="612" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="23">routing</text>
+  <rect x="780" y="97" width="288" height="83" rx="14" fill="#ffffff" fill-opacity=".42" stroke="#9dbce8" stroke-width="2"/>
+  <text x="924" y="133" text-anchor="middle" class="title" font-size="28">Web UI</text>
+  <text x="924" y="163" text-anchor="middle" class="text" font-size="20" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">http://127.0.0.1:25042/</text>
 
-  <path class="connector" d="M720 640 V685 H240 V730" stroke-width="3" marker-end="url(#arrow)"/>
-  <path class="connector" d="M720 640 V730" stroke-width="3" marker-end="url(#arrow)"/>
-  <path class="connector" d="M720 640 V685 H1200 V730" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M768 208 V262" stroke="#2f77d0" stroke-width="5" fill="none" marker-end="url(#arrowBlue)"/>
 
-  <rect class="box" x="70" y="740" width="340" height="300" rx="12" stroke-width="3"/>
-  <text x="240" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Local node</text>
-  <text x="110" y="890" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="120" y="925" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
-  <text x="120" y="957" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
-  <text x="310" y="880" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M310 895 V935" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="310" y="965" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <!-- HAC endpoint -->
+  <g filter="url(#softShadow)">
+    <rect x="363" y="278" width="810" height="171" rx="18" fill="url(#endpointFill)" stroke="#7b4ee8" stroke-width="4"/>
+  </g>
+  <text x="768" y="328" text-anchor="middle" class="title" font-size="38">HAC endpoint</text>
+  <text x="768" y="366" text-anchor="middle" class="text" font-size="25">Capability request (native API)</text>
+  <rect x="386" y="383" width="764" height="50" rx="12" fill="#ffffff" fill-opacity=".5" stroke="#b7a6eb" stroke-width="2"/>
+  <text x="768" y="415" text-anchor="middle" class="text" font-size="19.5">POST /v1/chat  ·  /v1/summarize  ·  /v1/classify  ·  /v1/image-generation</text>
 
-  <rect class="box" x="550" y="740" width="340" height="300" rx="12" stroke-width="3"/>
-  <text x="720" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Remote node A</text>
-  <text x="590" y="875" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="600" y="910" class="label" font-family="system-ui, sans-serif" font-size="21">• summarize</text>
-  <text x="600" y="942" class="label" font-family="system-ui, sans-serif" font-size="21">• classify</text>
-  <text x="790" y="850" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
-  <path class="connector" d="M790 865 V900" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="790" y="935" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M790 950 V985" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="790" y="1020" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <path d="M768 449 V509" stroke="#7b4ee8" stroke-width="5" fill="none" marker-end="url(#arrowPurple)"/>
 
-  <rect class="box" x="1030" y="740" width="340" height="300" rx="12" stroke-width="3"/>
-  <text x="1200" y="795" text-anchor="middle" class="heading" font-family="system-ui, sans-serif" font-size="27" font-weight="700">Remote node B</text>
-  <text x="1070" y="875" class="label" font-family="system-ui, sans-serif" font-size="22" font-weight="600">capabilities</text>
-  <text x="1080" y="910" class="label" font-family="system-ui, sans-serif" font-size="21">• chat</text>
-  <text x="1080" y="942" class="label" font-family="system-ui, sans-serif" font-size="21">• code</text>
-  <text x="1270" y="850" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">HAC app</text>
-  <path class="connector" d="M1270 865 V900" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="1270" y="935" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">adapter</text>
-  <path class="connector" d="M1270 950 V985" stroke-width="2.5" marker-end="url(#arrow)"/>
-  <text x="1270" y="1020" text-anchor="middle" class="label" font-family="system-ui, sans-serif" font-size="21">runtime</text>
+  <!-- Orchestrator -->
+  <g filter="url(#softShadow)">
+    <rect x="525" y="525" width="486" height="128" rx="18" fill="url(#orchestratorFill)" stroke="#f59e0b" stroke-width="4"/>
+  </g>
+  <text x="768" y="573" text-anchor="middle" class="title" font-size="37">Orchestrator</text>
+  <text x="768" y="610" text-anchor="middle" class="text" font-size="24">Capability-based routing</text>
+  <text x="768" y="638" text-anchor="middle" class="text" font-size="20">Local-first with explicit eligible nodes</text>
+
+  <!-- Routing fan-out -->
+  <path d="M525 589 H282 V719" stroke="#f59e0b" stroke-width="4.5" fill="none" marker-end="url(#arrowOrange)"/>
+  <path d="M768 653 V719" stroke="#f59e0b" stroke-width="4.5" fill="none" marker-end="url(#arrowOrange)"/>
+  <path d="M1011 589 H1254 V719" stroke="#f59e0b" stroke-width="4.5" fill="none" marker-end="url(#arrowOrange)"/>
+
+  <!-- Local node -->
+  <g filter="url(#softShadow)">
+    <rect x="49" y="735" width="454" height="355" rx="18" fill="url(#localFill)" stroke="#4f9a74" stroke-width="4"/>
+  </g>
+  <text x="276" y="784" text-anchor="middle" class="title" font-size="34">Local node</text>
+  <text x="276" y="814" text-anchor="middle" class="text" font-size="20">This machine (local-first)</text>
+
+  <rect x="69" y="829" width="414" height="106" rx="13" fill="#ffffff" fill-opacity=".35" stroke="#8bc4a7" stroke-width="2"/>
+  <text x="276" y="864" text-anchor="middle" class="title" font-size="21">Capabilities (example)</text>
+  <rect x="87" y="880" width="87" height="42" rx="10" fill="#eaf8ef" stroke="#55a87a" stroke-width="2"/>
+  <text x="130.5" y="907" text-anchor="middle" class="text" font-size="19">chat</text>
+  <rect x="189" y="880" width="91" height="42" rx="10" fill="#eef6ff" stroke="#6ba5e7" stroke-width="2"/>
+  <text x="234.5" y="907" text-anchor="middle" class="text" font-size="19">code</text>
+  <rect x="296" y="880" width="169" height="42" rx="10" fill="#fff0f0" stroke="#ef6c6c" stroke-width="2"/>
+  <text x="380.5" y="907" text-anchor="middle" class="text" font-size="18">image-generation</text>
+
+  <rect x="69" y="950" width="414" height="56" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#8bc4a7" stroke-width="2"/>
+  <text x="276" y="985" text-anchor="middle" class="text" font-size="24">Runtime adapter</text>
+  <rect x="69" y="1021" width="414" height="50" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#8bc4a7" stroke-width="2"/>
+  <text x="276" y="1053" text-anchor="middle" class="text" font-size="24">AI runtime</text>
+
+  <!-- Remote node A -->
+  <g filter="url(#softShadow)">
+    <rect x="545" y="735" width="446" height="355" rx="18" fill="url(#remoteAFill)" stroke="#5a94df" stroke-width="4"/>
+  </g>
+  <text x="768" y="784" text-anchor="middle" class="title" font-size="34">Remote node A</text>
+  <text x="768" y="814" text-anchor="middle" class="text" font-size="20">Explicitly eligible (e.g. rasp)</text>
+
+  <rect x="566" y="829" width="404" height="106" rx="13" fill="#ffffff" fill-opacity=".35" stroke="#9dbce8" stroke-width="2"/>
+  <text x="768" y="864" text-anchor="middle" class="title" font-size="21">Capabilities (example)</text>
+  <rect x="622" y="880" width="143" height="42" rx="10" fill="#f4efff" stroke="#9a6de7" stroke-width="2"/>
+  <text x="693.5" y="907" text-anchor="middle" class="text" font-size="19">summarize</text>
+  <rect x="785" y="880" width="130" height="42" rx="10" fill="#fff7dd" stroke="#e9ad2b" stroke-width="2"/>
+  <text x="850" y="907" text-anchor="middle" class="text" font-size="19">classify</text>
+
+  <rect x="566" y="950" width="404" height="56" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#9dbce8" stroke-width="2"/>
+  <text x="768" y="985" text-anchor="middle" class="text" font-size="24">Runtime adapter</text>
+  <rect x="566" y="1021" width="404" height="50" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#9dbce8" stroke-width="2"/>
+  <text x="768" y="1053" text-anchor="middle" class="text" font-size="24">AI runtime</text>
+
+  <!-- Remote node B -->
+  <g filter="url(#softShadow)">
+    <rect x="1033" y="735" width="454" height="355" rx="18" fill="url(#remoteBFill)" stroke="#e75b55" stroke-width="4"/>
+  </g>
+  <text x="1260" y="784" text-anchor="middle" class="title" font-size="34">Remote node B</text>
+  <text x="1260" y="814" text-anchor="middle" class="text" font-size="20">Explicitly eligible (e.g. sat)</text>
+
+  <rect x="1053" y="829" width="414" height="106" rx="13" fill="#ffffff" fill-opacity=".35" stroke="#efa3a0" stroke-width="2"/>
+  <text x="1260" y="864" text-anchor="middle" class="title" font-size="21">Capabilities (example)</text>
+  <rect x="1085" y="880" width="90" height="42" rx="10" fill="#eaf8ef" stroke="#55a87a" stroke-width="2"/>
+  <text x="1130" y="907" text-anchor="middle" class="text" font-size="19">chat</text>
+  <rect x="1192" y="880" width="94" height="42" rx="10" fill="#eef6ff" stroke="#6ba5e7" stroke-width="2"/>
+  <text x="1239" y="907" text-anchor="middle" class="text" font-size="19">code</text>
+  <rect x="1303" y="880" width="128" height="42" rx="10" fill="#fff7dd" stroke="#e9ad2b" stroke-width="2"/>
+  <text x="1367" y="907" text-anchor="middle" class="text" font-size="19">classify</text>
+
+  <rect x="1053" y="950" width="414" height="56" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#efa3a0" stroke-width="2"/>
+  <text x="1260" y="985" text-anchor="middle" class="text" font-size="24">Runtime adapter</text>
+  <rect x="1053" y="1021" width="414" height="50" rx="12" fill="#ffffff" fill-opacity=".45" stroke="#efa3a0" stroke-width="2"/>
+  <text x="1260" y="1053" text-anchor="middle" class="text" font-size="24">AI runtime</text>
 </svg>

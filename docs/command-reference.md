@@ -790,6 +790,7 @@ HAC process.
 ```sh
 hac image-generation "<INSTRUCTION>"
 hac image-generation --output <FILE> "<INSTRUCTION>"
+hac image-generation -o <FILE> "<INSTRUCTION>"
 hac image-generation --output <FILE> --jpeg "<INSTRUCTION>"
 hac image-generation --width <PIXELS> --height <PIXELS> "<INSTRUCTION>"
 hac image-generation --timeout-seconds <SECONDS> --output <FILE> "<INSTRUCTION>"
@@ -803,7 +804,8 @@ exactly those dimensions. Without `--output`, successful output is raw PNG bytes
 on stdout; direct TTY stdout is refused before a request is made, so use an
 appropriate non-TTY byte sink.
 
-With `--output FILE`, stdout is not the result sink and may be a TTY. Without
+`-o FILE` is the exact alias of canonical `--output FILE`. With either spelling,
+stdout is not the result sink and may be a TTY. Without
 `--jpeg`, the file receives exactly the validated PNG bytes regardless of its
 suffix. `--jpeg` requires `--output FILE`; it creates one caller-local JPEG
 derivative only after HAC has fully received and validated the normalized PNG.

@@ -805,14 +805,15 @@ def test_image_generation_command_refuses_tty_before_client_creation() -> None:
     assert errors.getvalue() == "error: image generation requires non-TTY stdout\n"
 
 
+@pytest.mark.parametrize("output_option", ["--output", "-o"])
 def test_image_generation_command_writes_validated_png_to_requested_output_file(
-    tmp_path,
+    tmp_path, output_option: str
 ) -> None:
     destination = tmp_path / "fox.png"
     output, errors, calls = _TTYOutput(), io.StringIO(), []
 
     image_generation_command.main(
-        ["--output", str(destination), "a fox", "--width", "64", "--height", "64"],
+        [output_option, str(destination), "a fox", "--width", "64", "--height", "64"],
         _client_factory=lambda **kwargs: _Client(_Response([_png(64, 64)]), calls),
         _stdout=output,
         _stderr=errors,
@@ -830,8 +831,9 @@ def test_image_generation_command_writes_validated_png_to_requested_output_file(
     ]
 
 
+@pytest.mark.parametrize("output_option", ["--output", "-o"])
 def test_image_generation_command_exports_eligible_png_as_caller_local_jpeg(
-    tmp_path,
+    tmp_path, output_option: str
 ) -> None:
     destination, output, errors, calls = (
         tmp_path / "fox.bin",
@@ -841,7 +843,7 @@ def test_image_generation_command_exports_eligible_png_as_caller_local_jpeg(
     )
 
     image_generation_command.main(
-        ["--output", str(destination), "--jpeg", "a fox"],
+        [output_option, str(destination), "--jpeg", "a fox"],
         _client_factory=lambda **kwargs: _Client(_Response([_png(3, 2)]), calls),
         _stdout=output,
         _stderr=errors,

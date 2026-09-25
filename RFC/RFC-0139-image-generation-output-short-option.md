@@ -1,6 +1,6 @@
 # RFC-0139: Image Generation Output Short Option
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-25
 
@@ -179,9 +179,7 @@ in this RFC PR.
 
 ## Decision
 
-Draft.
-
-If accepted, Home AI Cluster will accept exactly `-o FILE` as an additive,
+Home AI Cluster accepts exactly `-o FILE` as an additive,
 equal alias of Image Generation `--output FILE`. The long form remains
 supported, canonical, and non-deprecated. RFC-0136 and RFC-0137 semantics,
 including caller-local output authority and JPEG's output requirement, remain

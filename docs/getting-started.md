@@ -316,7 +316,7 @@ hac image-generation \
 
 `generated.png` must not already exist and its parent directory must already
 exist. Without `--jpeg`, HAC writes validated PNG bytes regardless of the file
-suffix. See the [Command Reference](command-reference.md#image-generation) for
+suffix. See the [Command Reference](command-reference.md#hac-image-generation) for
 the exact output and JPEG-export semantics.
 
 ## 8. Stop Home AI Cluster

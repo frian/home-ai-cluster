@@ -1,203 +1,97 @@
 # Home AI Cluster
 
-Local-first orchestration for personal AI runtimes.
+Local-first orchestration for personal AI infrastructure.
 
 **User documentation:** [frian.github.io/home-ai-cluster](https://frian.github.io/home-ai-cluster/)
 
-Home AI Cluster is an orchestration layer, not an LLM or inference engine. It
-presents multiple personal machines and replaceable AI runtimes as one
-capability-centered local system:
+Home AI Cluster (HAC) is an orchestration layer, not an LLM or inference
+engine. It lets you request capabilities from one local AI system instead of
+choosing a machine, runtime, or model brand for each ordinary request.
 
 > Many machines. One AI.
 
 ## Architecture at a glance
 
-A request names the capability it needs. Home AI Cluster routes it among the
-eligible declared nodes without making the caller choose a machine or runtime.
-
 ![Home AI Cluster architecture at a glance](docs/assets/architecture-at-a-glance.svg)
 
-The capability labels are illustrative examples from the currently supported
-explicit capability vocabulary; they are declaration-owned routing eligibility,
-not runtime discovery or dynamic status.
+Requests name capabilities, and HAC routes them among explicitly eligible
+nodes with local-first precedence. Runtimes, models, and processes remain
+operator-owned. HAC does not discover machines or dynamically schedule work.
 
-The user addresses the cluster rather than selecting a machine or runtime
-brand for an ordinary request. Ordinary operation remains intentionally small,
-local-first, and explicit.
+## What you can do
 
-## What works today
+HAC provides these ordinary user-facing capabilities:
 
-| Area | Current support |
-| ---- | --------------- |
-| Local runtime | Run one operator-managed local Ollama, llama-server, or vLLM composition. vLLM is an explicit concrete runtime, not a generic OpenAI-compatible runtime abstraction. |
-| Static cluster | Run one explicit local-plus-remote cluster from operator-declared, ordered remote nodes. Routing is capability-centered and local-first; declared remote order is the only remote priority. |
-| Native capabilities | Textual capabilities are Chat, Summarize, Classify, and Code. Image Generation is a separate explicit `image-generation` capability when an Image Generation binding or companion is configured and available. A narrow fallback applies only when an eligible candidate is unavailable before request transmission; results carry cluster-owned node attribution. |
-| Ordinary interfaces | Use the `hac` command or cluster-native HTTP endpoints for configured capabilities. The fixed loopback browser navigates Chat, Code, Image, Summarize, Classify, and Configuration; `hac chat` and `hac code` also support bounded foreground interactive terminal conversations whose successful context exists only in the client process. An operator may separately enable the capability-only trusted-LAN browser with `--lan-browser-host <LAN_IP>`; it excludes Configuration, Workspace, and External Information authority. Neither browser is a dashboard, runtime manager, persistent server-side conversation store, or execution environment. |
-| Optional bounded integrations | Use the narrow loopback OpenAI-compatible Chat process, bounded Aider and code caller edges, or separately installed external-information acquisition: explicitly, or through separately authorized one-shot Chat. |
-| Historical evidence | Retained investigations, runbooks, proofs, and closeouts are indexed separately; they are not required for ordinary operation. |
+- Chat
+- Code
+- Image Generation
+- Summarize
+- Classify
 
-Topology declarations and runtime lifecycle remain operator-owned.
+Use them through `hac` or the fixed loopback browser interface. Local-only operation is
+the default and simplest path; an explicit static cluster is available when you
+want declared remote nodes. Image Generation requires an explicitly configured
+Image Generation binding or companion. Code is textual by default, with
+separate bounded file and workspace caller edges.
 
-## Deliberate boundaries
+An operator may explicitly enable the capability-only trusted-LAN browser for
+trusted peers and network paths. It uses plain HTTP; see the
+[Command Reference](docs/command-reference.md) for its exact boundary.
 
-Home AI Cluster remains local-first, privacy-first, engine-independent,
-capability-centered, and architecture-before-implementation. Topology is
-explicit and static; operators own runtimes, models, remote processes, and
-declarations.
+Optional bounded integrations include External Information, Aider, and a
+narrow OpenAI-compatible Chat edge. Their exact behavior and authority
+boundaries are documented in the [Command Reference](docs/command-reference.md).
 
-The project does not provide automatic discovery, scheduling or ranking,
-dynamic topology mutation, process supervision, a dashboard architecture,
-Kubernetes deployment, a model catalogue, broad OpenAI API emulation, bundled
-Web acquisition, a generic plugin system, or a general production security
-model. See the [vision](https://github.com/frian/home-ai-cluster/blob/main/VISION.md),
-[foundations](https://github.com/frian/home-ai-cluster/blob/main/FOUNDATIONS.md),
-[principles](https://github.com/frian/home-ai-cluster/blob/main/PRINCIPLES.md),
-and [non-goals](https://github.com/frian/home-ai-cluster/blob/main/NON_GOALS.md)
-for the project rationale.
+## Quick start
 
-## Install and first use
+For prerequisites, Windows instructions, runtime setup, and the complete
+first-use path, see [Getting Started](docs/getting-started.md).
 
-For a complete first-use walkthrough, including `uv`, Python, Ollama, the default
-model, browser use, and first commands, see the
-[Getting Started guide](docs/getting-started.md).
-
-Native Windows 11 x86_64 users with WinGet should follow the supported
-[Windows PowerShell path in Getting Started](docs/getting-started.md#windows-11-x86_64).
-It uses WinGet to install `uv`, then installs the ordinary HAC PyPI package;
-no manual Python installation is required.
-
-### Installed package
-
-The supported installed-package path uses the current published package release:
+Install the published package and start HAC:
 
 ```sh
 uv tool install home-ai-cluster
-```
-
-A repository checkout may contain unreleased development work. See the
-[PyPI project](https://pypi.org/project/home-ai-cluster/) for published package
-information.
-
-The Linux and macOS default path requires Python 3.13 or 3.14, `uv`, and an
-operator-managed local Ollama runtime with the default `llama3.2` model
-available. Home AI Cluster does not install, download, start, stop, or manage
-the runtime or model.
-
-Start the ordinary local process in the foreground:
-
-```sh
 hac local
 ```
 
-From another terminal on the same machine, send one request:
+From another terminal, send a request:
 
 ```sh
 hac chat "Hello"
 ```
 
-With `hac local` running, open `http://127.0.0.1:25042/` in a browser on the
-same machine to use the fixed loopback navigation: Chat, Code, Image,
-Summarize, Classify, and Configuration. Chat includes a separate collapsed
-explicit External Information operation: an operator supplies a distinct acquisition
-QUERY and source-grounded Chat QUESTION, optionally overrides the retained exact
-plugin name, and receives generated content separately from supplied source
-evidence. Native loopback Chat also has a clearly visible, page-local
-authorization checkbox, OFF by default on every page load. When enabled,
-eligible newest turns may use the retained exact plugin selection: HAC's fixed
-decision sees only that exact turn, and the unchanged turn is the only
-acquisition QUERY. Prior conversation is not passed through HAC's acquisition
-contract; supplied-source provenance is displayed for that completed assistant
-turn only. This authorization is not retained, and trusted-LAN browser Chat
-does not receive it. The loopback-only Configuration view changes
-only retained local configuration, the optional stable-diffusion.cpp loopback
-base URL, caller-owned retained remote-node declarations, an explicit
-external-information plugin name, and the native one-shot Chat fallback
-authorization for future ordinary HAC launches; it does not reconfigure the
-running process. It does not discover plugins, inspect provider/runtime health,
-or retain browser Chat authorization. Remote
-declarations are not remote administration, and saving them does not probe or
-contact the configured node. Configuration remains unavailable on the
-trusted-LAN browser. The same URL is available on the calling machine while the
-ordinary `hac static-cluster` process is running; it is not a dashboard or LAN
-administration interface.
+Then open:
 
-### Repository checkout
-
-For development from a checkout, prepare the locked environment:
-
-```sh
-uv sync --locked
-uv run hac local
+```text
+http://127.0.0.1:25042/
 ```
 
-Then, from another terminal, send one request:
+The fixed local browser offers an ordinary way to use HAC.
 
-```sh
-uv run hac chat "Hello"
-```
+![Home AI Cluster browser interface](docs/assets/browser-interface.png)
 
-See [Contributing](https://github.com/frian/home-ai-cluster/blob/main/CONTRIBUTING.md)
-for development and validation guidance.
+## Deliberate boundaries
 
-## Optional bounded integrations
+HAC is local-first, privacy-first, capability-centered, and engine-independent.
+Its topology is explicit and static, while runtimes and models remain
+operator-owned. It has no automatic discovery or scheduler, runtime or model
+lifecycle management, general dashboard or control plane, broad
+OpenAI-compatible API, or Docker, Kubernetes, or database architecture.
 
-The separate `hac compatibility` process offers deliberately incomplete,
-loopback-only OpenAI-compatible Chat access. `hac aider` is a bounded caller
-edge and does not imply support for every Aider version or mode. `hac code`
-returns textual code assistance, while `hac code-file` performs one bounded
-whole-file replacement; generated code is never automatically executed and
-these commands grant no general repository, shell, Git, testing, agent, or
-execution authority.
+Read the [Vision](VISION.md), [Foundations](FOUNDATIONS.md),
+[Principles](PRINCIPLES.md), and [Non-goals](NON_GOALS.md) for the complete
+rationale.
 
-`hac external-information` explicitly uses one separately installed compatible
-acquisition plugin for one source-grounded Chat request. An operator may also
-authorize eligible one-shot `hac chat` to use that same bounded caller-owned
-plugin boundary. No provider is bundled, and the ordinary HAC server does not
-acquire external information by itself, except after an operator explicitly
-submits the separate loopback-browser External Information action or enables
-the page-local automatic Chat authorization for an eligible turn.
-Two published examples prove the same acquisition boundary with materially
-different provider ownership: the operator-managed local-service
-[SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng) and
-the credentialed external-service
-[Tavily plugin](https://github.com/frian/home-ai-cluster-plugin-tavily).
+## Go deeper
 
-Use the [command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md)
-for exact syntax and boundaries, and the [documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md)
-for retained integration evidence and proofs.
+- [Getting Started](docs/getting-started.md) — complete installation and first use.
+- [Command Reference](docs/command-reference.md) — exact command syntax and behavior.
+- [Canonical Operator Workflow](docs/operator-workflow.md) — local and static-cluster operation.
+- [Documentation index](docs/README.md) — retained investigations, proofs, and historical evidence.
+- [RFC index](RFC/README.md) — architectural decisions.
 
-Operators can retain local runtime choices and static remote declarations with
-`hac config`; explicit invocation values remain temporary.
+## Contributing and license
 
-## Documentation
-
-For a first installation and local run, use the
-[Getting Started guide](https://github.com/frian/home-ai-cluster/blob/main/docs/getting-started.md).
-
-For operating Home AI Cluster, use the [canonical operator workflow](https://github.com/frian/home-ai-cluster/blob/main/docs/operator-workflow.md),
-[command reference](https://github.com/frian/home-ai-cluster/blob/main/docs/command-reference.md),
-and [configuration examples](https://github.com/frian/home-ai-cluster/blob/main/examples/README.md).
-
-For architecture and project history, use the [documentation and historical evidence index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md),
-[RFC index](https://github.com/frian/home-ai-cluster/tree/main/RFC), and
-[completed roadmap](https://github.com/frian/home-ai-cluster/blob/main/ROADMAP.md).
-
-For project direction and participation, see the [vision](https://github.com/frian/home-ai-cluster/blob/main/VISION.md),
-[foundations](https://github.com/frian/home-ai-cluster/blob/main/FOUNDATIONS.md),
-[principles](https://github.com/frian/home-ai-cluster/blob/main/PRINCIPLES.md),
-[non-goals](https://github.com/frian/home-ai-cluster/blob/main/NON_GOALS.md),
-and [contribution guide](https://github.com/frian/home-ai-cluster/blob/main/CONTRIBUTING.md).
-
-## Founding milestone, contributing, and license
-
-> One endpoint. Two machines. One routed request.
-
-This founding milestone established the core abstraction: multiple personal
-machines can participate in one capability-centered local system without
-becoming an infrastructure platform. Retained evidence is available through the
-[documentation index](https://github.com/frian/home-ai-cluster/blob/main/docs/README.md).
-
-Contributions follow the [contribution guide](https://github.com/frian/home-ai-cluster/blob/main/CONTRIBUTING.md).
-Home AI Cluster is licensed under [AGPL-3.0-or-later](https://github.com/frian/home-ai-cluster/blob/main/LICENSE);
-see the [notice](https://github.com/frian/home-ai-cluster/blob/main/NOTICE) for
-associated notices.
+Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). Home AI Cluster is
+licensed under [AGPL-3.0-or-later](LICENSE); see [NOTICE](NOTICE) for associated
+notices.

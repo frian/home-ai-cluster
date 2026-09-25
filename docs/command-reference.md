@@ -624,6 +624,9 @@ For Tavily-specific setup, see the
 `--timeout-seconds SECONDS`, `--verbose`, and `--json` use the same caller
 presentation and HTTP conventions as `hac chat`. The timeout accepts one
 base-10 integer from `1` through `3600`, with a 120-second default.
+Default output is generated content only; `--verbose` adds ordinary execution
+attribution. Use `--json` / `-j` when the structured result, including supplied
+source provenance, is needed in CLI output.
 
 **Important behavior:**
 

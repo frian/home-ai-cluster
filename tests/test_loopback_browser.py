@@ -52,6 +52,7 @@ def test_api_only_applications_remain_page_free() -> None:
         assert get(app, "/").status_code == 404
         assert get(app, "/assets/app.css").status_code == 404
         assert get(app, "/assets/pdfjs-6.2.108/pdf.min.mjs").status_code == 404
+        assert get(app, "/workspace-code").status_code == 404
 
 
 def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
@@ -66,6 +67,7 @@ def test_loopback_browser_routes_are_fixed_and_keep_native_routes() -> None:
     assert page.status_code == 200
     assert page.headers["content-type"].startswith("text/html")
     assert page.headers["cache-control"] == "no-store"
+    assert page.headers["content-security-policy"] == "frame-ancestors 'self'"
     assert stylesheet.status_code == 200
     assert stylesheet.headers["content-type"].startswith("text/css")
     assert script.status_code == 200
@@ -95,9 +97,18 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "https://" not in html
     assert "http://" not in script
     assert "https://" not in script
+    assert "function clearConfigurationLocalForm()" in script
+    assert "if (local === null) {\n      clearConfigurationLocalForm();" in script
+    assert 'configurationRuntime.value = "";' in script
+    assert "configurationCapabilitiesAbsent.checked = true;" in script
+    assert 'document.querySelector("#configuration-temperature").value = "";' in script
+    assert (
+        'document.querySelector("#configuration-execution-limit").value = "";' in script
+    )
     assert '"/v1/chat"' in script
     assert 'post(context, "/v1/summarize"' in script
     assert 'post(context, "/v1/classify"' in script
+    assert 'fetch("/v1/image-generation", {' in script
     assert 'accept="application/pdf,.pdf" id="summarize-pdf" type="file"' in html
     assert "const pdfByteLimit = 8388608;" in script
     assert 'const pdfjsMainUrl = "/assets/pdfjs-6.2.108/pdf.min.mjs";' in script
@@ -165,19 +176,66 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert ".message-user" in stylesheet
     assert ".message-assistant" in stylesheet
     assert "const assistantAttribution = new WeakMap()" in script
-    assert "assistantAttribution.set(assistantMessage, result.node_id)" in script
-    chat_view = html.split('id="chat-view"', 1)[1].split('id="summarize-view"', 1)[0]
+    assert "assistantAttribution.set(assistantMessage, chatResult.node_id)" in script
+    automatic_chat_checkbox = (
+        html.split('id="chat-view"', 1)[1]
+        .split('id="external-information-view"', 1)[0]
+        .split("<input", 1)[1]
+        .split(">", 1)[0]
+    )
+    assert 'type="checkbox"' in automatic_chat_checkbox
+    assert 'autocomplete="off"' in automatic_chat_checkbox
+    assert "checked" not in automatic_chat_checkbox
+    assert (
+        'document.querySelector("#chat-external-information").checked = false;'
+        in script
+    )
+    assert (
+        "localStorage"
+        not in html.split('id="chat-view"', 1)[1].split(
+            'id="external-information-view"', 1
+        )[0]
+    )
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
     assert chat_view.index('id="chat-result-region"') < chat_view.index(
         'id="chat-form"'
     )
+    chat_result_region = chat_view.split('id="chat-result-region"', 1)[1].split(
+        "</section>", 1
+    )[0]
     assert (
-        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
-        in stylesheet
+        'aria-live="polite" class="request-status" id="chat-status" role="status"'
+        in chat_result_region
     )
+    chat_conversation = chat_result_region.split('id="chat-conversation"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    assert 'id="chat-status"' in chat_conversation
+    assert chat_result_region.count('id="chat-status"') == 1
+    assert (
+        'id="chat-status"'
+        not in chat_view.split('id="chat-form"', 1)[1].split(
+            '<details class="explicit-external-information">', 1
+        )[0]
+    )
+    assert "body {" in stylesheet
+    body_block = stylesheet.split("body {", 1)[1].split("}", 1)[0]
+    assert "min-height: 100vh;" in body_block
+    assert "max-height: min(50vh, 32rem);" not in stylesheet
+    assert ".conversation { max-height" not in stylesheet
+    assert ".conversation { overflow-y: auto;" not in stylesheet
     render_chat = script.split("function renderChat()", 1)[1].split(
         "function rollbackPendingMessage", 1
     )[0]
     assert "container.scrollTop = container.scrollHeight;" in render_chat
+    assert 'const status = document.querySelector("#chat-status");' in render_chat
+    assert "container.replaceChildren();" in render_chat
+    assert "container.append(status);" in render_chat
+    assert (
+        render_chat.index("container.replaceChildren();")
+        < render_chat.index("container.append(status);")
+        < render_chat.index("container.scrollTop = container.scrollHeight;")
+    )
     assert "focus(" not in render_chat
     assert "scrollIntoView" not in render_chat
     assert "window.scroll" not in render_chat
@@ -197,8 +255,19 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert pending_message in chat_handler
     assert "messages.push(pendingMessage);" in chat_handler
     assert (
-        'renderChat();\n    input.value = "";\n    const request = post('
+        'renderChat();\n    input.value = "";\n    const automaticExternalInformation'
         in chat_handler
+    )
+    assert (
+        'post(context, "/chat-external-information", { messages }, '
+        '"Generating response…")' in chat_handler
+    )
+    assert (
+        'document.querySelector("#chat-external-information").checked' in chat_handler
+    )
+    assert (
+        'post(context, "/v1/chat", { capability: "chat", messages }, '
+        '"Generating response…")' in chat_handler
     )
     assert chat_handler.index(pending_message) < chat_handler.index(
         "messages.push(pendingMessage);"
@@ -206,7 +275,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert (
         chat_handler.index("messages.push(pendingMessage);")
         < chat_handler.index('input.value = "";')
-        < chat_handler.index("const request = post(")
+        < chat_handler.index("const automaticExternalInformation")
         < chat_handler.index('context.status.scrollIntoView({ block: "nearest" });')
         < chat_handler.index("const result = await request;")
     )
@@ -238,7 +307,14 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "FormData" not in script
     assert "multipart/form-data" not in script
     assert ".name" not in script
-    for view in ("chat", "summarize", "classify", "code"):
+    for view in (
+        "chat",
+        "external-information",
+        "summarize",
+        "classify",
+        "code",
+        "configuration",
+    ):
         assert (
             f'aria-live="polite" class="error" id="{view}-error" role="status"' in html
         )
@@ -260,7 +336,7 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert 'input[type="file"]::file-selector-button' in stylesheet
     assert "@media (max-width: 40rem)" in stylesheet
     assert 'tabindex="0"' in html
-    assert html.count('tabindex="-1"') == 3
+    assert html.count('tabindex="-1"') == 5
     assert "function activateTab(tab, focus = false)" in script
     assert 'event.key === "ArrowRight"' in script
     assert 'event.key === "ArrowLeft"' in script
@@ -272,9 +348,17 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     assert "Remove classification label ${labelNumber}" in script
     for heading in ("Chat", "Summarize", "Classify", "Code"):
         assert f">{heading}</h2>" in html
+    assert "<summary>Explicit external information</summary>" in html
+    assert 'id="external-information-tab"' not in html
+    assert 'id="external-information-view"' not in html
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
+    assert 'id="external-information-form"' in chat_view
+    assert '<details class="explicit-external-information">' in chat_view
+    assert 'id="chat-external-information-plugin-state"' in chat_view
+    assert 'disabled id="chat-external-information"' in chat_view
     for heading in ("Response", "Summary", "Classification", "Generated code"):
         assert f">{heading}</h3>" in html
-    assert ".conversation:empty { display: none; }" in stylesheet
+    assert ".conversation:empty" not in stylesheet
     assert "[hidden] { display: none !important; }" in stylesheet
     assert 'class="result-section" hidden id="chat-result-region"' in html
     assert '<output class="result" hidden id="summarize-result"></output>' in html
@@ -317,19 +401,30 @@ def test_packaged_browser_assets_reference_only_fixed_local_assets() -> None:
     )
 
 
-def test_browser_request_state_is_scoped_to_each_view() -> None:
+def test_browser_capability_request_state_is_shared_across_views() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert "let requestActive" not in script
-    assert 'querySelectorAll("[data-submit]")' not in script
+    assert "let capabilityRequestActive = false;" in script
     assert "const requestContexts = {" in script
-    for view in ("chat", "summarize", "classify", "code"):
-        assert f"{view}: createRequestContext(" in script
-        assert f'id="{view}-error"' in html
-        assert f'id="{view}-status"' in html
-    assert 'function setRequestActive(context, active, message = "")' in script
+    for script_view, document_view in (
+        ("chat", "chat"),
+        ("externalInformation", "external-information"),
+        ("summarize", "summarize"),
+        ("classify", "classify"),
+        ("code", "code"),
+    ):
+        assert f"{script_view}: createRequestContext(" in script
+        assert f'id="{document_view}-error"' in html
+        assert f'id="{document_view}-status"' in html
+    assert "imageGeneration: createRequestContext(" in script
+    assert 'id="image-generation-error"' in html
+    assert 'id="image-generation-status"' in html
+    assert "const capabilityRequestContexts = [" in script
+    assert "requestContexts.imageGeneration," in script
+    assert "capabilityRequestActive = active;" in script
+    assert "capabilityContext.submit.disabled = active;" in script
     assert "context.submit.disabled = active;" in script
     assert "function clearError(context)" in script
     assert "function showError(context, message)" in script
@@ -337,11 +432,129 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     post_handler = script.split(
         "async function post(context, path, body, activeMessage)", 1
     )[1].split("function renderChat()", 1)[0]
-    assert "if (context.active) return null;" in post_handler
+    assert "if (capabilityRequestActive || context.active) return null;" in post_handler
     assert "setRequestActive(context, true, activeMessage);" in post_handler
     assert "clearError(context);" in post_handler
     assert "showError(context," in post_handler
     assert "setRequestActive(context, false);" in post_handler
+
+
+def test_chat_external_information_presentation_keeps_operations_distinct() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    tab_labels = [
+        button.split("</button>", 1)[0].split(">", 1)[1]
+        for button in html.split('role="tab" tabindex=')[1:]
+    ]
+    assert tab_labels == [
+        "Chat",
+        "Code",
+        "Image",
+        "Summarize",
+        "Classify",
+        "Configuration",
+    ]
+    assert 'id="external-information-tab"' not in html
+    assert 'id="external-information-view"' not in html
+    chat_view = html.split('id="chat-view"', 1)[1].split('id="code-view"', 1)[0]
+    assert '<details class="explicit-external-information">' in chat_view
+    assert "<summary>Explicit external information</summary>" in chat_view
+    for element_id in (
+        "external-information-form",
+        "external-information-plugin",
+        "external-information-query",
+        "external-information-question",
+        "external-information-error",
+        "external-information-status",
+        "external-information-result-region",
+        "external-information-result",
+        "external-information-sources",
+    ):
+        assert f'id="{element_id}"' in chat_view
+
+    assert (
+        "function setChatExternalInformationPluginState("
+        "plugin, resetAuthorization = false)" in script
+    )
+    assert "async function loadChatExternalInformationPluginState()" in script
+    assert 'fetch("/retained-external-information-configuration")' in script
+    assert "void loadChatExternalInformationPluginState();" in script
+    assert "Retained External Information plugin: ${plugin}" in script
+    assert '"No External Information plugin configured."' in script
+    assert '"External Information plugin configuration unavailable."' in script
+    chat_plugin_state = script.split(
+        "function setChatExternalInformationPluginState", 1
+    )[1].split("function publishPassiveChatExternalInformationPluginState", 1)[0]
+    assert "if (resetAuthorization) checkbox.checked = false;" in chat_plugin_state
+    assert chat_plugin_state.index(
+        'if (typeof plugin === "string" && plugin.trim())'
+    ) < chat_plugin_state.index("checkbox.checked = false;")
+    assert "checkbox.disabled = false;" in script
+    assert "checkbox.disabled = true;" in script
+    assert (
+        "setChatExternalInformationPluginState(plugin, resetAuthorization);" in script
+    )
+    assert "let retainedPluginPresentationGeneration = 0;" in script
+    passive_publish = script.split(
+        "function publishPassiveChatExternalInformationPluginState", 1
+    )[1].split("async function loadChatExternalInformationPluginState", 1)[0]
+    assert "generation !== retainedPluginPresentationGeneration" in passive_publish
+    initial_load = script.split(
+        "async function loadChatExternalInformationPluginState", 1
+    )[1].split("void loadChatExternalInformationPluginState();", 1)[0]
+    assert "const generation = retainedPluginPresentationGeneration;" in initial_load
+    assert (
+        "publishPassiveChatExternalInformationPluginState(body.plugin, generation);"
+        in initial_load
+    )
+    configuration_load = script.split("async function loadConfiguration()", 1)[1].split(
+        "configurationRuntime.addEventListener", 1
+    )[0]
+    assert (
+        "const retainedPluginGeneration = retainedPluginPresentationGeneration;"
+        in configuration_load
+    )
+    assert (
+        "if (retainedPluginGeneration === retainedPluginPresentationGeneration)"
+        in configuration_load
+    )
+    assert (
+        "setExternalInformationConfiguration(externalInformationBody.plugin);"
+        in configuration_load
+    )
+    plugin_save = script.split(
+        "externalInformationConfigurationForm.addEventListener", 1
+    )[1].split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[0]
+    assert plugin_save.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_save.index("setExternalInformationConfiguration(body.plugin, true);")
+    plugin_clear = script.split(
+        'document.querySelector("#external-information-configuration-clear")', 1
+    )[1].split("chatExternalInformationConfigurationForm.addEventListener", 1)[0]
+    assert plugin_clear.index(
+        "retainedPluginPresentationGeneration += 1;"
+    ) < plugin_clear.index("setExternalInformationConfiguration(null, true);")
+    assert "setInterval" not in script
+    assert "setTimeout" not in script
+
+    chat_handler = script.split(
+        'document.querySelector("#chat-form").addEventListener(', 1
+    )[1].split('document.querySelector("#code-form")', 1)[0]
+    assert "/v1/chat" in chat_handler
+    assert "/chat-external-information" in chat_handler
+    assert "external-information-query" not in chat_handler
+    assert "external-information-question" not in chat_handler
+    assert "external-information-plugin" not in chat_handler
+
+    explicit_handler = script.split(
+        'document.querySelector("#external-information-form").addEventListener(', 1
+    )[1].split('document.querySelector("#chat-form")', 1)[0]
+    assert 'post(context, "/external-information", {' in explicit_handler
+    assert "messages" not in explicit_handler
 
     handlers = {
         "chat": script.split(
@@ -359,12 +572,12 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     }
     for view, handler in handlers.items():
         assert f"const context = requestContexts.{view};" in handler
-        assert "if (context.active) return;" in handler
+        assert "if (capabilityRequestActive) return;" in handler
 
-    assert handlers["chat"].index("if (context.active) return;") < handlers[
+    assert handlers["chat"].index("if (capabilityRequestActive) return;") < handlers[
         "chat"
     ].index("messages.push(pendingMessage);")
-    assert handlers["code"].index("if (context.active) return;") < handlers[
+    assert handlers["code"].index("if (capabilityRequestActive) return;") < handlers[
         "code"
     ].index("codeMessages.push(pendingMessage);")
     assert 'context.status.scrollIntoView({ block: "nearest" });' in handlers["chat"]
@@ -373,33 +586,205 @@ def test_browser_request_state_is_scoped_to_each_view() -> None:
     assert "showError(requestContexts.classify," in script
 
 
-def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
+def test_image_generation_view_projects_the_native_png_operation() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
     stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
     script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
 
-    assert html.count('role="tab"') == 4
-    assert html.count('role="tabpanel"') == 4
+    assert html.count('id="image-generation-tab"') == 1
+    assert html.count('id="image-generation-view" role="tabpanel"') == 1
+    assert html.index('id="code-tab"') < html.index('id="image-generation-tab"')
+    assert html.index('id="image-generation-tab"') < html.index(
+        'id="configuration-tab"'
+    )
+    image_view = html.split('id="image-generation-view"', 1)[1].split(
+        'id="summarize-view"', 1
+    )[0]
+    assert image_view.count("<textarea") == 1
+    assert 'id="image-generation-instruction"' in image_view
+    assert 'id="image-generation-width"' in image_view
+    assert 'id="image-generation-height"' in image_view
+    assert 'min="64" max="2048" step="1" type="number"' in image_view
+    assert image_view.count("data-submit") == 1
+    assert ">Generate</button>" in image_view
+    assert 'id="generated-image"' in image_view
+    assert 'id="image-generation-error"' in image_view
+    assert 'id="image-generation-status"' in image_view
+    for forbidden in (
+        "aspect",
+        "negative",
+        "seed",
+        "sampler",
+        "scheduler",
+        "quality",
+        "download",
+        "gallery",
+        "history",
+        'type="file"',
+    ):
+        assert forbidden not in image_view.lower()
+
+    handler = script.split("async function postImageGeneration", 1)[1].split(
+        'document.querySelector("#image-generation-form")', 1
+    )[0]
+    assert 'fetch("/v1/image-generation", {' in handler
+    assert 'method: "POST"' in handler
+    assert 'headers: { "Content-Type": "application/json" }' in handler
+    assert "body: JSON.stringify(body)" in handler
+    assert "response.json()" not in handler
+    assert "response.blob()" in handler
+    assert "URL.createObjectURL" in handler
+    assert "URL.revokeObjectURL(currentImageUrl)" in handler
+    assert handler.index("URL.revokeObjectURL(currentImageUrl)") < handler.index(
+        "currentImageUrl = imageUrl"
+    )
+    assert "node_id" not in handler
+    assert "adapter" not in handler
+    assert "model" not in handler
+    assert "runtime" not in handler
+    assert script.count("let currentImageUrl = null;") == 1
+    assert "localStorage" not in handler
+    assert "sessionStorage" not in handler
+    assert "indexedDB" not in handler
+    assert ".result-section img" in stylesheet
+    submit_handler = script.split(
+        'document.querySelector("#image-generation-form")', 1
+    )[1].split('document.querySelector("#chat-form")', 1)[0]
+    assert '(width === "") !== (height === "")' in submit_handler
+    assert "body.width = numericWidth;" in submit_handler
+    assert "body.height = numericHeight;" in submit_handler
+
+
+def test_browser_tab_and_panel_source_order_is_operator_facing_order() -> None:
+    html = (
+        files("home_ai_cluster")
+        .joinpath("web", "index.html")
+        .read_text(encoding="utf-8")
+    )
+
+    tab_ids = [
+        "chat-tab",
+        "code-tab",
+        "image-generation-tab",
+        "summarize-tab",
+        "classify-tab",
+        "configuration-tab",
+    ]
+    panel_ids = [
+        "chat-view",
+        "code-view",
+        "image-generation-view",
+        "summarize-view",
+        "classify-view",
+        "configuration-view",
+    ]
+
+    assert tab_ids == sorted(tab_ids, key=lambda tab_id: html.index(f'id="{tab_id}"'))
+    assert panel_ids == sorted(
+        panel_ids, key=lambda panel_id: html.index(f'id="{panel_id}"')
+    )
+
+
+def test_browser_stylesheet_keeps_all_views_shrinkable_at_narrow_widths() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
+
+    assert "body {" in stylesheet
+    assert "min-width: 20rem" not in stylesheet
+    for selector in (
+        ".page {",
+        ".tabs {",
+        ".capability-panel {",
+        "form {",
+        "fieldset {",
+    ):
+        block = stylesheet.split(selector, 1)[1].split("}", 1)[0]
+        assert "min-width: 0" in block
+    controls = stylesheet.split("textarea, input {", 1)[1].split("}", 1)[0]
+    assert "max-width: 100%" in controls
+    assert "min-width: 0" in controls
+    assert "width: 100%" in controls
+    remote_node = stylesheet.split(".remote-node {", 1)[1].split("}", 1)[0]
+    assert "min-width: 0" in remote_node
+    assert "overflow-wrap: anywhere" in remote_node
+    assert ".conversation, .result" in stylesheet
+    assert ".message-content { overflow-wrap: anywhere;" in stylesheet
+    assert ".error, .request-status { overflow-wrap: anywhere; }" in stylesheet
+    assert (
+        ".result-section img { display: block; height: auto; max-width: 100%; }"
+        in stylesheet
+    )
+
+    narrow_layout = stylesheet.split("@media (max-width: 40rem)", 1)[1]
+    assert ".page-header { align-items: start; flex-direction: column;" in narrow_layout
+    assert (
+        ".tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }"
+        in narrow_layout
+    )
+    assert ".file-options, .label-row { grid-template-columns: 1fr; }" in narrow_layout
+    assert (
+        ".form-actions, .remote-node-actions { align-items: stretch; "
+        "flex-direction: column; }" in narrow_layout
+    )
+    assert (
+        ".remote-node-actions { display: flex; flex-wrap: wrap; gap: .5rem; }"
+        in stylesheet
+    )
+
+
+def test_code_view_keeps_text_only_default_and_offers_explicit_workspace_access() -> (
+    None
+):
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    stylesheet = web.joinpath("assets", "app.css").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert html.count('role="tab"') == 6
+    assert html.count('role="tabpanel"') == 6
     assert 'aria-controls="code-view"' in html
     assert 'id="code-tab"' in html
     assert 'id="code-view" role="tabpanel"' in html
-    code_view = html.split('id="code-view"', 1)[1].split("</main>", 1)[0]
+    code_view = html.split('id="code-view"', 1)[1].split(
+        'id="image-generation-view"', 1
+    )[0]
     code_section = code_view
     assert code_view.index('id="code-result-region"') < code_view.index(
         'id="code-form"'
     )
+    code_result_region = code_view.split('id="code-result-region"', 1)[1].split(
+        "</section>", 1
+    )[0]
+    assert (
+        'aria-live="polite" class="request-status" id="code-status" role="status"'
+        in code_result_region
+    )
+    code_conversation = code_result_region.split('id="code-conversation"', 1)[1].split(
+        "</div>", 1
+    )[0]
+    assert 'id="code-status"' in code_conversation
+    assert code_result_region.count('id="code-status"') == 1
+    assert code_result_region.index(
+        'id="code-conversation"'
+    ) < code_result_region.index('id="workspace-activity"')
+    assert 'id="code-status"' not in code_view.split('id="code-form"', 1)[1]
     assert 'id="code-form"' in code_section
     assert 'for="code-text"' in code_section
     assert 'id="code-text"' in code_section
     assert code_section.count("<textarea") == 1
+    assert 'id="workspace-enabled" type="checkbox"' in code_section
+    assert 'id="workspace-options" hidden' in code_section
+    assert 'id="workspace-root"' in code_section
+    assert 'value="list"' in code_section
+    assert 'value="read"' in code_section
+    assert 'value="write"' in code_section
+    assert 'value="create"' in code_section
     assert 'data-submit type="submit"' in code_section
     assert 'aria-live="polite" class="conversation" id="code-conversation"' in code_view
     assert 'type="file"' not in code_section
-    assert (
-        ".conversation { max-height: min(50vh, 32rem); overflow-y: auto; }"
-        in stylesheet
-    )
+    assert "max-height: min(50vh, 32rem);" not in stylesheet
+    assert ".conversation { overflow-y: auto;" not in stylesheet
 
     code_handler = script.split(
         'document.querySelector("#code-form").addEventListener('
@@ -422,6 +807,18 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     )
     assert '"/v1/chat"' in code_handler
     assert '{ capability: "code", messages: codeMessages }' in code_handler
+    assert '"/workspace-code"' in code_handler
+    assert "let fixedWorkspace = null;" in script
+    assert "Reload the page before changing workspace access" in script
+    assert "history: codeMessages.slice(0, -1)" in code_handler
+    assert "renderWorkspaceActivity(null);" in code_handler
+    assert code_handler.index("renderWorkspaceActivity(null);") < code_handler.index(
+        "const request = workspaceEnabled"
+    )
+    assert (
+        "if (workspaceEnabled.checked && result) "
+        "renderWorkspaceActivity(result.activity);" in code_handler
+    )
     assert "codeMessages.push(pendingMessage);" in code_handler
     assert "codeMessages.push(assistantMessage);" in code_handler
     assert "messages.push" not in code_handler
@@ -432,7 +829,7 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
     assert 'behavior: "smooth"' not in code_handler
     assert code_handler.index(
         "codeMessages.push(pendingMessage);"
-    ) < code_handler.index("const request = post(")
+    ) < code_handler.index("const request = workspaceEnabled")
     assert code_handler.index(
         'context.status.scrollIntoView({ block: "nearest" });'
     ) < code_handler.index("const result = await request;")
@@ -447,6 +844,14 @@ def test_code_view_is_fixed_text_only_and_uses_native_code_request() -> None:
         "function rollbackPendingCodeMessage", 1
     )[0]
     assert "container.scrollTop = container.scrollHeight;" in render_code
+    assert 'const status = document.querySelector("#code-status");' in render_code
+    assert "container.replaceChildren();" in render_code
+    assert "container.append(status);" in render_code
+    assert (
+        render_code.index("container.replaceChildren();")
+        < render_code.index("container.append(status);")
+        < render_code.index("container.scrollTop = container.scrollHeight;")
+    )
     assert "focus(" not in render_code
     assert "scrollIntoView" not in render_code
     assert "textContent = message.content;" in render_code
@@ -514,6 +919,64 @@ def test_loopback_theme_preference_is_the_only_persistent_browser_state() -> Non
     assert "@media (max-width: 40rem)" in stylesheet
 
 
+def test_configuration_view_is_retained_future_launch_configuration_only() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    html = web.joinpath("index.html").read_text(encoding="utf-8")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    assert 'id="configuration-tab"' in html
+    assert 'id="configuration-view"' in html
+    assert "Retained configuration" in html
+    assert "Local configuration" in html
+    assert "Remote nodes" in html
+    assert "Caller-owned retained declarations" in html
+    assert "Changes affect future HAC launches." in html
+    assert "currently running process is not reconfigured" in html
+    assert "Caller-local routing capabilities" in html
+    assert "Maximum concurrent HAC executions" in html
+    execution_limit_input = html.split('id="configuration-execution-limit"', 1)[
+        1
+    ].split(">", 1)[0]
+    assert 'type="number"' in execution_limit_input
+    assert 'min="1"' in execution_limit_input
+    assert 'placeholder="Positive integer"' in execution_limit_input
+    assert "value=" not in execution_limit_input
+    assert "ollama" in html
+    assert "llama-server" in html
+    assert "vLLM" in html
+    assert 'fetch("/retained-local-configuration")' in script
+    assert 'fetch("/retained-remote-nodes")' in script
+    assert 'method: "PUT"' in script
+    assert "Apply" not in html
+    assert "Reload" not in html
+    assert "Restart" not in html
+    assert "Configured base URL" in html
+    assert "Caller-declared allowed capabilities" in html
+    assert "readOnly = true" in script
+    remote_node_form = html.split('id="remote-node-form"', 1)[1].split("</form>", 1)[0]
+    assert remote_node_form.index("Cancel edit") < remote_node_form.index(
+        "Save remote node"
+    )
+    assert ".form-actions { display: flex; gap: .5rem;" in web.joinpath(
+        "assets", "app.css"
+    ).read_text(encoding="utf-8")
+    remove_handler = script.split("async function removeRemoteNode(nodeId)", 1)[
+        1
+    ].split("function renderChat", 1)[0]
+    assert "window.confirm(" in remove_handler
+    assert 'Remove retained remote node "${nodeId}"?' in remove_handler
+    assert "This affects future HAC launches." in remove_handler
+    assert "The currently running process is not reconfigured." in remove_handler
+    assert "if (!window.confirm(" in remove_handler
+    assert remove_handler.index("if (!window.confirm(") < remove_handler.index(
+        'method: "DELETE"'
+    )
+    assert "innerHTML" not in script
+    assert "Connection test" not in html
+    assert "health" not in html.lower()
+    assert "drag" not in html.lower()
+
+
 def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> None:
     web = files("home_ai_cluster").joinpath("web")
     html = web.joinpath("index.html").read_text(encoding="utf-8")
@@ -536,3 +999,35 @@ def test_loopback_reload_can_restore_only_theme_not_chat_or_code_content() -> No
     assert "sessionStorage" not in script
     assert "indexedDB" not in script
     assert "document.cookie" not in script
+
+
+def test_source_provenance_uses_shared_collapsed_native_details_presentation() -> None:
+    web = files("home_ai_cluster").joinpath("web")
+    script = web.joinpath("assets", "app.js").read_text(encoding="utf-8")
+
+    source_details = script.split("function createSuppliedSourceDetails(source)", 1)[
+        1
+    ].split("function renderExternalInformationSources", 1)[0]
+    assert 'document.createElement("details")' in source_details
+    assert 'document.createElement("summary")' in source_details
+    assert "summary.textContent = source.title;" in source_details
+    assert "url.textContent = `URL provenance: ${source.url}`;" in source_details
+    assert "content.textContent = source.content;" in source_details
+    assert "details.append(summary, url, content);" in source_details
+    assert 'document.createElement("a")' not in source_details
+    assert "open =" not in source_details
+    assert "localStorage" not in source_details
+    assert "sessionStorage" not in source_details
+
+    render_chat = script.split("function renderChat()", 1)[1].split(
+        "function rollbackPendingMessage", 1
+    )[0]
+    assert "entry.append(createSuppliedSourceDetails(source));" in render_chat
+
+    render_external_information_sources = script.split(
+        "function renderExternalInformationSources(sources)", 1
+    )[1].split("let currentImageUrl", 1)[0]
+    assert "container.replaceChildren();" in render_external_information_sources
+    assert "container.append(createSuppliedSourceDetails(source));" in (
+        render_external_information_sources
+    )

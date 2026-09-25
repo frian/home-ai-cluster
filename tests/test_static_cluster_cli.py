@@ -15,6 +15,15 @@ from home_ai_cluster.static_cluster import (
 from home_ai_cluster.static_cluster_declaration import load_static_cluster_declaration
 
 
+@pytest.fixture(autouse=True)
+def isolated_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
+
+
 def test_parse_args_accepts_inline_mode() -> None:
     args = parse_args(
         [
@@ -90,6 +99,7 @@ def test_parse_args_accepts_ollama_disable_thinking() -> None:
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
         (["classify"], ("classify",)),
+        (["image-generation"], ("image-generation",)),
         (["classify", "chat", "summarize"], ("classify", "chat", "summarize")),
     ],
 )
@@ -120,6 +130,7 @@ def test_parse_args_accepts_explicit_inline_remote_capabilities(
         (["chat"], ("chat",)),
         (["summarize"], ("summarize",)),
         (["summarize", "classify", "chat"], ("summarize", "classify", "chat")),
+        (["image-generation"], ("image-generation",)),
     ],
 )
 def test_parse_args_accepts_explicit_inline_local_capabilities(
@@ -440,6 +451,7 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition
@@ -458,6 +470,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         ollama_disable_thinking: bool,
         llama_server_base_url: str | None,
         llama_server_model: str | None,
+        vllm_base_url: str | None,
+        vllm_model: str | None,
         capabilities: tuple[str, ...],
     ) -> object:
         recorded["composition_arguments"] = {
@@ -466,6 +480,8 @@ def test_main_loads_single_declaration_collection_before_starting_server(
             "ollama_disable_thinking": ollama_disable_thinking,
             "llama_server_base_url": llama_server_base_url,
             "llama_server_model": llama_server_model,
+            "vllm_base_url": vllm_base_url,
+            "vllm_model": vllm_model,
             "capabilities": capabilities,
         }
         return local_composition
@@ -505,7 +521,9 @@ def test_main_loads_single_declaration_collection_before_starting_server(
         "ollama_disable_thinking": True,
         "llama_server_base_url": None,
         "llama_server_model": None,
-        "capabilities": ("chat", "summarize"),
+        "vllm_base_url": None,
+        "vllm_model": None,
+        "capabilities": ("chat", "summarize", "classify", "code"),
     }
     assert recorded["local_app_composition"] is local_composition
     assert recorded["app"] is app
@@ -526,7 +544,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         encoding="utf-8",
     )
     app = FastAPI()
-    selected_composition = object()
+    selected_composition = create_local_runtime_composition(runtime="ollama")
     recorded: dict[str, object] = {}
 
     def create_local_composition(**kwargs: object) -> object:
@@ -537,6 +555,7 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition
@@ -581,7 +600,9 @@ def test_main_passes_llama_server_composition_to_declaration_constructor(
         "ollama_disable_thinking": False,
         "llama_server_base_url": "http://127.0.0.1:8080",
         "llama_server_model": "local-model",
-        "capabilities": ("chat", "summarize"),
+        "vllm_base_url": None,
+        "vllm_model": None,
+        "capabilities": ("chat", "summarize", "classify", "code"),
     }
     assert recorded["local_app_composition"] is selected_composition
     assert [vars(remote) for remote in recorded["remote_nodes"]] == [
@@ -655,6 +676,7 @@ def test_main_preserves_multiple_declaration_order_before_starting_server(
         remote_nodes: object,
         *,
         local_app_composition: object,
+        **_kwargs: object,
     ) -> FastAPI:
         recorded["remote_nodes"] = remote_nodes
         recorded["local_app_composition"] = local_app_composition
@@ -710,3 +732,57 @@ def test_main_does_not_start_server_when_declaration_loading_fails(
     assert "invalid remote base URL declaration" in captured.err
     assert private_url not in captured.err
     assert "private.example" not in captured.err
+
+
+def test_lan_system_exit_still_closes_static_cluster_http_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster import static_cluster
+
+    class Client:
+        closed = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    client = Client()
+    native_app = FastAPI()
+    native_app.state.static_cluster_http_client = client
+
+    monkeypatch.setattr(
+        static_cluster, "create_local_runtime_composition", lambda **_: object()
+    )
+    monkeypatch.setattr(
+        static_cluster, "_create_routing_node_registry", lambda *_: None
+    )
+    monkeypatch.setattr(
+        static_cluster,
+        "create_static_cluster_app",
+        lambda *_args, **_kwargs: native_app,
+    )
+    monkeypatch.setattr(static_cluster, "add_loopback_browser_routes", lambda app: app)
+    monkeypatch.setattr(
+        static_cluster,
+        "create_trusted_lan_browser_app",
+        lambda *_args, **_kwargs: FastAPI(),
+    )
+
+    async def raise_startup_exit(*_args: object, **_kwargs: object) -> None:
+        raise SystemExit(3)
+
+    monkeypatch.setattr(local_runtime, "_run_lan_enabled_servers", raise_startup_exit)
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            [
+                "--remote-node-id",
+                "operator-remote",
+                "--remote-base-url",
+                "https://remote.example:8000",
+                "--lan-browser-host",
+                "192.0.2.10",
+            ]
+        )
+
+    assert raised.value.code == 3
+    assert client.closed is True

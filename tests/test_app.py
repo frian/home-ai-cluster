@@ -8,6 +8,7 @@ from home_ai_cluster.api.wiring import (
     LocalAppComposition,
     build_static_remote_wiring,
 )
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
@@ -62,6 +63,22 @@ class RecordingRemoteTransport:
         )
 
 
+class BlockingAdapter(RecordingAdapter):
+    def __init__(self) -> None:
+        super().__init__()
+        self.started = asyncio.Event()
+        self.second_started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_requests.append(request)
+        self.started.set()
+        if len(self.chat_requests) == 2:
+            self.second_started.set()
+        await self.release.wait()
+        return RuntimeResult(content="local result", adapter=self.name)
+
+
 def make_node(node_id: str, adapter_name: str = "recording") -> NodeDescription:
     return NodeDescription(
         id=node_id,
@@ -93,10 +110,18 @@ def make_static_remote_wiring(
     )
 
 
-def make_local_app_composition(adapter: RecordingAdapter) -> LocalAppComposition:
+def make_local_app_composition(
+    adapter: RecordingAdapter,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
+) -> LocalAppComposition:
     return LocalAppComposition(
         node_registry=NodeRegistry([make_node("local", adapter.name)]),
         adapter_registry=AdapterRegistry([adapter]),
+        **(
+            {"execution_intervals": execution_intervals}
+            if execution_intervals is not None
+            else {}
+        ),
     )
 
 
@@ -162,13 +187,14 @@ def test_create_app_without_remote_wiring_stores_none() -> None:
     assert app.state.local_app_composition is None
 
 
-def test_local_app_composition_contains_only_local_registries() -> None:
+def test_local_app_composition_contains_local_registries_and_execution_state() -> None:
     adapter = RecordingAdapter()
     composition = make_local_app_composition(adapter)
 
     assert [field.name for field in fields(composition)] == [
         "node_registry",
         "adapter_registry",
+        "execution_intervals",
     ]
     assert composition.node_registry.list_nodes() == [make_node("local", adapter.name)]
     assert composition.adapter_registry.list_adapters() == [adapter]
@@ -207,6 +233,132 @@ def test_internal_request_uses_supplied_local_app_composition() -> None:
     ]
     assert app.state.static_remote_wiring is None
     assert app.state.static_remote_collection_wiring is None
+
+
+def test_internal_request_tracks_receiver_local_execution_interval() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        composition = make_local_app_composition(adapter)
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            request = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request",
+                    json=internal_cluster_request_payload(),
+                )
+            )
+            await adapter.started.wait()
+            assert composition.execution_intervals.value == 1
+            adapter.release.set()
+            response = await request
+        assert response.status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
+
+
+def test_internal_request_denies_receiver_execution_while_another_executes() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        composition = make_local_app_composition(adapter)
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            first = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            await adapter.started.wait()
+            second = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            second_response = await second
+            assert second_response.status_code == 409
+            assert second_response.json() == {"detail": "execution-permission-denied"}
+            assert len(adapter.chat_requests) == 1
+            assert composition.execution_intervals.value == 1
+            adapter.release.set()
+            first_response = await first
+
+        assert first_response.status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
+
+
+def test_internal_request_limit_two_allows_two_then_refuses_third() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        composition = make_local_app_composition(
+            adapter, ExecutionIntervalCardinality(limit=2)
+        )
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            first = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            await adapter.started.wait()
+            second = asyncio.create_task(
+                client.post(
+                    "/internal/cluster/request", json=internal_cluster_request_payload()
+                )
+            )
+            await adapter.second_started.wait()
+            assert composition.execution_intervals.value == 2
+            third = await client.post(
+                "/internal/cluster/request", json=internal_cluster_request_payload()
+            )
+            assert third.status_code == 409
+            assert third.json() == {"detail": "execution-permission-denied"}
+            assert len(adapter.chat_requests) == 2
+            assert composition.execution_intervals.value == 2
+            adapter.release.set()
+            assert (await first).status_code == 200
+            assert (await second).status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
+
+
+def test_originating_request_limit_two_allows_two_then_refuses_third() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        composition = make_local_app_composition(
+            adapter, ExecutionIntervalCardinality(limit=2)
+        )
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            first = asyncio.create_task(client.post("/v1/chat", json=chat_payload()))
+            await adapter.started.wait()
+            second = asyncio.create_task(client.post("/v1/chat", json=chat_payload()))
+            await adapter.second_started.wait()
+            assert composition.execution_intervals.value == 2
+            third = await client.post("/v1/chat", json=chat_payload())
+            assert third.status_code == 409
+            assert len(adapter.chat_requests) == 2
+            assert composition.execution_intervals.value == 2
+            adapter.release.set()
+            assert (await first).status_code == 200
+            assert (await second).status_code == 200
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_internal_status_uses_supplied_local_app_composition() -> None:
@@ -250,6 +402,31 @@ def test_chat_without_remote_wiring_remains_local_only(
     assert len(adapter.chat_requests) == 1
     assert transport.requests == []
     assert transport.declarations == []
+
+
+def test_originating_local_permission_denial_maps_to_safe_http_conflict() -> None:
+    async def run() -> None:
+        adapter = RecordingAdapter()
+        composition = make_local_app_composition(adapter)
+        assert await composition.execution_intervals.try_enter()
+        app = create_app(local_app_composition=composition)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            response = await client.post("/v1/chat", json=chat_payload())
+        await composition.execution_intervals.exit()
+
+        assert response.status_code == 409
+        assert response.status_code not in {404, 503}
+        assert response.json() == {"detail": "execution permission denied"}
+        assert "local execution permission denied" not in response.text
+        assert "traceback" not in response.text.lower()
+        assert "recording" not in response.text
+        assert adapter.chat_requests == []
+        assert composition.execution_intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_chat_uses_supplied_local_app_composition() -> None:

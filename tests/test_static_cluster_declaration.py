@@ -33,15 +33,16 @@ def test_static_cluster_and_declaration_share_neutral_validation() -> None:
     assert static_cluster_declaration.remote_base_url is remote_base_url
 
 
-def test_static_capabilities_accept_explicit_classify_without_changing_defaults() -> (
-    None
-):
+def test_static_capabilities_accept_explicit_values_without_changing_defaults() -> None:
     assert validate_static_capabilities(
         ["classify", "chat", "summarize"], subject="remote"
     ) == ("classify", "chat", "summarize")
     assert validate_static_capabilities(["chat", "classify"], subject="local") == (
         "chat",
         "classify",
+    )
+    assert validate_static_capabilities(["image-generation"], subject="remote") == (
+        "image-generation",
     )
 
 
@@ -518,14 +519,14 @@ def test_ordered_remote_capabilities_preserve_declaration_order(
             "[[remote_nodes]]\n"
             'node_id = "summary-node"\n'
             'base_url = "http://192.0.2.11:8000"\n'
-            'capabilities = ["summarize"]\n',
+            'capabilities = ["image-generation"]\n',
         )
     )
 
     actual = [(node.node_id, node.capabilities) for node in declarations.remote_nodes]
     assert actual == [
         ("chat-node", ("chat",)),
-        ("summary-node", ("summarize",)),
+        ("summary-node", ("image-generation",)),
     ]
 
 

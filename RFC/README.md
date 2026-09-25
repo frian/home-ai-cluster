@@ -67,6 +67,159 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
+  — accepts capability-oriented ordinary-loopback navigation and co-locates
+  RFC-0133's distinct explicit External Information operation with Chat while
+  preserving RFC-0134 automatic assistance, declarative-only retained plugin
+  state, and trusted-LAN exclusions.
+
+- [RFC-0130: Bounded Trusted-LAN Browser Authority](RFC-0130-bounded-trusted-lan-browser-authority.md)
+  — accepts one optional explicit trusted-LAN browser capability authority for
+  `hac local` and `hac static-cluster`, sharing their existing execution/routing
+  truth while exposing a closed Chat, text-only Code, Image Generation,
+  Summarize, and Classify surface; Configuration and Workspace remain excluded,
+  exact Host/same-origin Origin preserve the bounded browser boundary, plain
+  HTTP retains its explicit trusted-peer/network-path model without auth/TLS,
+  and loopback and receiver authorities remain separate.
+
+- [RFC-0129: Bounded Loopback Browser Image Generation](RFC-0129-bounded-loopback-browser-image-generation.md)
+  — accepts one bounded Image Generation request view in the existing fixed
+  loopback browser application, reusing RFC-0127's unchanged same-origin
+  operation and raw `image/png` result with one ephemeral current image.
+
+- [RFC-0128: Retained Local Image Generation Companion Composition](RFC-0128-retained-local-image-generation-companion-composition.md)
+  — accepts one optional HAC-managed retained local Image Generation companion
+  with fixed stable-diffusion.cpp composition, separately configured from the
+  unchanged complete `config local` domain; ordinary local composition may add
+  it, while `--runtime-config` remains a complete non-merging alternative.
+
+- [RFC-0127: Bounded One-Shot Local Image Generation Operator Edge](RFC-0127-bounded-one-shot-local-image-generation-operator-edge.md)
+  — accepts one instruction-only native local Image Generation operation with
+  raw `image/png` success and one thin `hac image-generation` client that
+  writes exact PNG bytes to non-TTY stdout, while preserving filesystem
+  authority, RFC-0059 static permission, remote/receiver boundaries, and
+  RFC-0082 disconnect cancellation coverage.
+
+- [RFC-0126: Explicit stable-diffusion.cpp Local Capability-Binding Configuration](RFC-0126-explicit-stable-diffusion-cpp-local-binding-configuration.md)
+  — extends RFC-0110's explicitly selected multi-binding runtime-config
+  vocabulary with one closed `stable-diffusion-cpp` binding requiring explicit
+  `image-generation` ownership and loopback `base_url`, while preserving
+  RFC-0074, retained configuration, static routing permission, remote Image
+  Generation, observation, and operator request/output boundaries.
+
+- [RFC-0125: Explicit Local Sampling Temperature](RFC-0125-explicit-local-sampling-temperature.md)
+  — accepts one optional common operator-facing local textual-runtime
+  sampling-temperature control for Ollama, llama-server, and vLLM, scoped to
+  the selected runtime composition/retention, with native omission preserved;
+  Classify, requests, transport, routing, and generic options remain excluded.
+
+- [RFC-0124: Bounded Loopback Browser Workspace-Enabled Code](RFC-0124-bounded-loopback-browser-workspace-enabled-code.md)
+  — accepts explicit optional workspace access inside the existing loopback
+  browser Code conversation, with one fresh caller-local workspace authority per
+  human turn, fixed current-page root/grant continuity, bounded classified
+  activity, same-origin plus anti-framing browser authority, and RFC-0082-style
+  disconnect cancellation without server sessions or generic filesystem APIs.
+
+- [RFC-0123: Bounded Interactive Workspace Coding](RFC-0123-bounded-interactive-workspace-coding.md)
+  — accepts bounded foreground multi-turn `hac code-workspace` with fixed
+  caller-local workspace authority, process-memory-only successful conversation
+  history, and one fresh bounded native HAC workspace interaction per human
+  turn; native HAC is the sole current harness, with no generic harness
+  selection or persistence.
+
+- [RFC-0122: Honest Still-PNG Color Signaling](RFC-0122-honest-still-png-color-signaling.md)
+  — narrows RFC-0120's still-PNG color rule from mandatory `sRGB` to one
+  closed two-state representation: exactly one truthful `sRGB` chunk or no
+  color-space signaling, while preserving adapter-owned color truthfulness,
+  cluster-owned structural validation, all non-color PNG bounds, and the
+  unchanged RFC-0121 runtime decision.
+
+- [RFC-0121: Explicit stable-diffusion.cpp Image Generation Adapter](RFC-0121-explicit-stable-diffusion-cpp-image-generation-adapter.md)
+  — selects `stable-diffusion.cpp` / operator-managed loopback `sd-server` as
+  the first concrete local `image-generation` runtime adapter, keeps native
+  runtime protocol and job mechanics adapter-private, requires bounded truthful
+  normalization into the unchanged RFC-0120 still-PNG contract, and limits the
+  first real proof to programmatic local composition without expanding remote
+  transport or operator surfaces.
+
+- [RFC-0120: Bounded Local Image Generation](RFC-0120-bounded-local-image-generation.md)
+  — accepts the distribution-independent `image-generation` semantic capability
+  for local request-executable use, one dedicated Image Generation execution
+  shape, and one closed bounded still-PNG result contract with cluster-owned
+  complete validation, while leaving remote transport, production runtime
+  selection, operator surfaces, configuration, and filesystem authority
+  unchanged.
+
+- [RFC-0119: Capability-Coherent Adapter Execution Contracts](RFC-0119-capability-coherent-adapter-execution-contracts.md)
+  — separates the common adapter surface from explicit operation-shaped execution
+  contracts, requires positive adapter capability claims to be execution-coherent
+  before request-executable use, preserves RFC-0108 binding ownership separately,
+  and leaves routing operation-blind without accepting a generic execution model
+  or any new capability.
+
+- [RFC-0118: Bounded Workspace Empty-Leaf Creation](RFC-0118-bounded-workspace-empty-leaf-creation.md)
+  — accepts one separately granted `create` operation for exclusive empty-leaf
+  creation in an existing parent, with separate later `write` for content and
+  unchanged routing and caller-local workspace authority.
+
+- [RFC-0117: Bounded Workspace-Aware Code Operator Surface](RFC-0117-bounded-workspace-aware-code-operator-surface.md)
+  — accepts one explicit `hac code-workspace` operator surface with per-invocation
+  root and `list`/`read`/`write` grants, caller-local RFC-0116/RFC-0114
+  authority, ordinary Code routing, bounded stderr activity, and stdout final
+  output, without retained workspace configuration or broader agent/tool/process
+  authority.
+
+- [RFC-0116: Bounded Workspace-Aware Code Interaction](RFC-0116-bounded-workspace-aware-code-interaction.md)
+  — accepts one foreground ephemeral workspace-aware Code composition: ordinary
+  textual Code inference plus one local RFC-0114 authority, a closed
+  final-or-`list`/`read`/`write` grammar, finite action budget, and bounded
+  textual reinjection, with unchanged routing and no change to ordinary Code,
+  generic tools/agents, or process authority.
+
+- [RFC-0115: Bounded One-Shot Local Workspace Machine Carrier](RFC-0115-bounded-one-shot-local-workspace-machine-carrier.md)
+  — accepts one dedicated local machine-facing one-shot workspace carrier with
+  trusted startup root/grant, one bounded JSON request/response, and RFC-0114
+  filesystem semantics, without listener, persistence, human CLI, routing,
+  inference, or generic process authority.
+
+- [RFC-0114: Bounded HAC Local Workspace Authority](RFC-0114-bounded-hac-local-workspace-authority.md)
+  — accepts one process-local HAC-owned workspace namespace authority with
+  explicit `list`/`read`/`write` grants, closed bounded logical paths, bounded
+  UTF-8 list/read/write behavior, and existing-file same-directory replacement,
+  without routing, remote filesystem protocol, sandbox, harness, inference, or
+  retained configuration authority.
+
+- [RFC-0113: Bounded Loopback Retained Remote-Node Configuration Browser Facade](RFC-0113-bounded-loopback-retained-remote-node-configuration-browser-facade.md)
+  — accepts one native-loopback browser facade over caller-owned retained `hac
+  config node` declarations with shared add/update/remove validation and order
+  semantics, future-invocation-only effects, inert configured values,
+  RFC-0112 same-origin mutation authority, exact receiver isolation, and no
+  remote administration, observation, discovery, or control-plane authority.
+
+- [RFC-0112: Bounded Loopback Retained Local Configuration Browser Facade](RFC-0112-bounded-loopback-retained-local-configuration-browser-facade.md)
+  — accepts one native-loopback browser facade over retained local configuration
+  with shared CLI/browser validation and complete replacement, retained state
+  distinct from current process truth, bounded Host/exact-same-origin mutation,
+  receiver/topology/runtime-config/multi-binding exclusions, and fail-closed
+  future-domain evolution.
+
+- [RFC-0111: Explicit Receiver Authority Activation](RFC-0111-explicit-receiver-authority-activation.md)
+  — accepts additive `hac local --receiver-host` receiver activation with one
+  foreground process, one local composition/node/execution scope, loopback-only
+  native authority, explicit concrete receiver binds, and independent receiver
+  port semantics, while preserving RFC-0109's closed route set.
+
+- [RFC-0109: Explicit LAN Receiver Route Boundary](RFC-0109-explicit-lan-receiver-route-boundary.md)
+  — accepts one closed remote-receiver route set containing only the existing
+  internal cluster request and status routes, while preserving one HAC
+  composition/node, RFC-0110's fail-closed multi-adapter status boundary, and
+  separate future authentication, TLS, and listener/port decisions.
+
+- [RFC-0101: Process-Local Execution Interval Representation](RFC-0101-process-local-execution-interval-representation.md)
+  — accepts one shared non-negative process-local quantity for active HAC-owned
+  execution intervals in one ordinary composed HAC application process, and
+  authorizes one bounded representation proof without execution policy,
+  routing effects, protocol changes, or runtime-capacity claims.
 - [RFC-0097: Supported Windows Installation Path](RFC-0097-supported-windows-installation-path.md)
   — accepts one native Windows 11 x86_64 PowerShell installation route for
   1.0: WinGet to upstream `uv`, then the ordinary HAC PyPI package and `uv`'s

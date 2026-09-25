@@ -53,7 +53,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has fourteen commands.
+The ordinary root surface has sixteen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -65,8 +65,10 @@ The ordinary root surface has fourteen commands.
 | [`chat`](#hac-chat) | Send one native chat request. |
 | [`code`](#hac-code) | Send one native bounded textual code request. |
 | [`code-file`](#hac-code-file) | Replace one selected file from one bounded code result. |
-| [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
+| [`code-workspace`](#hac-code-workspace) | Run one bounded workspace-aware Code interaction. |
 | [`classify`](#hac-classify) | Send one native bounded classification request. |
+| [`image-generation`](#hac-image-generation) | Send one Image Generation request. |
+| [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`health`](#hac-health) | Inspect local declared state and runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
@@ -84,11 +86,19 @@ With no concrete subcommand, `hac config` displays the config command map.
 hac config local --runtime ollama
 hac config local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac config local --runtime ollama --ollama-disable-thinking
+hac config local --runtime ollama --execution-limit 2
 hac config local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
   --llama-server-model <MODEL_IDENTIFIER>
+hac config local \
+  --runtime vllm \
+  --vllm-base-url http://127.0.0.1:<VLLM_PORT> \
+  --vllm-model <SERVED_MODEL_IDENTIFIER>
 hac config local --reset
+
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config image-generation --reset
 
 hac config node <NODE_ID> --base-url <BASE_URL>
 hac config node <NODE_ID> --base-url <BASE_URL> --capability code
@@ -110,8 +120,22 @@ caller-local-capability replacement. Non-reset local mutation requires explicit
 `--runtime`; supported runtimes and their validation remain the same as `hac
 local`. Repeat `--local-capability <NAME>` to retain an explicit caller-local
 capability set. Omission retains no explicit local capability restriction.
-`--reset` removes only the retained local facts and is mutually exclusive with
+`--execution-limit <N>` retains one positive integer HAC execution limit for
+this machine's ordinary HAC process. It limits overlapping HAC-owned execution
+intervals: it does not describe or guarantee runtime concurrency. Omitting the
+option while configuring a complete local record leaves the limit `not retained`,
+so the effective limit remains `1`. There is no invocation-time execution-limit
+override. `--reset` removes only the retained local facts and is mutually exclusive with
 all local mutation options.
+
+`image-generation` retains the one accepted local stable-diffusion.cpp
+companion endpoint. `--base-url` must be an explicit loopback `http` origin;
+it replaces only this companion and does not contact `sd-server`, inspect a
+model, or configure generation controls. `--reset` removes only the companion.
+The operator continues to own `sd-server` lifecycle and its model. When no
+explicit `--runtime-config <PATH>` is selected, ordinary `hac local` composes
+this companion with the effective textual runtime. An explicit runtime-config
+is complete and ignores both retained execution-composition domains.
 
 `node` adds a retained remote declaration or completely replaces the existing
 declaration with the same node ID. New nodes append; replacement preserves that
@@ -147,7 +171,9 @@ health observation, plugin discovery/import, DNS, HTTP, or mutation. Its
 external-information section reports the retained name only, not credential,
 installation, compatibility, provider, or health status. The retained-state
 physical path and file representation are internal implementation details, not
-a manual-edit API or output schema.
+a manual-edit API or output schema. It displays a retained local HAC execution
+limit when one exists, otherwise `HAC execution limit: not retained`; this is
+not current work, runtime load, active interval count, or remaining allowance.
 
 Retained configuration is the optional normal startup baseline. `hac local`
 uses retained local runtime composition when present; explicitly supplied
@@ -168,34 +194,74 @@ retained values.
 ```sh
 hac local
 hac local --host 127.0.0.1 --port 25042
+hac local --receiver-host <LAN_IP>
+hac local --receiver-host <LAN_IP> --receiver-port <PORT>
+hac local --lan-browser-host <LAN_IP> [--lan-browser-port <PORT>]
 hac local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac local --runtime ollama --ollama-disable-thinking
+hac local --runtime ollama --temperature 0
 hac local --runtime-config <PATH>
 hac local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
   --llama-server-model <MODEL_IDENTIFIER>
+hac local \
+  --runtime vllm \
+  --vllm-base-url http://127.0.0.1:<VLLM_PORT> \
+  --vllm-model <SERVED_MODEL_IDENTIFIER>
 ```
 
 **Important behavior:** The default runtime is Ollama. The closed runtime choices
-are `ollama` and `llama-server`; `--ollama-model` is optional only with Ollama
-and omission keeps `llama3.2`; llama-server requires both of its explicit
-arguments. The application runs in the foreground. Home AI Cluster does not
-install, start, stop, download models for, or supervise the external runtime.
-Ordinary local compositions advertise and execute `chat`, `summarize`,
-`classify`, and `code`.
+are `ollama`, `llama-server`, and `vllm`. `--ollama-model` is optional only
+with Ollama and omission keeps `llama3.2`; llama-server requires both of its
+explicit arguments; and vLLM requires its explicit loopback base URL and
+served-model identity. vLLM is a concrete runtime selection, not a generic
+OpenAI-compatible runtime abstraction. The application runs in the foreground.
+Home AI Cluster does not install, start, stop, download models for, or
+supervise the external runtime. Ordinary textual runtime compositions advertise
+and execute `chat`, `summarize`, `classify`, and `code`; `image-generation`
+requires its separately explicit Image Generation binding or companion.
+
+`--temperature VALUE` is an optional finite non-negative local free-text
+sampling-temperature value for Ollama, llama-server, and vLLM. Explicit `0`
+is retained and forwarded; omission sends no temperature override and preserves
+the runtime's native default request behavior. It applies to Chat, Summarize,
+and Code (including workspace Code), not Classify. HAC neither recommends nor
+supplies a default temperature, and equal values do not promise equivalent
+behavior across runtimes.
+
+Native/local authority is always exactly `127.0.0.1`; `--host` accepts no other
+value. `--receiver-host <LAN_IP>` additively enables one receiver listener in
+the same foreground process. It requires one concrete non-loopback,
+non-wildcard IP address; HAC does not resolve names, choose an address, or bind
+`0.0.0.0`. Its receiver port defaults independently to `25042`; `--port` and
+`--receiver-port` control only their respective authorities. The receiver
+serves only RFC-0109's internal request and status routes. It is unauthenticated
+plain HTTP for a trusted LAN: route isolation is neither authentication nor
+confidential transport.
 `--ollama-disable-thinking` is Ollama-only and configures the process-local
 Ollama adapter: it requests native `think: false` for every adapter inference.
 Omission preserves the existing request shape (no `think` field). It is not a
 per-request or per-capability setting.
 
 `--runtime-config <PATH>` selects one explicit TOML runtime-composition file.
-It has a closed `ollama` or `llama-server` schema: Ollama accepts optional
-`model` and `disable_thinking` values in `[ollama]`; llama-server requires
-`base_url` and `model` in `[llama_server]`. There is no implicit config-file
-discovery. File mode is mutually exclusive with equivalent runtime-composition
-options explicitly supplied by the operator; parser defaults do not conflict.
-The file and CLI options are not merged.
+It accepts either the existing closed single-runtime schema or a closed
+multi-binding schema. A multi-binding file contains only one or more
+`[[bindings]]` entries; each entry explicitly assigns a non-empty, disjoint
+capability set to one adapter construction. The binding-only
+`stable-diffusion-cpp` runtime requires exactly explicit `image-generation`
+ownership and loopback HTTP `base_url`; it accepts no model or generation
+controls. Ollama accepts optional `model` and `disable_thinking`; llama-server
+and vLLM require `base_url` and `model`. Temperature remains limited to
+textual-runtime bindings. There is no implicit config-file discovery.
+Each covered single-runtime file may optionally use a top-level `temperature`
+fact; covered textual multi-binding entries may do the same. Runtime-config
+files are self-contained and never inherit retained temperature.
+File mode is mutually exclusive with equivalent runtime-composition options
+explicitly supplied by the operator; parser defaults do not conflict. The file
+and CLI options are not merged.
+It remains a self-contained alternate runtime-composition source; it does not
+carry an HAC execution limit.
 
 An Ollama runtime-composition file can be:
 
@@ -223,19 +289,47 @@ model = "model-name"
 Both llama-server values are required. Runtime-composition files configure only
 the caller-local runtime and remain separate from static topology declarations.
 
-When the selected host is exactly `127.0.0.1`, open
-`http://127.0.0.1:25042/` for the fixed same-origin browser page. It contains
-Chat, Summarize, Classify, and Code. The page keeps Chat only in memory, shows
+A multi-binding file is request-capable only and keeps one local HAC node:
+
+```toml
+[[bindings]]
+capabilities = ["chat", "summarize"]
+runtime = "ollama"
+model = "llama3.2"
+
+[[bindings]]
+capabilities = ["classify", "code"]
+runtime = "vllm"
+base_url = "http://127.0.0.1:8000"
+model = "served-model"
+```
+
+The native authority is fixed to exact `127.0.0.1`; open
+`http://127.0.0.1:25042/` for the fixed same-origin browser page. Its visible
+navigation is Chat, Code, Image, Summarize, Classify, and Configuration;
+`Image` is the presentation label for the `image-generation` capability.
+Loopback Chat includes page-local automatic External Information authorization
+and a separate explicit External Information operation. The page keeps Chat only in memory, shows
 per-assistant node attribution, and shows accessible active feedback while a
-request is running. Each view permits at most one active request, while distinct
-views may have independent in-flight requests; the selected node or runtime may
-still queue their execution. One explicitly selected Summarize or Classify file is read
+request is running. The browser permits at most one active capability request at
+a time; the selected node or runtime may still queue its execution. One explicitly
+selected Summarize or Classify file is read
 locally with strict UTF-8 decoding and populates that view's editable text area;
 the current textarea value is submitted through the existing JSON text request.
-Classify preserves ordered labels and sends no multipart data or filename. Every
-other `--host` value remains API-only, including `0.0.0.0`, `localhost`, and
-`::1`; the page is not a LAN browser interface, dashboard, operator console, or
-compatibility interface.
+Classify preserves ordered labels and sends no multipart data or filename.
+Non-`127.0.0.1` generic `--host` values are rejected. The loopback page remains
+bound to native loopback authority. LAN receiver activation uses
+`--receiver-host` and adds no browser routes to receiver authority; the
+receiver listener is distinct from the trusted-LAN browser listener. The
+loopback page is not a dashboard, operator console, or compatibility interface.
+
+`--lan-browser-host <LAN_IP>` additively serves the bounded RFC-0130 browser
+from one concrete non-loopback IP (default port `25042`; `--lan-browser-port`
+overrides it) for both `hac local` and `hac static-cluster`. It exposes only
+Chat, text-only Code, Image, Summarize, and Classify; Configuration
+and Workspace remain loopback-only. It is plain HTTP: reachable peers and the
+network path must be trusted. Host and Origin checks protect browser authority,
+not client identity; this first boundary has no TLS or authentication.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -284,20 +378,28 @@ hac static-cluster \
   neither per-request nor per-capability. Omission preserves the existing
   native request shape, and remote declarations carry no such setting.
 - `--runtime-config <PATH>` uses the same explicit closed runtime-composition
-  contract as `hac local`; topology declarations remain separate.
+  contract as `hac local`; multi-binding files are accepted and topology
+  declarations remain separate. The binding union is local execution ownership;
+  caller-local capabilities remain independent routing permission, so local
+  eligibility requires both. An Image Generation binding does not add
+  `image-generation` to caller-local or remote static capability permission.
 
 **Capabilities**
 
 - The accepted explicit capability names are `chat`, `summarize`, `classify`,
-  and `code`.
+  `code`, and `image-generation`. `image-generation` is explicit and
+  nondefault. Caller-local capability membership is routing permission, not
+  physical local ownership; remote capability membership is caller-owned
+  declared eligibility.
 - For remote declarations, use `capabilities = ["..."]` in ordered TOML
   entries, `remote_capabilities = ["..."]` in the legacy flat TOML form, or
   repeat `--remote-capability <NAME>` for the one-remote inline form.
 - Remote capability omission retains only `chat` plus `summarize`, so
-  `classify` and `code` eligibility are always explicit.
+  `classify`, `code`, and `image-generation` eligibility are always explicit.
 - Caller-local routing capabilities use `local_capabilities = ["..."]` at the
   TOML root or repeated `--local-capability <NAME>` in the complete inline
-  form. Omission also retains local `chat` plus `summarize`.
+  form. Omission retains only local `chat` plus `summarize`; it does not make
+  `image-generation` default.
 - Explicit local and remote capability sets must be non-empty and use only the
   accepted names; duplicates and unknown names are rejected.
 - Capability membership controls eligibility only. Capability order is not
@@ -317,6 +419,11 @@ static-cluster routing eligibility. Omission retains the existing `chat` plus
   node, or create scheduling or preference.
 - Remote declaration order remains the only remote priority rule.
 - Declarations do not probe remotes or schedule requests.
+- `config node` and remote declarations contain no HAC execution-limit
+  information. A remote caller does not learn a receiver's limit, active
+  interval count, or remaining allowance. When a receiver refuses before its
+  adapter is invoked, the existing exact `execution-permission-denied` response
+  remains the safe refusal that can permit ordinary next-candidate handling.
 
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.
@@ -370,11 +477,22 @@ source provenance. Interactive Chat is excluded.
 
 With no message, `hac chat` is interactive only when both stdin and stdout are
 TTYs; otherwise it fails locally without reading stdin or sending a request.
+`hac chat --external-information` is an explicit, session-local authorization
+for that TTY-only interactive mode. It snapshots the retained exact
+external-information plugin selection once at session entry. For an eligible
+turn, HAC decides using only the newest exact user text and, only on the
+external branch, passes that same text as the acquisition query. Prior
+conversation is not passed through HAC's acquisition contract. This is
+independent of the retained one-shot fallback authorization. It authorizes only
+that foreground interactive CLI session: it neither enables nor persists the
+native loopback browser's separate, page-local, default-OFF authorization
+checkbox.
 Interactive mode is ordinary content-only presentation: `--json`, `--verbose`,
 and `-v` are invalid without a message. Successful exchanges are retained only
-in the foreground process, in chronological user/assistant order, and every
-new turn sends that complete context in one ordinary Chat request. Nothing is
-persisted; EOF/Ctrl-D and Ctrl-C end the session.
+in the foreground process, in chronological user/assistant order, and each
+turn performs exactly one final ordinary or source-grounded Chat request under
+the accepted bounded flow. Nothing is persisted; EOF/Ctrl-D and Ctrl-C end the
+session.
 
 Interactive candidate message content is limited to 65,536 UTF-8 bytes across
 all retained messages and the new turn. An over-limit or failed turn is not
@@ -506,6 +624,9 @@ For Tavily-specific setup, see the
 `--timeout-seconds SECONDS`, `--verbose`, and `--json` use the same caller
 presentation and HTTP conventions as `hac chat`. The timeout accepts one
 base-10 integer from `1` through `3600`, with a 120-second default.
+Default output is generated content only; `--verbose` adds ordinary execution
+attribution. Use `--json` / `-j` when the structured result, including supplied
+source provenance, is needed in CLI output.
 
 **Important behavior:**
 
@@ -611,6 +732,101 @@ same-directory temporary file, preserves only the target's ordinary `0o777`
 permission bits, and atomically replaces the selected target once. It does not
 execute generated content, does not retry, and adds no endpoint, capability,
 standalone executable, or Aider behavior.
+
+## `hac code-workspace`
+
+**Purpose:** Run bounded workspace-aware Code interactions with one explicit,
+caller-local workspace root and explicit filesystem-operation grants.
+
+**Common forms:**
+
+```sh
+hac code-workspace --root <PATH> --grant list --grant read "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant read --grant write --message "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant create --grant write --message "<INSTRUCTION>"
+hac code-workspace --root <PATH> --grant list --grant read
+```
+
+**Important behavior:** Exactly one explicit `--root`, one or more `--grant`
+values (`list`, `read`, `write`, or `create`) are required. An explicit
+non-blank positional or `--message` instruction runs exactly one interaction;
+both forms together or repeated `--message` are invalid. With neither message
+form, the command enters a foreground interaction only when both stdin and
+stdout are TTYs. It retains no history or authority after exit, accepts no
+piped-input protocol, and leaves blank terminal input unsubmitted.
+
+One interactive foreground invocation constructs one fixed caller-local
+authority from its root and grants. Each submitted human turn starts a fresh
+bounded interaction (at most eight workspace actions and nine Code inferences)
+and uses the ordinary per-inference `--timeout-seconds` value. Only successful
+human instructions and exact non-empty final answers are retained in process
+memory for later turns; workspace action/outcome context is turn-local.
+Duplicate valid grants collapse idempotently; there is no implicit root or
+grant, retained workspace setting, or dynamic authority.
+
+`write` replaces one existing regular UTF-8 file and still refuses a missing
+target. `create` creates exactly one empty missing regular leaf in an existing
+directory; it creates no parent directory and never overwrites an existing
+object. Creating and then populating a new file normally requires both explicit
+`create` and `write` grants. No grant is implicit or default.
+
+The root and grants construct caller-local authority for this invocation only.
+Workspace action activity is written to stderr; a final model response alone is
+written to stdout. A refused action is intermediate and can still be followed
+by a successful final response. Ordinary Code routing still applies, so bounded
+workspace text (such as names and file contents) may be sent to configured
+remote Code nodes; the physical root and grants remain local. `--root` and the
+initial instruction are ordinary local command-line arguments and may be
+visible to host process inspection, shell behavior, or shell history. The
+command grants no shell, process, Git, general-agent, or retained authority.
+
+## `hac image-generation`
+
+**Purpose:** Send one Image Generation request to an already-running ordinary
+HAC process.
+
+**Common forms:**
+
+```sh
+hac image-generation "<INSTRUCTION>"
+hac image-generation --output <FILE> "<INSTRUCTION>"
+hac image-generation -o <FILE> "<INSTRUCTION>"
+hac image-generation --output <FILE> --jpeg "<INSTRUCTION>"
+hac image-generation --width <PIXELS> --height <PIXELS> "<INSTRUCTION>"
+hac image-generation --timeout-seconds <SECONDS> --output <FILE> "<INSTRUCTION>"
+```
+
+**Important behavior:** `hac image-generation [--output FILE] [--jpeg]
+"<INSTRUCTION>" [--width PIXELS --height PIXELS] [--timeout-seconds N]` sends
+one closed request. Width and height are optional but must be supplied together
+as whole pixels from 64 through 2048; when supplied, the successful PNG has
+exactly those dimensions. Without `--output`, successful output is raw PNG bytes
+on stdout; direct TTY stdout is refused before a request is made, so use an
+appropriate non-TTY byte sink.
+
+`-o FILE` is the exact alias of canonical `--output FILE`. With either spelling,
+stdout is not the result sink and may be a TTY. Without
+`--jpeg`, the file receives exactly the validated PNG bytes regardless of its
+suffix. `--jpeg` requires `--output FILE`; it creates one caller-local JPEG
+derivative only after HAC has fully received and validated the normalized PNG.
+JPEG export accepts only 8-bit RGB source PNGs, preserves dimensions, and uses
+fixed quality 95, 4:4:4 chroma subsampling, and non-progressive encoding. HAC
+creates only the explicitly selected missing leaf: its parent must already exist
+as a directory, HAC creates no parent directory, and it never overwrites an
+existing filesystem object. The file receives the selected validated PNG or JPEG
+derivative bytes; successful stdout and stderr are empty. The output path remains
+caller-local and is not sent in the request or to routing, remote nodes, or the
+runtime. A write or close failure after creation may leave an incomplete file;
+HAC performs no rollback deletion, regeneration, or routing fallback. There is
+no generic output-format option, JSON, verbose, node, remote toggle, model,
+runtime, or generation-control option.
+
+In an ordinary non-static process, Image Generation remains local. With ordinary
+static-cluster wiring, it uses the same existing local-first routing as other
+supported remote-capable operations: an eligible local Image Generation binding
+is preferred, then explicitly eligible declared remotes may be used under the
+existing fallback and declaration-order rules. This adds no node selector,
+discovery, probing, or scheduling.
 
 ## `hac aider`
 
@@ -812,7 +1028,9 @@ Unreachable or unavailable nodes can appear as result data without making the
 command invocation invalid. With no runtime option, status uses the historical
 default Ollama composition. Runtime CLI options and `--runtime-config <PATH>`
 select an explicit local composition; retained local runtime configuration does
-not replace status runtime selection.
+not replace status runtime selection. `status --runtime-config <PATH>` accepts
+the existing single-runtime shape only; multi-binding files fail locally before
+status observation. `health` remains unchanged and accepts no runtime-config.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
@@ -877,8 +1095,9 @@ mapping is useful for compatibility or reference:
 | `hac health` | `uv run home-ai-cluster-health` |
 | `hac status` | `uv run home-ai-cluster-status` |
 
-`hac code`, `hac code-file`, `hac summarize`, and `hac classify` are available through the
-ordinary root command; none has a separate installed checkout script.
+`hac code`, `hac code-file`, `hac image-generation`, `hac summarize`, and
+`hac classify` are available through the ordinary root command; none has a
+separate installed checkout script.
 
 ## Specialized compatibility commands
 
@@ -886,7 +1105,7 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the fourteen-command `hac` root and have no ordinary
+not ordinary commands in the sixteen-command `hac` root and have no ordinary
 `hac` equivalents.
 
 ## Historical proof commands

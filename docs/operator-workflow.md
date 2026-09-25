@@ -59,7 +59,7 @@ For repeated ordinary static-cluster startup, HAC-managed retained configuration
 can establish a local baseline:
 
 ```sh
-hac config local --runtime ollama
+hac config local --runtime ollama --execution-limit 2
 hac config node summary-node --base-url http://192.0.2.10:25042 --capability summarize
 hac config show
 hac static-cluster
@@ -70,6 +70,10 @@ health or prove that a cluster is running. HAC-managed retained configuration
 provides the ordinary static-cluster startup baseline. A complete explicit
 topology source replaces retained topology for that invocation; runtime
 composition follows its own retained or explicit source-selection rules.
+The retained local HAC execution limit is also consumed by ordinary
+retained-baseline `hac local` and `hac static-cluster`. It limits overlapping
+HAC-owned execution intervals, not runtime concurrency, and one process shares
+the same limit for originating local work and receiver-side work.
 Inspection remains separate: bare `hac preflight` is local-only,
 while `hac preflight --declaration <DECLARATION_PATH>` inspects a selected static
 topology and `hac status --declaration <DECLARATION_PATH>` observes the selected
@@ -93,6 +97,26 @@ discovered from a runtime; health's live observation concerns adapter health.
 None starts, supervises, repairs, or guarantees later request success.
 Historical proof runbooks and retained proof records are supporting evidence,
 not required steps in either ordinary daily path.
+
+### Static order and local HAC execution limits
+
+Each machine's operator configures its own limit locally. For example:
+
+```text
+Node A: local HAC execution limit = 1
+Node B: local HAC execution limit = 1
+Caller static order: A -> B
+```
+
+If A is already executing one HAC-owned interval, the caller still contacts A
+in normal static order. A may refuse before adapter invocation; after that exact
+safe refusal, the caller may consider B. The caller does not pre-query or know
+A's current work, limit, active interval count, or remaining allowance.
+
+With `Node A execution limit = 2`, `Node B execution limit = 1`, and static
+order `A -> B`, A can accept two overlapping HAC executions before a later
+request is refused to the next candidate. This remains deterministic static
+ordering, not least-loaded routing; it makes no fairness promise.
 
 ## Mode 1: Ordinary local-only operation
 
@@ -172,22 +196,29 @@ http://127.0.0.1:25042/v1/classify
 ```
 
 With this ordinary default exact host, the same process also serves the fixed
-browser page at `http://127.0.0.1:25042/`. Its only views are Chat, Summarize,
-Classify, and Code, which make same-origin calls to the existing native
-endpoints.
+browser page at `http://127.0.0.1:25042/`. Its navigation is Chat, Code, Image,
+Summarize, Classify, and Configuration, which make same-origin calls to the
+existing native endpoints. `Image` is the visible label for the
+`image-generation` capability. Configuration remains loopback-only. Loopback
+Chat may expose page-local automatic and separate explicit External Information
+surfaces.
 Chat is memory-only and shows discreet attribution per assistant response. The
 page provides accessible active feedback for each request. One explicitly
 selected Summarize or Classify file is read locally with strict UTF-8 decoding
 and populates that view's editable text area; the current textarea value is
 submitted through the existing JSON text contract. Classify labels remain in
-displayed order, and no multipart data or filename is submitted. This is not a
-dashboard, operator inspection surface, compatibility interface, or LAN browser
-interface.
+displayed order, and no multipart data or filename is submitted. This loopback
+page is not a dashboard, operator inspection surface, or compatibility
+interface; its authority remains distinct from the trusted-LAN browser.
 
-The page is attached only when the selected `hac local --host`
-value is exactly `127.0.0.1`. Any other value, including the trusted-LAN
-receiver form `0.0.0.0`, remains API-only and has no `/` or `/assets/` browser
-surface.
+The page is attached to the loopback-only native authority. Receiver activation
+does not add browser routes to its trusted-LAN receiver authority. Separately,
+an operator may use `hac local --lan-browser-host <LAN_IP>` for the
+capability-only trusted-LAN browser. It is a distinct listener and authority:
+it exposes Chat, Code, Image, Summarize, and Classify, but excludes
+Configuration, Workspace, and External Information authority. It is plain HTTP
+with no TLS or client authentication and is appropriate only where reachable
+peers and the network path are trusted.
 
 ### 5. Send one native request
 
@@ -299,11 +330,19 @@ reachability from the calling machine.
 On every receiving machine represented by the declaration:
 
 ```sh
-hac local --host 0.0.0.0 --port 25042
+hac local --receiver-host <RECEIVER_ADDRESS>
 ```
 
-This explicit trusted-LAN exposure remains operator-owned. Restrict any firewall
-allowance to the trusted LAN and remove it after use.
+This starts one foreground HAC process: its ordinary native/local authority
+remains on `127.0.0.1:25042`, and the explicit receiver authority binds
+`<RECEIVER_ADDRESS>:25042`. Use `--receiver-port <PORT>` only when the receiver
+needs a different port; `--port` controls only the native/local listener.
+`<RECEIVER_ADDRESS>` must be a concrete non-loopback, non-wildcard IP address;
+there is no `0.0.0.0` default or hostname resolution. The receiver exposes only
+RFC-0109's internal request and status routes, remains unauthenticated plain
+HTTP under the trusted-LAN assumption, and does not provide authentication or
+confidential transport. Restrict any firewall allowance to the trusted LAN and
+remove it after use.
 
 ### 4. Select or create one saved declaration file
 

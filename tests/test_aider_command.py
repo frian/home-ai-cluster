@@ -2,6 +2,7 @@
 
 import http.client
 import json
+import os
 import subprocess
 import threading
 from pathlib import Path
@@ -763,7 +764,7 @@ def test_fixed_aider_arguments_include_all_privacy_guardrails(tmp_path: Path) ->
     assert argv[0] == "/test/aider"
     assert (
         "--llm-history-file" in argv
-        and argv[argv.index("--llm-history-file") + 1] == "/dev/null"
+        and argv[argv.index("--llm-history-file") + 1] == os.devnull
     )
     assert {
         "--no-git",

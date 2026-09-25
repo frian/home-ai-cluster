@@ -23,6 +23,7 @@ FAILURE_STATUSES = {
     "no-selectable-candidate",
     "runtime-unavailable",
     "execution-failed",
+    "execution-permission-denied",
 }
 READ_FAILURE_MESSAGE = "error: unable to read request history"
 CLEAR_FAILURE_MESSAGE = "error: unable to clear request history"

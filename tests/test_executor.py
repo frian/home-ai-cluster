@@ -3,6 +3,10 @@ import asyncio
 import pytest
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.core.execution_intervals import (
+    ExecutionIntervalCardinality,
+    ExecutionPermissionDeniedError,
+)
 from home_ai_cluster.core.executor import (
     InvalidClassificationLabelError,
     execute_declared_routing_decision,
@@ -120,6 +124,22 @@ class FakeRemoteTransport:
         return self._result
 
 
+class BlockingAdapter(RecordingAdapter):
+    def __init__(self, error: Exception | None = None) -> None:
+        super().__init__()
+        self.error = error
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def chat(self, request: ClusterRequest) -> RuntimeResult:
+        self.chat_requests.append(request)
+        self.started.set()
+        await self.release.wait()
+        if self.error is not None:
+            raise self.error
+        return self._result
+
+
 def make_request() -> ClusterRequest:
     return ClusterRequest(
         messages=[ChatMessage(role="user", content="Hello")],
@@ -165,6 +185,119 @@ def test_execute_local_routing_decision_passes_exact_request() -> None:
 
     assert adapter.chat_requests == [request]
     assert adapter.chat_requests[0] is request
+
+
+def test_execution_interval_cardinality_bounds_unadmitted_local_invocations() -> None:
+    async def run() -> None:
+        first = BlockingAdapter()
+        second = BlockingAdapter()
+        third = BlockingAdapter()
+        intervals = ExecutionIntervalCardinality(limit=2)
+        assert intervals.value == 0
+
+        first_task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(first), intervals
+            )
+        )
+        second_task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(second), intervals
+            )
+        )
+        third_task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(third), intervals
+            )
+        )
+        await first.started.wait()
+        await second.started.wait()
+        assert intervals.value == 2
+        with pytest.raises(ExecutionPermissionDeniedError):
+            await third_task
+        assert intervals.value == 2
+        assert third.chat_requests == []
+
+        first.release.set()
+        await first_task
+        assert intervals.value == 1
+        second.release.set()
+        await second_task
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    "error",
+    [RuntimeAdapterUnavailableError("failed"), RuntimeError("unexpected")],
+)
+def test_execution_interval_cardinality_cleans_up_adapter_errors(
+    error: Exception,
+) -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter(error)
+        intervals = ExecutionIntervalCardinality()
+        task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(adapter), intervals
+            )
+        )
+        await adapter.started.wait()
+        assert intervals.value == 1
+        adapter.release.set()
+        with pytest.raises(type(error)):
+            await task
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
+def test_execution_interval_cardinality_cleans_up_cancellation() -> None:
+    async def run() -> None:
+        adapter = BlockingAdapter()
+        intervals = ExecutionIntervalCardinality()
+        task = asyncio.create_task(
+            execute_local_routing_decision(
+                make_request(), make_decision(adapter), intervals
+            )
+        )
+        await adapter.started.wait()
+        assert intervals.value == 1
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert intervals.value == 0
+
+    asyncio.run(run())
+
+
+def test_classification_interval_ends_before_invalid_label_validation() -> None:
+    async def run() -> None:
+        adapter = ClassifyRecordingAdapter("unexpected")
+        request = ClassifyRequest(text="Source text", labels=["invoice", "personal"])
+        intervals = ExecutionIntervalCardinality()
+        decision = RoutingDecision(
+            node=NodeDescription(
+                id="selected-local",
+                name="Selected local node",
+                availability="available",
+                health=NodeHealth(healthy=True),
+                capabilities=[Capability(name="classify")],
+                adapters=["adapter"],
+            ),
+            adapter=adapter,
+            capability=Capability(name="classify"),
+            reason="test classify decision",
+        )
+
+        with pytest.raises(InvalidClassificationLabelError):
+            await execute_local_routing_decision(request, decision, intervals)
+
+        assert adapter.classify_requests == [request]
+        assert intervals.value == 0
+
+    asyncio.run(run())
 
 
 def test_execute_local_routing_decision_attributes_selected_local_node() -> None:

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from home_ai_cluster.core.models import (
     Capability,
     NodeDescription,
-    RoutableRequest,
+    RemoteTransportRequest,
 )
 from home_ai_cluster.core.node import node_supports_capability
 
@@ -72,7 +72,7 @@ def build_remote_node_declaration_registry(
 
 
 def declared_remote_declarations_for_request(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[RemoteNodeDeclaration]:
     """Return declared remote declarations eligible for the requested capability."""
@@ -84,7 +84,7 @@ def declared_remote_declarations_for_request(
 
 
 def declared_remote_routing_candidates_for_request(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[DeclaredRemoteRoutingCandidate]:
     """Return eligible remotes in operator-owned declaration priority order.
@@ -107,7 +107,7 @@ def declared_remote_routing_candidates_for_request(
 
 
 def declared_remote_routing_candidate_for_request(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> DeclaredRemoteRoutingCandidate | None:
     """Preserve the first eligible declared remote candidate compatibility seam."""

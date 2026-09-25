@@ -1,6 +1,6 @@
 [project]
 name = "home-ai-cluster"
-version = "1.0.0"
+version = "1.1.0"
 description = "Local-first orchestration for personal AI runtimes."
 readme = "README.md"
 license = "AGPL-3.0-or-later"
@@ -9,6 +9,7 @@ requires-python = ">=3.13,<3.15"
 dependencies = [
     "fastapi>=0.116.0",
     "httpx>=0.28.0",
+    "pillow>=12.0.0",
     "pydantic>=2.11.0",
     "uvicorn[standard]>=0.35.0",
 ]
@@ -32,6 +33,7 @@ home-ai-cluster-history = "home_ai_cluster.request_history:history_main"
 home-ai-cluster-clear-history = "home_ai_cluster.request_history:clear_history_main"
 home-ai-cluster-local = "home_ai_cluster.local_runtime:main"
 home-ai-cluster-chat = "home_ai_cluster.commands.chat_command:main"
+home-ai-cluster-workspace-carrier = "home_ai_cluster.workspace_carrier:main"
 
 [dependency-groups]
 dev = [

@@ -16,8 +16,10 @@ from home_ai_cluster.commands import (
     classify_command,
     code_command,
     code_file_command,
+    code_workspace_command,
     config_command,
     external_information_command,
+    image_generation_command,
     static_preflight,
     status_command,
     summarize_command,
@@ -36,7 +38,9 @@ Finite commands:
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   code-file       Replace one selected file from one bounded code request.
+  code-workspace  Run bounded workspace-aware code interactions.
   classify        Send one ordinary classify request.
+  image-generation  Send one local Image Generation request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
@@ -55,7 +59,9 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "chat": chat_command.main,
     "code": code_command.main,
     "code-file": code_file_command.main,
+    "code-workspace": code_workspace_command.main,
     "classify": classify_command.main,
+    "image-generation": image_generation_command.main,
     "summarize": summarize_command.main,
     "preflight": static_preflight.main,
     "health": local_health_snapshot.main,
@@ -92,4 +98,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if arguments[0] == "chat" and arguments[1:] in (["-h"], ["--help"]):
         chat_command._parse_input(arguments[1:], facade_help=True)
 
-    delegated_main(arguments[1:])
+    try:
+        delegated_main(arguments[1:])
+    except KeyboardInterrupt:
+        raise SystemExit(130) from None

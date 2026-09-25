@@ -54,16 +54,21 @@ class BodyFirstState(State):
         self.disconnected = True
 
 
-def endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    route = next(
-        route
-        for route in routes
+def _endpoint(app, path):
+    return next(
+        route.endpoint
+        for included_router in app.routes
+        for route in getattr(
+            getattr(included_router, "original_router", None), "routes", ()
+        )
         if isinstance(route, APIRoute)
-        and route.path == "/v1/chat"
+        and route.path == path
         and "POST" in route.methods
     )
-    return route.endpoint
+
+
+def endpoint(app):
+    return _endpoint(app, "/v1/chat")
 
 
 def request(app, state):
@@ -165,14 +170,7 @@ def sources_payload():
 
 
 def sources_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/chat/sources"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/chat/sources")
 
 
 def test_registered_sources_returns_terminal_result(monkeypatch):
@@ -233,15 +231,40 @@ def test_registered_sources_disconnect_cancels_execution(monkeypatch):
     asyncio.run(run())
 
 
+def test_registered_image_generation_disconnect_cancels_execution(monkeypatch):
+    async def run():
+        from home_ai_cluster.api import routes
+
+        app, state = create_app(), BodyFirstState({"instruction": "a fox"})
+        started, cancelled = asyncio.Event(), asyncio.Event()
+        calls = 0
+
+        async def execute(*_, **__):
+            nonlocal calls
+            calls += 1
+            started.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        monkeypatch.setattr(routes, "handle_image_generation_request", execute)
+        task = asyncio.create_task(
+            _endpoint(app, "/v1/image-generation")(request(app, state))
+        )
+        await asyncio.wait_for(started.wait(), 1)
+        state.send_disconnect()
+        with pytest.raises(ConfirmedClientDisconnect):
+            await task
+        assert cancelled.is_set()
+        assert calls == 1
+
+    asyncio.run(run())
+
+
 def summarize_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/summarize"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/summarize")
 
 
 def test_registered_summarize_returns_terminal_result(monkeypatch):
@@ -299,14 +322,7 @@ def test_registered_summarize_disconnect_cancels_execution(monkeypatch):
 
 
 def classify_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/v1/classify"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/v1/classify")
 
 
 def test_registered_classify_returns_terminal_result(monkeypatch):
@@ -371,14 +387,7 @@ def test_registered_classify_disconnect_cancels_execution(monkeypatch):
 
 
 def internal_endpoint(app):
-    routes = app.routes[-1].original_router.routes
-    return next(
-        route.endpoint
-        for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == "/internal/cluster/request"
-        and "POST" in route.methods
-    )
+    return _endpoint(app, "/internal/cluster/request")
 
 
 def internal_body():

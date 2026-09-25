@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
 from home_ai_cluster.api.chat_external_information_decision import (
@@ -24,6 +25,9 @@ from home_ai_cluster.core.models import (
     ClassifyResult,
     ClusterRequest,
     ClusterResult,
+    ImageGenerationInternalRequest,
+    ImageGenerationRequest,
+    ImageGenerationResult,
     InternalClusterStatusResponse,
     RequestConstraints,
     SourceEvidence,
@@ -33,7 +37,10 @@ from home_ai_cluster.core.models import (
     SummarizeRequest,
 )
 from home_ai_cluster.core.orchestrator import (
+    ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
+    orchestrate_composed_request,
+    orchestrate_receiver_composed_request,
     orchestrate_request,
     orchestrate_request_with_static_remote_fallback,
 )
@@ -48,6 +55,7 @@ from home_ai_cluster.local_health_snapshot import (
 )
 
 router = APIRouter()
+receiver_router = APIRouter()
 
 
 class ChatRequest(BaseModel):
@@ -68,6 +76,34 @@ class ClassifyPublicRequest(BaseModel):
     labels: list[str]
 
 
+class ImageGenerationPublicRequest(BaseModel):
+    """The deliberately closed public body for one Image Generation request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    instruction: str
+    width: int | None = None
+    height: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_dimensions(cls, value: object) -> object:
+        """Preserve the normalized request's absent-or-paired geometry boundary."""
+        if not isinstance(value, dict):
+            return value
+        if ("width" in value) != ("height" in value):
+            raise ValueError("width and height must be supplied together")
+        if "width" not in value:
+            return value
+        for name in ("width", "height"):
+            dimension = value[name]
+            if type(dimension) is not int:
+                raise ValueError(f"{name} must be an integer")
+            if not 64 <= dimension <= 2048:
+                raise ValueError(f"{name} must be between 64 and 2048")
+        return value
+
+
 class SourceGroundedChatPublicRequest(BaseModel):
     """The deliberately closed public body for source-grounded Chat."""
 
@@ -75,6 +111,7 @@ class SourceGroundedChatPublicRequest(BaseModel):
 
     question: str
     sources: list[SourceEvidence]
+    prior_messages: list[ChatMessage] = Field(default_factory=list)
 
 
 def _resolve_local_registries(
@@ -92,25 +129,61 @@ def _resolve_local_registries(
     )
 
 
+def _caller_local_node_registry(http_request: Request) -> NodeRegistry | None:
+    """Return static caller-local eligibility without introducing remote fallback."""
+    if http_request.app.state.static_remote_wiring is not None:
+        return http_request.app.state.static_remote_wiring.node_registry
+    if http_request.app.state.static_remote_collection_wiring is not None:
+        return http_request.app.state.static_remote_collection_wiring.node_registry
+    return None
+
+
 async def handle_static_local_cluster_request(
     cluster_request: ClusterRequest
     | SummarizeRequest
     | ClassifyRequest
-    | SourceGroundedChatRequest,
+    | SourceGroundedChatRequest
+    | ImageGenerationRequest,
     local_app_composition: LocalAppComposition | None = None,
-) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
+    *,
+    originating: bool = True,
+    caller_local_node_registry: NodeRegistry | None = None,
+) -> ClusterResult | ClassifyResult | SourceGroundedChatResult | ImageGenerationResult:
     node_registry, adapter_registry = _resolve_local_registries(local_app_composition)
+    if caller_local_node_registry is not None:
+        node_registry = caller_local_node_registry
 
     try:
+        if local_app_composition is not None and originating:
+            return await orchestrate_composed_request(
+                cluster_request,
+                node_registry,
+                adapter_registry,
+                local_app_composition.execution_intervals,
+            )
+        if local_app_composition is not None:
+            return await orchestrate_receiver_composed_request(
+                cluster_request,
+                node_registry,
+                adapter_registry,
+                local_app_composition.execution_intervals,
+            )
         return await orchestrate_request(
-            cluster_request,
-            node_registry,
-            adapter_registry,
+            cluster_request, node_registry, adapter_registry
         )
     except RuntimeAdapterUnavailableError as exc:
         raise HTTPException(
             status_code=503,
             detail="Runtime adapter unavailable",
+        ) from exc
+    except ExecutionPermissionDeniedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "execution permission denied"
+                if originating
+                else "execution-permission-denied"
+            ),
         ) from exc
     except InvalidClassificationLabelError as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc
@@ -136,11 +209,17 @@ async def handle_chat_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
         ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
                     status_code=404,
@@ -162,11 +241,17 @@ async def handle_chat_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
         ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
             if isinstance(exc, NoSelectableRoutingCandidateError):
                 raise HTTPException(
                     status_code=404,
@@ -204,6 +289,7 @@ async def handle_summarize_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         if static_remote_collection_wiring is not None:
             return await orchestrate_request_with_ordered_static_remote_fallback(
@@ -212,12 +298,21 @@ async def handle_summarize_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         return await handle_static_local_cluster_request(
             cluster_request,
             local_app_composition=local_app_composition,
         )
-    except (RuntimeAdapterUnavailableError, NoSelectableRoutingCandidateError) as exc:
+    except (
+        RuntimeAdapterUnavailableError,
+        NoSelectableRoutingCandidateError,
+        ExecutionPermissionDeniedError,
+    ) as exc:
+        if isinstance(exc, ExecutionPermissionDeniedError):
+            raise HTTPException(
+                status_code=409, detail="execution permission denied"
+            ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(
                 status_code=404,
@@ -244,6 +339,7 @@ async def handle_classify_cluster_request(
                 static_remote_wiring.adapter_registry,
                 static_remote_wiring.remote_registry,
                 static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
             )
         if static_remote_collection_wiring is not None:
             return await orchestrate_request_with_ordered_static_remote_fallback(
@@ -252,12 +348,21 @@ async def handle_classify_cluster_request(
                 static_remote_collection_wiring.adapter_registry,
                 static_remote_collection_wiring.remote_registry,
                 static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
             )
         return await handle_static_local_cluster_request(
             cluster_request,
             local_app_composition=local_app_composition,
         )
-    except (RuntimeAdapterUnavailableError, NoSelectableRoutingCandidateError) as exc:
+    except (
+        RuntimeAdapterUnavailableError,
+        NoSelectableRoutingCandidateError,
+        ExecutionPermissionDeniedError,
+    ) as exc:
+        if isinstance(exc, ExecutionPermissionDeniedError):
+            raise HTTPException(
+                status_code=409, detail="execution permission denied"
+            ) from exc
         if isinstance(exc, NoSelectableRoutingCandidateError):
             raise HTTPException(
                 status_code=404,
@@ -269,6 +374,89 @@ async def handle_classify_cluster_request(
         ) from exc
     except InvalidClassificationLabelError as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc
+
+
+async def handle_image_generation_request(
+    image_request: ImageGenerationRequest,
+    static_remote_wiring: StaticRemoteWiring | None = None,
+    static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
+    local_app_composition: LocalAppComposition | None = None,
+) -> ImageGenerationResult:
+    """Execute Image Generation through ordinary static or local-only routing."""
+    if static_remote_wiring is not None:
+        try:
+            return await orchestrate_request_with_static_remote_fallback(
+                image_request,
+                static_remote_wiring.node_registry,
+                static_remote_wiring.adapter_registry,
+                static_remote_wiring.remote_registry,
+                static_remote_wiring.remote_transport,
+                static_remote_wiring.execution_intervals,
+            )
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
+        ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail="No adapter provides capability: image-generation",
+                ) from exc
+            raise HTTPException(
+                status_code=503, detail="Runtime adapter unavailable"
+            ) from exc
+
+    if static_remote_collection_wiring is not None:
+        try:
+            return await orchestrate_request_with_ordered_static_remote_fallback(
+                image_request,
+                static_remote_collection_wiring.node_registry,
+                static_remote_collection_wiring.adapter_registry,
+                static_remote_collection_wiring.remote_registry,
+                static_remote_collection_wiring.remote_transport,
+                static_remote_collection_wiring.execution_intervals,
+            )
+        except (
+            RuntimeAdapterUnavailableError,
+            NoSelectableRoutingCandidateError,
+            ExecutionPermissionDeniedError,
+        ) as exc:
+            if isinstance(exc, ExecutionPermissionDeniedError):
+                raise HTTPException(
+                    status_code=409, detail="execution permission denied"
+                ) from exc
+            if isinstance(exc, NoSelectableRoutingCandidateError):
+                raise HTTPException(
+                    status_code=404,
+                    detail="No adapter provides capability: image-generation",
+                ) from exc
+            raise HTTPException(
+                status_code=503, detail="Runtime adapter unavailable"
+            ) from exc
+
+    try:
+        return await handle_static_local_cluster_request(
+            image_request,
+            local_app_composition=local_app_composition,
+        )
+    except RuntimeAdapterUnavailableError as exc:
+        raise HTTPException(
+            status_code=503, detail="Runtime adapter unavailable"
+        ) from exc
+    except ExecutionPermissionDeniedError as exc:
+        raise HTTPException(
+            status_code=409, detail="execution permission denied"
+        ) from exc
+    except NoMatchingAdapterError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="No adapter provides capability: image-generation",
+        ) from exc
 
 
 @router.post("/v1/chat", response_model=ClusterResult)
@@ -320,6 +508,7 @@ async def source_grounded_chat(
         cluster_request = SourceGroundedChatRequest(
             question=public_request.question,
             sources=public_request.sources,
+            prior_messages=public_request.prior_messages,
             constraints=(
                 RequestConstraints(local_only=False)
                 if (
@@ -421,6 +610,40 @@ async def classify(http_request: Request) -> ClassifyResult:
     )
 
 
+@router.post("/v1/image-generation")
+async def image_generation(http_request: Request) -> Response:
+    """Project one completed local Image Generation result as raw PNG bytes."""
+    try:
+        public_request = ImageGenerationPublicRequest.model_validate(
+            await http_request.json()
+        )
+        image_values: dict[str, object] = {"instruction": public_request.instruction}
+        if public_request.width is not None:
+            image_values["width"] = public_request.width
+            image_values["height"] = public_request.height
+        if (
+            http_request.app.state.static_remote_wiring is not None
+            or http_request.app.state.static_remote_collection_wiring is not None
+        ):
+            image_values["constraints"] = RequestConstraints(local_only=False)
+        image_request = ImageGenerationRequest.model_validate(image_values)
+    except (ValueError, ValidationError):
+        raise HTTPException(
+            status_code=422, detail="Invalid image generation request"
+        ) from None
+
+    result = await run_routable_execution(
+        http_request,
+        lambda: handle_image_generation_request(
+            image_request,
+            http_request.app.state.static_remote_wiring,
+            http_request.app.state.static_remote_collection_wiring,
+            http_request.app.state.local_app_composition,
+        ),
+    )
+    return Response(content=result.image_bytes, media_type="image/png")
+
+
 @router.post(
     "/internal/chat/external-information-decision",
     response_model=ClassifyResult,
@@ -444,17 +667,18 @@ async def chat_external_information_decision(
         lambda: handle_static_local_cluster_request(
             decision.classify_request(),
             local_app_composition=http_request.app.state.local_app_composition,
+            caller_local_node_registry=_caller_local_node_registry(http_request),
         ),
     )
 
 
-@router.post(
+@receiver_router.post(
     "/internal/cluster/request",
     response_model=ClusterResult | ClassifyResult | SourceGroundedChatResult,
 )
 async def internal_cluster_request(
     http_request: Request,
-) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
+) -> Response | ClusterResult | ClassifyResult | SourceGroundedChatResult:
     try:
         envelope = INTERNAL_CLUSTER_REQUEST_ADAPTER.validate_python(
             await http_request.json()
@@ -465,7 +689,9 @@ async def internal_cluster_request(
             detail="Invalid internal cluster request",
         ) from None
 
-    if isinstance(envelope, ChatInternalRequest):
+    if isinstance(envelope, ImageGenerationInternalRequest):
+        request = envelope.request.normalized_request()
+    elif isinstance(envelope, ChatInternalRequest):
         request = envelope.request
     elif isinstance(envelope, ClassifyInternalRequest):
         request = envelope.request.normalized_request()
@@ -475,21 +701,25 @@ async def internal_cluster_request(
         request = envelope.request.normalized_request()
     local_app_composition = http_request.app.state.local_app_composition
     if local_app_composition is None:
-        return await run_routable_execution(
+        result = await run_routable_execution(
             http_request,
             lambda: handle_static_local_cluster_request(request),
         )
+    else:
+        result = await run_routable_execution(
+            http_request,
+            lambda: handle_static_local_cluster_request(
+                request,
+                local_app_composition=local_app_composition,
+                originating=False,
+            ),
+        )
+    if isinstance(result, ImageGenerationResult):
+        return Response(content=result.image_bytes, media_type="image/png")
+    return result
 
-    return await run_routable_execution(
-        http_request,
-        lambda: handle_static_local_cluster_request(
-            request,
-            local_app_composition=local_app_composition,
-        ),
-    )
 
-
-@router.get(
+@receiver_router.get(
     "/internal/cluster/status",
     response_model=InternalClusterStatusResponse,
 )
@@ -501,6 +731,8 @@ async def internal_cluster_status(
         node_registry, adapter_registry = _resolve_local_registries(
             http_request.app.state.local_app_composition
         )
+        if len(adapter_registry.list_adapters()) != 1:
+            raise ValueError("local runtime status requires exactly one adapter")
         snapshot = project_health_snapshot(node_registry, adapter_registry)
         local_status = project_local_cluster_status(snapshot)
     except Exception as error:

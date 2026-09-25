@@ -1,6 +1,8 @@
 """Ordinary static local-plus-remote application process."""
 
 import argparse
+import asyncio
+import ipaddress
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +17,7 @@ from home_ai_cluster.api.wiring import (
     build_static_remote_wiring,
 )
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
+from home_ai_cluster.core.registry import NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 from home_ai_cluster.core.remote_transport import HttpRemoteTransport
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
@@ -23,8 +26,12 @@ from home_ai_cluster.core.static_capabilities import (
     validate_static_capabilities,
 )
 from home_ai_cluster.local_runtime_composition import (
+    LOCAL_RUNTIME_CAPABILITY_NAMES,
+    MultiBindingRuntimeCompositionValues,
     add_local_runtime_arguments,
     create_local_runtime_composition,
+    create_multi_binding_local_app_composition,
+    create_textual_with_image_generation_companion_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
 )
@@ -33,6 +40,7 @@ from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     load_retained_configuration,
+    retained_configuration_file,
 )
 from home_ai_cluster.static_cluster_declaration import (
     RemoteNodeDeclaration as ParsedRemoteNodeDeclaration,
@@ -47,6 +55,7 @@ from home_ai_cluster.static_cluster_validation import (
     remote_node_id,
 )
 from home_ai_cluster.web.loopback_browser import add_loopback_browser_routes
+from home_ai_cluster.web.trusted_lan_browser import create_trusted_lan_browser_app
 
 STATIC_CLUSTER_HOST = "127.0.0.1"
 STATIC_CLUSTER_PORT = 25042
@@ -86,6 +95,8 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         help="Inline remote capability; repeat as needed.",
     )
     add_local_runtime_arguments(parser)
+    parser.add_argument("--lan-browser-host")
+    parser.add_argument("--lan-browser-port", type=int)
     return parser
 
 
@@ -95,6 +106,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     if argv in (["-h"], ["--help"]):
         parser.prog = "home-ai-cluster static-cluster"
     args = parser.parse_args(argv)
+
+    if args.lan_browser_port is not None and args.lan_browser_host is None:
+        parser.error("--lan-browser-port requires --lan-browser-host")
+    if args.lan_browser_host is not None:
+        try:
+            lan_address = ipaddress.ip_address(args.lan_browser_host)
+        except ValueError:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if lan_address.is_loopback or lan_address.is_unspecified:
+            parser.error(
+                "--lan-browser-host must be a concrete non-loopback IP address"
+            )
+        if args.lan_browser_port is None:
+            args.lan_browser_port = STATIC_CLUSTER_PORT
+        elif not 1 <= args.lan_browser_port <= 65535:
+            parser.error("--lan-browser-port must be from 1 through 65535")
+        args.lan_browser_host = str(lan_address)
 
     has_declaration = args.declaration is not None
     has_remote_node_id = args.remote_node_id is not None
@@ -148,13 +178,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     needs_retained_runtime = args.runtime_config is None
     needs_retained_topology = not has_declaration and not has_remote_node_id
     retained = RetainedConfiguration()
-    if needs_retained_runtime or needs_retained_topology:
+    if (
+        needs_retained_runtime
+        or needs_retained_topology
+        or retained_configuration_file().exists()
+    ):
         try:
             retained = load_retained_configuration()
         except RetainedConfigurationError as error:
             parser.error(str(error))
 
     retained_values = retained.local.runtime if retained.local is not None else None
+    if retained.local is not None:
+        args.retained_execution_limit = retained.local.execution_limit
+    if needs_retained_runtime:
+        args.retained_image_generation = retained.image_generation
     validate_local_runtime_arguments(
         parser,
         args,
@@ -219,20 +257,28 @@ def create_static_cluster_app(
     *,
     capabilities: Sequence[str] = DEFAULT_STATIC_CAPABILITY_NAMES,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
+    close_client: bool = True,
 ) -> FastAPI:
     """Construct the ordinary static local-plus-one-remote application."""
     process_client = client or create_static_cluster_http_client()
     wiring = build_static_remote_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declaration=create_remote_declaration(node_id, base_url, capabilities),
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
+        local_app_composition=local_app_composition,
         static_remote_wiring=wiring,
-        lifespan=_create_lifespan(process_client),
+        lifespan=_create_lifespan(process_client) if close_client else None,
     )
     app.state.static_cluster_http_client = process_client
     return app
@@ -242,7 +288,9 @@ def create_static_cluster_collection_app(
     remote_nodes: Sequence[ParsedRemoteNodeDeclaration],
     *,
     local_app_composition: LocalAppComposition,
+    routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
+    close_client: bool = True,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
     process_client = client or create_static_cluster_http_client()
@@ -255,18 +303,52 @@ def create_static_cluster_collection_app(
         for remote in remote_nodes
     ]
     wiring = build_static_remote_collection_wiring(
-        node_registry=local_app_composition.node_registry,
+        node_registry=(
+            local_app_composition.node_registry
+            if routing_node_registry is None
+            else routing_node_registry
+        ),
         adapter_registry=local_app_composition.adapter_registry,
         remote_declarations=declarations,
         remote_transport=HttpRemoteTransport(process_client),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
+        execution_intervals=local_app_composition.execution_intervals,
     )
     app = create_app(
+        local_app_composition=local_app_composition,
         static_remote_collection_wiring=wiring,
-        lifespan=_create_lifespan(process_client),
+        lifespan=_create_lifespan(process_client) if close_client else None,
     )
     app.state.static_cluster_http_client = process_client
     return app
+
+
+def _create_routing_node_registry(
+    local_app_composition: LocalAppComposition,
+    caller_local_capabilities: Sequence[str],
+) -> NodeRegistry:
+    """Project caller-side eligibility without changing local execution ownership."""
+    local_node = local_app_composition.node_registry.list_nodes()[0]
+    caller_capability_names = set(caller_local_capabilities)
+    capabilities = [
+        capability
+        for capability in local_node.capabilities
+        if capability.name in caller_capability_names
+    ]
+    if not capabilities:
+        return NodeRegistry()
+    return NodeRegistry(
+        [
+            NodeDescription(
+                id=local_node.id,
+                name=local_node.name,
+                availability=local_node.availability,
+                health=local_node.health,
+                capabilities=capabilities,
+                adapters=local_node.adapters,
+            )
+        ]
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -274,54 +356,114 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
 
+    composition_arguments: dict[str, object] = {}
+    if not isinstance(values, MultiBindingRuntimeCompositionValues):
+        composition_arguments = dict(
+            runtime=values.runtime,
+            ollama_model=values.ollama_model,
+            ollama_disable_thinking=values.ollama_disable_thinking,
+            llama_server_base_url=values.llama_server_base_url,
+            llama_server_model=values.llama_server_model,
+        )
+        if values.runtime == "vllm":
+            composition_arguments["vllm_base_url"] = values.vllm_base_url
+            composition_arguments["vllm_model"] = values.vllm_model
+        if values.temperature is not None:
+            composition_arguments["temperature"] = values.temperature
+        if getattr(args, "retained_execution_limit", None) is not None:
+            composition_arguments["execution_limit"] = args.retained_execution_limit
+
+    def create_local_composition(
+        *, declaration_mode: bool = False
+    ) -> LocalAppComposition:
+        if not isinstance(values, MultiBindingRuntimeCompositionValues):
+            arguments = composition_arguments
+            if declaration_mode:
+                arguments = {
+                    **arguments,
+                    "vllm_base_url": values.vllm_base_url,
+                    "vllm_model": values.vllm_model,
+                }
+            image_generation = getattr(args, "retained_image_generation", None)
+            if image_generation is not None:
+                return create_textual_with_image_generation_companion_composition(
+                    values,
+                    image_generation_base_url=image_generation.base_url,
+                    execution_limit=getattr(args, "retained_execution_limit", None)
+                    or 1,
+                )
+            return create_local_runtime_composition(
+                **arguments, capabilities=LOCAL_RUNTIME_CAPABILITY_NAMES
+            )
+        return create_multi_binding_local_app_composition(
+            values,
+            execution_limit=getattr(args, "retained_execution_limit", None) or 1,
+        )
+
     if args.declaration is not None:
         try:
             declarations = load_static_cluster_declarations(args.declaration)
         except StaticClusterDeclarationError as exc:
             _create_argument_parser().error(str(exc))
-        local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
-            capabilities=declarations.local_capabilities,
+        local_app_composition = create_local_composition(declaration_mode=True)
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, declarations.local_capabilities
         )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            collection_arguments["close_client"] = False
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             declarations.remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
     elif args.remote_node_id is not None:
-        local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
-            capabilities=args.local_capability,
+        local_app_composition = create_local_composition()
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, args.local_capability
         )
+        inline_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            inline_arguments["close_client"] = False
+        if routing_node_registry is not None:
+            inline_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_app(
             args.remote_node_id,
             args.remote_base_url,
             capabilities=args.remote_capability,
-            local_app_composition=local_app_composition,
+            **inline_arguments,
         )
     else:
-        local_app_composition = create_local_runtime_composition(
-            runtime=values.runtime,
-            ollama_model=values.ollama_model,
-            ollama_disable_thinking=values.ollama_disable_thinking,
-            llama_server_base_url=values.llama_server_base_url,
-            llama_server_model=values.llama_server_model,
-            capabilities=args.local_capability,
+        local_app_composition = create_local_composition()
+        routing_node_registry = _create_routing_node_registry(
+            local_app_composition, args.local_capability
         )
+        collection_arguments = {"local_app_composition": local_app_composition}
+        if args.lan_browser_host is not None:
+            collection_arguments["close_client"] = False
+        if routing_node_registry is not None:
+            collection_arguments["routing_node_registry"] = routing_node_registry
         app = create_static_cluster_collection_app(
             args.retained_remote_nodes,
-            local_app_composition=local_app_composition,
+            **collection_arguments,
         )
 
-    uvicorn.run(
-        add_loopback_browser_routes(app),
-        host=STATIC_CLUSTER_HOST,
-        port=STATIC_CLUSTER_PORT,
-    )
+    native_app = add_loopback_browser_routes(app)
+    if args.lan_browser_host is not None:
+        from home_ai_cluster.local_runtime import _run_lan_enabled_servers
+
+        args.port = STATIC_CLUSTER_PORT
+        lan_app = create_trusted_lan_browser_app(
+            native_app, host=args.lan_browser_host, port=args.lan_browser_port
+        )
+
+        async def run_lan_servers() -> None:
+            try:
+                await _run_lan_enabled_servers(native_app, lan_app, args)
+            finally:
+                await app.state.static_cluster_http_client.aclose()
+
+        asyncio.run(run_lan_servers())
+        return
+    uvicorn.run(native_app, host=STATIC_CLUSTER_HOST, port=STATIC_CLUSTER_PORT)

@@ -15,6 +15,7 @@ from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionVal
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
+    RetainedImageGenerationConfiguration,
     RetainedLocalConfiguration,
     load_retained_configuration,
     retained_configuration_file,
@@ -38,6 +39,7 @@ def _run(capsys: pytest.CaptureFixture[str], argv: list[str]) -> tuple[int, str,
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))
 
 
 @pytest.mark.parametrize("argv", ([], ["--help"], ["-h"]))
@@ -48,7 +50,7 @@ def test_config_discovery_shows_exactly_the_bounded_surfaces(
     code, out, err = _run(capsys, argv)
     assert code == 0
     assert err == ""
-    assert "{local,node,external-information,chat,reset,show}" in out
+    assert "{local,image-generation,node,external-information,chat,reset,show}" in out
     assert "edit" not in out
 
 
@@ -59,13 +61,12 @@ def test_bare_config_discovery_does_not_access_retained_state(
         raise AssertionError("bare config discovery must not access retained state")
 
     monkeypatch.setattr(config_command, "load_retained_configuration", forbidden)
-    monkeypatch.setattr(config_command, "save_retained_configuration", forbidden)
     monkeypatch.setattr(config_command, "remove_retained_configuration", forbidden)
 
     code, out, err = _run(capsys, [])
     assert code == 0
     assert err == ""
-    assert "{local,node,external-information,chat,reset,show}" in out
+    assert "{local,image-generation,node,external-information,chat,reset,show}" in out
 
 
 @pytest.mark.parametrize("argv", (["unknown"], ["local"], ["node"]))
@@ -81,11 +82,61 @@ def test_concrete_or_unknown_config_actions_remain_parser_errors(
 def test_show_empty_output_is_exact(capsys: pytest.CaptureFixture[str]) -> None:
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "Local:\n  not configured\nImage Generation:\n  not configured\n"
+        "Remote nodes:\n  none\n"
         "External information:\n  not configured\n"
         "Chat external information:\n  automatic fallback: not authorized\n",
         "",
     )
+
+
+def test_image_generation_configuration_is_retained_and_shown(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(
+        capsys,
+        ["image-generation", "--base-url", "http://127.0.0.1:7860"],
+    ) == (0, "image-generation configuration retained\n", "")
+    assert load_retained_configuration().image_generation == (
+        RetainedImageGenerationConfiguration(base_url="http://127.0.0.1:7860")
+    )
+    assert _run(capsys, ["show"])[1].count("Image Generation:") == 1
+    assert "  runtime: stable-diffusion-cpp\n" in _run(capsys, ["show"])[1]
+    assert "  base URL: http://127.0.0.1:7860\n" in _run(capsys, ["show"])[1]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    (
+        ["image-generation"],
+        ["image-generation", "--reset", "--base-url", "http://127.0.0.1:7860"],
+        ["image-generation", "--base-url", "https://127.0.0.1:7860"],
+        ["image-generation", "--base-url", "http://192.0.2.1:7860"],
+    ),
+)
+def test_image_generation_configuration_rejects_invalid_actions(
+    capsys: pytest.CaptureFixture[str], argv: list[str]
+) -> None:
+    assert _run(capsys, argv)[0] == 2
+
+
+def test_image_generation_reset_preserves_other_retained_domains(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["local", "--runtime", "ollama", "--ollama-model", "textual"])
+    _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
+    _run(capsys, ["image-generation", "--base-url", "http://127.0.0.1:7860"])
+
+    assert _run(capsys, ["image-generation", "--reset"]) == (
+        0,
+        "image-generation configuration reset\n",
+        "",
+    )
+    configuration = load_retained_configuration()
+    assert configuration.image_generation is None
+    assert configuration.local is not None
+    assert configuration.local.runtime.ollama_model == "textual"
+    assert [node.node_id for node in configuration.remote_nodes] == ["one"]
 
 
 def test_show_does_not_construct_runtime_or_exercise_plugin_or_credential_authority(
@@ -118,7 +169,8 @@ def test_show_does_not_construct_runtime_or_exercise_plugin_or_credential_author
 
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "Local:\n  not configured\nImage Generation:\n  not configured\n"
+        "Remote nodes:\n  none\n"
         "External information:\n  not configured\n"
         "Chat external information:\n  automatic fallback: not authorized\n",
         "",
@@ -133,6 +185,36 @@ def test_show_rejects_unexpected_options(capsys: pytest.CaptureFixture[str]) -> 
     assert "unrecognized arguments" in err
 
 
+def test_local_command_uses_shared_retained_local_semantic_authority(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    calls: list[str] = []
+    build = config_command.build_retained_local_configuration
+    replace = config_command.replace_retained_local_configuration
+
+    def recording_build(**kwargs: object) -> RetainedLocalConfiguration:
+        calls.append("build")
+        return build(**kwargs)
+
+    def recording_replace(local: RetainedLocalConfiguration) -> None:
+        calls.append("replace")
+        replace(local)
+
+    monkeypatch.setattr(
+        config_command, "build_retained_local_configuration", recording_build
+    )
+    monkeypatch.setattr(
+        config_command, "replace_retained_local_configuration", recording_replace
+    )
+
+    assert _run(capsys, ["local", "--runtime", "ollama"]) == (
+        0,
+        "local configuration retained\n",
+        "",
+    )
+    assert calls == ["build", "replace"]
+
+
 def test_whole_reset_removes_valid_configuration_and_show_is_empty(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -140,11 +222,13 @@ def test_whole_reset_removes_valid_configuration_and_show_is_empty(
     _run(capsys, ["node", "one", "--base-url", "http://192.0.2.1:25042"])
     _run(capsys, ["external-information", "--plugin", "tavily"])
     _run(capsys, ["chat", "--external-information-fallback"])
+    _run(capsys, ["image-generation", "--base-url", "http://127.0.0.1:7860"])
 
     assert _run(capsys, ["reset"]) == (0, "retained configuration reset\n", "")
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "Local:\n  not configured\nImage Generation:\n  not configured\n"
+        "Remote nodes:\n  none\n"
         "External information:\n  not configured\n"
         "Chat external information:\n  automatic fallback: not authorized\n",
         "",
@@ -232,7 +316,8 @@ def test_show_reports_only_the_retained_external_information_plugin(
 
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "Local:\n  not configured\nImage Generation:\n  not configured\n"
+        "Remote nodes:\n  none\n"
         "External information:\n  plugin: tavily\n"
         "Chat external information:\n  automatic fallback: not authorized\n",
         "",
@@ -246,7 +331,8 @@ def test_show_reports_chat_authorization_only_as_a_retained_fact(
 
     assert _run(capsys, ["show"]) == (
         0,
-        "Local:\n  not configured\nRemote nodes:\n  none\n"
+        "Local:\n  not configured\nImage Generation:\n  not configured\n"
+        "Remote nodes:\n  none\n"
         "External information:\n  not configured\n"
         "Chat external information:\n  automatic fallback: authorized\n",
         "",
@@ -281,6 +367,32 @@ def test_local_ollama_replacement_and_optional_fields(
     )
 
 
+def test_local_temperature_is_complete_runtime_composition_fact(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(capsys, ["local", "--runtime", "ollama", "--temperature", "0"])[0] == 0
+    assert load_retained_configuration().local is not None
+    assert load_retained_configuration().local.runtime.temperature == 0
+    assert "temperature: 0.0" in _run(capsys, ["show"])[1]
+
+    assert (
+        _run(
+            capsys,
+            [
+                "local",
+                "--runtime",
+                "vllm",
+                "--vllm-base-url",
+                "http://127.0.0.1:8000",
+                "--vllm-model",
+                "served-name",
+            ],
+        )[0]
+        == 0
+    )
+    assert load_retained_configuration().local.runtime.temperature is None
+
+
 def test_local_runtime_validation_and_reset_conflicts(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -293,6 +405,23 @@ def test_local_runtime_validation_and_reset_conflicts(
         == 2
     )
     assert _run(capsys, ["local", "--reset", "--runtime", "ollama"])[0] == 2
+    assert _run(capsys, ["local", "--reset", "--execution-limit", "2"])[0] == 2
+
+
+def test_local_execution_limit_is_retained_and_shown_as_retained_state(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert _run(
+        capsys,
+        ["local", "--runtime", "ollama", "--execution-limit", "2"],
+    ) == (0, "local configuration retained\n", "")
+    assert load_retained_configuration().local is not None
+    assert load_retained_configuration().local.execution_limit == 2
+    assert "HAC execution limit: 2" in _run(capsys, ["show"])[1]
+
+    _run(capsys, ["local", "--runtime", "ollama"])
+
+    assert "HAC execution limit: not retained" in _run(capsys, ["show"])[1]
 
 
 def test_llama_server_uses_existing_normalization(
@@ -602,7 +731,11 @@ def test_show_llama_server_retained_facts(capsys: pytest.CaptureFixture[str]) ->
         "  runtime: llama-server\n"
         "  llama-server base URL: http://127.0.0.1:8080\n"
         "  llama-server model: model\n"
+        "  temperature: not retained\n"
         "  caller-local capabilities: not retained\n"
+        "  HAC execution limit: not retained\n"
+        "Image Generation:\n"
+        "  not configured\n"
         "Remote nodes:\n"
         "  none\n"
         "External information:\n"

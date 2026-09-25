@@ -35,7 +35,9 @@ Finite commands:
   chat            Send one ordinary chat request.
   code            Send one bounded textual code request.
   code-file       Replace one selected file from one bounded code request.
+  code-workspace  Run bounded workspace-aware code interactions.
   classify        Send one ordinary classify request.
+  image-generation  Send one local Image Generation request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   health          Observe local runtime health.
@@ -61,7 +63,9 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "chat",
         "code",
         "code-file",
+        "code-workspace",
         "classify",
+        "image-generation",
         "summarize",
         "preflight",
         "health",
@@ -133,7 +137,10 @@ def test_bare_config_delegates_to_successful_config_discovery(
 
     assert captured.err == ""
     assert "usage: home-ai-cluster config" in captured.out
-    assert "{local,node,external-information,chat,reset,show}" in captured.out
+    assert (
+        "{local,image-generation,node,external-information,chat,reset,show}"
+        in captured.out
+    )
 
 
 @pytest.mark.parametrize("name", tuple(command._COMMANDS))
@@ -212,6 +219,8 @@ def test_ordinary_help_surfaces_explain_important_boundaries(
     assert "interactive Chat on a TTY" in help_for("chat")
     assert "textual Code" in help_for("code")
     assert "file to replace" in help_for("code-file")
+    assert "workspace text" in help_for("code-workspace")
+    assert "remote Code nodes" in help_for("code-workspace")
     assert "read stdin" in help_for("summarize")
     assert "read stdin" in help_for("classify")
     assert "Read-only" in help_for("preflight")

@@ -1,11 +1,25 @@
 import argparse
+import asyncio
+import signal
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi import FastAPI
 
 from home_ai_cluster import local_runtime
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.stable_diffusion_cpp import StableDiffusionCppAdapter
+from home_ai_cluster.core.models import Capability
+from home_ai_cluster.local_runtime_composition import LocalRuntimeCompositionValues
+from home_ai_cluster.main import create_receiver_app
+from home_ai_cluster.retained_configuration import (
+    RetainedConfiguration,
+    RetainedImageGenerationConfiguration,
+    RetainedLocalConfiguration,
+    load_retained_configuration,
+    save_retained_configuration,
+)
 
 
 def test_parse_args_defaults_to_ollama() -> None:
@@ -18,6 +32,8 @@ def test_parse_args_defaults_to_ollama() -> None:
     assert args.ollama_disable_thinking is False
     assert args.host == "127.0.0.1"
     assert args.port == 25042
+    assert args.receiver_host is None
+    assert args.receiver_port is None
 
 
 def test_parse_args_accepts_explicit_ollama() -> None:
@@ -314,8 +330,6 @@ def test_parse_args_accepts_explicit_llama_server() -> None:
             "http://[::1]:8080/",
             "--llama-server-model",
             "local-model",
-            "--host",
-            "0.0.0.0",
             "--port",
             "8123",
         ]
@@ -324,8 +338,70 @@ def test_parse_args_accepts_explicit_llama_server() -> None:
     assert args.runtime == "llama-server"
     assert args.llama_server_base_url == "http://[::1]:8080"
     assert args.llama_server_model == "local-model"
-    assert args.host == "0.0.0.0"
+    assert args.host == "127.0.0.1"
     assert args.port == 8123
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "localhost", "::1", "192.0.2.10"])
+def test_parse_args_rejects_non_loopback_native_host(host: str) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(["--host", host])
+
+
+@pytest.mark.parametrize("receiver_host", ["192.0.2.10", "2001:db8::10"])
+def test_parse_args_accepts_concrete_non_loopback_receiver_host(
+    receiver_host: str,
+) -> None:
+    args = local_runtime.parse_args(["--receiver-host", receiver_host])
+
+    assert args.receiver_host == receiver_host
+    assert args.receiver_port == 25042
+
+
+@pytest.mark.parametrize(
+    "receiver_host",
+    ["0.0.0.0", "::", "127.0.0.1", "::1", "localhost", "example.invalid", "bad"],
+)
+def test_parse_args_rejects_non_concrete_receiver_host(receiver_host: str) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(["--receiver-host", receiver_host])
+
+
+def test_parse_args_keeps_native_and_receiver_ports_independent() -> None:
+    args = local_runtime.parse_args(
+        [
+            "--port",
+            "25043",
+            "--receiver-host",
+            "192.0.2.10",
+            "--receiver-port",
+            "26000",
+        ]
+    )
+
+    assert args.port == 25043
+    assert args.receiver_port == 26000
+
+
+def test_parse_args_rejects_receiver_port_without_receiver_host() -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(["--receiver-port", "26000"])
+
+
+@pytest.mark.parametrize("port", ["0", "-1", "65536"])
+def test_parse_args_rejects_invalid_lan_browser_port(port: str) -> None:
+    with pytest.raises(SystemExit):
+        local_runtime.parse_args(
+            ["--lan-browser-host", "192.0.2.10", "--lan-browser-port", port]
+        )
+
+
+def test_parse_args_canonicalizes_lan_browser_ipv6_and_port_80() -> None:
+    args = local_runtime.parse_args(
+        ["--lan-browser-host", "2001:0db8:0:0:0:0:0:10", "--lan-browser-port", "80"]
+    )
+    assert args.lan_browser_host == "2001:db8::10"
+    assert args.lan_browser_port == 80
 
 
 def test_create_local_runtime_app_passes_composition_to_create_app(
@@ -357,6 +433,38 @@ def test_create_local_runtime_app_passes_composition_to_create_app(
     assert node.adapters == ["llama-server"]
 
 
+def test_create_local_runtime_app_constructs_explicit_vllm_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return app
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+
+    result = local_runtime.create_local_runtime_app(
+        local_runtime.parse_args(
+            [
+                "--runtime",
+                "vllm",
+                "--vllm-base-url",
+                "http://127.0.0.1:8000",
+                "--vllm-model",
+                "served-name",
+            ]
+        )
+    )
+
+    assert result is app
+    adapter = captured["composition"].adapter_registry.list_adapters()[0]
+    assert adapter.name == "vllm"
+    assert adapter.base_url == "http://127.0.0.1:8000"
+    assert adapter.model == "served-name"
+
+
 def test_create_local_runtime_app_defaults_to_ollama_composition(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -378,6 +486,189 @@ def test_create_local_runtime_app_defaults_to_ollama_composition(
     assert isinstance(adapter, OllamaAdapter)
     assert adapter.model == "llama3.2"
     assert adapter.disable_thinking is False
+
+
+def test_retained_image_generation_companion_composes_with_default_textual_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    save_retained_configuration(
+        RetainedConfiguration(
+            image_generation=RetainedImageGenerationConfiguration(
+                base_url="http://127.0.0.1:7860"
+            )
+        )
+    )
+    local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
+
+    composition = captured["composition"]
+    assert [
+        adapter.name for adapter in composition.adapter_registry.list_adapters()
+    ] == ["ollama", "stable-diffusion-cpp"]
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        ).name
+        == "stable-diffusion-cpp"
+    )
+
+
+def _retained_textual_and_image_configuration(
+    *, model: str = "model-a", execution_limit: int | None = None
+) -> RetainedConfiguration:
+    return RetainedConfiguration(
+        local=RetainedLocalConfiguration(
+            runtime=LocalRuntimeCompositionValues(runtime="ollama", ollama_model=model),
+            execution_limit=execution_limit,
+        ),
+        image_generation=RetainedImageGenerationConfiguration(
+            base_url="http://127.0.0.1:7860"
+        ),
+    )
+
+
+def _captured_local_composition(monkeypatch: pytest.MonkeyPatch, argv: list[str]):
+    captured: dict[str, object] = {}
+
+    def create_app(*, local_app_composition):
+        captured["composition"] = local_app_composition
+        return FastAPI()
+
+    monkeypatch.setattr(local_runtime, "create_app", create_app)
+    local_runtime.create_local_runtime_app(local_runtime.parse_args(argv))
+    return captured["composition"]
+
+
+def test_retained_textual_and_image_companion_bind_their_exact_adapters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+
+    composition = _captured_local_composition(monkeypatch, [])
+    adapters = composition.adapter_registry.list_adapters()
+
+    assert isinstance(adapters[0], OllamaAdapter)
+    assert adapters[0].model == "model-a"
+    assert isinstance(adapters[1], StableDiffusionCppAdapter)
+    assert adapters[1].base_url == "http://127.0.0.1:7860"
+    assert (
+        composition.adapter_registry.bound_adapter_for(Capability(name="code"))
+        is adapters[0]
+    )
+    assert (
+        composition.adapter_registry.bound_adapter_for(
+            Capability(name="image-generation")
+        )
+        is adapters[1]
+    )
+
+
+def test_textual_overrides_preserve_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    retained = _retained_textual_and_image_configuration()
+    save_retained_configuration(retained)
+
+    composition = _captured_local_composition(
+        monkeypatch, ["--ollama-model", "model-b", "--temperature", "0"]
+    )
+    textual, image = composition.adapter_registry.list_adapters()
+
+    assert textual.model == "model-b"
+    assert textual.temperature == 0
+    assert image.base_url == "http://127.0.0.1:7860"
+    assert load_retained_configuration() == retained
+
+
+def test_textual_runtime_replacement_preserves_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+
+    composition = _captured_local_composition(
+        monkeypatch,
+        [
+            "--runtime",
+            "llama-server",
+            "--llama-server-base-url",
+            "http://127.0.0.1:8080",
+            "--llama-server-model",
+            "replacement",
+        ],
+    )
+    textual, image = composition.adapter_registry.list_adapters()
+
+    assert textual.name == "llama-server"
+    assert textual.base_url == "http://127.0.0.1:8080"
+    assert textual.model == "replacement"
+    assert image.name == "stable-diffusion-cpp"
+
+
+def test_runtime_config_bypasses_retained_image_companion(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+    runtime_config = tmp_path / "runtime.toml"
+    runtime_config.write_text('runtime = "ollama"\n[ollama]\nmodel = "file-model"\n')
+
+    composition = _captured_local_composition(
+        monkeypatch, ["--runtime-config", str(runtime_config)]
+    )
+
+    adapters = composition.adapter_registry.list_adapters()
+    assert len(adapters) == 1
+    assert adapters[0].name == "ollama"
+    assert adapters[0].model == "file-model"
+
+
+def test_retained_execution_limit_is_shared_by_textual_and_image_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(
+        _retained_textual_and_image_configuration(execution_limit=2)
+    )
+
+    composition = _captured_local_composition(monkeypatch, [])
+
+    async def entries() -> tuple[bool, bool, bool]:
+        return (
+            await composition.execution_intervals.try_enter(),
+            await composition.execution_intervals.try_enter(),
+            await composition.execution_intervals.try_enter(),
+        )
+
+    assert asyncio.run(entries()) == (True, True, False)
+
+
+def test_retained_image_companion_keeps_multi_adapter_status_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    save_retained_configuration(_retained_textual_and_image_configuration())
+    composition = _captured_local_composition(monkeypatch, [])
+    for adapter in composition.adapter_registry.list_adapters():
+        monkeypatch.setattr(
+            adapter,
+            "health",
+            lambda: pytest.fail("multi-adapter status must not observe health"),
+        )
+    app = create_receiver_app(local_app_composition=composition)
+
+    async def observe() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            return await client.get("/internal/cluster/status")
+
+    response = asyncio.run(observe())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Unable to inspect local runtime status"}
 
 
 def test_create_local_runtime_app_passes_explicit_ollama_model_to_composition(
@@ -425,18 +716,7 @@ def test_create_local_runtime_app_passes_thinking_disable_to_composition(
     assert adapter.disable_thinking is True
 
 
-@pytest.mark.parametrize(
-    ("host", "uses_browser"),
-    [
-        ("127.0.0.1", True),
-        ("0.0.0.0", False),
-        ("localhost", False),
-        ("::1", False),
-    ],
-)
-def test_create_local_runtime_app_selects_browser_only_for_exact_loopback_host(
-    host: str,
-    uses_browser: bool,
+def test_create_local_runtime_app_attaches_loopback_browser_routes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     api_app = FastAPI()
@@ -455,12 +735,36 @@ def test_create_local_runtime_app_selects_browser_only_for_exact_loopback_host(
         lambda app: calls.append("browser") or browser_app,
     )
 
-    result = local_runtime.create_local_runtime_app(
-        local_runtime.parse_args(["--host", host])
-    )
+    result = local_runtime.create_local_runtime_app(local_runtime.parse_args([]))
 
-    assert result is (browser_app if uses_browser else api_app)
-    assert calls == (["browser"] if uses_browser else [])
+    assert result is browser_app
+    assert calls == ["browser"]
+
+
+def test_port_zero_remains_accepted_without_browser_authority_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = FastAPI()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        local_runtime,
+        "create_local_runtime_composition",
+        lambda **_: object(),
+    )
+    monkeypatch.setattr(local_runtime, "create_app", lambda **_: app)
+
+    def add_routes(browser_app: FastAPI) -> FastAPI:
+        captured["app"] = browser_app
+        return browser_app
+
+    monkeypatch.setattr(local_runtime, "add_loopback_browser_routes", add_routes)
+
+    args = local_runtime.parse_args(["--port", "0"])
+
+    assert args.port == 0
+    assert local_runtime.create_local_runtime_app(args) is app
+    assert captured == {"app": app}
 
 
 def test_invalid_input_does_not_start_server(
@@ -538,9 +842,592 @@ def test_main_does_not_wrap_uvicorn_owned_startup_failure(
     }
 
 
+def test_receiver_enabled_startup_uses_one_shared_composition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    native_app = FastAPI()
+    composition = object()
+    native_app.state.local_app_composition = composition
+    receiver_app = FastAPI()
+    received: dict[str, object] = {}
+
+    monkeypatch.setattr(local_runtime, "create_local_runtime_app", lambda _: native_app)
+
+    def create_receiver_app(*, local_app_composition: object) -> FastAPI:
+        received["composition"] = local_app_composition
+        receiver_app.state.local_app_composition = local_app_composition
+        return receiver_app
+
+    monkeypatch.setattr(local_runtime, "create_receiver_app", create_receiver_app)
+
+    async def run_servers(
+        native: FastAPI, receiver: FastAPI, args: argparse.Namespace
+    ) -> None:
+        received.update(native=native, receiver=receiver, args=args)
+
+    monkeypatch.setattr(local_runtime, "_run_receiver_enabled_servers", run_servers)
+
+    local_runtime.main(["--receiver-host", "192.0.2.10"])
+
+    assert received["composition"] is composition
+    assert receiver_app.state.local_app_composition is composition
+    assert received["native"] is native_app
+    assert received["receiver"] is receiver_app
+    assert received["args"].receiver_port == 25042
+
+
+def test_receiver_enabled_lifecycle_stops_both_servers() -> None:
+    created: list[object] = []
+    served: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            served.append(self)
+            try:
+                while not self.should_exit:
+                    await asyncio.sleep(0)
+            except asyncio.CancelledError as error:
+                raise AssertionError(
+                    "server must complete without cancellation"
+                ) from error
+            completed.append(self)
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
+    local_runtime._ReceiverServer = Server
+    try:
+
+        async def stop_native() -> None:
+            while not served:
+                await asyncio.sleep(0)
+            created[0].should_exit = True
+
+        async def run() -> None:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(
+                    local_runtime._run_receiver_enabled_servers(
+                        FastAPI(),
+                        FastAPI(),
+                        argparse.Namespace(
+                            port=25042,
+                            receiver_host="192.0.2.10",
+                            receiver_port=25042,
+                        ),
+                    )
+                )
+                group.create_task(stop_native())
+
+        asyncio.run(run())
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 2
+    assert served == created
+    assert completed == created
+    assert all(server.should_exit for server in created)
+    assert created[0].config.host == "127.0.0.1"
+    assert created[0].config.port == 25042
+    assert created[1].config.host == "192.0.2.10"
+    assert created[1].config.port == 25042
+
+
+def test_receiver_enabled_lifecycle_stops_sibling_after_server_failure() -> None:
+    created: list[object] = []
+
+    class Server:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[0]:
+                raise RuntimeError("startup failed")
+            while not self.should_exit:
+                await asyncio.sleep(0)
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
+    local_runtime._ReceiverServer = Server
+    try:
+        with pytest.raises(ExceptionGroup):
+            asyncio.run(
+                local_runtime._run_receiver_enabled_servers(
+                    FastAPI(),
+                    FastAPI(),
+                    argparse.Namespace(
+                        port=25042,
+                        receiver_host="192.0.2.10",
+                        receiver_port=25042,
+                    ),
+                )
+            )
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 2
+    assert created[1].should_exit is True
+
+
+def test_serve_until_sibling_stops_captures_system_exit_and_stops_sibling() -> None:
+    exit_error = SystemExit(3)
+
+    class FailingServer:
+        async def serve(self) -> None:
+            raise exit_error
+
+    class SiblingServer:
+        should_exit = False
+
+    sibling = SiblingServer()
+
+    captured_exit = asyncio.run(
+        local_runtime._serve_until_sibling_stops(FailingServer(), sibling)
+    )
+
+    assert captured_exit is exit_error
+    assert sibling.should_exit is True
+
+
+def test_receiver_enabled_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[0]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_receiver_enabled_servers(
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    receiver_host="192.0.2.10",
+                    receiver_port=25042,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert completed == [created[1]]
+    assert all(server.should_exit for server in created)
+
+
+def test_receiver_and_lan_lifecycle_stops_all_three_servers() -> None:
+    created: list[object] = []
+    served: list[object] = []
+    completed: list[object] = []
+
+    class NativeServer:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            served.append(self)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    class ReceiverServer(NativeServer):
+        pass
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = NativeServer
+    local_runtime._NativeServer = NativeServer
+    local_runtime._ReceiverServer = ReceiverServer
+    try:
+
+        async def stop_receiver() -> None:
+            while len(served) != 3:
+                await asyncio.sleep(0)
+            created[1].should_exit = True
+
+        async def run() -> None:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(
+                    local_runtime._run_receiver_and_lan_servers(
+                        FastAPI(),
+                        FastAPI(),
+                        FastAPI(),
+                        argparse.Namespace(
+                            port=25042,
+                            receiver_host="192.0.2.10",
+                            receiver_port=25043,
+                            lan_browser_host="2001:db8::10",
+                            lan_browser_port=25044,
+                        ),
+                    )
+                )
+                group.create_task(stop_receiver())
+
+        asyncio.run(run())
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 3
+    assert served == created
+    assert set(completed) == set(created)
+    assert all(server.should_exit for server in created)
+    assert [(server.config.host, server.config.port) for server in created] == [
+        ("127.0.0.1", 25042),
+        ("192.0.2.10", 25043),
+        ("2001:db8::10", 25044),
+    ]
+    assert type(created[0]) is NativeServer
+    assert all(type(server) is ReceiverServer for server in created[1:])
+
+
+def test_receiver_and_lan_lifecycle_stops_siblings_after_server_failure() -> None:
+    created: list[object] = []
+
+    class Server:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise RuntimeError("startup failed")
+            while not self.should_exit:
+                await asyncio.sleep(0)
+
+    original_server = local_runtime.uvicorn.Server
+    original_native_server = local_runtime._NativeServer
+    original_receiver_server = local_runtime._ReceiverServer
+    local_runtime.uvicorn.Server = Server
+    local_runtime._NativeServer = Server
+    local_runtime._ReceiverServer = Server
+    try:
+        with pytest.raises(ExceptionGroup):
+            asyncio.run(
+                local_runtime._run_receiver_and_lan_servers(
+                    FastAPI(),
+                    FastAPI(),
+                    FastAPI(),
+                    argparse.Namespace(
+                        port=25042,
+                        receiver_host="192.0.2.10",
+                        receiver_port=25043,
+                        lan_browser_host="192.0.2.11",
+                        lan_browser_port=25044,
+                    ),
+                )
+            )
+    finally:
+        local_runtime.uvicorn.Server = original_server
+        local_runtime._NativeServer = original_native_server
+        local_runtime._ReceiverServer = original_receiver_server
+
+    assert len(created) == 3
+    assert created[0].should_exit is True
+    assert created[2].should_exit is True
+
+
+def test_receiver_and_lan_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_receiver_and_lan_servers(
+                FastAPI(),
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    receiver_host="192.0.2.10",
+                    receiver_port=25043,
+                    lan_browser_host="192.0.2.11",
+                    lan_browser_port=25044,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert set(completed) == {created[0], created[2]}
+    assert all(server.should_exit for server in created)
+
+
+def test_lan_enabled_lifecycle_stops_both_servers_with_native_signal_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    served: list[object] = []
+    completed: list[object] = []
+
+    class NativeServer:
+        def __init__(self, config: object) -> None:
+            self.config = config
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            served.append(self)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    class LanServer(NativeServer):
+        pass
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", NativeServer)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", LanServer)
+
+    async def stop_lan() -> None:
+        while len(served) != 2:
+            await asyncio.sleep(0)
+        created[1].should_exit = True
+
+    async def run() -> None:
+        async with asyncio.TaskGroup() as group:
+            group.create_task(
+                local_runtime._run_lan_enabled_servers(
+                    FastAPI(),
+                    FastAPI(),
+                    argparse.Namespace(
+                        port=25042,
+                        lan_browser_host="192.0.2.10",
+                        lan_browser_port=25043,
+                    ),
+                )
+            )
+            group.create_task(stop_lan())
+
+    asyncio.run(run())
+
+    assert len(created) == 2
+    assert served == created
+    assert set(completed) == set(created)
+    assert all(server.should_exit for server in created)
+    assert [(server.config.host, server.config.port) for server in created] == [
+        ("127.0.0.1", 25042),
+        ("192.0.2.10", 25043),
+    ]
+    assert isinstance(created[0], NativeServer)
+    assert type(created[1]) is LanServer
+
+
+def test_lan_enabled_lifecycle_reraises_captured_system_exit_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    created: list[object] = []
+    completed: list[object] = []
+
+    class Server:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals: tuple[int, ...] = ()
+            created.append(self)
+
+        async def serve(self) -> None:
+            if self is created[1]:
+                raise SystemExit(3)
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            completed.append(self)
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", Server)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", Server)
+
+    with pytest.raises(SystemExit) as raised:
+        asyncio.run(
+            local_runtime._run_lan_enabled_servers(
+                FastAPI(),
+                FastAPI(),
+                argparse.Namespace(
+                    port=25042,
+                    lan_browser_host="192.0.2.10",
+                    lan_browser_port=25043,
+                ),
+            )
+        )
+
+    assert raised.value.code == 3
+    assert completed == [created[0]]
+    assert all(server.should_exit for server in created)
+
+
+def test_receiver_enabled_lifecycle_uses_one_signal_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: list[tuple[object, object]] = []
+
+    async def serve_until(server: object, sibling: object) -> None:
+        recorded.append((server, sibling))
+
+    monkeypatch.setattr(local_runtime, "_serve_until_sibling_stops", serve_until)
+
+    asyncio.run(
+        local_runtime._run_receiver_enabled_servers(
+            FastAPI(),
+            FastAPI(),
+            argparse.Namespace(
+                port=25042,
+                receiver_host="192.0.2.10",
+                receiver_port=25042,
+            ),
+        )
+    )
+
+    native_server, receiver_server = recorded[0]
+    assert isinstance(native_server, local_runtime._NativeServer)
+    assert isinstance(receiver_server, local_runtime._ReceiverServer)
+
+
+def test_native_server_delays_uvicorn_signal_reraise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    signal_calls: list[tuple[int, object]] = []
+    raised_signals: list[int] = []
+    previous_handlers: dict[int, object] = {}
+
+    def install_signal_handler(signal_number: int, handler: object) -> object | None:
+        signal_calls.append((signal_number, handler))
+        return previous_handlers.setdefault(signal_number, None)
+
+    monkeypatch.setattr(signal, "signal", install_signal_handler)
+    monkeypatch.setattr(signal, "raise_signal", raised_signals.append)
+    server = local_runtime._NativeServer(local_runtime.uvicorn.Config(FastAPI()))
+
+    with server.capture_signals():
+        server.handle_exit(signal.SIGINT, None)
+
+    assert server.should_exit is True
+    assert any(handler == server.handle_exit for _, handler in signal_calls)
+    signal_numbers = {signal_number for signal_number, _ in signal_calls}
+    assert len(signal_calls) == 2 * len(signal_numbers)
+    assert all(
+        sum(1 for seen_signal, _ in signal_calls if seen_signal == signal_number) == 2
+        for signal_number in signal_numbers
+    )
+    assert server.pending_signals == (signal.SIGINT,)
+    assert raised_signals == []
+
+
+def test_receiver_enabled_lifecycle_reraises_signal_after_both_servers_complete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class NativeServer:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+            self.pending_signals = (signal.SIGINT,)
+
+        async def serve(self) -> None:
+            events.append("native-complete")
+
+    class ReceiverServer:
+        def __init__(self, _: object) -> None:
+            self.should_exit = False
+
+        async def serve(self) -> None:
+            while not self.should_exit:
+                await asyncio.sleep(0)
+            events.append("receiver-complete")
+
+    monkeypatch.setattr(local_runtime, "_NativeServer", NativeServer)
+    monkeypatch.setattr(local_runtime, "_ReceiverServer", ReceiverServer)
+    monkeypatch.setattr(
+        local_runtime.signal,
+        "raise_signal",
+        lambda captured_signal: events.append(f"signal-{captured_signal}"),
+    )
+
+    asyncio.run(
+        local_runtime._run_receiver_enabled_servers(
+            FastAPI(),
+            FastAPI(),
+            argparse.Namespace(
+                port=25042,
+                receiver_host="192.0.2.10",
+                receiver_port=25042,
+            ),
+        )
+    )
+
+    assert events == ["native-complete", "receiver-complete", f"signal-{signal.SIGINT}"]
+
+
+def test_receiver_server_signal_capture_is_inert(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    signal_calls: list[object] = []
+    monkeypatch.setattr(signal, "signal", lambda *args: signal_calls.append(args))
+    server = local_runtime._ReceiverServer(local_runtime.uvicorn.Config(FastAPI()))
+
+    with server.capture_signals():
+        pass
+
+    assert signal_calls == []
+
+
 @pytest.fixture(autouse=True)
 def isolated_retained_configuration(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local-app-data"))

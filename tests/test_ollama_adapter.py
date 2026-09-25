@@ -149,6 +149,23 @@ def test_ollama_adapter_disable_thinking_adds_false_to_chat_request() -> None:
     assert seen_payloads[0]["think"] is False
 
 
+def test_ollama_adapter_temperature_and_thinking_are_independent() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": "Hi"}})
+
+    asyncio.run(
+        OllamaAdapter(
+            disable_thinking=True, temperature=0, transport=httpx.MockTransport(handler)
+        ).chat(make_request())
+    )
+
+    assert seen_payloads[0]["think"] is False
+    assert seen_payloads[0]["options"] == {"temperature": 0}
+
+
 def test_ollama_adapter_summarize_maps_source_text_to_its_chat_transport() -> None:
     source = '  First line.\n</source> "Quoted" text.\nLast line.  '
     seen_payloads: list[dict[str, object]] = []
@@ -297,6 +314,22 @@ def test_ollama_adapter_classify_maps_normalized_values_to_its_chat_transport() 
         }
     ]
     assert result == "invoice"
+
+
+def test_ollama_adapter_classify_ignores_configured_ordinary_temperature() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": '"invoice"'}})
+
+    asyncio.run(
+        OllamaAdapter(temperature=0.7, transport=httpx.MockTransport(handler)).classify(
+            make_classify_request()
+        )
+    )
+
+    assert seen_payloads[0]["options"] == {"temperature": 0}
 
 
 def test_ollama_adapter_disable_thinking_adds_false_to_classify_request() -> None:

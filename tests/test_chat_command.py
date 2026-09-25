@@ -690,6 +690,8 @@ def test_interactive_never_loads_retained_fallback_configuration(
         ["--unknown"],
         ["--message", "first", "--message", "second"],
         ["positional", "--message", "option"],
+        ["--external-information", "question"],
+        ["--external-information", "--message", "question"],
         ["first", "second"],
         ["Hello", "--timeout-seconds"],
         ["--timeout-seconds", "0", "Hello"],
@@ -927,6 +929,7 @@ def test_conflicting_output_options_fail_before_client_construction(
     [
         (422, "error: cluster rejected request"),
         (404, "error: no available chat capability"),
+        (409, "error: execution permission denied"),
         (503, "error: runtime adapter unavailable"),
         (500, "error: ordinary request failed"),
     ],
@@ -949,6 +952,8 @@ def test_http_failures_are_safely_mapped(
     assert exit_code == 1
     assert stdout == ""
     assert stderr == f"{expected_error}\n"
+    assert "local execution permission denied" not in stderr
+    assert "traceback" not in stderr.lower()
     assert "private" not in stderr
     assert "response body" not in stderr
 
@@ -1039,7 +1044,42 @@ def test_no_message_requires_both_terminal_streams_before_read_or_request() -> N
         assert stderr.getvalue() == "error: invalid request input\n"
 
 
-@pytest.mark.parametrize("arguments", [["--json"], ["--verbose"], ["-v"]])
+def test_external_interactive_non_terminal_fails_before_retained_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.commands import chat_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: (_ for _ in ()).throw(AssertionError("must not load")),
+    )
+    stderr = StringIO()
+
+    with pytest.raises(SystemExit) as raised:
+        main(
+            ["--external-information"],
+            _client_factory=unused_client,
+            _stdin=non_terminal("unexpected"),
+            _stdout=terminal(),
+            _stderr=stderr,
+        )
+
+    assert raised.value.code == 2
+    assert stderr.getvalue() == "error: invalid request input\n"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--json"],
+        ["--verbose"],
+        ["-v"],
+        ["--external-information", "--json"],
+        ["--external-information", "--verbose"],
+        ["--external-information", "-v"],
+    ],
+)
 def test_no_message_output_modes_fail_before_request(arguments: list[str]) -> None:
     stderr = StringIO()
     with pytest.raises(SystemExit) as raised:
@@ -1053,6 +1093,158 @@ def test_no_message_output_modes_fail_before_request(arguments: list[str]) -> No
 
     assert raised.value.code == 2
     assert stderr.getvalue() == "error: invalid request input\n"
+
+
+def test_external_interactive_loads_one_plugin_snapshot_and_skips_decision_without_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.commands import chat_command
+
+    loads = 0
+
+    def load_configuration() -> RetainedConfiguration:
+        nonlocal loads
+        loads += 1
+        return RetainedConfiguration(chat_external_information_fallback=True)
+
+    monkeypatch.setattr(chat_command, "load_retained_configuration", load_configuration)
+    monkeypatch.setattr(
+        chat_command,
+        "_decision",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("no decision")),
+    )
+    requests: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        return httpx.Response(200, json=result_body(content="ordinary answer"))
+
+    main(
+        ["--external-information"],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("question\n"),
+        _stdout=terminal(),
+        _stderr=StringIO(),
+    )
+
+    assert loads == 1
+    assert requests == [
+        {"messages": [{"role": "user", "content": "question"}], "capability": "chat"}
+    ]
+
+
+def test_external_interactive_uses_newest_turn_and_contextual_source_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.commands import chat_command, external_information_command
+    from home_ai_cluster.core.models import SourceEvidence, SourceGroundedChatRequest
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(external_information_plugin="snapshotted"),
+    )
+    decisions: list[str] = []
+
+    def decide(question: str, **_kwargs: object) -> str:
+        decisions.append(question)
+        return "ordinary" if question == "first" else "external"
+
+    monkeypatch.setattr(chat_command, "_decision", decide)
+    acquired: list[tuple[str, str, str]] = []
+    monkeypatch.setattr(
+        external_information_command,
+        "_acquire_source_grounded_request",
+        lambda plugin, query, question: (
+            acquired.append((plugin, query, question))
+            or SourceGroundedChatRequest(
+                question=question,
+                sources=[
+                    SourceEvidence(
+                        title="Source title",
+                        url="https://example.test/source",
+                        content="Source content",
+                    )
+                ],
+            )
+        ),
+    )
+    requests: list[tuple[str, dict[str, object]]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.path, body))
+        if request.url.path == "/v1/chat":
+            return httpx.Response(200, json=result_body(content="first answer"))
+        return httpx.Response(
+            200,
+            json={
+                **result_body(content="external answer"),
+                "sources": body["sources"],
+            },
+        )
+
+    stdout, stderr = terminal(), StringIO()
+    main(
+        ["--external-information"],
+        _client_factory=client_factory(httpx.MockTransport(handler)),
+        _stdin=terminal("first\nsecond\n"),
+        _stdout=stdout,
+        _stderr=stderr,
+    )
+
+    assert decisions == ["first", "second"]
+    assert acquired == [("snapshotted", "second", "second")]
+    assert requests[1] == (
+        "/v1/chat/sources",
+        {
+            "question": "second",
+            "sources": [
+                {
+                    "title": "Source title",
+                    "url": "https://example.test/source",
+                    "content": "Source content",
+                }
+            ],
+            "prior_messages": [
+                {"role": "user", "content": "first"},
+                {"role": "assistant", "content": "first answer"},
+            ],
+        },
+    )
+    assert "Supplied sources:" in stdout.getvalue()
+    assert stderr.getvalue() == "…\n…\n"
+
+
+def test_external_interactive_acquisition_failure_rolls_back_without_ordinary_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.commands import chat_command, external_information_command
+
+    monkeypatch.setattr(
+        chat_command,
+        "load_retained_configuration",
+        lambda: RetainedConfiguration(external_information_plugin="selected"),
+    )
+    monkeypatch.setattr(chat_command, "_decision", lambda *_args, **_kwargs: "external")
+    monkeypatch.setattr(
+        external_information_command,
+        "_acquire_source_grounded_request",
+        lambda *_args: (_ for _ in ()).throw(
+            external_information_command._AcquisitionFailure()
+        ),
+    )
+
+    stderr = StringIO()
+    main(
+        ["--external-information"],
+        _client_factory=unused_client,
+        _stdin=terminal("question\n"),
+        _stdout=terminal(),
+        _stderr=stderr,
+    )
+
+    assert stderr.getvalue() == "…\nerror: external-information-acquisition-failed\n"
 
 
 def test_interactive_turns_send_complete_successful_context_and_per_turn_timeout() -> (

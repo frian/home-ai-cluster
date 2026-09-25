@@ -569,7 +569,7 @@ def test_short_form_preserves_output_and_timeout_behavior(
     assert full_result == short_result
 
 
-@pytest.mark.parametrize("question", ["", "x" * 65_537])
+@pytest.mark.parametrize("question", ["", "x" * 65_537], ids=["empty", "oversized"])
 def test_short_invalid_question_preserves_downstream_acquisition_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], question: str
 ) -> None:
@@ -752,6 +752,29 @@ def test_complete_validation_precedes_exact_public_post_and_http_timeout(
         "question": "operator question",
         "sources": [valid_candidate()],
     }
+
+
+def test_public_request_serializes_non_empty_prior_messages() -> None:
+    from home_ai_cluster.commands.external_information_command import _public_request
+    from home_ai_cluster.core.models import (
+        ChatMessage,
+        SourceEvidence,
+        SourceGroundedChatRequest,
+    )
+
+    request = SourceGroundedChatRequest(
+        question="operator question",
+        sources=[SourceEvidence(**valid_candidate())],
+        prior_messages=[
+            ChatMessage(role="user", content="Earlier question"),
+            ChatMessage(role="assistant", content="Earlier answer"),
+        ],
+    )
+
+    assert _public_request(request)["prior_messages"] == [
+        {"role": "user", "content": "Earlier question"},
+        {"role": "assistant", "content": "Earlier answer"},
+    ]
 
 
 @pytest.mark.parametrize(

@@ -1,9 +1,13 @@
 """Static API wiring for local and explicitly declared remote nodes."""
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.core.adapter_execution_contracts import (
+    validate_adapter_execution_contracts,
+)
+from home_ai_cluster.core.execution_intervals import ExecutionIntervalCardinality
 from home_ai_cluster.core.models import Capability, NodeDescription, NodeHealth
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
@@ -30,6 +34,9 @@ class LocalAppComposition:
 
     node_registry: NodeRegistry
     adapter_registry: AdapterRegistry
+    execution_intervals: ExecutionIntervalCardinality = field(
+        default_factory=ExecutionIntervalCardinality
+    )
 
     def __post_init__(self) -> None:
         if self.node_registry is None:
@@ -40,6 +47,7 @@ class LocalAppComposition:
             raise LocalAppCompositionError(
                 "Local application composition requires a local adapter registry"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 def _validate_static_remote_wiring_dependencies(
@@ -82,6 +90,7 @@ class StaticRemoteWiring:
     remote_registry: RemoteNodeDeclarationRegistry
     remote_transport: RemoteTransport
     selection_mode: RoutingCandidateSelectionMode
+    execution_intervals: ExecutionIntervalCardinality | None = None
 
     def __post_init__(self) -> None:
         declarations = _validate_static_remote_wiring_dependencies(
@@ -95,6 +104,7 @@ class StaticRemoteWiring:
             raise StaticRemoteWiringError(
                 "Static remote wiring requires exactly one declared remote node"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 @dataclass(frozen=True)
@@ -106,6 +116,7 @@ class StaticRemoteCollectionWiring:
     remote_registry: RemoteNodeDeclarationRegistry
     remote_transport: RemoteTransport
     selection_mode: RoutingCandidateSelectionMode
+    execution_intervals: ExecutionIntervalCardinality | None = None
 
     def __post_init__(self) -> None:
         declarations = _validate_static_remote_wiring_dependencies(
@@ -120,6 +131,7 @@ class StaticRemoteCollectionWiring:
                 "Static remote collection wiring requires at least one "
                 "declared remote node"
             )
+        validate_adapter_execution_contracts(self.adapter_registry.list_adapters())
 
 
 def build_static_remote_collection_wiring(
@@ -129,6 +141,7 @@ def build_static_remote_collection_wiring(
     remote_declarations: Sequence[RemoteNodeDeclaration],
     remote_transport: RemoteTransport,
     selection_mode: RoutingCandidateSelectionMode,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> StaticRemoteCollectionWiring:
     """Build caller-owned wiring for one ordered static remote collection."""
     return StaticRemoteCollectionWiring(
@@ -137,6 +150,7 @@ def build_static_remote_collection_wiring(
         remote_registry=build_remote_node_declaration_registry(remote_declarations),
         remote_transport=remote_transport,
         selection_mode=selection_mode,
+        execution_intervals=execution_intervals,
     )
 
 
@@ -147,6 +161,7 @@ def build_static_remote_wiring(
     remote_declaration: RemoteNodeDeclaration,
     remote_transport: RemoteTransport,
     selection_mode: RoutingCandidateSelectionMode,
+    execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> StaticRemoteWiring:
     """Preserve the accepted single-remote wiring seam."""
     return StaticRemoteWiring(
@@ -155,6 +170,7 @@ def build_static_remote_wiring(
         remote_registry=build_remote_node_declaration_registry([remote_declaration]),
         remote_transport=remote_transport,
         selection_mode=selection_mode,
+        execution_intervals=execution_intervals,
     )
 
 
@@ -181,4 +197,6 @@ def create_static_local_node_registry(
 
 def create_static_runtime_adapter_registry() -> AdapterRegistry:
     """Create the temporary static runtime adapter registry."""
-    return AdapterRegistry([OllamaAdapter()])
+    registry = AdapterRegistry([OllamaAdapter()])
+    validate_adapter_execution_contracts(registry.list_adapters())
+    return registry

@@ -31,7 +31,9 @@ edge.
 
 The architecture is capability-centered rather than tied to one model or
 inference engine. Runtime adapters remain replaceable, and ordinary users ask
-for Chat, Summarize, Classify, or Code rather than selecting a runtime brand.
+for capabilities such as Chat, Code, Image Generation, Summarize, or Classify
+rather than selecting a runtime brand. Image Generation requires its own
+explicit configured binding or companion.
 
 ## Start small
 
@@ -44,7 +46,8 @@ hac local
 ```
 
 Then open the fixed loopback browser at `http://127.0.0.1:25042/` on the same
-machine, or send a request from another terminal:
+machine. Its navigation is Chat, Code, Image, Summarize, Classify, and
+Configuration. Or send a request from another terminal:
 
 ![Home AI Cluster loopback browser interface](assets/browser-interface.png)
 
@@ -54,6 +57,11 @@ hac chat "Hello"
 
 See the [Getting Started guide](getting-started.md) for the complete first-use
 path.
+
+An operator may also explicitly expose the bounded capability-only browser to
+a trusted LAN with `--lan-browser-host <LAN_IP>`; loopback remains the default.
+See [Getting Started](getting-started.md) and the
+[Command Reference](command-reference.md) for details.
 
 ## Grow only when useful
 

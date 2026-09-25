@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from home_ai_cluster.adapters.base import RuntimeAdapter
 from home_ai_cluster.core.models import (
     Capability,
+    LocalRoutableRequest,
     NodeDescription,
-    RoutableRequest,
 )
 from home_ai_cluster.core.node import node_declared_adapter_names
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
@@ -27,12 +27,26 @@ class RoutingDecision:
 
 
 def route_request(
-    request: RoutableRequest,
+    request: LocalRoutableRequest,
     node_registry: NodeRegistry,
     adapter_registry: AdapterRegistry,
 ) -> RoutingDecision:
     """Select the first available node and adapter for the requested capability."""
     nodes = node_registry.nodes_for(request.capability)
+
+    bound_adapter = adapter_registry.bound_adapter_for(request.capability)
+    if bound_adapter is not None and nodes:
+        return RoutingDecision(
+            node=nodes[0],
+            adapter=bound_adapter,
+            capability=request.capability,
+            reason="Selected local adapter bound to requested capability.",
+        )
+
+    if adapter_registry.has_local_capability_bindings:
+        raise NoMatchingAdapterError(
+            f"No bound adapter provides capability: {request.capability.name}"
+        )
 
     for node in nodes:
         for adapter_name in node_declared_adapter_names(node):

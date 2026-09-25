@@ -28,11 +28,13 @@ class OllamaAdapter:
         model: str = "llama3.2",
         *,
         disable_thinking: bool = False,
+        temperature: float | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = base_url
         self.model = model
         self.disable_thinking = disable_thinking
+        self.temperature = temperature
         self._transport = transport
 
     @property
@@ -70,6 +72,8 @@ class OllamaAdapter:
         }
         if self.disable_thinking:
             payload["think"] = False
+        if self.temperature is not None:
+            payload["options"] = {"temperature": self.temperature}
         return payload
 
     def _response_content(self, body: object) -> str:

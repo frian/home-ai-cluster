@@ -8,23 +8,32 @@ from home_ai_cluster.core.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
     validate_static_capabilities,
 )
+from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
-    LocalRuntimeCompositionValues,
     non_empty_value,
-    validate_local_runtime_values,
+    temperature_value,
 )
 from home_ai_cluster.retained_configuration import (
     RetainedConfiguration,
     RetainedConfigurationError,
     RetainedLocalConfiguration,
+    build_retained_image_generation_configuration,
+    build_retained_local_configuration,
+    build_retained_remote_node_declaration,
     load_retained_configuration,
     remove_retained_configuration,
-    save_retained_configuration,
+    remove_retained_remote_node,
+    replace_retained_external_information_plugin,
+    replace_retained_image_generation_configuration,
+    replace_retained_local_configuration,
+    replace_retained_remote_node,
+    reset_retained_image_generation_configuration,
+    reset_retained_local_configuration,
+    set_retained_chat_external_information_fallback,
     validate_external_information_plugin_name,
 )
-from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
 
 
@@ -49,6 +58,22 @@ def _create_argument_parser() -> argparse.ArgumentParser:
     local.add_argument(
         "--reset", action="store_true", help="Clear retained local configuration."
     )
+
+    image_generation = commands.add_parser(
+        "image-generation",
+        help="Configure or reset the retained local Image Generation companion.",
+        description="Configure or reset the retained local Image Generation companion.",
+    )
+    image_generation.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear the retained Image Generation companion.",
+    )
+    image_generation.add_argument(
+        "--base-url",
+        type=local_http_url,
+        help="Retained stable-diffusion.cpp loopback HTTP base URL.",
+    )
     local.add_argument(
         "--runtime", choices=LOCAL_RUNTIMES, help="Retained local runtime."
     )
@@ -68,10 +93,26 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         type=non_empty_value,
         help="Retained llama-server model identifier.",
     )
+    local.add_argument("--vllm-base-url", help="Retained vLLM base URL.")
+    local.add_argument(
+        "--temperature",
+        type=temperature_value,
+        help="Finite non-negative retained local free-text sampling temperature.",
+    )
+    local.add_argument(
+        "--vllm-model",
+        type=non_empty_value,
+        help="Retained vLLM served-model identity.",
+    )
     local.add_argument(
         "--local-capability",
         action="append",
         help="Retained caller-local routing capability; repeat as needed.",
+    )
+    local.add_argument(
+        "--execution-limit",
+        type=_execution_limit,
+        help="Retained HAC execution limit.",
     )
 
     node = commands.add_parser(
@@ -159,6 +200,18 @@ def _external_information_plugin_name(value: str) -> str:
         raise argparse.ArgumentTypeError(str(error)) from error
 
 
+def _execution_limit(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "execution limit must be a positive integer"
+        ) from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("execution limit must be a positive integer")
+    return parsed
+
+
 def _validated_capabilities(
     parser: argparse.ArgumentParser,
     values: list[str] | None,
@@ -179,41 +232,34 @@ def _local_configuration(
     if args.runtime is None:
         parser.error("--runtime is required unless --reset")
     try:
-        base_url = validate_local_runtime_values(
+        return build_retained_local_configuration(
             runtime=args.runtime,
             ollama_model=args.ollama_model,
             ollama_disable_thinking=args.ollama_disable_thinking,
             llama_server_base_url=args.llama_server_base_url,
             llama_server_model=args.llama_server_model,
+            vllm_base_url=args.vllm_base_url,
+            vllm_model=args.vllm_model,
+            temperature=args.temperature,
+            local_capabilities=args.local_capability,
+            execution_limit=args.execution_limit,
         )
     except LocalRuntimeCompositionError as error:
         parser.error(str(error))
-    return RetainedLocalConfiguration(
-        runtime=LocalRuntimeCompositionValues(
-            runtime=args.runtime,
-            ollama_model=args.ollama_model,
-            ollama_disable_thinking=args.ollama_disable_thinking,
-            llama_server_base_url=base_url,
-            llama_server_model=args.llama_server_model,
-        ),
-        local_capabilities=_validated_capabilities(
-            parser, args.local_capability, subject="local"
-        ),
-    )
+    except ValueError as error:
+        parser.error(str(error))
 
 
-def _node_declaration(
-    parser: argparse.ArgumentParser, args: argparse.Namespace
-) -> RemoteNodeDeclaration:
+def _node_declaration(parser: argparse.ArgumentParser, args: argparse.Namespace):
     if args.base_url is None:
         parser.error("--base-url is required unless --remove")
     capabilities = _validated_capabilities(parser, args.capability, subject="remote")
-    return RemoteNodeDeclaration(
+    return build_retained_remote_node_declaration(
         node_id=args.node_id,
         base_url=args.base_url,
-        capabilities=(
-            DEFAULT_STATIC_CAPABILITY_NAMES if capabilities is None else capabilities
-        ),
+        capabilities=DEFAULT_STATIC_CAPABILITY_NAMES
+        if capabilities is None
+        else capabilities,
     )
 
 
@@ -224,7 +270,11 @@ def _validate_reset(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         or args.ollama_disable_thinking
         or args.llama_server_base_url is not None
         or args.llama_server_model is not None
+        or args.vllm_base_url is not None
+        or args.vllm_model is not None
+        or args.temperature is not None
         or args.local_capability is not None
+        or args.execution_limit is not None
     ):
         parser.error("--reset cannot be combined with local configuration options")
 
@@ -251,13 +301,28 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                     f"{'true' if values.ollama_disable_thinking else 'false'}",
                 ]
             )
-        else:
+        elif values.runtime == "llama-server":
             lines.extend(
                 [
                     f"  llama-server base URL: {values.llama_server_base_url}",
                     f"  llama-server model: {values.llama_server_model}",
                 ]
             )
+        else:
+            lines.extend(
+                [
+                    f"  vLLM base URL: {values.vllm_base_url}",
+                    f"  vLLM model: {values.vllm_model}",
+                ]
+            )
+        lines.append(
+            "  temperature: "
+            + (
+                "not retained"
+                if values.temperature is None
+                else str(values.temperature)
+            )
+        )
         lines.append(
             "  caller-local capabilities: "
             + (
@@ -266,7 +331,25 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                 else ", ".join(local.local_capabilities)
             )
         )
+        lines.append(
+            "  HAC execution limit: "
+            + (
+                "not retained"
+                if local.execution_limit is None
+                else str(local.execution_limit)
+            )
+        )
 
+    lines.append("Image Generation:")
+    if configuration.image_generation is None:
+        lines.append("  not configured")
+    else:
+        lines.extend(
+            [
+                "  runtime: stable-diffusion-cpp",
+                f"  base URL: {configuration.image_generation.base_url}",
+            ]
+        )
     lines.append("Remote nodes:")
     if not configuration.remote_nodes:
         lines.append("  none")
@@ -299,76 +382,46 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
 def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.reset:
         _validate_reset(parser, args)
-        configuration = load_retained_configuration()
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=None,
-                remote_nodes=configuration.remote_nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            )
-        )
+        reset_retained_local_configuration()
         print("local configuration reset")
         return
     local = _local_configuration(parser, args)
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_local_configuration(local)
     print("local configuration retained")
+
+
+def _mutate_image_generation(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    if args.reset and args.base_url is not None:
+        parser.error("--reset cannot be combined with --base-url")
+    if not args.reset and args.base_url is None:
+        parser.error("--base-url is required unless --reset")
+    if args.reset:
+        reset_retained_image_generation_configuration()
+        print("image-generation configuration reset")
+        return
+    try:
+        configuration = build_retained_image_generation_configuration(
+            base_url=args.base_url
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    replace_retained_image_generation_configuration(configuration)
+    print("image-generation configuration retained")
 
 
 def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.remove:
         _validate_remove(parser, args)
-        configuration = load_retained_configuration()
-        nodes = tuple(
-            node for node in configuration.remote_nodes if node.node_id != args.node_id
-        )
-        if len(nodes) == len(configuration.remote_nodes):
+        if not remove_retained_remote_node(args.node_id):
             print("error: retained node not found", file=sys.stderr)
             raise SystemExit(1)
-        save_retained_configuration(
-            RetainedConfiguration(
-                local=configuration.local,
-                remote_nodes=nodes,
-                external_information_plugin=configuration.external_information_plugin,
-                chat_external_information_fallback=(
-                    configuration.chat_external_information_fallback
-                ),
-            )
-        )
         print("node configuration removed")
         return
 
     declaration = _node_declaration(parser, args)
-    configuration = load_retained_configuration()
-    nodes = list(configuration.remote_nodes)
-    for index, node in enumerate(nodes):
-        if node.node_id == declaration.node_id:
-            nodes[index] = declaration
-            break
-    else:
-        nodes.append(declaration)
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=tuple(nodes),
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_remote_node(declaration)
     print("node configuration retained")
 
 
@@ -379,17 +432,7 @@ def _mutate_external_information(
         parser.error("--reset cannot be combined with --plugin")
     if not args.reset and args.plugin is None:
         parser.error("--plugin is required unless --reset")
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=None if args.reset else args.plugin,
-            chat_external_information_fallback=(
-                configuration.chat_external_information_fallback
-            ),
-        )
-    )
+    replace_retained_external_information_plugin(None if args.reset else args.plugin)
     print(
         "external-information configuration reset"
         if args.reset
@@ -402,15 +445,7 @@ def _mutate_chat(parser: argparse.ArgumentParser, args: argparse.Namespace) -> N
         parser.error("--reset cannot be combined with --external-information-fallback")
     if not args.reset and not args.external_information_fallback:
         parser.error("--external-information-fallback is required unless --reset")
-    configuration = load_retained_configuration()
-    save_retained_configuration(
-        RetainedConfiguration(
-            local=configuration.local,
-            remote_nodes=configuration.remote_nodes,
-            external_information_plugin=configuration.external_information_plugin,
-            chat_external_information_fallback=not args.reset,
-        )
-    )
+    set_retained_chat_external_information_fallback(not args.reset)
     print("chat configuration reset" if args.reset else "chat configuration retained")
 
 
@@ -437,6 +472,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             _reset_retained_configuration()
         elif args.command == "local":
             _mutate_local(parser, args)
+        elif args.command == "image-generation":
+            _mutate_image_generation(parser, args)
         elif args.command == "node":
             _mutate_node(parser, args)
         elif args.command == "chat":

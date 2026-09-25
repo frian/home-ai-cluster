@@ -5,11 +5,21 @@ import json
 import os
 import sys
 import tempfile
-from dataclasses import dataclass
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any
 
+if sys.platform == "win32":
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+else:
+    import fcntl
+
 from home_ai_cluster.core.static_capabilities import validate_static_capabilities
+from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
@@ -25,8 +35,10 @@ _TOP_LEVEL_KEYS = (
     "remote_nodes",
     "external_information_plugin",
     "chat_external_information_fallback",
+    "image_generation",
 )
-_LOCAL_KEYS = (
+_IMAGE_GENERATION_KEYS = ("base_url",)
+_LEGACY_LOCAL_KEYS = (
     "runtime",
     "ollama_model",
     "ollama_disable_thinking",
@@ -34,7 +46,62 @@ _LOCAL_KEYS = (
     "llama_server_model",
     "local_capabilities",
 )
+_LOCAL_KEYS = (
+    "runtime",
+    "ollama_model",
+    "ollama_disable_thinking",
+    "llama_server_base_url",
+    "llama_server_model",
+    "vllm_base_url",
+    "vllm_model",
+    "temperature",
+    "local_capabilities",
+)
+_LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LEGACY_LOCAL_KEYS + ("execution_limit",)
+_LOCAL_KEYS_WITH_EXECUTION_LIMIT = _LOCAL_KEYS + ("execution_limit",)
+_LOCAL_KEYS_WITHOUT_TEMPERATURE = tuple(
+    key for key in _LOCAL_KEYS if key != "temperature"
+)
+_LOCAL_KEYS_WITHOUT_TEMPERATURE_AND_EXECUTION_LIMIT = (
+    _LOCAL_KEYS_WITHOUT_TEMPERATURE + ("execution_limit",)
+)
+_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE = _LEGACY_LOCAL_KEYS + ("temperature",)
+_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE_AND_EXECUTION_LIMIT = (
+    _LEGACY_LOCAL_KEYS_WITH_TEMPERATURE + ("execution_limit",)
+)
 _REMOTE_NODE_KEYS = ("node_id", "base_url", "capabilities")
+
+if sys.platform == "win32":
+    _LOCKFILE_EXCLUSIVE_LOCK = 0x00000002
+
+    class _Overlapped(ctypes.Structure):
+        _fields_ = [
+            ("internal", ctypes.c_size_t),
+            ("internal_high", ctypes.c_size_t),
+            ("offset", wintypes.DWORD),
+            ("offset_high", wintypes.DWORD),
+            ("event", wintypes.HANDLE),
+        ]
+
+    _lock_file_ex = ctypes.WinDLL("kernel32", use_last_error=True).LockFileEx
+    _lock_file_ex.argtypes = (
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    )
+    _lock_file_ex.restype = wintypes.BOOL
+    _unlock_file_ex = ctypes.WinDLL("kernel32", use_last_error=True).UnlockFileEx
+    _unlock_file_ex.argtypes = (
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.POINTER(_Overlapped),
+    )
+    _unlock_file_ex.restype = wintypes.BOOL
 
 
 class RetainedConfigurationError(Exception):
@@ -60,6 +127,14 @@ class RetainedLocalConfiguration:
 
     runtime: LocalRuntimeCompositionValues
     local_capabilities: tuple[str, ...] | None = None
+    execution_limit: int | None = None
+
+
+@dataclass(frozen=True)
+class RetainedImageGenerationConfiguration:
+    """The one accepted retained stable-diffusion.cpp companion fact."""
+
+    base_url: str
 
 
 @dataclass(frozen=True)
@@ -70,6 +145,224 @@ class RetainedConfiguration:
     remote_nodes: tuple[RemoteNodeDeclaration, ...] = ()
     external_information_plugin: str | None = None
     chat_external_information_fallback: bool = False
+    image_generation: RetainedImageGenerationConfiguration | None = None
+
+
+_BROWSER_LOCAL_FIELDS = (
+    "runtime",
+    "local_capabilities",
+    "execution_limit",
+)
+_BROWSER_RUNTIME_FIELDS = (
+    "runtime",
+    "ollama_model",
+    "ollama_disable_thinking",
+    "llama_server_base_url",
+    "llama_server_model",
+    "vllm_base_url",
+    "vllm_model",
+    "temperature",
+)
+_BROWSER_IMAGE_GENERATION_FIELDS = ("base_url",)
+
+
+def build_retained_local_configuration(
+    *,
+    runtime: str,
+    ollama_model: str | None,
+    ollama_disable_thinking: bool,
+    llama_server_base_url: str | None,
+    llama_server_model: str | None,
+    vllm_base_url: str | None,
+    vllm_model: str | None,
+    temperature: float | None = None,
+    local_capabilities: list[str] | tuple[str, ...] | None,
+    execution_limit: int | None,
+) -> RetainedLocalConfiguration:
+    """Build one complete retained-local domain using its existing validation."""
+    llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
+        runtime=runtime,
+        ollama_model=ollama_model,
+        ollama_disable_thinking=ollama_disable_thinking,
+        llama_server_base_url=llama_server_base_url,
+        llama_server_model=llama_server_model,
+        vllm_base_url=vllm_base_url,
+        vllm_model=vllm_model,
+        temperature=temperature,
+    )
+    if local_capabilities is None:
+        capabilities = None
+    else:
+        capabilities = validate_static_capabilities(local_capabilities, subject="local")
+    if execution_limit is not None and (
+        isinstance(execution_limit, bool)
+        or not isinstance(execution_limit, int)
+        or execution_limit <= 0
+    ):
+        raise ValueError("execution limit must be a positive integer")
+    return RetainedLocalConfiguration(
+        runtime=LocalRuntimeCompositionValues(
+            runtime=runtime,
+            ollama_model=ollama_model,
+            ollama_disable_thinking=ollama_disable_thinking,
+            llama_server_base_url=llama_base_url,
+            llama_server_model=llama_server_model,
+            vllm_base_url=normalized_vllm_base_url,
+            vllm_model=vllm_model,
+            temperature=temperature,
+        ),
+        local_capabilities=capabilities,
+        execution_limit=execution_limit,
+    )
+
+
+def replace_retained_local_configuration(
+    local: RetainedLocalConfiguration,
+    path: Path | None = None,
+) -> None:
+    """Replace only the complete retained-local domain through HAC persistence."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, local=local), path)
+
+
+def reset_retained_local_configuration(path: Path | None = None) -> None:
+    """Clear only the retained-local domain through HAC persistence."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, local=None), path)
+
+
+def build_retained_image_generation_configuration(
+    *, base_url: str
+) -> RetainedImageGenerationConfiguration:
+    """Validate the closed retained stable-diffusion.cpp construction fact."""
+    try:
+        return RetainedImageGenerationConfiguration(base_url=local_http_url(base_url))
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+
+
+def replace_retained_image_generation_configuration(
+    image_generation: RetainedImageGenerationConfiguration,
+    path: Path | None = None,
+) -> None:
+    """Replace only the retained Image Generation companion."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            replace(configuration, image_generation=image_generation), path
+        )
+
+
+def reset_retained_image_generation_configuration(path: Path | None = None) -> None:
+    """Clear only the retained Image Generation companion."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, image_generation=None), path)
+
+
+def build_retained_remote_node_declaration(
+    *,
+    node_id: str,
+    base_url: str,
+    capabilities: list[str] | tuple[str, ...],
+) -> RemoteNodeDeclaration:
+    """Build one retained remote-node declaration using existing validators."""
+    try:
+        validated_node_id = remote_node_id(node_id)
+        validated_base_url = remote_base_url(base_url)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+    return RemoteNodeDeclaration(
+        node_id=validated_node_id,
+        base_url=validated_base_url,
+        capabilities=validate_static_capabilities(capabilities, subject="remote"),
+    )
+
+
+def replace_retained_remote_node(
+    declaration: RemoteNodeDeclaration,
+    path: Path | None = None,
+) -> None:
+    """Add or replace one remote node while retaining every other domain."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        nodes = list(configuration.remote_nodes)
+        for index, node in enumerate(nodes):
+            if node.node_id == declaration.node_id:
+                nodes[index] = declaration
+                break
+        else:
+            nodes.append(declaration)
+        save_retained_configuration(
+            replace(configuration, remote_nodes=tuple(nodes)), path
+        )
+
+
+def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
+    """Remove one retained remote node, returning false when it is absent."""
+    try:
+        validated_node_id = remote_node_id(node_id)
+    except argparse.ArgumentTypeError as error:
+        raise ValueError(str(error)) from error
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        nodes = tuple(
+            node
+            for node in configuration.remote_nodes
+            if node.node_id != validated_node_id
+        )
+        if len(nodes) == len(configuration.remote_nodes):
+            return False
+        save_retained_configuration(replace(configuration, remote_nodes=nodes), path)
+    return True
+
+
+def replace_retained_external_information_plugin(
+    plugin: str | None,
+    path: Path | None = None,
+) -> None:
+    """Replace only the retained external-information plugin choice."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            replace(configuration, external_information_plugin=plugin), path
+        )
+
+
+def set_retained_chat_external_information_fallback(
+    authorized: bool,
+    path: Path | None = None,
+) -> None:
+    """Set the retained Chat external-information fallback authorization."""
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        save_retained_configuration(
+            replace(configuration, chat_external_information_fallback=authorized), path
+        )
+
+
+def browser_retained_local_shape_is_supported(local: object) -> bool:
+    """Keep browser mutation closed when either retained local domain grows."""
+    if not isinstance(local, RetainedLocalConfiguration):
+        return False
+    return (
+        tuple(field.name for field in fields(RetainedLocalConfiguration))
+        == _BROWSER_LOCAL_FIELDS
+        and tuple(field.name for field in fields(LocalRuntimeCompositionValues))
+        == _BROWSER_RUNTIME_FIELDS
+    )
+
+
+def browser_retained_image_generation_shape_is_supported(
+    image_generation: object,
+) -> bool:
+    """Keep browser replacement closed when this companion domain grows."""
+    return isinstance(image_generation, RetainedImageGenerationConfiguration) and (
+        tuple(field.name for field in fields(RetainedImageGenerationConfiguration))
+        == _BROWSER_IMAGE_GENERATION_FIELDS
+    )
 
 
 def _retained_configuration_home() -> Path:
@@ -95,13 +388,83 @@ def retained_configuration_file() -> Path:
     )
 
 
+def _retained_mutation_lock_file(configuration_path: Path) -> Path:
+    configuration_directory = configuration_path.parent
+    return configuration_directory.parent / (
+        f".{configuration_directory.name}-{configuration_path.name}.lock"
+    )
+
+
+@contextmanager
+def _retained_mutation_lock(path: Path | None = None) -> Iterator[None]:
+    """Serialize one local retained-configuration mutation across processes."""
+    configuration_path = path or retained_configuration_file()
+    lock_path = _retained_mutation_lock_file(configuration_path)
+    lock_file = None
+    handle = None
+    overlapped = None
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        lock_file = lock_path.open("a+b")
+        os.chmod(lock_path, 0o600)
+        if sys.platform == "win32":
+            lock_file.seek(0, os.SEEK_END)
+            if lock_file.tell() == 0:
+                lock_file.write(b"\0")
+                lock_file.flush()
+            handle = wintypes.HANDLE(msvcrt.get_osfhandle(lock_file.fileno()))
+            overlapped = _Overlapped()
+            if not _lock_file_ex(
+                handle,
+                _LOCKFILE_EXCLUSIVE_LOCK,
+                0,
+                1,
+                0,
+                ctypes.byref(overlapped),
+            ):
+                raise OSError(ctypes.get_last_error(), "unable to lock file")
+        else:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+    except OSError as error:
+        if lock_file is not None:
+            try:
+                lock_file.close()
+            except OSError:
+                pass
+        raise RetainedConfigurationError(
+            "unable to coordinate retained configuration"
+        ) from error
+    try:
+        yield
+    finally:
+        try:
+            if sys.platform == "win32":
+                if not _unlock_file_ex(handle, 0, 1, 0, ctypes.byref(overlapped)):
+                    raise OSError(ctypes.get_last_error(), "unable to unlock file")
+            else:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+        except OSError as error:
+            raise RetainedConfigurationError(
+                "unable to coordinate retained configuration"
+            ) from error
+        finally:
+            try:
+                lock_file.close()
+            except OSError as error:
+                raise RetainedConfigurationError(
+                    "unable to coordinate retained configuration"
+                ) from error
+
+
 def remove_retained_configuration(path: Path | None = None) -> None:
     """Remove private retained configuration without loading it."""
     configuration_path = path or retained_configuration_file()
     try:
-        configuration_path.unlink()
-    except FileNotFoundError:
-        pass
+        with _retained_mutation_lock(configuration_path):
+            try:
+                configuration_path.unlink()
+            except FileNotFoundError:
+                pass
     except OSError as error:
         raise RetainedConfigurationError(
             "unable to remove retained configuration"
@@ -183,6 +546,7 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     if keys == {"local", "remote_nodes"}:
         external_information_plugin = None
         chat_external_information_fallback = False
+        image_generation = None
     elif keys == {
         "local",
         "remote_nodes",
@@ -190,11 +554,19 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
     }:
         external_information_plugin = document["external_information_plugin"]
         chat_external_information_fallback = False
+        image_generation = None
+    elif keys == set(_TOP_LEVEL_KEYS[:-1]):
+        external_information_plugin = document["external_information_plugin"]
+        chat_external_information_fallback = document[
+            "chat_external_information_fallback"
+        ]
+        image_generation = None
     elif keys == set(_TOP_LEVEL_KEYS):
         external_information_plugin = document["external_information_plugin"]
         chat_external_information_fallback = document[
             "chat_external_information_fallback"
         ]
+        image_generation = _parse_image_generation(document["image_generation"])
     else:
         raise RetainedConfigurationError("invalid retained configuration shape")
     local_value = document["local"]
@@ -214,7 +586,21 @@ def _parse_configuration(document: Any) -> RetainedConfiguration:
             external_information_plugin
         ),
         chat_external_information_fallback=chat_external_information_fallback,
+        image_generation=image_generation,
     )
+
+
+def _parse_image_generation(value: Any) -> RetainedImageGenerationConfiguration | None:
+    if value is None:
+        return None
+    _require_exact_keys(value, _IMAGE_GENERATION_KEYS, "retained Image Generation")
+    base_url = value["base_url"]
+    if not isinstance(base_url, str):
+        raise RetainedConfigurationError("invalid retained Image Generation")
+    try:
+        return build_retained_image_generation_configuration(base_url=base_url)
+    except ValueError as error:
+        raise RetainedConfigurationError("invalid retained Image Generation") from error
 
 
 def _parse_external_information_plugin(value: Any) -> str | None:
@@ -229,18 +615,43 @@ def _parse_external_information_plugin(value: Any) -> str | None:
 
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
-    _require_exact_keys(value, _LOCAL_KEYS, "retained local configuration")
+    keys = set(value)
+    no_limit_shapes = {
+        frozenset(_LEGACY_LOCAL_KEYS),
+        frozenset(_LOCAL_KEYS),
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE),
+        frozenset(_LOCAL_KEYS_WITHOUT_TEMPERATURE),
+    }
+    limit_shapes = {
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+        frozenset(_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+        frozenset(_LEGACY_LOCAL_KEYS_WITH_TEMPERATURE_AND_EXECUTION_LIMIT),
+        frozenset(_LOCAL_KEYS_WITHOUT_TEMPERATURE_AND_EXECUTION_LIMIT),
+    }
+    frozen_keys = frozenset(keys)
+    if frozen_keys in no_limit_shapes:
+        execution_limit = None
+    elif frozen_keys in limit_shapes:
+        execution_limit = _parse_execution_limit(value["execution_limit"])
+    else:
+        raise RetainedConfigurationError("invalid retained local configuration shape")
+
     runtime = value["runtime"]
     ollama_model = value["ollama_model"]
     disable_thinking = value["ollama_disable_thinking"]
     llama_base_url = value["llama_server_base_url"]
     llama_model = value["llama_server_model"]
+    vllm_base_url = value.get("vllm_base_url")
+    vllm_model = value.get("vllm_model")
+    temperature = value.get("temperature")
     local_capabilities = value["local_capabilities"]
     if not isinstance(runtime, str) or not isinstance(disable_thinking, bool):
         raise RetainedConfigurationError("invalid retained local configuration")
     _require_nullable_string(ollama_model, "retained local configuration")
     _require_nullable_string(llama_base_url, "retained local configuration")
     _require_nullable_string(llama_model, "retained local configuration")
+    _require_nullable_string(vllm_base_url, "retained local configuration")
+    _require_nullable_string(vllm_model, "retained local configuration")
     capabilities = _parse_capabilities(local_capabilities, "local", allow_none=True)
     values = _validated_runtime_values(
         runtime=runtime,
@@ -248,8 +659,21 @@ def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
         ollama_disable_thinking=disable_thinking,
         llama_server_base_url=llama_base_url,
         llama_server_model=llama_model,
+        vllm_base_url=vllm_base_url,
+        vllm_model=vllm_model,
+        temperature=temperature,
     )
-    return RetainedLocalConfiguration(runtime=values, local_capabilities=capabilities)
+    return RetainedLocalConfiguration(
+        runtime=values,
+        local_capabilities=capabilities,
+        execution_limit=execution_limit,
+    )
+
+
+def _parse_execution_limit(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        raise RetainedConfigurationError("invalid retained local execution limit")
+    return value
 
 
 def _parse_remote_node(value: Any) -> RemoteNodeDeclaration:
@@ -285,6 +709,9 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
             "chat_external_information_fallback": (
                 configuration.chat_external_information_fallback
             ),
+            "image_generation": _serialize_image_generation(
+                configuration.image_generation
+            ),
         }
     )
     _validate_unique_remote_nodes(validated.remote_nodes)
@@ -297,7 +724,18 @@ def _serialize_configuration(configuration: RetainedConfiguration) -> dict[str, 
         "chat_external_information_fallback": (
             validated.chat_external_information_fallback
         ),
+        "image_generation": _serialize_image_generation(validated.image_generation),
     }
+
+
+def _serialize_image_generation(
+    image_generation: RetainedImageGenerationConfiguration | None,
+) -> dict[str, object] | None:
+    if image_generation is None:
+        return None
+    if not isinstance(image_generation, RetainedImageGenerationConfiguration):
+        raise RetainedConfigurationError("invalid retained Image Generation")
+    return {"base_url": image_generation.base_url}
 
 
 def _serialize_local(
@@ -310,16 +748,23 @@ def _serialize_local(
     values = local.runtime
     if not isinstance(values, LocalRuntimeCompositionValues):
         raise RetainedConfigurationError("invalid retained local configuration")
-    return {
+    document: dict[str, object] = {
         "runtime": values.runtime,
         "ollama_model": values.ollama_model,
         "ollama_disable_thinking": values.ollama_disable_thinking,
         "llama_server_base_url": values.llama_server_base_url,
         "llama_server_model": values.llama_server_model,
+        "temperature": values.temperature,
         "local_capabilities": (
             None if local.local_capabilities is None else list(local.local_capabilities)
         ),
     }
+    if values.runtime == "vllm":
+        document["vllm_base_url"] = values.vllm_base_url
+        document["vllm_model"] = values.vllm_model
+    if local.execution_limit is not None:
+        document["execution_limit"] = local.execution_limit
+    return document
 
 
 def _serialize_remote_node(remote: RemoteNodeDeclaration) -> dict[str, object]:
@@ -339,14 +784,20 @@ def _validated_runtime_values(
     ollama_disable_thinking: bool,
     llama_server_base_url: str | None,
     llama_server_model: str | None,
+    vllm_base_url: str | None,
+    vllm_model: str | None,
+    temperature: float | None,
 ) -> LocalRuntimeCompositionValues:
     try:
-        normalized_base_url = validate_local_runtime_values(
+        llama_base_url, normalized_vllm_base_url = validate_local_runtime_values(
             runtime=runtime,
             ollama_model=ollama_model,
             ollama_disable_thinking=ollama_disable_thinking,
             llama_server_base_url=llama_server_base_url,
             llama_server_model=llama_server_model,
+            vllm_base_url=vllm_base_url,
+            vllm_model=vllm_model,
+            temperature=temperature,
         )
     except LocalRuntimeCompositionError as error:
         raise RetainedConfigurationError(
@@ -356,8 +807,11 @@ def _validated_runtime_values(
         runtime=runtime,
         ollama_model=ollama_model,
         ollama_disable_thinking=ollama_disable_thinking,
-        llama_server_base_url=normalized_base_url,
+        llama_server_base_url=llama_base_url,
         llama_server_model=llama_server_model,
+        vllm_base_url=normalized_vllm_base_url,
+        vllm_model=vllm_model,
+        temperature=temperature,
     )
 
 

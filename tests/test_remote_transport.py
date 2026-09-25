@@ -20,6 +20,8 @@ from home_ai_cluster.core.models import (
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
+    ImageGenerationRequest,
+    ImageGenerationResult,
     NodeDescription,
     NodeHealth,
     RuntimeResult,
@@ -34,6 +36,7 @@ from home_ai_cluster.core.remote_transport import (
     REMOTE_STATUS_TIMEOUT_SECONDS,
     HttpRemoteStatusTransport,
     HttpRemoteTransport,
+    RemoteExecutionPermissionDeniedError,
     RemoteTransport,
     RemoteTransportError,
     internal_cluster_request_body,
@@ -234,10 +237,19 @@ def test_remote_transport_interface_uses_normalized_cluster_objects() -> None:
 
     assert list(signature.parameters) == ["self", "request", "declaration"]
     assert hints["request"] == (
-        ClusterRequest | SummarizeRequest | ClassifyRequest | SourceGroundedChatRequest
+        ClusterRequest
+        | SummarizeRequest
+        | ClassifyRequest
+        | SourceGroundedChatRequest
+        | ImageGenerationRequest
     )
     assert hints["declaration"] is RemoteNodeDeclaration
-    assert hints["return"] == ClusterResult | ClassifyResult | SourceGroundedChatResult
+    assert hints["return"] == (
+        ClusterResult
+        | ClassifyResult
+        | SourceGroundedChatResult
+        | ImageGenerationResult
+    )
 
 
 def test_internal_cluster_request_url_uses_declaration_transport_address() -> None:
@@ -573,6 +585,26 @@ def test_http_remote_transport_validates_classify_result_by_request_type() -> No
     )
 
 
+def test_http_remote_transport_rejects_classify_result_label_not_in_request() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"selected_label": "not-requested", "node_id": "receiver-local"},
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            await HttpRemoteTransport(client).send(
+                ClassifyRequest(text="Source", labels=["invoice", "personal"]),
+                make_declaration(),
+            )
+
+    with pytest.raises(RemoteTransportError) as raised:
+        asyncio.run(run())
+
+    assert str(raised.value) == "HTTP remote transport returned invalid result"
+
+
 def test_http_remote_transport_preserves_runtime_unavailable_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -611,6 +643,44 @@ def test_http_remote_transport_keeps_other_http_failure_as_transport_error() -> 
         asyncio.run(run())
 
     assert str(raised.value) == "HTTP remote transport could not send request"
+
+
+@pytest.mark.parametrize(
+    ("response", "is_refusal"),
+    [
+        (httpx.Response(409, json={"detail": "execution-permission-denied"}), True),
+        (
+            httpx.Response(409, json={"detail": "execution-permission-denied", "x": 1}),
+            False,
+        ),
+        (httpx.Response(409, json={"detail": "other"}), False),
+        (httpx.Response(409, json={}), False),
+        (httpx.Response(409, content=b"not-json"), False),
+        (
+            httpx.Response(
+                409,
+                content=b'{"detail":"other","detail":"execution-permission-denied"}',
+            ),
+            False,
+        ),
+        (httpx.Response(500, json={"detail": "execution-permission-denied"}), False),
+    ],
+)
+def test_http_remote_transport_only_recognizes_exact_permission_refusal(
+    response: httpx.Response, is_refusal: bool
+) -> None:
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda _: response)
+        ) as client:
+            await HttpRemoteTransport(client).send(make_request(), make_declaration())
+
+    if is_refusal:
+        with pytest.raises(RemoteExecutionPermissionDeniedError):
+            asyncio.run(run())
+    else:
+        with pytest.raises(RemoteTransportError):
+            asyncio.run(run())
 
 
 def test_http_remote_transport_maps_connection_failure_without_sensitive_details() -> (

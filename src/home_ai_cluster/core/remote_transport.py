@@ -1,5 +1,6 @@
 """Remote transport boundary for normalized cluster objects."""
 
+import json
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -19,10 +20,13 @@ from home_ai_cluster.core.models import (
     ClusterRequest,
     ClusterResult,
     ClusterStatusNode,
+    ImageGenerationInternalRequest,
+    ImageGenerationRequest,
+    ImageGenerationResult,
     InternalClusterRequest,
     InternalClusterStatusResponse,
-    RoutableRequest,
-    RoutableResult,
+    RemoteTransportRequest,
+    RemoteTransportResult,
     RuntimeStatus,
     SourceGroundedChatInternalRequest,
     SourceGroundedChatRequest,
@@ -30,14 +34,52 @@ from home_ai_cluster.core.models import (
     SummarizeInternalRequest,
     SummarizeRequest,
 )
+from home_ai_cluster.core.png_validation import (
+    MAX_ENCODED_PNG_BYTES,
+    ImageGenerationResultValidationError,
+    still_png_dimensions,
+    validate_still_png,
+)
 from home_ai_cluster.core.remote_node import RemoteNodeDeclaration
 
 REMOTE_STATUS_TIMEOUT_SECONDS = 5.0
 """Fixed per-remote bound for one trusted home-LAN status observation."""
+REMOTE_PERMISSION_REFUSAL_MAX_BYTES = 1024
+"""Finite body envelope for exact RFC-0104 refusal recognition."""
 
 
 class RemoteTransportError(Exception):
     """Raised when a remote transport cannot carry a cluster request."""
+
+
+class RemoteExecutionPermissionDeniedError(Exception):
+    """A receiver refused before beginning adapter execution."""
+
+
+def _is_remote_execution_permission_denial(response: httpx.Response) -> bool:
+    """Recognize only the exact RFC-0104 receiver refusal contract."""
+    if response.status_code != 409:
+        return False
+    try:
+        refusal = json.loads(
+            response.content,
+            object_pairs_hook=_reject_duplicate_json_object_keys,
+        )
+    except ValueError:
+        return False
+    return refusal == {"detail": "execution-permission-denied"}
+
+
+def _reject_duplicate_json_object_keys(
+    pairs: list[tuple[str, object]],
+) -> dict[str, object]:
+    """Build a JSON object only when every key occurs exactly once."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON object key")
+        result[key] = value
+    return result
 
 
 class RemoteTransport(Protocol):
@@ -50,9 +92,15 @@ class RemoteTransport(Protocol):
             | SummarizeRequest
             | ClassifyRequest
             | SourceGroundedChatRequest
+            | ImageGenerationRequest
         ),
         declaration: RemoteNodeDeclaration,
-    ) -> ClusterResult | ClassifyResult | SourceGroundedChatResult:
+    ) -> (
+        ClusterResult
+        | ClassifyResult
+        | SourceGroundedChatResult
+        | ImageGenerationResult
+    ):
         """Send a normalized request to a manually declared remote node."""
         ...
 
@@ -65,9 +113,12 @@ class HttpRemoteTransport:
 
     async def send(
         self,
-        request: RoutableRequest,
+        request: RemoteTransportRequest,
         declaration: RemoteNodeDeclaration,
-    ) -> RoutableResult:
+    ) -> RemoteTransportResult:
+        if isinstance(request, ImageGenerationRequest):
+            return await self._send_image_generation(request, declaration)
+
         endpoint = internal_cluster_request_url(declaration)
 
         try:
@@ -77,6 +128,10 @@ class HttpRemoteTransport:
             )
             if response.status_code == 503:
                 raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+            if _is_remote_execution_permission_denial(response):
+                raise RemoteExecutionPermissionDeniedError(
+                    "Remote execution permission denied before adapter invocation"
+                )
             response.raise_for_status()
         except httpx.ConnectError as exc:
             message = "Remote connection unavailable before request transmission"
@@ -89,7 +144,12 @@ class HttpRemoteTransport:
 
         try:
             if isinstance(request, ClassifyRequest):
-                return ClassifyResult.model_validate(response.json())
+                result = ClassifyResult.model_validate(response.json())
+                if result.selected_label not in request.labels:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                return result
             if isinstance(request, SourceGroundedChatRequest):
                 result = SourceGroundedChatResult.model_validate(response.json())
                 if result.sources != request.sources:
@@ -101,6 +161,90 @@ class HttpRemoteTransport:
         except (ValueError, ValidationError) as exc:
             message = "HTTP remote transport returned invalid result"
             raise RemoteTransportError(message) from exc
+
+    async def _send_image_generation(
+        self,
+        request: ImageGenerationRequest,
+        declaration: RemoteNodeDeclaration,
+    ) -> ImageGenerationResult:
+        """Carry one bounded PNG result without buffering it before its limit."""
+        endpoint = internal_cluster_request_url(declaration)
+        try:
+            response = await self._client.send(
+                self._client.build_request(
+                    "POST", endpoint, json=internal_cluster_request_body(request)
+                ),
+                stream=True,
+            )
+        except httpx.ConnectError as exc:
+            message = "Remote connection unavailable before request transmission"
+            raise RuntimeConnectionUnavailableBeforeRequestError(message) from exc
+        except httpx.HTTPError as exc:
+            raise RemoteTransportError(
+                "HTTP remote transport could not send request"
+            ) from exc
+
+        try:
+            try:
+                if response.status_code == 503:
+                    raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+                if response.status_code == 409:
+                    refusal = await _read_bounded_response(
+                        response, REMOTE_PERMISSION_REFUSAL_MAX_BYTES
+                    )
+                    if refusal is not None and _is_exact_permission_refusal(refusal):
+                        raise RemoteExecutionPermissionDeniedError(
+                            "Remote execution permission denied before adapter "
+                            "invocation"
+                        )
+                    raise RemoteTransportError(
+                        "HTTP remote transport could not send request"
+                    )
+                if response.status_code != 200 or not _is_png_content_type(response):
+                    raise RemoteTransportError(
+                        "HTTP remote transport could not send request"
+                    )
+                candidate = await _read_bounded_response(
+                    response, MAX_ENCODED_PNG_BYTES
+                )
+                if candidate is None:
+                    raise RemoteTransportError(
+                        "HTTP remote transport returned invalid result"
+                    )
+                image_bytes = validate_still_png(candidate)
+                if request.width is not None and still_png_dimensions(image_bytes) != (
+                    request.width,
+                    request.height,
+                ):
+                    raise ImageGenerationResultValidationError(
+                        "PNG geometry does not match requested dimensions"
+                    )
+                result = ImageGenerationResult(
+                    image_bytes=image_bytes,
+                    node_id=declaration.node.id,
+                )
+            except httpx.HTTPError as exc:
+                raise RemoteTransportError(
+                    "HTTP remote transport could not send request"
+                ) from exc
+            except ImageGenerationResultValidationError as exc:
+                raise RemoteTransportError(
+                    "HTTP remote transport returned invalid result"
+                ) from exc
+        except BaseException:
+            try:
+                await response.aclose()
+            except httpx.HTTPError:
+                pass
+            raise
+
+        try:
+            await response.aclose()
+        except httpx.HTTPError as exc:
+            raise RemoteTransportError(
+                "HTTP remote transport could not send request"
+            ) from exc
+        return result
 
 
 class HttpRemoteStatusTransport:
@@ -163,7 +307,7 @@ def internal_cluster_request_url(declaration: RemoteNodeDeclaration) -> str:
 
 
 def internal_cluster_request_body(
-    request: RoutableRequest,
+    request: RemoteTransportRequest,
 ) -> dict[str, object]:
     """Serialize one of the accepted closed internal request variants."""
     if isinstance(request, ClusterRequest):
@@ -179,24 +323,80 @@ def internal_cluster_request_body(
             }
         )
     elif isinstance(request, SourceGroundedChatRequest):
+        source_grounded_body: dict[str, object] = {
+            "question": request.question,
+            "sources": [source.model_dump() for source in request.sources],
+            "constraints": request.constraints.model_dump(mode="json"),
+        }
+        if request.prior_messages:
+            source_grounded_body["prior_messages"] = [
+                message.model_dump() for message in request.prior_messages
+            ]
         envelope = SourceGroundedChatInternalRequest.model_validate(
             {
                 "kind": "source-grounded-chat",
-                "request": {
-                    "question": request.question,
-                    "sources": [source.model_dump() for source in request.sources],
-                    "constraints": request.constraints.model_dump(mode="json"),
-                },
+                "request": source_grounded_body,
             }
         )
-    else:
+    elif isinstance(request, ClassifyRequest):
         envelope = ClassifyInternalRequest.model_validate(
             {
                 "kind": "classify",
                 "request": {"text": request.text, "labels": request.labels},
             }
         )
-    return envelope.model_dump(mode="json")
+    elif isinstance(request, ImageGenerationRequest):
+        image_body: dict[str, object] = {
+            "instruction": request.instruction,
+            "constraints": request.constraints.model_dump(mode="json"),
+        }
+        if request.width is not None:
+            image_body["width"] = request.width
+            image_body["height"] = request.height
+        envelope = ImageGenerationInternalRequest.model_validate(
+            {
+                "kind": "image-generation",
+                "request": image_body,
+            }
+        )
+    else:
+        raise TypeError("Unsupported remote transport request")
+    body = envelope.model_dump(mode="json")
+    if isinstance(request, SourceGroundedChatRequest) and not request.prior_messages:
+        body["request"].pop("prior_messages", None)
+    if isinstance(request, ImageGenerationRequest) and request.width is None:
+        body["request"].pop("width", None)
+        body["request"].pop("height", None)
+    return body
+
+
+def _is_png_content_type(response: httpx.Response) -> bool:
+    """Accept the one request-kind-specific image result media type."""
+    media_type = response.headers.get("content-type", "").split(";", 1)[0]
+    return media_type.strip().lower() == "image/png"
+
+
+async def _read_bounded_response(
+    response: httpx.Response, maximum_bytes: int
+) -> bytes | None:
+    """Collect decoded entity bytes only while they remain within a finite bound."""
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in response.aiter_bytes():
+        size += len(chunk)
+        if size > maximum_bytes:
+            return None
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _is_exact_permission_refusal(body: bytes) -> bool:
+    """Recognize the exact RFC-0104 body after its bounded streaming read."""
+    try:
+        refusal = json.loads(body, object_pairs_hook=_reject_duplicate_json_object_keys)
+    except ValueError:
+        return False
+    return refusal == {"detail": "execution-permission-denied"}
 
 
 def internal_cluster_status_url(declaration: RemoteNodeDeclaration) -> str:

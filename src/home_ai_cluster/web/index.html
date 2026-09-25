@@ -33,24 +33,81 @@
 
       <nav aria-label="Capabilities" class="tabs" role="tablist">
         <button aria-controls="chat-view" aria-selected="true" id="chat-tab" role="tab" tabindex="0" type="button">Chat</button>
+        <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
+        <button aria-controls="image-generation-view" aria-selected="false" id="image-generation-tab" role="tab" tabindex="-1" type="button">Image</button>
         <button aria-controls="summarize-view" aria-selected="false" id="summarize-tab" role="tab" tabindex="-1" type="button">Summarize</button>
         <button aria-controls="classify-view" aria-selected="false" id="classify-tab" role="tab" tabindex="-1" type="button">Classify</button>
-        <button aria-controls="code-view" aria-selected="false" id="code-tab" role="tab" tabindex="-1" type="button">Code</button>
+        <button aria-controls="configuration-view" aria-selected="false" id="configuration-tab" role="tab" tabindex="-1" type="button">Configuration</button>
       </nav>
 
       <section aria-labelledby="chat-tab" class="capability-panel" id="chat-view" role="tabpanel">
         <header class="panel-heading"><h2 id="chat-heading">Chat</h2><p>Send a message to the cluster.</p></header>
         <section aria-labelledby="chat-result-heading" class="result-section" hidden id="chat-result-region">
           <h3 id="chat-result-heading">Response</h3>
-          <div aria-live="polite" class="conversation" id="chat-conversation"></div>
+          <div aria-live="polite" class="conversation" id="chat-conversation"><p aria-live="polite" class="request-status" id="chat-status" role="status"></p></div>
         </section>
         <form id="chat-form">
           <label for="chat-message">Message</label>
           <textarea id="chat-message" placeholder="Write your message…" required rows="6"></textarea>
+          <label><input autocomplete="off" disabled id="chat-external-information" type="checkbox"> Allow automatic External Information for this page. When enabled, the submitted Chat turn may be sent to the retained selected provider only if HAC chooses the external branch.</label>
+          <p id="chat-external-information-plugin-state">Loading External Information plugin configuration…</p>
           <div class="form-actions"><button data-submit type="submit">Send</button></div>
         </form>
         <p aria-live="polite" class="error" id="chat-error" role="status"></p>
-        <p aria-live="polite" class="request-status" id="chat-status" role="status"></p>
+        <details class="explicit-external-information">
+          <summary>Explicit external information</summary>
+          <p>Acquire supplied source evidence with one explicitly selected plugin, then ask a distinct source-grounded question.</p>
+          <form id="external-information-form">
+            <label for="external-information-plugin">Plugin name override (optional)</label>
+            <input id="external-information-plugin" maxlength="64" placeholder="Use retained plugin choice when blank">
+            <label for="external-information-query">QUERY — sent only to the acquisition plugin</label>
+            <textarea id="external-information-query" maxlength="4096" required rows="4"></textarea>
+            <label for="external-information-question">QUESTION — answered by source-grounded Chat</label>
+            <textarea id="external-information-question" required rows="4"></textarea>
+            <div class="form-actions"><button data-submit type="submit">Acquire and ask</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="external-information-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="external-information-status" role="status"></p>
+          <section aria-labelledby="external-information-result-heading" class="result-section" hidden id="external-information-result-region">
+            <h3 id="external-information-result-heading">Response</h3><output class="result" hidden id="external-information-result"></output>
+            <h3>Supplied sources</h3><div id="external-information-sources"></div>
+          </section>
+        </details>
+      </section>
+
+      <section aria-labelledby="code-tab" class="capability-panel" hidden id="code-view" role="tabpanel">
+        <header class="panel-heading"><h2 id="code-heading">Code</h2><p>Describe the code you need.</p></header>
+        <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
+          <h3 id="code-result-heading">Generated code</h3>
+          <div aria-live="polite" class="conversation" id="code-conversation"><p aria-live="polite" class="request-status" id="code-status" role="status"></p></div>
+          <div aria-live="polite" id="workspace-activity"></div>
+        </section>
+        <form id="code-form">
+          <label for="code-text">Code instruction</label>
+          <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
+          <fieldset id="workspace-access"><legend>Optional workspace access</legend><label><input id="workspace-enabled" type="checkbox"> Enable workspace access</label><div id="workspace-options" hidden><label for="workspace-root">Workspace root</label><input id="workspace-root" placeholder="/explicit/existing/path"><div id="workspace-grants"><label><input type="checkbox" value="list"> list</label><label><input type="checkbox" value="read"> read</label><label><input type="checkbox" value="write"> write</label><label><input type="checkbox" value="create"> create</label></div></div></fieldset>
+          <div class="form-actions"><button data-submit type="submit">Request code</button></div>
+        </form>
+        <p aria-live="polite" class="error" id="code-error" role="status"></p>
+      </section>
+
+      <section aria-labelledby="image-generation-tab" class="capability-panel" hidden id="image-generation-view" role="tabpanel">
+        <header class="panel-heading"><h2>Image Generation</h2><p>Generate one image from an instruction.</p></header>
+        <form id="image-generation-form">
+          <label for="image-generation-instruction">Instruction</label>
+          <textarea id="image-generation-instruction" placeholder="Describe the image you want to generate…" required rows="6"></textarea>
+          <label for="image-generation-width">Width (optional, 64–2048 px)</label>
+          <input id="image-generation-width" min="64" max="2048" step="1" type="number">
+          <label for="image-generation-height">Height (optional, 64–2048 px)</label>
+          <input id="image-generation-height" min="64" max="2048" step="1" type="number">
+          <div class="form-actions"><button data-submit type="submit">Generate</button></div>
+        </form>
+        <p aria-live="polite" class="error" id="image-generation-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="image-generation-status" role="status"></p>
+        <section aria-labelledby="image-generation-result-heading" class="result-section" hidden id="image-generation-result-region">
+          <h3 id="image-generation-result-heading">Generated image</h3>
+          <img alt="Generated from the submitted instruction" id="generated-image">
+        </section>
       </section>
 
       <section aria-labelledby="summarize-tab" class="capability-panel" hidden id="summarize-view" role="tabpanel">
@@ -87,19 +144,69 @@
         </section>
       </section>
 
-      <section aria-labelledby="code-tab" class="capability-panel" hidden id="code-view" role="tabpanel">
-        <header class="panel-heading"><h2 id="code-heading">Code</h2><p>Describe the code you need.</p></header>
-        <section aria-labelledby="code-result-heading" class="result-section" hidden id="code-result-region">
-          <h3 id="code-result-heading">Generated code</h3>
-          <div aria-live="polite" class="conversation" id="code-conversation"></div>
-        </section>
-        <form id="code-form">
-          <label for="code-text">Code instruction</label>
-          <textarea id="code-text" placeholder="Describe a script, command, or small coding task…" rows="6"></textarea>
-          <div class="form-actions"><button data-submit type="submit">Request code</button></div>
+      <section aria-labelledby="configuration-tab" class="capability-panel" hidden id="configuration-view" role="tabpanel">
+        <header class="panel-heading"><h2>Retained configuration</h2><p>Changes affect future HAC launches. The currently running process is not reconfigured.</p></header>
+        <h3>Local configuration</h3>
+        <p id="configuration-absence">Loading retained local configuration…</p>
+        <form id="configuration-form">
+          <label for="configuration-runtime">Runtime</label>
+          <select id="configuration-runtime" required><option value="">Choose a retained runtime</option><option value="ollama">ollama</option><option value="llama-server">llama-server</option><option value="vllm">vLLM</option></select>
+          <fieldset data-runtime="ollama"><legend>Ollama retained values</legend><label for="configuration-ollama-model">Model (not retained when blank)</label><input id="configuration-ollama-model"><label><input id="configuration-ollama-disable-thinking" type="checkbox"> Retain disabled Ollama thinking</label></fieldset>
+          <fieldset data-runtime="llama-server"><legend>llama-server retained values</legend><label for="configuration-llama-server-base-url">Loopback base URL</label><input id="configuration-llama-server-base-url"><label for="configuration-llama-server-model">Model</label><input id="configuration-llama-server-model"></fieldset>
+          <fieldset data-runtime="vllm"><legend>vLLM retained values</legend><label for="configuration-vllm-base-url">Loopback base URL</label><input id="configuration-vllm-base-url"><label for="configuration-vllm-model">Served-model identity</label><input id="configuration-vllm-model"></fieldset>
+          <label for="configuration-temperature">Sampling temperature (not retained when blank)</label><input id="configuration-temperature" inputmode="decimal" min="0" step="any" type="number">
+          <fieldset><legend>Caller-local routing capabilities</legend><label><input id="configuration-capabilities-absent" type="checkbox" checked> Not retained</label><div id="configuration-capabilities"><label><input type="checkbox" value="chat"> chat</label><label><input type="checkbox" value="summarize"> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label><label><input type="checkbox" value="image-generation"> image-generation</label></div><p>Image Generation here is routing permission only. Configure the separate companion below for local Image Generation ownership.</p></fieldset>
+          <label for="configuration-execution-limit">Maximum concurrent HAC executions (not retained when blank)</label><input id="configuration-execution-limit" inputmode="numeric" type="number" min="1" placeholder="Positive integer">
+          <div class="form-actions"><button data-submit type="submit">Save retained configuration</button><button id="configuration-local-reset" type="button">Remove retained local configuration</button></div>
         </form>
-        <p aria-live="polite" class="error" id="code-error" role="status"></p>
-        <p aria-live="polite" class="request-status" id="code-status" role="status"></p>
+        <p aria-live="polite" class="error" id="configuration-error" role="status"></p>
+        <p aria-live="polite" class="request-status" id="configuration-status" role="status"></p>
+        <section aria-labelledby="image-generation-configuration-heading">
+          <h3 id="image-generation-configuration-heading">Image Generation</h3>
+          <p>Retained stable-diffusion.cpp companion for future HAC launches. This configures only its loopback base URL; it does not inspect or start sd-server.</p>
+          <p id="image-generation-configuration-absence">Loading retained Image Generation configuration…</p>
+          <form id="image-generation-configuration-form">
+            <label for="image-generation-configuration-base-url">Loopback base URL</label><input id="image-generation-configuration-base-url" placeholder="Loopback HTTP base URL" required>
+            <div class="form-actions"><button data-submit type="submit">Save Image Generation configuration</button><button id="image-generation-configuration-clear" type="button">Clear Image Generation configuration</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="image-generation-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="image-generation-configuration-status" role="status"></p>
+        </section>
+        <section class="remote-nodes" aria-labelledby="remote-nodes-heading">
+          <h3 id="remote-nodes-heading">Remote nodes</h3>
+          <p>Caller-owned retained declarations. Saving does not contact the configured node.</p>
+          <div id="remote-nodes-list"></div>
+          <form id="remote-node-form">
+            <h4 id="remote-node-form-heading">Add remote node</h4>
+            <label for="remote-node-id">Node ID</label><input id="remote-node-id" required>
+            <label for="remote-node-base-url">Configured base URL</label><input id="remote-node-base-url" required>
+            <fieldset><legend>Caller-declared allowed capabilities</legend><div id="remote-node-capabilities"><label><input type="checkbox" value="chat" checked> chat</label><label><input type="checkbox" value="summarize" checked> summarize</label><label><input type="checkbox" value="classify"> classify</label><label><input type="checkbox" value="code"> code</label><label><input type="checkbox" value="image-generation"> image-generation</label></div></fieldset>
+            <div class="form-actions"><button id="remote-node-cancel" hidden type="button">Cancel edit</button><button data-submit type="submit">Save remote node</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="remote-node-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="remote-node-status" role="status"></p>
+        </section>
+        <section aria-labelledby="external-information-configuration-heading">
+          <h3 id="external-information-configuration-heading">External Information</h3>
+          <p>Retained exact acquisition-plugin name for accepted external-information flows. Selection alone does not authorize acquisition or imply plugin readiness. Configuration does not discover, import, or test the plugin; browser Chat does not automatically use external information.</p>
+          <p id="external-information-configuration-absence">Loading retained external-information configuration…</p>
+          <form id="external-information-configuration-form">
+            <label for="external-information-configuration-plugin">Plugin name</label><input id="external-information-configuration-plugin" required>
+            <div class="form-actions"><button data-submit type="submit">Save plugin choice</button><button id="external-information-configuration-clear" type="button">Clear plugin choice</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="external-information-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="external-information-configuration-status" role="status"></p>
+        </section>
+        <section aria-labelledby="chat-external-information-configuration-heading">
+          <h3 id="chat-external-information-configuration-heading">Chat external information</h3>
+          <p>This retained authorization affects only eligible future native one-shot Chat behavior. Browser Chat does not automatically acquire external information.</p>
+          <form id="chat-external-information-configuration-form">
+            <label><input id="chat-external-information-configuration-authorized" type="checkbox"> Authorize external-information fallback for eligible future native one-shot Chat</label>
+            <div class="form-actions"><button data-submit type="submit">Save Chat authorization</button></div>
+          </form>
+          <p aria-live="polite" class="error" id="chat-external-information-configuration-error" role="status"></p>
+          <p aria-live="polite" class="request-status" id="chat-external-information-configuration-status" role="status"></p>
+        </section>
       </section>
     </main>
     <script src="/assets/app.js"></script>

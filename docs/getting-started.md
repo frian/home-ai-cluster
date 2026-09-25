@@ -20,7 +20,7 @@ sequence and static multi-node operation, use the
 
 ## Windows 11 x86_64
 
-The supported native Windows 1.0 installation path uses PowerShell with WinGet
+The supported native Windows installation path uses PowerShell with WinGet
 available. In PowerShell, run:
 
 ```powershell
@@ -160,6 +160,20 @@ hac local
 Later compatible runtime CLI values are temporary one-invocation overrides and
 do not rewrite retained configuration.
 
+To use the optional local Image Generation companion with the same ordinary
+process, start and manage `sd-server` yourself, then retain only its loopback
+endpoint:
+
+```sh
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config show
+hac local
+```
+
+HAC does not configure an image model or manage `sd-server`. The companion is
+ignored when `hac local --runtime-config <PATH>` is explicitly selected; add an
+Image Generation binding to that complete file when it is needed there.
+
 ## 5. Start Home AI Cluster
 
 Start the ordinary local process:
@@ -188,17 +202,39 @@ Open this address in a browser on the same machine:
 http://127.0.0.1:25042/
 ```
 
-The current browser provides four ordinary views:
+The current browser navigation is:
 
 - Chat;
+- Code;
+- Image;
 - Summarize;
 - Classify;
-- Code.
+- Configuration.
+
+Chat includes an optional, page-local automatic External Information
+authorization and a separate explicit External Information operation. The
+explicit operation accepts an optional plugin override plus distinct QUERY and
+QUESTION fields; ordinary Chat Send does not submit those fields.
 
 The browser is intentionally local and small. It is not a dashboard, LAN
 control surface, runtime manager, or persistent server-side conversation store.
 
 For a first test, open **Chat**, enter a short message, and submit it.
+
+### Optional: trusted-LAN capability browser
+
+Loopback remains the default. To expose the separate, capability-only browser
+to trusted peers, start HAC with one explicit concrete non-loopback LAN IP:
+
+```sh
+hac local --lan-browser-host <LAN_IP>
+```
+
+The loopback browser remains available. The trusted-LAN browser shows Chat,
+Code, Image, Summarize, and Classify, but does not expose Configuration,
+Workspace, or External Information authority. It is plain HTTP with no TLS or
+client authentication, so use it only where reachable peers and the network
+path are trusted. It is a separate listener from any receiver authority.
 
 ## 7. Try the command line
 
@@ -267,6 +303,22 @@ and is not persisted.
 `hac code` returns text only. It does not execute generated code or grant shell,
 Git, repository, testing, or general filesystem authority.
 
+### Optional: Image Generation
+
+Image Generation requires an explicitly configured and available Image
+Generation binding or companion. HAC does not manage `sd-server` or its model.
+
+```sh
+hac image-generation \
+  --output generated.png \
+  "A small cabin in a snowy forest"
+```
+
+`generated.png` must not already exist and its parent directory must already
+exist. Without `--jpeg`, HAC writes validated PNG bytes regardless of the file
+suffix. See the [Command Reference](command-reference.md#hac-image-generation) for
+the exact output and JPEG-export semantics.
+
 ## 8. Stop Home AI Cluster
 
 Return to the terminal running:
@@ -282,11 +334,10 @@ to your own local setup.
 
 ## 9. Optional: use external information
 
-Ordinary Home AI Cluster requests do not acquire Web information by themselves.
-External-information acquisition is an explicit optional caller edge using one
-separately installed compatible plugin. Installation alone does not select or
-perform acquisition, and ordinary Chat does not automatically use either
-provider.
+Ordinary Home AI Cluster requests do not acquire Web information by default.
+External Information uses one separately installed compatible plugin.
+Installation alone does not select or perform acquisition, and retaining a
+plugin choice alone does not authorize Chat to disclose a question.
 
 Choose either published plugin. The
 [SearXNG plugin](https://github.com/frian/home-ai-cluster-plugin-searxng#readme)
@@ -333,8 +384,10 @@ from the recreated environment. Repeat `--with` when installing multiple
 compatible packages. Installed packages and the one retained
 `hac config external-information --plugin NAME` selection are separate.
 
+### Explicit External Information
+
 With SearXNG and `hac local` already running, retain that choice once, then use
-it for explicit external-information requests:
+it for an explicit external-information request:
 
 ```sh
 hac config external-information --plugin searxng
@@ -343,6 +396,10 @@ hac external-information \
   "local AI inference developments" \
   "What are the main recent developments?"
 ```
+
+This explicitly acquires evidence for one source-grounded request: the first
+value is the acquisition query and the second is the question sent with the
+acquired evidence.
 
 An explicit one-off override remains possible and does not change the retained
 selection:
@@ -369,6 +426,46 @@ Manage or unset the environment credential according to your normal shell and
 security practice. Retaining `tavily` selects only that plugin for later
 explicit external-information operations; it does not retain or manage
 `TAVILY_API_KEY`.
+
+### One-shot Chat with retained automatic External Information authorization
+
+A retained External Information plugin choice is also required for this flow.
+It is separate from, and does not grant, Chat disclosure authority. To retain
+the one-shot Chat authorization, run:
+
+```sh
+hac config chat --external-information-fallback
+```
+
+Then use ordinary one-shot Chat, for example:
+
+```sh
+hac chat "What is the weather in Agnone today?"
+```
+
+For an eligible question, HAC makes its existing bounded `ordinary` / `external`
+decision. Only the `external` branch performs acquisition, using the exact user
+question as its acquisition query. The authorization remains retained until you
+explicitly remove it:
+
+```sh
+hac config chat --reset
+```
+
+### Interactive Chat with session-local External Information authorization
+
+To authorize the same bounded decision path only for one foreground interactive
+Chat session, use the no-message form:
+
+```sh
+hac chat --external-information
+```
+
+This is TTY-only interactive Chat and uses the retained External Information
+plugin selection. Each eligible new user turn may take the existing bounded
+`ordinary` / `external` decision path. The authorization lasts only for this
+foreground session: it does not persist or enable the retained one-shot
+fallback authorization. Ctrl-D or Ctrl-C ends the session.
 
 See the [SearXNG plugin README](https://github.com/frian/home-ai-cluster-plugin-searxng#readme),
 [Tavily plugin README](https://github.com/frian/home-ai-cluster-plugin-tavily#readme),

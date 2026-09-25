@@ -20,7 +20,7 @@ sequence and static multi-node operation, use the
 
 ## Windows 11 x86_64
 
-The supported native Windows 1.0 installation path uses PowerShell with WinGet
+The supported native Windows installation path uses PowerShell with WinGet
 available. In PowerShell, run:
 
 ```powershell

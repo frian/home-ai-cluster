@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0140: Explicit Ollaya Classification Adapter](RFC-0140-explicit-ollaya-classification-adapter.md)
+  — accepts one concrete classification-only `ollaya` adapter over the existing
+  RFC-0061 Classify contract, with explicit loopback runtime/model construction,
+  programmatic RFC-0108 binding, adapter-private native choice translation,
+  cluster-owned exact-label validation, and unchanged routing, remote protocol,
+  RFC-0110 configuration, confidence semantics, and lifecycle ownership.
+
 - [RFC-0138: Bounded Loopback Browser Navigation Consolidation](RFC-0138-loopback-browser-navigation-consolidation.md)
   — accepts capability-oriented ordinary-loopback navigation and co-locates
   RFC-0133's distinct explicit External Information operation with Chat while

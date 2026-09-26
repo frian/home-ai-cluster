@@ -421,15 +421,17 @@ RFC-0142 defines singular textual composition and multi-binding composition as c
 
 That remains true.
 
-The first incremental local binding operation against a retained singular runtime composition selects a multi-binding runtime-composition alternative.
+Incremental local binding mutation is valid only when the retained local runtime-composition alternative is already multi-binding, or when no retained local runtime composition exists yet and the first complete binding creates one.
 
-It must not merge the new binding into the singular representation as an independent layer.
+If a retained singular runtime composition currently exists, any incremental local binding add, replace, or remove operation must fail closed.
 
-Any conversion required to preserve existing singular runtime execution ownership must follow an explicit, deterministic rule accepted by implementation of this RFC.
+HAC must not automatically convert the singular runtime composition into a multi-binding composition.
 
-If the current singular composition cannot be converted without inventing ownership facts, the mutation must fail and require an explicit complete multi-binding construction or reset rather than guess.
+The operator must first explicitly replace or reset the retained singular runtime composition through an existing complete runtime-composition mutation, after which incremental binding mutation may proceed against the resulting multi-binding state.
 
-This RFC does not authorize hidden inference of capability ownership from runtime type.
+This rule exists because the historical singular runtime composition does not itself contain explicit RFC-0108 capability ownership. HAC therefore has no accepted authority from which to infer the capability set of a synthetic binding.
+
+This RFC does not authorize hidden inference of capability ownership from runtime type, routing permission, adapter support, or default capabilities.
 
 ## Incremental Mutation from Clean State
 
@@ -962,14 +964,15 @@ A later implementation must prove at minimum:
 28. `config show` truthfully reflects all successful mutations;
 29. no runtime or remote node is contacted during mutation;
 30. `config local --runtime-config PATH` remains complete batch replacement;
-31. existing retained singular configuration remains compatible;
-32. existing retained multi-binding configuration remains compatible;
-33. browser fail-closed behavior remains unchanged;
-34. complete explicit CLI mutation works without prompts;
-35. interactive mode, when used, produces the same semantic mutation as explicit arguments;
-36. non-interactive invocation never unexpectedly prompts;
-37. invalid or ambiguous interactive/partial input mutates nothing;
-38. no external configuration file is required for a complete clean-install workflow.
+31. incremental local binding mutation fails closed while a retained singular runtime composition exists;
+32. existing retained singular configuration remains compatible;
+33. existing retained multi-binding configuration remains compatible;
+34. browser fail-closed behavior remains unchanged;
+35. complete explicit CLI mutation works without prompts;
+36. interactive mode, when used, produces the same semantic mutation as explicit arguments;
+37. non-interactive invocation never unexpectedly prompts;
+38. invalid or ambiguous interactive/partial input mutates nothing;
+39. no external configuration file is required for a complete clean-install workflow.
 
 ## Open Questions
 

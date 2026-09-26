@@ -3,9 +3,13 @@
 from collections.abc import Sequence
 
 DEFAULT_STATIC_CAPABILITY_NAMES = ("chat", "summarize")
-_VALID_STATIC_CAPABILITY_NAMES = frozenset(
-    (*DEFAULT_STATIC_CAPABILITY_NAMES, "classify", "code", "image-generation")
+ACCEPTED_CAPABILITY_NAMES = (
+    *DEFAULT_STATIC_CAPABILITY_NAMES,
+    "classify",
+    "code",
+    "image-generation",
 )
+_VALID_STATIC_CAPABILITY_NAMES = frozenset(ACCEPTED_CAPABILITY_NAMES)
 
 
 def validate_static_capabilities(

@@ -71,16 +71,26 @@ def build_remote_node_declaration_registry(
     return RemoteNodeDeclarationRegistry(declarations)
 
 
+def declared_remote_declarations_for_capability(
+    capability: Capability,
+    remote_registry: RemoteNodeDeclarationRegistry,
+) -> list[RemoteNodeDeclaration]:
+    """Return static declarations eligible for one capability."""
+    return [
+        declaration
+        for declaration in remote_registry.list_declarations()
+        if node_supports_capability(declaration.node, capability)
+    ]
+
+
 def declared_remote_declarations_for_request(
     request: RemoteTransportRequest,
     remote_registry: RemoteNodeDeclarationRegistry,
 ) -> list[RemoteNodeDeclaration]:
     """Return declared remote declarations eligible for the requested capability."""
-    return [
-        declaration
-        for declaration in remote_registry.list_declarations()
-        if node_supports_capability(declaration.node, request.capability)
-    ]
+    return declared_remote_declarations_for_capability(
+        request.capability, remote_registry
+    )
 
 
 def declared_remote_routing_candidates_for_request(

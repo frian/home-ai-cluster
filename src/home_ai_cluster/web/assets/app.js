@@ -1057,6 +1057,13 @@
   });
 
   const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+  const capabilityTabs = new Map([
+    ["chat", document.querySelector("#chat-tab")],
+    ["code", document.querySelector("#code-tab")],
+    ["image-generation", document.querySelector("#image-generation-tab")],
+    ["summarize", document.querySelector("#summarize-tab")],
+    ["classify", document.querySelector("#classify-tab")],
+  ]);
 
   function activateTab(tab, focus = false) {
     tabs.forEach((other) => {
@@ -1069,17 +1076,48 @@
     if (focus) tab.focus();
   }
 
-  tabs.forEach((tab, index) => {
+  function setCapabilityOperationAvailability(capabilities) {
+    capabilityTabs.forEach((tab, capability) => {
+      const available = capabilities.has(capability);
+      tab.hidden = !available;
+      document.querySelector(`#${tab.getAttribute("aria-controls")}`).hidden = !available;
+    });
+    const selected = tabs.find((tab) => tab.getAttribute("aria-selected") === "true");
+    if (selected && selected.hidden) {
+      const firstAvailableCapabilityTab = Array.from(capabilityTabs.values()).find((tab) => !tab.hidden);
+      if (firstAvailableCapabilityTab) activateTab(firstAvailableCapabilityTab);
+      else selected.setAttribute("aria-selected", "false");
+    }
+  }
+
+  async function loadCallerRoutableCapabilities() {
+    setCapabilityOperationAvailability(new Set());
+    try {
+      const response = await fetch("/caller-routable-capabilities");
+      if (!response.ok) return;
+      const body = await response.json();
+      if (!Array.isArray(body.capabilities) || body.capabilities.some((capability) => typeof capability !== "string")) return;
+      setCapabilityOperationAvailability(new Set(body.capabilities));
+    } catch (_) {
+      // Fail closed: unavailable projection does not make operations usable.
+    }
+  }
+
+  tabs.forEach((tab) => {
     tab.addEventListener("click", () => activateTab(tab));
     tab.addEventListener("keydown", (event) => {
+      const availableTabs = tabs.filter((candidate) => !candidate.hidden);
+      const index = availableTabs.indexOf(tab);
       let nextIndex;
-      if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
-      if (event.key === "ArrowLeft") nextIndex = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % availableTabs.length;
+      if (event.key === "ArrowLeft") nextIndex = (index - 1 + availableTabs.length) % availableTabs.length;
       if (event.key === "Home") nextIndex = 0;
-      if (event.key === "End") nextIndex = tabs.length - 1;
+      if (event.key === "End") nextIndex = availableTabs.length - 1;
       if (nextIndex === undefined) return;
       event.preventDefault();
-      activateTab(tabs[nextIndex], true);
+      activateTab(availableTabs[nextIndex], true);
     });
   });
+
+  void loadCallerRoutableCapabilities();
 })();

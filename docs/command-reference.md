@@ -251,9 +251,14 @@ multi-binding schema. A multi-binding file contains only one or more
 capability set to one adapter construction. The binding-only
 `stable-diffusion-cpp` runtime requires exactly explicit `image-generation`
 ownership and loopback HTTP `base_url`; it accepts no model or generation
-controls. Ollama accepts optional `model` and `disable_thinking`; llama-server
-and vLLM require `base_url` and `model`. Temperature remains limited to
-textual-runtime bindings. There is no implicit config-file discovery.
+controls. The binding-only `ollaya` runtime requires exactly explicit
+`classify` ownership, loopback HTTP `base_url`, and `model`; it accepts no
+temperature or thinking controls. Ollama accepts optional `model` and
+`disable_thinking`; llama-server and vLLM require `base_url` and `model`.
+Temperature remains limited to textual-runtime bindings. Ollaya is available
+only through this multi-binding form, not ordinary `--runtime`; its endpoint
+and model are explicit and are never discovered. There is no implicit
+config-file discovery.
 Each covered single-runtime file may optionally use a top-level `temperature`
 fact; covered textual multi-binding entries may do the same. Runtime-config
 files are self-contained and never inherit retained temperature.

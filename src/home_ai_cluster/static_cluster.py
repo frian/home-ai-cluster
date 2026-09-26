@@ -31,6 +31,7 @@ from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
     create_multi_binding_local_app_composition,
+    create_multi_binding_with_image_generation_companion_composition,
     create_textual_with_image_generation_companion_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
@@ -394,6 +395,13 @@ def main(argv: Sequence[str] | None = None) -> None:
                 )
             return create_local_runtime_composition(
                 **arguments, capabilities=LOCAL_RUNTIME_CAPABILITY_NAMES
+            )
+        image_generation = getattr(args, "retained_image_generation", None)
+        if image_generation is not None:
+            return create_multi_binding_with_image_generation_companion_composition(
+                values,
+                image_generation_base_url=image_generation.base_url,
+                execution_limit=getattr(args, "retained_execution_limit", None) or 1,
             )
         return create_multi_binding_local_app_composition(
             values,

@@ -23,7 +23,10 @@ from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
+    MultiBindingRuntimeCompositionValues,
+    load_retained_multi_binding_runtime_config,
     validate_local_runtime_values,
+    validate_retained_multi_binding_runtime_composition,
 )
 from home_ai_cluster.static_cluster_declaration import RemoteNodeDeclaration
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
@@ -64,6 +67,11 @@ _LOCAL_KEYS_WITHOUT_TEMPERATURE = tuple(
 )
 _LOCAL_KEYS_WITHOUT_TEMPERATURE_AND_EXECUTION_LIMIT = (
     _LOCAL_KEYS_WITHOUT_TEMPERATURE + ("execution_limit",)
+)
+_MULTI_BINDING_LOCAL_KEYS = ("bindings", "local_capabilities")
+_MULTI_BINDING_LOCAL_KEYS_WITH_EXECUTION_LIMIT = (
+    *_MULTI_BINDING_LOCAL_KEYS,
+    "execution_limit",
 )
 _LEGACY_LOCAL_KEYS_WITH_TEMPERATURE = _LEGACY_LOCAL_KEYS + ("temperature",)
 _LEGACY_LOCAL_KEYS_WITH_TEMPERATURE_AND_EXECUTION_LIMIT = (
@@ -125,7 +133,7 @@ def validate_external_information_plugin_name(value: object) -> str:
 class RetainedLocalConfiguration:
     """Retained local runtime composition and caller-local routing permission."""
 
-    runtime: LocalRuntimeCompositionValues
+    runtime: LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues
     local_capabilities: tuple[str, ...] | None = None
     execution_limit: int | None = None
 
@@ -223,6 +231,25 @@ def replace_retained_local_configuration(
     """Replace only the complete retained-local domain through HAC persistence."""
     with _retained_mutation_lock(path):
         configuration = load_retained_configuration(path)
+        save_retained_configuration(replace(configuration, local=local), path)
+
+
+def replace_retained_local_runtime_composition(
+    runtime: MultiBindingRuntimeCompositionValues,
+    path: Path | None = None,
+) -> None:
+    """Replace only retained runtime composition, preserving independent facts."""
+    validate_retained_multi_binding_runtime_composition(runtime)
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        previous = configuration.local
+        local = RetainedLocalConfiguration(
+            runtime=runtime,
+            local_capabilities=None
+            if previous is None
+            else previous.local_capabilities,
+            execution_limit=None if previous is None else previous.execution_limit,
+        )
         save_retained_configuration(replace(configuration, local=local), path)
 
 
@@ -350,6 +377,7 @@ def browser_retained_local_shape_is_supported(local: object) -> bool:
     return (
         tuple(field.name for field in fields(RetainedLocalConfiguration))
         == _BROWSER_LOCAL_FIELDS
+        and isinstance(local.runtime, LocalRuntimeCompositionValues)
         and tuple(field.name for field in fields(LocalRuntimeCompositionValues))
         == _BROWSER_RUNTIME_FIELDS
     )
@@ -616,6 +644,27 @@ def _parse_external_information_plugin(value: Any) -> str | None:
 
 def _parse_local(value: dict[str, Any]) -> RetainedLocalConfiguration:
     keys = set(value)
+    if frozenset(keys) in {
+        frozenset(_MULTI_BINDING_LOCAL_KEYS),
+        frozenset(_MULTI_BINDING_LOCAL_KEYS_WITH_EXECUTION_LIMIT),
+    }:
+        execution_limit = (
+            None
+            if "execution_limit" not in value
+            else _parse_execution_limit(value["execution_limit"])
+        )
+        capabilities = _parse_capabilities(
+            value["local_capabilities"], "local", allow_none=True
+        )
+        try:
+            runtime = load_retained_multi_binding_runtime_config(
+                {"bindings": value["bindings"]}
+            )
+        except LocalRuntimeCompositionError as error:
+            raise RetainedConfigurationError(
+                "invalid retained multi-binding local configuration"
+            ) from error
+        return RetainedLocalConfiguration(runtime, capabilities, execution_limit)
     no_limit_shapes = {
         frozenset(_LEGACY_LOCAL_KEYS),
         frozenset(_LOCAL_KEYS),
@@ -746,6 +795,18 @@ def _serialize_local(
     if not isinstance(local, RetainedLocalConfiguration):
         raise RetainedConfigurationError("invalid retained local configuration")
     values = local.runtime
+    if isinstance(values, MultiBindingRuntimeCompositionValues):
+        document: dict[str, object] = {
+            "bindings": [
+                _serialize_retained_binding(binding) for binding in values.bindings
+            ],
+            "local_capabilities": None
+            if local.local_capabilities is None
+            else list(local.local_capabilities),
+        }
+        if local.execution_limit is not None:
+            document["execution_limit"] = local.execution_limit
+        return document
     if not isinstance(values, LocalRuntimeCompositionValues):
         raise RetainedConfigurationError("invalid retained local configuration")
     document: dict[str, object] = {
@@ -764,6 +825,39 @@ def _serialize_local(
         document["vllm_model"] = values.vllm_model
     if local.execution_limit is not None:
         document["execution_limit"] = local.execution_limit
+    return document
+
+
+def _serialize_retained_binding(binding: object) -> dict[str, object]:
+    from home_ai_cluster.local_runtime_composition import LocalCapabilityBindingValues
+
+    if not isinstance(binding, LocalCapabilityBindingValues):
+        raise RetainedConfigurationError(
+            "invalid retained multi-binding local configuration"
+        )
+    document: dict[str, object] = {
+        "capabilities": list(binding.capabilities),
+        "runtime": binding.runtime,
+    }
+    if binding.runtime == "ollama":
+        if binding.model is not None:
+            document["model"] = binding.model
+        if binding.disable_thinking:
+            document["disable_thinking"] = True
+        if binding.temperature is not None:
+            document["temperature"] = binding.temperature
+    elif binding.runtime in {"llama-server", "vllm"}:
+        document["base_url"] = binding.base_url
+        document["model"] = binding.model
+        if binding.temperature is not None:
+            document["temperature"] = binding.temperature
+    elif binding.runtime == "ollaya":
+        document["base_url"] = binding.base_url
+        document["model"] = binding.model
+    else:
+        raise RetainedConfigurationError(
+            "invalid retained multi-binding local configuration"
+        )
     return document
 
 

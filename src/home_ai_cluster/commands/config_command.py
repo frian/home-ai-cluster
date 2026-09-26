@@ -3,6 +3,7 @@
 import argparse
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from home_ai_cluster.core.static_capabilities import (
     DEFAULT_STATIC_CAPABILITY_NAMES,
@@ -12,6 +13,9 @@ from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
     LocalRuntimeCompositionError,
+    LocalRuntimeCompositionValues,
+    MultiBindingRuntimeCompositionValues,
+    load_local_runtime_config,
     non_empty_value,
     temperature_value,
 )
@@ -28,6 +32,7 @@ from home_ai_cluster.retained_configuration import (
     replace_retained_external_information_plugin,
     replace_retained_image_generation_configuration,
     replace_retained_local_configuration,
+    replace_retained_local_runtime_composition,
     replace_retained_remote_node,
     reset_retained_image_generation_configuration,
     reset_retained_local_configuration,
@@ -113,6 +118,11 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         "--execution-limit",
         type=_execution_limit,
         help="Retained HAC execution limit.",
+    )
+    local.add_argument(
+        "--runtime-config",
+        type=Path,
+        help="Validate and retain one complete RFC-0110 multi-binding runtime config.",
     )
 
     node = commands.add_parser(
@@ -275,6 +285,7 @@ def _validate_reset(parser: argparse.ArgumentParser, args: argparse.Namespace) -
         or args.temperature is not None
         or args.local_capability is not None
         or args.execution_limit is not None
+        or args.runtime_config is not None
     ):
         parser.error("--reset cannot be combined with local configuration options")
 
@@ -292,8 +303,30 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
     else:
         local = configuration.local
         values = local.runtime
-        lines.append(f"  runtime: {values.runtime}")
-        if values.runtime == "ollama":
+        if isinstance(values, MultiBindingRuntimeCompositionValues):
+            lines.append("  runtime composition: multi-binding")
+            for binding in values.bindings:
+                lines.append(
+                    f"  binding: capabilities: {', '.join(binding.capabilities)}"
+                    f"; runtime: {binding.runtime}"
+                )
+                if binding.base_url is not None:
+                    lines.append(f"    base URL: {binding.base_url}")
+                if binding.model is not None:
+                    lines.append(f"    model: {binding.model}")
+                if binding.runtime == "ollama":
+                    lines.append(
+                        "    disable thinking: "
+                        f"{'true' if binding.disable_thinking else 'false'}"
+                    )
+                if binding.temperature is not None:
+                    lines.append(f"    temperature: {binding.temperature}")
+        else:
+            lines.append(f"  runtime: {values.runtime}")
+        if (
+            isinstance(values, LocalRuntimeCompositionValues)
+            and values.runtime == "ollama"
+        ):
             lines.extend(
                 [
                     f"  ollama model: {values.ollama_model or 'not retained'}",
@@ -301,28 +334,43 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
                     f"{'true' if values.ollama_disable_thinking else 'false'}",
                 ]
             )
-        elif values.runtime == "llama-server":
+        elif (
+            isinstance(values, LocalRuntimeCompositionValues)
+            and values.runtime == "llama-server"
+        ):
             lines.extend(
                 [
                     f"  llama-server base URL: {values.llama_server_base_url}",
                     f"  llama-server model: {values.llama_server_model}",
                 ]
             )
-        else:
+        elif isinstance(values, LocalRuntimeCompositionValues):
             lines.extend(
                 [
                     f"  vLLM base URL: {values.vllm_base_url}",
                     f"  vLLM model: {values.vllm_model}",
                 ]
             )
-        lines.append(
-            "  temperature: "
-            + (
-                "not retained"
-                if values.temperature is None
-                else str(values.temperature)
+            lines.append(
+                "  temperature: "
+                + (
+                    "not retained"
+                    if values.temperature is None
+                    else str(values.temperature)
+                )
             )
-        )
+        if (
+            isinstance(values, LocalRuntimeCompositionValues)
+            and values.runtime != "vllm"
+        ):
+            lines.append(
+                "  temperature: "
+                + (
+                    "not retained"
+                    if values.temperature is None
+                    else str(values.temperature)
+                )
+            )
         lines.append(
             "  caller-local capabilities: "
             + (
@@ -384,6 +432,38 @@ def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> 
         _validate_reset(parser, args)
         reset_retained_local_configuration()
         print("local configuration reset")
+        return
+    if args.runtime_config is not None:
+        if any(
+            (
+                args.runtime is not None,
+                args.ollama_model is not None,
+                args.ollama_disable_thinking,
+                args.llama_server_base_url is not None,
+                args.llama_server_model is not None,
+                args.vllm_base_url is not None,
+                args.vllm_model is not None,
+                args.temperature is not None,
+                args.local_capability is not None,
+                args.execution_limit is not None,
+            )
+        ):
+            parser.error(
+                "--runtime-config cannot be combined with local configuration options"
+            )
+        try:
+            values = load_local_runtime_config(args.runtime_config)
+        except LocalRuntimeCompositionError as error:
+            parser.error(str(error))
+        if not isinstance(values, MultiBindingRuntimeCompositionValues):
+            parser.error(
+                "--runtime-config must contain RFC-0110 multi-binding configuration"
+            )
+        try:
+            replace_retained_local_runtime_composition(values)
+        except LocalRuntimeCompositionError as error:
+            parser.error(str(error))
+        print("local configuration retained")
         return
     local = _local_configuration(parser, args)
     replace_retained_local_configuration(local)

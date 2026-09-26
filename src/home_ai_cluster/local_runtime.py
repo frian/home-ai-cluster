@@ -15,6 +15,7 @@ from home_ai_cluster.local_runtime_composition import (
     add_local_runtime_arguments,
     create_local_runtime_composition,
     create_multi_binding_local_app_composition,
+    create_multi_binding_with_image_generation_companion_composition,
     create_textual_with_image_generation_companion_composition,
     resolve_local_runtime_composition_values,
     validate_local_runtime_arguments,
@@ -153,6 +154,17 @@ def create_local_runtime_app(args: argparse.Namespace) -> FastAPI:
     values = resolve_local_runtime_composition_values(_create_argument_parser(), args)
     execution_limit = getattr(args, "retained_execution_limit", 1) or 1
     if isinstance(values, MultiBindingRuntimeCompositionValues):
+        image_generation = getattr(args, "retained_image_generation", None)
+        if image_generation is not None:
+            composition = (
+                create_multi_binding_with_image_generation_companion_composition(
+                    values,
+                    image_generation_base_url=image_generation.base_url,
+                    execution_limit=execution_limit,
+                )
+            )
+            app = create_app(local_app_composition=composition)
+            return add_loopback_browser_routes(app)
         composition = create_multi_binding_local_app_composition(
             values, execution_limit=execution_limit
         )

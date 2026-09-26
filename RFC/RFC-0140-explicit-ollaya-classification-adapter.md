@@ -492,7 +492,7 @@ the adapter must treat this as an invalid classification result / execution fail
 
 It must not report the runtime as unavailable merely because normalization failed after a response was received.
 
-This preserves the failure distinction already enforced for existing Classify adapters.
+This preserves the failure distinction already required by existing Classify semantics.
 
 #### Proposed string outside the requested labels
 

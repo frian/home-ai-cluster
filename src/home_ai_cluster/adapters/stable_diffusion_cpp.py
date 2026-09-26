@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from home_ai_cluster.adapters.base import (
+    RuntimeAdapterExecutionError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -123,9 +124,7 @@ class StableDiffusionCppAdapter:
         except httpx.HTTPError as exc:
             raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
         except ValueError as exc:
-            raise ImageGenerationResultValidationError(
-                "Invalid image generation result"
-            ) from exc
+            raise RuntimeAdapterExecutionError("Runtime execution failed") from exc
 
         try:
             job_id = body["id"]
@@ -137,9 +136,7 @@ class StableDiffusionCppAdapter:
                 raise ValueError("invalid native job id")
             return job_id
         except (TypeError, ValueError, KeyError) as exc:
-            raise ImageGenerationResultValidationError(
-                "Invalid image generation result"
-            ) from exc
+            raise RuntimeAdapterExecutionError("Runtime execution failed") from exc
 
     async def _await_image_result(
         self, client: httpx.AsyncClient, job_id: str
@@ -158,9 +155,7 @@ class StableDiffusionCppAdapter:
                     "Runtime adapter unavailable"
                 ) from exc
             except (TypeError, ValueError, KeyError) as exc:
-                raise ImageGenerationResultValidationError(
-                    "Invalid image generation result"
-                ) from exc
+                raise RuntimeAdapterExecutionError("Runtime execution failed") from exc
 
             if status in {"queued", "generating"}:
                 await asyncio.sleep(_POLL_INTERVAL_SECONDS)
@@ -168,12 +163,8 @@ class StableDiffusionCppAdapter:
             if status == "completed":
                 return _completed_native_image(body)
             if status in {"failed", "cancelled"}:
-                raise ImageGenerationResultValidationError(
-                    "Invalid image generation result"
-                )
-            raise ImageGenerationResultValidationError(
-                "Invalid image generation result"
-            )
+                raise RuntimeAdapterExecutionError("Runtime execution failed")
+            raise RuntimeAdapterExecutionError("Runtime execution failed")
 
 
 def _completed_native_image(body: Any) -> bytes:
@@ -205,9 +196,7 @@ def _completed_native_image(body: Any) -> bytes:
         TypeError,
         ValueError,
     ) as exc:
-        raise ImageGenerationResultValidationError(
-            "Invalid image generation result"
-        ) from exc
+        raise RuntimeAdapterExecutionError("Runtime execution failed") from exc
 
 
 async def _bounded_json_response(

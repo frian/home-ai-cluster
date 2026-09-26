@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -384,7 +385,7 @@ def test_ollama_adapter_classify_rejects_malformed_or_non_string_json_content(
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": {"content": content}})
 
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidClassificationResultError):
         asyncio.run(
             OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
                 make_classify_request()
@@ -396,7 +397,7 @@ def test_ollama_adapter_classify_rejects_missing_content() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"message": {}})
 
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidClassificationResultError):
         asyncio.run(
             OllamaAdapter(transport=httpx.MockTransport(handler)).classify(
                 make_classify_request()

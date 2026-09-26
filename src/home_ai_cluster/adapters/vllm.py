@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -149,7 +150,9 @@ class VllmAdapter:
             content, model = self._normalize_response(response.json())
         except (IndexError, KeyError, TypeError, ValueError) as exc:
             if classification:
-                raise ValueError("vLLM classification response is unusable") from exc
+                raise InvalidClassificationResultError(
+                    "Invalid classification result"
+                ) from exc
             raise RuntimeAdapterUnavailableError(
                 "Runtime adapter unavailable",
             ) from exc

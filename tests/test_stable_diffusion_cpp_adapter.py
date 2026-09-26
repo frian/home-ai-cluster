@@ -9,6 +9,7 @@ import pytest
 
 from home_ai_cluster.adapters.base import (
     ImageGenerationExecutionAdapter,
+    RuntimeAdapterExecutionError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -31,10 +32,7 @@ from home_ai_cluster.core.models import (
     NodeDescription,
     NodeHealth,
 )
-from home_ai_cluster.core.png_validation import (
-    ImageGenerationResultValidationError,
-    validate_still_png,
-)
+from home_ai_cluster.core.png_validation import validate_still_png
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import route_request
 
@@ -271,14 +269,14 @@ def test_native_job_polling_and_ordinary_local_vertical() -> None:
 @pytest.mark.parametrize(
     "submission, poll, error",
     [
-        ({}, None, ImageGenerationResultValidationError),
-        ({"id": "bad/id"}, None, ImageGenerationResultValidationError),
-        ({"id": "job_1"}, {"status": "mystery"}, ImageGenerationResultValidationError),
-        ({"id": "job_1"}, {"status": "failed"}, ImageGenerationResultValidationError),
+        ({}, None, RuntimeAdapterExecutionError),
+        ({"id": "bad/id"}, None, RuntimeAdapterExecutionError),
+        ({"id": "job_1"}, {"status": "mystery"}, RuntimeAdapterExecutionError),
+        ({"id": "job_1"}, {"status": "failed"}, RuntimeAdapterExecutionError),
         (
             {"id": "job_1"},
             {"status": "completed", "result": {}},
-            ImageGenerationResultValidationError,
+            RuntimeAdapterExecutionError,
         ),
     ],
 )
@@ -344,7 +342,7 @@ def test_oversized_submission_response_is_closed_before_json_parsing() -> None:
             lambda request: httpx.Response(202, stream=stream)
         ),
     )
-    with pytest.raises(ImageGenerationResultValidationError):
+    with pytest.raises(RuntimeAdapterExecutionError):
         asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
     assert stream.closed
 
@@ -366,7 +364,7 @@ def test_chunked_oversized_result_response_is_closed_before_json_parsing(
     adapter = StableDiffusionCppAdapter(
         base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
     )
-    with pytest.raises(ImageGenerationResultValidationError):
+    with pytest.raises(RuntimeAdapterExecutionError):
         asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
     assert stream.closed
 
@@ -481,5 +479,5 @@ def test_invalid_base64_oversized_and_multiple_runtime_results_fail_closed() -> 
         adapter = StableDiffusionCppAdapter(
             base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
         )
-        with pytest.raises(ImageGenerationResultValidationError):
+        with pytest.raises(RuntimeAdapterExecutionError):
             asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))

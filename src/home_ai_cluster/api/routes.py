@@ -2,7 +2,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from home_ai_cluster.adapters.base import RuntimeAdapterUnavailableError
+from home_ai_cluster.adapters.base import (
+    RuntimeAdapterExecutionError,
+    RuntimeAdapterUnavailableError,
+)
 from home_ai_cluster.api.chat_external_information_decision import (
     ChatExternalInformationDecisionRequest,
 )
@@ -394,7 +397,10 @@ async def handle_image_generation_request(
                 static_remote_wiring.remote_transport,
                 static_remote_wiring.execution_intervals,
             )
-        except ImageGenerationResultValidationError as exc:
+        except (
+            RuntimeAdapterExecutionError,
+            ImageGenerationResultValidationError,
+        ) as exc:
             raise HTTPException(status_code=500, detail="execution-failed") from exc
         except (
             RuntimeAdapterUnavailableError,
@@ -424,7 +430,10 @@ async def handle_image_generation_request(
                 static_remote_collection_wiring.remote_transport,
                 static_remote_collection_wiring.execution_intervals,
             )
-        except ImageGenerationResultValidationError as exc:
+        except (
+            RuntimeAdapterExecutionError,
+            ImageGenerationResultValidationError,
+        ) as exc:
             raise HTTPException(status_code=500, detail="execution-failed") from exc
         except (
             RuntimeAdapterUnavailableError,
@@ -462,7 +471,10 @@ async def handle_image_generation_request(
             status_code=404,
             detail="No adapter provides capability: image-generation",
         ) from exc
-    except ImageGenerationResultValidationError as exc:
+    except (
+        RuntimeAdapterExecutionError,
+        ImageGenerationResultValidationError,
+    ) as exc:
         raise HTTPException(status_code=500, detail="execution-failed") from exc
 
 

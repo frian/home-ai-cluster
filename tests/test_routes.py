@@ -8,6 +8,7 @@ from home_ai_cluster.adapters.base import (
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
+from home_ai_cluster.adapters.ollama import OllamaAdapter
 from home_ai_cluster.api.chat_external_information_decision import DECISION_POLICY
 from home_ai_cluster.api.routes import InternalClusterStatusResponse
 from home_ai_cluster.api.wiring import (
@@ -696,6 +697,43 @@ def test_classify_endpoint_excludes_local_candidate_without_classify(
     assert response.status_code == 404
     assert response.json() == {"detail": "No adapter provides capability: classify"}
     assert adapter.requests == []
+
+
+def test_classify_endpoint_maps_unusable_ollama_response_to_execution_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from home_ai_cluster.api import routes
+
+    adapter = OllamaAdapter(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200, json={"message": {"content": "not JSON"}}
+            )
+        )
+    )
+    node = NodeDescription(
+        id="local",
+        name="Local node",
+        availability="available",
+        health=NodeHealth(healthy=True),
+        capabilities=[Capability(name="classify")],
+        adapters=[adapter.name],
+    )
+    monkeypatch.setattr(
+        routes, "create_static_local_node_registry", lambda: NodeRegistry([node])
+    )
+    monkeypatch.setattr(
+        routes,
+        "create_static_runtime_adapter_registry",
+        lambda: AdapterRegistry([adapter]),
+    )
+
+    response = post_classify({"text": "Source", "labels": ["invoice", "personal"]})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "execution-failed"}
+    assert response.status_code != 503
+    assert "not JSON" not in response.text
 
 
 def test_classify_endpoint_returns_safe_runtime_unavailable(

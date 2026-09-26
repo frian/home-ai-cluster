@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 
+from home_ai_cluster.adapters.base import InvalidClassificationResultError
 from home_ai_cluster.core.execution_intervals import (
     ExecutionIntervalCardinality,
     ExecutionPermissionDeniedError,
@@ -130,7 +131,7 @@ async def execute_local_routing_decision(
                 execution_intervals,
                 interval_already_entered=interval_already_entered,
             )
-        except ValueError as exc:
+        except InvalidClassificationResultError as exc:
             raise InvalidClassificationLabelError(
                 "Invalid classification label"
             ) from exc

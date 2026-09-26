@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapter,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
@@ -374,7 +375,7 @@ def test_vllm_adapter_classify_translates_malformed_response() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"choices": [{"message": {}}]})
 
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidClassificationResultError):
         asyncio.run(
             make_adapter(httpx.MockTransport(handler)).classify(make_classify_request())
         )

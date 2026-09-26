@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -383,7 +384,7 @@ def test_llama_server_adapter_classify_translates_malformed_response(
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=body)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidClassificationResultError):
         asyncio.run(
             LlamaServerAdapter(
                 model="configured-model",

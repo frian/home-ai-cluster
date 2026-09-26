@@ -10,6 +10,7 @@ from typing import Any
 
 from home_ai_cluster.adapters.llama_server import LlamaServerAdapter
 from home_ai_cluster.adapters.ollama import OllamaAdapter
+from home_ai_cluster.adapters.ollaya import OllayaAdapter
 from home_ai_cluster.adapters.stable_diffusion_cpp import StableDiffusionCppAdapter
 from home_ai_cluster.adapters.vllm import VllmAdapter
 from home_ai_cluster.api.wiring import LocalAppComposition
@@ -24,7 +25,7 @@ from home_ai_cluster.local_http import local_http_url
 
 LOCAL_RUNTIMES = ("ollama", "llama-server", "vllm")
 LOCAL_RUNTIME_CAPABILITY_NAMES = ("chat", "summarize", "classify", "code")
-_MULTI_BINDING_RUNTIMES = (*LOCAL_RUNTIMES, "stable-diffusion-cpp")
+_MULTI_BINDING_RUNTIMES = (*LOCAL_RUNTIMES, "stable-diffusion-cpp", "ollaya")
 _MULTI_BINDING_CAPABILITY_NAMES = (
     *LOCAL_RUNTIME_CAPABILITY_NAMES,
     "image-generation",
@@ -300,7 +301,7 @@ def _load_multi_binding_runtime_config(
         if runtime not in _MULTI_BINDING_RUNTIMES:
             raise LocalRuntimeCompositionError(
                 "runtime config binding runtime must be ollama, llama-server, vllm, "
-                "or stable-diffusion-cpp"
+                "or stable-diffusion-cpp, ollaya"
             )
         if runtime == "stable-diffusion-cpp":
             if set(raw_binding) != {"capabilities", "runtime", "base_url"}:
@@ -319,6 +320,29 @@ def _load_multi_binding_runtime_config(
                     capabilities=tuple(capabilities),
                     runtime=runtime,
                     base_url=base_url,
+                )
+            )
+            continue
+
+        if runtime == "ollaya":
+            if set(raw_binding) != {"capabilities", "runtime", "base_url", "model"}:
+                raise LocalRuntimeCompositionError(
+                    "ollaya binding requires only base_url and model"
+                )
+            base_url = _non_blank_config_string(
+                raw_binding["base_url"], "binding.base_url"
+            )
+            model = _non_blank_config_string(raw_binding["model"], "binding.model")
+            try:
+                base_url = local_http_url(base_url)
+            except argparse.ArgumentTypeError as error:
+                raise LocalRuntimeCompositionError(str(error)) from error
+            bindings.append(
+                LocalCapabilityBindingValues(
+                    capabilities=tuple(capabilities),
+                    runtime=runtime,
+                    base_url=base_url,
+                    model=model,
                 )
             )
             continue
@@ -792,7 +816,13 @@ def create_vllm_local_app_composition(
 
 def _create_adapter_for_binding(
     binding: LocalCapabilityBindingValues,
-) -> OllamaAdapter | LlamaServerAdapter | StableDiffusionCppAdapter | VllmAdapter:
+) -> (
+    OllamaAdapter
+    | OllayaAdapter
+    | LlamaServerAdapter
+    | StableDiffusionCppAdapter
+    | VllmAdapter
+):
     if binding.runtime == "ollama":
         return (
             OllamaAdapter(
@@ -810,6 +840,8 @@ def _create_adapter_for_binding(
     if binding.runtime == "stable-diffusion-cpp":
         return StableDiffusionCppAdapter(base_url=binding.base_url)
     assert binding.model is not None
+    if binding.runtime == "ollaya":
+        return OllayaAdapter(base_url=binding.base_url, model=binding.model)
     if binding.runtime == "llama-server":
         return LlamaServerAdapter(
             base_url=binding.base_url,

@@ -1,0 +1,7 @@
+[[bindings]]
+capabilities = ["classify"]
+runtime = "ollaya"
+# Adapt this loopback endpoint to the already-running operator-managed Ollaya runtime.
+base_url = "http://127.0.0.1:11435"
+# "laya" is an explicit example choice, not a HAC default or recommendation.
+model = "laya"

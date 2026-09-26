@@ -65,6 +65,12 @@ image-only multi-binding construction for an already-running local `sd-server`.
 Its illustrative port must be adapted to the operator's endpoint; it is not a
 HAC default and does not provide an Image Generation request/output surface.
 
+`runtime-ollaya.toml` demonstrates RFC-0141's explicit classify-only
+multi-binding construction for an already-running local Ollaya runtime. Its
+endpoint and model are explicit; `laya` is an example, not a HAC default or
+recommendation. HAC performs no runtime or model discovery, and Ollaya is not
+available through ordinary `--runtime`.
+
 Select a file explicitly with `--runtime-config`; it does not configure
 topology, and there is no implicit config discovery. A runtime-composition file
 cannot be combined with an equivalent runtime CLI argument explicitly supplied
@@ -90,6 +96,8 @@ hac local --runtime-config examples/runtime-vllm.toml
 hac local --runtime-config examples/runtime-ollama-explicit-temperature.toml
 
 hac local --runtime-config examples/runtime-multi-binding.toml
+
+hac local --runtime-config examples/runtime-ollaya.toml
 
 hac static-cluster \
   --declaration examples/static-cluster-two-remotes.toml \

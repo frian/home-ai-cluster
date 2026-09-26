@@ -22,6 +22,9 @@ from home_ai_cluster.api.routes import (
     handle_static_local_cluster_request,
 )
 from home_ai_cluster.commands import external_information_command
+from home_ai_cluster.core.caller_routable_capabilities import (
+    project_caller_routable_capabilities,
+)
 from home_ai_cluster.core.models import (
     Capability,
     ChatMessage,
@@ -238,6 +241,31 @@ def _native_authority(request: Request) -> str | None:
     return f"127.0.0.1:{server[1]}"
 
 
+def _active_caller_routable_capabilities(request: Request) -> tuple[str, ...]:
+    """Project only the routing objects active for this serving caller."""
+    static_remote_wiring = request.app.state.static_remote_wiring
+    if static_remote_wiring is not None:
+        return project_caller_routable_capabilities(
+            static_remote_wiring.node_registry,
+            static_remote_wiring.adapter_registry,
+            static_remote_wiring.remote_registry,
+        )
+    static_remote_collection_wiring = request.app.state.static_remote_collection_wiring
+    if static_remote_collection_wiring is not None:
+        return project_caller_routable_capabilities(
+            static_remote_collection_wiring.node_registry,
+            static_remote_collection_wiring.adapter_registry,
+            static_remote_collection_wiring.remote_registry,
+        )
+    local_app_composition = request.app.state.local_app_composition
+    if local_app_composition is None:
+        raise ValueError("active caller composition is unavailable")
+    return project_caller_routable_capabilities(
+        local_app_composition.node_registry,
+        local_app_composition.adapter_registry,
+    )
+
+
 def _has_native_host_authority(request: Request, authority: str | None) -> bool:
     return authority is not None and request.headers.get("host") == authority
 
@@ -322,6 +350,18 @@ def add_loopback_browser_routes(app: FastAPI) -> FastAPI:
                 "Content-Security-Policy": "frame-ancestors 'self'",
             },
         )
+
+    @app.get("/caller-routable-capabilities", include_in_schema=False)
+    def caller_routable_capabilities(request: Request) -> JSONResponse:
+        if not _has_native_host_authority(request, _native_authority(request)):
+            raise HTTPException(status_code=400, detail="invalid native authority")
+        try:
+            capabilities = _active_caller_routable_capabilities(request)
+        except ValueError:
+            raise HTTPException(
+                status_code=400, detail="caller routability unavailable"
+            ) from None
+        return JSONResponse({"capabilities": list(capabilities)})
 
     @app.post("/external-information", include_in_schema=False)
     async def external_information(request: Request) -> JSONResponse:

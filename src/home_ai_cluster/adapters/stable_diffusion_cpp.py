@@ -89,7 +89,9 @@ class StableDiffusionCppAdapter:
         try:
             return _normalize_runtime_png(native_image)
         except ValueError as exc:
-            raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+            raise ImageGenerationResultValidationError(
+                "Invalid image generation result"
+            ) from exc
 
     async def _submit_image_generation(
         self,
@@ -120,6 +122,10 @@ class StableDiffusionCppAdapter:
             ) from exc
         except httpx.HTTPError as exc:
             raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+        except ValueError as exc:
+            raise ImageGenerationResultValidationError(
+                "Invalid image generation result"
+            ) from exc
 
         try:
             job_id = body["id"]
@@ -131,7 +137,9 @@ class StableDiffusionCppAdapter:
                 raise ValueError("invalid native job id")
             return job_id
         except (TypeError, ValueError, KeyError) as exc:
-            raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+            raise ImageGenerationResultValidationError(
+                "Invalid image generation result"
+            ) from exc
 
     async def _await_image_result(
         self, client: httpx.AsyncClient, job_id: str
@@ -145,9 +153,13 @@ class StableDiffusionCppAdapter:
                     _MAX_NATIVE_RESULT_RESPONSE_BYTES,
                 )
                 status = body["status"]
-            except (httpx.HTTPError, TypeError, ValueError, KeyError) as exc:
+            except httpx.HTTPError as exc:
                 raise RuntimeAdapterUnavailableError(
                     "Runtime adapter unavailable"
+                ) from exc
+            except (TypeError, ValueError, KeyError) as exc:
+                raise ImageGenerationResultValidationError(
+                    "Invalid image generation result"
                 ) from exc
 
             if status in {"queued", "generating"}:
@@ -156,8 +168,12 @@ class StableDiffusionCppAdapter:
             if status == "completed":
                 return _completed_native_image(body)
             if status in {"failed", "cancelled"}:
-                raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
-            raise RuntimeAdapterUnavailableError("Runtime adapter unavailable")
+                raise ImageGenerationResultValidationError(
+                    "Invalid image generation result"
+                )
+            raise ImageGenerationResultValidationError(
+                "Invalid image generation result"
+            )
 
 
 def _completed_native_image(body: Any) -> bytes:
@@ -189,7 +205,9 @@ def _completed_native_image(body: Any) -> bytes:
         TypeError,
         ValueError,
     ) as exc:
-        raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+        raise ImageGenerationResultValidationError(
+            "Invalid image generation result"
+        ) from exc
 
 
 async def _bounded_json_response(
@@ -212,7 +230,7 @@ async def _bounded_json_response(
                 chunks.append(chunk)
         return json.loads(b"".join(chunks))
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise RuntimeAdapterUnavailableError("Runtime adapter unavailable") from exc
+        raise ValueError("invalid native JSON response") from exc
 
 
 def _normalize_runtime_png(source: bytes) -> bytes:

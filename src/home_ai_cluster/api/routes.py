@@ -47,6 +47,7 @@ from home_ai_cluster.core.orchestrator import (
 from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
 )
+from home_ai_cluster.core.png_validation import ImageGenerationResultValidationError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.router import NoMatchingAdapterError
 from home_ai_cluster.local_health_snapshot import (
@@ -393,6 +394,8 @@ async def handle_image_generation_request(
                 static_remote_wiring.remote_transport,
                 static_remote_wiring.execution_intervals,
             )
+        except ImageGenerationResultValidationError as exc:
+            raise HTTPException(status_code=500, detail="execution-failed") from exc
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
@@ -421,6 +424,8 @@ async def handle_image_generation_request(
                 static_remote_collection_wiring.remote_transport,
                 static_remote_collection_wiring.execution_intervals,
             )
+        except ImageGenerationResultValidationError as exc:
+            raise HTTPException(status_code=500, detail="execution-failed") from exc
         except (
             RuntimeAdapterUnavailableError,
             NoSelectableRoutingCandidateError,
@@ -457,6 +462,8 @@ async def handle_image_generation_request(
             status_code=404,
             detail="No adapter provides capability: image-generation",
         ) from exc
+    except ImageGenerationResultValidationError as exc:
+        raise HTTPException(status_code=500, detail="execution-failed") from exc
 
 
 @router.post("/v1/chat", response_model=ClusterResult)

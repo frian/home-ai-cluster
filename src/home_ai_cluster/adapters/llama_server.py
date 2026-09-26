@@ -201,8 +201,8 @@ class LlamaServerAdapter:
         try:
             return self._classification_content(response.json())
         except (IndexError, KeyError, TypeError, ValueError) as exc:
-            raise RuntimeAdapterUnavailableError(
-                "Runtime adapter unavailable",
+            raise ValueError(
+                "llama-server classification response is unusable"
             ) from exc
 
     def _normalize_response(self, body: Any) -> tuple[str, str]:

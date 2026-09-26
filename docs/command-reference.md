@@ -87,6 +87,7 @@ hac config local --runtime ollama
 hac config local --runtime ollama --ollama-model <MODEL_IDENTIFIER>
 hac config local --runtime ollama --ollama-disable-thinking
 hac config local --runtime ollama --execution-limit 2
+hac config local --runtime-config ~/hac-runtime.toml
 hac config local \
   --runtime llama-server \
   --llama-server-base-url http://127.0.0.1:<LLAMA_SERVER_PORT> \
@@ -114,6 +115,8 @@ hac config reset
 
 hac config show
 ```
+
+`hac config local --runtime-config PATH` reads and fully validates one RFC-0110-style multi-binding document immediately, then retains its semantic binding facts. Future ordinary `hac local` starts from those retained facts: it does not reread, watch, or depend on `PATH`. This form replaces the retained singular runtime composition, preserves independently retained caller-local capabilities and HAC execution limit, and rejects `image-generation`, which remains the separate RFC-0128 companion.
 
 **Important behavior:** `local` is a complete retained local-runtime and
 caller-local-capability replacement. Non-reset local mutation requires explicit

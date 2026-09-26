@@ -411,6 +411,32 @@ def _load_multi_binding_runtime_config(
     return MultiBindingRuntimeCompositionValues(bindings=tuple(bindings))
 
 
+def validate_retained_multi_binding_runtime_composition(
+    values: MultiBindingRuntimeCompositionValues,
+) -> MultiBindingRuntimeCompositionValues:
+    """Validate the RFC-0142 retained subset without contacting a runtime."""
+    if not isinstance(values, MultiBindingRuntimeCompositionValues):
+        raise LocalRuntimeCompositionError("invalid retained multi-binding composition")
+    if any("image-generation" in binding.capabilities for binding in values.bindings):
+        raise LocalRuntimeCompositionError(
+            "retained multi-binding runtime composition cannot own image-generation"
+        )
+    try:
+        create_multi_binding_local_app_composition(values)
+    except ValueError as error:
+        raise LocalRuntimeCompositionError(str(error)) from error
+    return values
+
+
+def load_retained_multi_binding_runtime_config(
+    document: dict[str, Any],
+) -> MultiBindingRuntimeCompositionValues:
+    """Parse the RFC-0110 facts permitted by RFC-0142 retention."""
+    return validate_retained_multi_binding_runtime_composition(
+        _load_multi_binding_runtime_config(document)
+    )
+
+
 def load_local_runtime_config(
     path: Path,
 ) -> LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues:
@@ -542,7 +568,9 @@ def load_local_runtime_config(
 def resolve_local_runtime_composition_values(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    retained_values: LocalRuntimeCompositionValues | None = None,
+    retained_values: (
+        LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues | None
+    ) = None,
 ) -> LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues:
     """Resolve one explicit file, retained baseline, or CLI composition source."""
     cached = getattr(args, _RESOLVED_RUNTIME_VALUES, None)
@@ -584,6 +612,38 @@ def resolve_local_runtime_composition_values(
             vllm_model=args.vllm_model,
             temperature=validate_temperature(args.temperature),
         )
+    elif isinstance(retained_values, MultiBindingRuntimeCompositionValues):
+        explicit_arguments = getattr(args, _EXPLICIT_RUNTIME_ARGUMENTS, frozenset())
+        if "--runtime" not in explicit_arguments:
+            if explicit_arguments:
+                parser.error(
+                    "legacy flags cannot patch retained multi-binding composition"
+                )
+            values = retained_values
+        else:
+            try:
+                llama_base_url, vllm_base_url = validate_local_runtime_values(
+                    runtime=args.runtime,
+                    ollama_model=args.ollama_model,
+                    ollama_disable_thinking=args.ollama_disable_thinking,
+                    llama_server_base_url=args.llama_server_base_url,
+                    llama_server_model=args.llama_server_model,
+                    vllm_base_url=args.vllm_base_url,
+                    vllm_model=args.vllm_model,
+                    temperature=args.temperature,
+                )
+            except LocalRuntimeCompositionError as error:
+                parser.error(str(error))
+            values = LocalRuntimeCompositionValues(
+                runtime=args.runtime,
+                ollama_model=args.ollama_model,
+                ollama_disable_thinking=args.ollama_disable_thinking,
+                llama_server_base_url=llama_base_url,
+                llama_server_model=args.llama_server_model,
+                vllm_base_url=vllm_base_url,
+                vllm_model=args.vllm_model,
+                temperature=validate_temperature(args.temperature),
+            )
     else:
         explicit_arguments = getattr(args, _EXPLICIT_RUNTIME_ARGUMENTS, frozenset())
         replaces_runtime = (
@@ -721,7 +781,9 @@ def validate_local_runtime_values(
 def validate_local_runtime_arguments(
     parser: argparse.ArgumentParser,
     args: argparse.Namespace,
-    retained_values: LocalRuntimeCompositionValues | None = None,
+    retained_values: (
+        LocalRuntimeCompositionValues | MultiBindingRuntimeCompositionValues | None
+    ) = None,
 ) -> None:
     """Apply shared local runtime validation through the supplied parser."""
     resolve_local_runtime_composition_values(parser, args, retained_values)
@@ -926,6 +988,26 @@ def create_textual_with_image_generation_companion_composition(
     )
     return create_multi_binding_local_app_composition(
         MultiBindingRuntimeCompositionValues(bindings=(textual_binding, image_binding)),
+        execution_limit=execution_limit,
+    )
+
+
+def create_multi_binding_with_image_generation_companion_composition(
+    values: MultiBindingRuntimeCompositionValues,
+    *,
+    image_generation_base_url: str,
+    execution_limit: int = 1,
+) -> LocalAppComposition:
+    """Compose RFC-0142 bindings with RFC-0128s separate companion."""
+    image_binding = LocalCapabilityBindingValues(
+        capabilities=("image-generation",),
+        runtime="stable-diffusion-cpp",
+        base_url=image_generation_base_url,
+    )
+    return create_multi_binding_local_app_composition(
+        MultiBindingRuntimeCompositionValues(
+            bindings=(*values.bindings, image_binding)
+        ),
         execution_limit=execution_limit,
     )
 

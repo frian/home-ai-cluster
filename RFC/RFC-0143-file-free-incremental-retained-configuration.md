@@ -1,6 +1,6 @@
 # RFC-0143: File-Free Incremental Retained Configuration
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-26
 
@@ -998,7 +998,7 @@ The following architectural questions remain deferred:
 
 ## Decision
 
-If accepted, HAC gains bounded file-free incremental retained configuration.
+Accepted. HAC gains bounded file-free incremental retained configuration.
 
 The core rules are:
 

@@ -1,6 +1,6 @@
 # RFC-0144: Caller Routable Capability Projection
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-09-26
 

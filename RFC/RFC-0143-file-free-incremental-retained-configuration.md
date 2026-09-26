@@ -1,6 +1,6 @@
 # RFC-0143: File-Free Incremental Retained Configuration
 
-Status: Proposed
+Status: Draft
 
 Date: 2026-09-26
 

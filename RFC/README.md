@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0142: Retained Local Multi-Binding Runtime Composition](RFC-0142-retained-local-multi-binding-runtime-composition.md)
+  — extends the existing retained local runtime-composition owner with one
+  complete RFC-0110-style multi-binding alternative, retains semantic binding
+  facts rather than a source path, keeps singular and multi-binding forms as
+  complete alternatives, and leaves `image-generation` under RFC-0128's
+  separate retained companion authority for this first stage.
+
 - [RFC-0141: Explicit Ollaya Local Capability-Binding Configuration](RFC-0141-explicit-ollaya-local-capability-binding-configuration.md)
   — extends RFC-0110's explicit multi-binding runtime vocabulary with one closed
   `ollaya` binding requiring explicit `classify` ownership, loopback

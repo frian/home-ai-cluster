@@ -10,7 +10,8 @@ Author: frian
 
 Home AI Cluster should define one bounded capability-only projection answering:
 
-> Which accepted capabilities can this currently running caller route?
+> Which accepted capabilities are present on this currently running caller's
+> ordinary routing surface before additional request-specific constraints?
 
 The projection is derived from the caller's already composed in-memory routing and execution eligibility. It does not reconstruct routing from retained configuration, execute or simulate requests, probe runtimes or remote nodes, inspect health, or introduce a second routing policy.
 
@@ -32,7 +33,9 @@ Several distinct truths already exist and must remain distinct:
         !=
     declared-remote capability eligibility
         !=
-    current routability
+    caller ordinary routing surface
+        !=
+    guaranteed eligibility for every constrained request
         !=
     runtime or remote health
 
@@ -109,7 +112,10 @@ It also does not change capability admission, request contracts, result contract
 
 ### One caller-routability projection
 
-HAC may project the set of accepted capabilities for which the currently running caller has at least one routing-eligible candidate under its already composed routing state.
+HAC may project the set of accepted capabilities for which the currently
+running caller has at least one routing-eligible candidate in its already
+composed ordinary routing surface, before additional request-specific
+constraints narrow candidate eligibility.
 
 Conceptually:
 
@@ -125,41 +131,95 @@ The projection does not choose a candidate and has no effect on subsequent routi
 
 ### Local eligibility
 
-A capability is locally routable only when the caller's active local routing composition would admit local execution for that capability.
+A capability is locally represented only when the active caller composition has
+an existing local routing candidate for that capability. The projection must
+preserve the current local candidate-eligibility relationships:
 
-The projection must preserve both relevant existing truths:
-
-    process-local execution ownership
+    active routing NodeRegistry eligibility
     AND
-    caller-local routing permission
+    the applicable existing local adapter-selection path
 
-Where explicit local capability bindings are composed, adapter execution support alone is insufficient. A capability that an adapter could execute but that no binding owns must not become routable through this projection.
+NodeRegistry eligibility includes the local node's declared capability and its
+existing static `availability == "available"` condition. Static availability is
+therefore existing routing truth. It is not a live health or readiness
+observation, and this projection must not probe to create one.
 
-Where RFC-0059 caller-local capability restriction is composed, a locally execution-owned capability excluded by that caller-local routing permission must not be projected as locally routable.
+Where explicit local capability bindings are composed, the applicable path is:
 
-The projection must therefore use the already composed caller-side routing state rather than re-reading configuration inputs that may have produced it.
+    eligible routing node
+    AND
+    bound adapter for the capability
+
+Adapter execution support alone remains insufficient. A capability that an
+adapter could execute but that no binding owns must not become locally present
+through this projection.
+
+Where explicit bindings are not composed, the existing legacy/unbound path
+remains authoritative:
+
+    eligible routing node
+    AND
+    existing node/adapter matching semantics
+
+This preserves current compatibility; it does not define new adapter-selection
+behavior or promote the legacy path into a future architecture.
+
+Process-local execution ownership and RFC-0059 caller-local routing permission
+remain relevant existing truths. In particular, a locally execution-owned
+capability excluded by caller-local routing permission must not be projected
+from the local candidate. They are not, by themselves, a replacement for the
+existing local routing candidate eligibility represented by the active caller
+composition.
+
+The projection must therefore use the already composed caller-side routing
+state rather than re-reading configuration inputs that may have produced it.
 
 ### Declared-remote eligibility
 
-A capability is remotely routable when at least one remote declaration in the caller's active routing composition declares that capability eligible under the existing static remote semantics.
+A capability is remotely present on the ordinary routing surface when at least
+one remote declaration in the caller's active routing composition declares that
+capability eligible under the existing static remote semantics.
 
-Remote declaration order remains authoritative for actual routing and fallback but has no meaning in this set projection.
+Remote declaration order remains authoritative for actual routing and fallback
+but has no meaning in this set projection.
 
-The projection does not contact a declared remote node. It does not verify that the remote process is running, healthy, reachable, or still capable of fulfilling the declaration.
+The projection does not contact a declared remote node. It does not verify that
+the remote process is running, healthy, reachable, or still capable of
+fulfilling the declaration.
+
+A request-specific constraint such as `local_only` may exclude an otherwise
+eligible declared-remote candidate for that particular request. This does not
+make the projection false: it represents the ordinary routing surface and does
+not pre-evaluate every possible request constraint. Actual request-time routing
+remains authoritative.
 
 ### Routability is not execution availability
 
 Projected membership means only:
 
-> The current caller has an existing routing-eligible path for this capability.
+> The current caller has an existing ordinary routing-surface path for this
+> capability.
+
+The relevant truths remain distinct:
+
+    caller ordinary routing surface
+        !=
+    guaranteed eligibility for every constrained request
+        !=
+    execution success
 
 It does not mean:
 
 > A request using this capability would currently succeed.
 
-For example, a capability declared by an eligible remote node remains routable even if that remote process is currently unavailable. The existing request path determines the resulting transport or execution failure if a request is later attempted.
+For example, a capability declared by an eligible remote node remains on the
+ordinary routing surface even if that remote process is currently unavailable.
+The existing request path determines the resulting transport or execution
+failure if a request is later attempted.
 
-Similarly, this projection does not convert static `availability` or `health` fields used inside existing node representations into live observations.
+Existing static `availability` remains a routing input. This projection does
+not convert it, or static `health` fields used inside existing node
+representations, into live observations.
 
 No network activity or runtime activity is permitted when constructing the projection.
 
@@ -169,7 +229,9 @@ The projection must not be implemented by constructing synthetic capability requ
 
 Different accepted capabilities may own different request contracts, validation, constraints, or execution behavior. Caller routability is a property of the already composed eligibility state and should not depend on inventing otherwise meaningless request payloads merely to ask whether a capability has a candidate.
 
-Implementation should instead project capability membership directly from the same composed eligibility sources used by routing.
+Implementation should instead project capability membership directly from the
+same authoritative active-composition relationships used by routing, rather
+than implementing a simplified parallel approximation.
 
 This projection logic must remain small and must not become a parallel general-purpose router.
 
@@ -305,8 +367,8 @@ Special-case browser logic for individual runtimes or models is not acceptable. 
 
 The implementation proof must establish at least:
 
-1. a capability owned by active local execution and permitted by caller-local routing is projected;
-2. a capability supported by an adapter but not owned by active local binding is not made locally routable by adapter support alone;
+1. a capability with an existing locally eligible candidate in the active caller composition is projected;
+2. a capability supported by an adapter but absent from the applicable active local candidate-eligibility path is not made locally present by adapter support alone;
 3. a locally execution-owned capability excluded by caller-local routing permission is not projected from the local candidate;
 4. a capability absent locally but present in an active declared remote is projected;
 5. a capability present in neither eligible local composition nor active remote declarations is absent;

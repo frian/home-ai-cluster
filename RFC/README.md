@@ -67,6 +67,12 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0143: File-Free Incremental Retained Configuration](RFC-0143-file-free-incremental-retained-configuration.md)
+  — accepts bounded file-free retained mutations for local bindings, caller-local
+  routing capabilities, and remote-node capabilities, using capability ownership
+  as lookup rather than persistent binding IDs and preserving RFC-0128 and
+  `--runtime-config` boundaries.
+
 - [RFC-0142: Retained Local Multi-Binding Runtime Composition](RFC-0142-retained-local-multi-binding-runtime-composition.md)
   — extends the existing retained local runtime-composition owner with one
   complete RFC-0110-style multi-binding alternative, retains semantic binding

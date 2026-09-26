@@ -353,6 +353,17 @@ def _binding_from_arguments(
         ]
         base_url = input("Base URL (blank for Ollama): ").strip() or None
         model = input("Model (blank for default Ollama): ").strip() or None
+        if runtime == "ollama":
+            disable_thinking = (
+                input("Disable thinking? [y/N] ").strip().lower() in {"y", "yes"}
+            )
+        if runtime != "ollaya":
+            temperature_input = input("Temperature (blank for default): ").strip()
+            if temperature_input:
+                try:
+                    temperature = temperature_value(temperature_input)
+                except argparse.ArgumentTypeError as error:
+                    parser.error(str(error))
         if input("Apply? [y/N] ").strip().lower() not in {"y", "yes"}:
             raise ValueError("interactive configuration cancelled")
     elif runtime is None or capabilities is None:
@@ -388,9 +399,12 @@ def _mutate_local_binding(
         )
     except (LocalRuntimeCompositionError, ValueError) as error:
         parser.error(str(error))
-    print(
-        "local binding removed" if action == "remove" else f"local binding {action}ed"
-    )
+    messages = {
+        "add": "local binding added",
+        "replace": "local binding replaced",
+        "remove": "local binding removed",
+    }
+    print(messages[action])
 
 
 def _mutate_local_capability(

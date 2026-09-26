@@ -68,6 +68,33 @@ base_url = "http://192.0.2.10:25042"
 
 ## Local runtime composition
 
+### File-free retained multi-binding configuration
+
+This clean-install example needs no runtime-composition TOML file. It retains
+one Ollama binding for text operations, one Ollaya classification binding,
+independent caller-local routing permission, an optional execution limit, the
+separate RFC-0128 Image Generation companion, and one remote declaration:
+
+```sh
+hac config local binding add --capability chat --capability summarize \
+  --capability code --runtime ollama --model qwen2.5-coder:7b
+hac config local binding add --capability classify --runtime ollaya \
+  --base-url http://127.0.0.1:11435 --model laya
+hac config local capability add chat
+hac config local capability add summarize
+hac config local capability add classify
+hac config local capability add code
+hac config local execution-limit set 2
+hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
+hac config node summary-remote --base-url http://192.0.2.10:25042 \
+  --capability summarize
+hac config show
+hac local
+```
+
+The execution limit remains independent from binding ownership and caller-local
+routing permission. Image Generation remains the separate RFC-0128 domain.
+
 ### Retained local HAC execution limit
 
 Use `hac config local` to retain an HAC execution limit for this machine's

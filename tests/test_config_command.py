@@ -754,3 +754,199 @@ def test_corrupt_configuration_fails_safely(capsys: pytest.CaptureFixture[str]) 
     assert (code, out) == (1, "")
     assert err == "error: invalid retained configuration shape\n"
     assert str(path) not in err
+
+
+def test_file_free_binding_mutations_are_complete_and_capability_addressed(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert (
+        _run(
+            capsys,
+            [
+                "local",
+                "binding",
+                "add",
+                "--capability",
+                "chat",
+                "--capability",
+                "summarize",
+                "--runtime",
+                "ollama",
+                "--model",
+                "chat-model",
+            ],
+        )[0]
+        == 0
+    )
+    assert (
+        _run(
+            capsys,
+            [
+                "local",
+                "binding",
+                "add",
+                "--capability",
+                "classify",
+                "--runtime",
+                "ollaya",
+                "--base-url",
+                "http://127.0.0.1:11435",
+                "--model",
+                "laya",
+            ],
+        )[0]
+        == 0
+    )
+    local = load_retained_configuration().local
+    assert local is not None
+    assert local.local_capabilities is None
+    assert local.execution_limit is None
+    assert len(local.runtime.bindings) == 2
+
+    assert (
+        _run(
+            capsys,
+            [
+                "local",
+                "binding",
+                "replace",
+                "--owning",
+                "summarize",
+                "--capability",
+                "code",
+                "--runtime",
+                "ollama",
+                "--model",
+                "code-model",
+            ],
+        )[0]
+        == 0
+    )
+    bindings = load_retained_configuration().local.runtime.bindings
+    assert [(binding.capabilities, binding.model) for binding in bindings] == [
+        (("code",), "code-model"),
+        (("classify",), "laya"),
+    ]
+
+    assert _run(capsys, ["local", "binding", "remove", "--owning", "classify"])[0] == 0
+    assert load_retained_configuration().local.runtime.bindings[0].capabilities == (
+        "code",
+    )
+    before = load_retained_configuration()
+    assert _run(capsys, ["local", "binding", "remove", "--owning", "code"])[0] == 2
+    assert load_retained_configuration() == before
+
+
+def test_file_free_binding_mutation_rejects_singular_and_overlap(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(capsys, ["local", "--runtime", "ollama"])
+    before = load_retained_configuration()
+    assert (
+        _run(
+            capsys,
+            ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+        )[0]
+        == 2
+    )
+    assert load_retained_configuration() == before
+
+    _run(capsys, ["local", "--reset"])
+    _run(
+        capsys,
+        ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+    )
+    before = load_retained_configuration()
+    assert (
+        _run(
+            capsys,
+            ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+        )[0]
+        == 2
+    )
+    assert load_retained_configuration() == before
+
+
+def test_incremental_capability_mutations_preserve_their_independent_domains(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(
+        capsys,
+        ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+    )
+    _run(capsys, ["local", "capability", "add", "chat"])
+    _run(capsys, ["local", "capability", "add", "code"])
+    assert load_retained_configuration().local.local_capabilities == ("chat", "code")
+    _run(capsys, ["local", "capability", "remove", "chat"])
+    assert load_retained_configuration().local.local_capabilities == ("code",)
+    before = load_retained_configuration()
+    assert _run(capsys, ["local", "capability", "remove", "code"])[0] == 2
+    assert load_retained_configuration() == before
+    _run(capsys, ["local", "capability", "clear"])
+    assert load_retained_configuration().local.local_capabilities is None
+
+
+def test_incremental_execution_limit_preserves_multi_binding_composition(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(
+        capsys,
+        ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+    )
+    before_bindings = load_retained_configuration().local.runtime.bindings
+    assert _run(capsys, ["local", "execution-limit", "set", "2"])[0] == 0
+    local = load_retained_configuration().local
+    assert (local.runtime.bindings, local.execution_limit) == (before_bindings, 2)
+    assert _run(capsys, ["local", "execution-limit", "clear"])[0] == 0
+    assert load_retained_configuration().local.execution_limit is None
+
+
+def test_remote_capability_mutation_preserves_node_identity_and_non_empty_set(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _run(
+        capsys,
+        ["node", "one", "--base-url", "http://192.0.2.1:25042", "--capability", "chat"],
+    )
+    _run(capsys, ["node", "one", "capability", "add", "code"])
+    node = load_retained_configuration().remote_nodes[0]
+    assert (node.node_id, node.base_url, node.capabilities) == (
+        "one",
+        "http://192.0.2.1:25042",
+        ("chat", "code"),
+    )
+    _run(capsys, ["node", "one", "capability", "remove", "chat"])
+    before = load_retained_configuration()
+    assert _run(capsys, ["node", "one", "capability", "remove", "code"])[0] == 2
+    assert load_retained_configuration() == before
+
+
+def test_interactive_binding_add_uses_the_same_complete_mutation(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class InteractiveInput:
+        @staticmethod
+        def isatty() -> bool:
+            return True
+
+    answers = iter(["ollaya", "classify", "http://127.0.0.1:11435", "laya", "y"])
+    monkeypatch.setattr(config_command.sys, "stdin", InteractiveInput())
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+
+    assert _run(capsys, ["local", "binding", "add"])[0] == 0
+    binding = load_retained_configuration().local.runtime.bindings[0]
+    assert (binding.capabilities, binding.runtime, binding.base_url, binding.model) == (
+        ("classify",),
+        "ollaya",
+        "http://127.0.0.1:11435",
+        "laya",
+    )
+
+
+def test_noninteractive_incomplete_binding_never_prompts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("builtins.input", lambda _prompt: pytest.fail("prompted"))
+    before = load_retained_configuration()
+    assert _run(capsys, ["local", "binding", "add"])[0] == 2
+    assert load_retained_configuration() == before

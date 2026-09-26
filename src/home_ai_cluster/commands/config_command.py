@@ -12,10 +12,12 @@ from home_ai_cluster.core.static_capabilities import (
 from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
     LOCAL_RUNTIMES,
+    LocalCapabilityBindingValues,
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
     MultiBindingRuntimeCompositionValues,
     load_local_runtime_config,
+    load_retained_multi_binding_runtime_config,
     non_empty_value,
     temperature_value,
 )
@@ -27,6 +29,9 @@ from home_ai_cluster.retained_configuration import (
     build_retained_local_configuration,
     build_retained_remote_node_declaration,
     load_retained_configuration,
+    mutate_retained_local_binding,
+    mutate_retained_local_capabilities,
+    mutate_retained_remote_capabilities,
     remove_retained_configuration,
     remove_retained_remote_node,
     replace_retained_external_information_plugin,
@@ -37,6 +42,7 @@ from home_ai_cluster.retained_configuration import (
     reset_retained_image_generation_configuration,
     reset_retained_local_configuration,
     set_retained_chat_external_information_fallback,
+    set_retained_execution_limit,
     validate_external_information_plugin_name,
 )
 from home_ai_cluster.static_cluster_validation import remote_base_url, remote_node_id
@@ -124,6 +130,41 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Validate and retain one complete RFC-0110 multi-binding runtime config.",
     )
+    local_actions = local.add_subparsers(dest="local_action")
+    binding = local_actions.add_parser(
+        "binding", help="Mutate complete local bindings."
+    )
+    binding_actions = binding.add_subparsers(dest="binding_action", required=True)
+    for action in ("add", "replace"):
+        mutation = binding_actions.add_parser(action)
+        if action == "replace":
+            mutation.add_argument(
+                "--owning", required=True, help="Currently owned capability."
+            )
+        _add_binding_arguments(mutation)
+    remove_binding = binding_actions.add_parser("remove")
+    remove_binding.add_argument(
+        "--owning", required=True, help="Currently owned capability."
+    )
+    capability = local_actions.add_parser(
+        "capability", help="Mutate caller-local routing capabilities."
+    )
+    capability_actions = capability.add_subparsers(
+        dest="local_capability_action", required=True
+    )
+    for action in ("add", "remove"):
+        mutation = capability_actions.add_parser(action)
+        mutation.add_argument("capability")
+    capability_actions.add_parser("clear")
+    execution_limit = local_actions.add_parser(
+        "execution-limit", help="Set the retained HAC execution limit."
+    )
+    execution_limit_actions = execution_limit.add_subparsers(
+        dest="execution_limit_action", required=True
+    )
+    set_limit = execution_limit_actions.add_parser("set")
+    set_limit.add_argument("limit", type=_execution_limit)
+    execution_limit_actions.add_parser("clear")
 
     node = commands.add_parser(
         "node",
@@ -146,6 +187,16 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         action="append",
         help="Retained remote capability; repeat as needed.",
     )
+    node_actions = node.add_subparsers(dest="node_action")
+    node_capability = node_actions.add_parser(
+        "capability", help="Mutate this node's retained capabilities."
+    )
+    node_capability_actions = node_capability.add_subparsers(
+        dest="node_capability_action", required=True
+    )
+    for action in ("add", "remove"):
+        mutation = node_capability_actions.add_parser(action)
+        mutation.add_argument("capability")
 
     external_information = commands.add_parser(
         "external-information",
@@ -222,6 +273,19 @@ def _execution_limit(value: str) -> int:
     return parsed
 
 
+def _add_binding_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--capability", action="append", help="Owned capability; repeat as needed."
+    )
+    parser.add_argument(
+        "--runtime", choices=("ollama", "llama-server", "vllm", "ollaya")
+    )
+    parser.add_argument("--model", type=non_empty_value)
+    parser.add_argument("--base-url")
+    parser.add_argument("--disable-thinking", action="store_true")
+    parser.add_argument("--temperature", type=temperature_value)
+
+
 def _validated_capabilities(
     parser: argparse.ArgumentParser,
     values: list[str] | None,
@@ -258,6 +322,107 @@ def _local_configuration(
         parser.error(str(error))
     except ValueError as error:
         parser.error(str(error))
+
+
+def _binding_from_arguments(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> LocalCapabilityBindingValues:
+    capabilities = getattr(args, "capability", None)
+    runtime = getattr(args, "runtime", None)
+    model = getattr(args, "model", None)
+    base_url = getattr(args, "base_url", None)
+    disable_thinking = getattr(args, "disable_thinking", False)
+    temperature = getattr(args, "temperature", None)
+    if (
+        capabilities is None
+        and runtime is None
+        and model is None
+        and base_url is None
+        and not disable_thinking
+        and temperature is None
+    ):
+        if not sys.stdin.isatty():
+            parser.error(
+                "complete binding facts are required when standard input is not a "
+                "terminal"
+            )
+        runtime = input("Runtime: ").strip()
+        capabilities = [
+            value.strip()
+            for value in input("Capabilities (comma-separated): ").split(",")
+        ]
+        base_url = input("Base URL (blank for Ollama): ").strip() or None
+        model = input("Model (blank for default Ollama): ").strip() or None
+        if input("Apply? [y/N] ").strip().lower() not in {"y", "yes"}:
+            raise ValueError("interactive configuration cancelled")
+    elif runtime is None or capabilities is None:
+        parser.error("complete binding requires --capability and --runtime")
+    document: dict[str, object] = {
+        "capabilities": capabilities,
+        "runtime": runtime,
+    }
+    if model is not None:
+        document["model"] = model
+    if base_url is not None:
+        document["base_url"] = base_url
+    if disable_thinking:
+        document["disable_thinking"] = True
+    if temperature is not None:
+        document["temperature"] = temperature
+    try:
+        return load_retained_multi_binding_runtime_config(
+            {"bindings": [document]}
+        ).bindings[0]
+    except LocalRuntimeCompositionError as error:
+        parser.error(str(error))
+
+
+def _mutate_local_binding(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    action = args.binding_action
+    try:
+        binding = None if action == "remove" else _binding_from_arguments(parser, args)
+        mutate_retained_local_binding(
+            action, binding=binding, owning_capability=getattr(args, "owning", None)
+        )
+    except (LocalRuntimeCompositionError, ValueError) as error:
+        parser.error(str(error))
+    print(
+        "local binding removed" if action == "remove" else f"local binding {action}ed"
+    )
+
+
+def _mutate_local_capability(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    try:
+        mutate_retained_local_capabilities(
+            args.local_capability_action, getattr(args, "capability", None)
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    print(
+        "local capability removed"
+        if args.local_capability_action == "remove"
+        else f"local capability {args.local_capability_action}ed"
+    )
+
+
+def _mutate_execution_limit(
+    parser: argparse.ArgumentParser, args: argparse.Namespace
+) -> None:
+    try:
+        set_retained_execution_limit(
+            None if args.execution_limit_action == "clear" else args.limit
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    print(
+        "local execution limit cleared"
+        if args.execution_limit_action == "clear"
+        else "local execution limit retained"
+    )
 
 
 def _node_declaration(parser: argparse.ArgumentParser, args: argparse.Namespace):
@@ -428,6 +593,15 @@ def format_retained_configuration(configuration: RetainedConfiguration) -> str:
 
 
 def _mutate_local(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if getattr(args, "local_action", None) == "binding":
+        _mutate_local_binding(parser, args)
+        return
+    if getattr(args, "local_action", None) == "capability":
+        _mutate_local_capability(parser, args)
+        return
+    if getattr(args, "local_action", None) == "execution-limit":
+        _mutate_execution_limit(parser, args)
+        return
     if args.reset:
         _validate_reset(parser, args)
         reset_retained_local_configuration()
@@ -492,6 +666,19 @@ def _mutate_image_generation(
 
 
 def _mutate_node(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if getattr(args, "node_action", None) == "capability":
+        try:
+            mutate_retained_remote_capabilities(
+                args.node_id, args.node_capability_action, args.capability
+            )
+        except ValueError as error:
+            parser.error(str(error))
+        print(
+            "node capability removed"
+            if args.node_capability_action == "remove"
+            else f"node capability {args.node_capability_action}ed"
+        )
+        return
     if args.remove:
         _validate_remove(parser, args)
         if not remove_retained_remote_node(args.node_id):

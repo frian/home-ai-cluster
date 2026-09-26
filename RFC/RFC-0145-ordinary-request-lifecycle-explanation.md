@@ -1,6 +1,6 @@
 # RFC-0145: Ordinary Request Lifecycle Explanation
 
-- Status: Draft
+- Status: Accepted
 - Date: 2026-09-26
 
 ## Summary

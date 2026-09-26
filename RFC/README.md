@@ -67,6 +67,13 @@ does not invalidate or supersede an RFC.
 
 ## Selected accepted RFCs
 
+- [RFC-0141: Explicit Ollaya Local Capability-Binding Configuration](RFC-0141-explicit-ollaya-local-capability-binding-configuration.md)
+  — extends RFC-0110's explicit multi-binding runtime vocabulary with one closed
+  `ollaya` binding requiring explicit `classify` ownership, loopback
+  `base_url`, and model, while preserving RFC-0140's classification-only
+  semantics and leaving legacy runtime, retained/browser configuration, status,
+  routing, remote protocol, and lifecycle boundaries unchanged.
+
 - [RFC-0140: Explicit Ollaya Classification Adapter](RFC-0140-explicit-ollaya-classification-adapter.md)
   — accepts one concrete classification-only `ollaya` adapter over the existing
   RFC-0061 Classify contract, with explicit loopback runtime/model construction,

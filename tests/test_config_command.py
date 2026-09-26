@@ -943,6 +943,56 @@ def test_interactive_binding_add_uses_the_same_complete_mutation(
     )
 
 
+def test_interactive_ollama_binding_collects_optional_runtime_facts(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class InteractiveInput:
+        @staticmethod
+        def isatty() -> bool:
+            return True
+
+    answers = iter(["ollama", "chat", "", "model", "y", "0.4", "y"])
+    monkeypatch.setattr(config_command.sys, "stdin", InteractiveInput())
+    monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
+
+    assert _run(capsys, ["local", "binding", "add"]) == (
+        0,
+        "local binding added\n",
+        "",
+    )
+    binding = load_retained_configuration().local.runtime.bindings[0]
+    assert (
+        binding.runtime,
+        binding.model,
+        binding.disable_thinking,
+        binding.temperature,
+    ) == ("ollama", "model", True, 0.4)
+
+
+def test_binding_replace_reports_replaced(capsys: pytest.CaptureFixture[str]) -> None:
+    _run(
+        capsys,
+        ["local", "binding", "add", "--capability", "chat", "--runtime", "ollama"],
+    )
+
+    assert _run(
+        capsys,
+        [
+            "local",
+            "binding",
+            "replace",
+            "--owning",
+            "chat",
+            "--capability",
+            "chat",
+            "--runtime",
+            "ollama",
+            "--model",
+            "replacement",
+        ],
+    ) == (0, "local binding replaced\n", "")
+
+
 def test_noninteractive_incomplete_binding_never_prompts(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

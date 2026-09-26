@@ -98,12 +98,23 @@ hac config local \
   --vllm-model <SERVED_MODEL_IDENTIFIER>
 hac config local --reset
 
+hac config local binding add --capability chat --capability summarize --runtime ollama --model <MODEL_IDENTIFIER>
+hac config local binding replace --owning chat --capability code --runtime ollama --model <MODEL_IDENTIFIER>
+hac config local binding remove --owning chat
+hac config local capability add chat
+hac config local capability remove chat
+hac config local capability clear
+hac config local execution-limit set 2
+hac config local execution-limit clear
+
 hac config image-generation --base-url http://127.0.0.1:<SD_SERVER_PORT>
 hac config image-generation --reset
 
 hac config node <NODE_ID> --base-url <BASE_URL>
 hac config node <NODE_ID> --base-url <BASE_URL> --capability code
 hac config node <NODE_ID> --remove
+hac config node <NODE_ID> capability add code
+hac config node <NODE_ID> capability remove code
 
 hac config external-information --plugin <NAME>
 hac config external-information --reset
@@ -117,6 +128,14 @@ hac config show
 ```
 
 `hac config local --runtime-config PATH` reads and fully validates one RFC-0110-style multi-binding document immediately, then retains its semantic binding facts. Future ordinary `hac local` starts from those retained facts: it does not reread, watch, or depend on `PATH`. This form replaces the retained singular runtime composition, preserves independently retained caller-local capabilities and HAC execution limit, and rejects `image-generation`, which remains the separate RFC-0128 companion.
+
+For retained RFC-0142 multi-binding state, `local binding add` supplies one complete binding, `replace --owning CAPABILITY` replaces the complete binding currently owning that capability, and `remove --owning CAPABILITY` removes that entire binding. A capability is lookup only, not a stored binding ID; any capability owned by a binding selects it. Bindings must remain disjoint and non-empty, and the final binding cannot be removed. Incremental binding operations fail closed while retained local composition is the older singular form; explicitly reset or replace it first. Generic bindings reject `image-generation`, which remains configured only through `hac config image-generation` under RFC-0128.
+
+`local capability add/remove/clear` changes only the independent RFC-0059 caller-local routing permission. Adding from `not retained` creates an explicit set; clear restores `not retained`; the final explicit capability cannot be removed. It neither creates nor changes a binding or execution limit. `node NODE capability add/remove` changes only that retained node's capability set while preserving its ID and URL; the final remote capability cannot be removed and does not delete the node.
+
+`local execution-limit set N` and `clear` project the existing independently retained RFC-0106 fact without changing bindings or routing permission.
+
+Complete binding arguments are non-interactive. Running `local binding add` with no binding facts on a terminal offers simple prompts and a confirmation; it constructs the same complete binding. In non-terminal input, incomplete commands fail rather than prompting.
 
 **Important behavior:** `local` is a complete retained local-runtime and
 caller-local-capability replacement. Non-reset local mutation requires explicit

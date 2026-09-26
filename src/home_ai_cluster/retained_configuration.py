@@ -21,6 +21,7 @@ else:
 from home_ai_cluster.core.static_capabilities import validate_static_capabilities
 from home_ai_cluster.local_http import local_http_url
 from home_ai_cluster.local_runtime_composition import (
+    LocalCapabilityBindingValues,
     LocalRuntimeCompositionError,
     LocalRuntimeCompositionValues,
     MultiBindingRuntimeCompositionValues,
@@ -253,6 +254,121 @@ def replace_retained_local_runtime_composition(
         save_retained_configuration(replace(configuration, local=local), path)
 
 
+def mutate_retained_local_binding(
+    operation: str,
+    *,
+    binding: LocalCapabilityBindingValues | None = None,
+    owning_capability: str | None = None,
+    path: Path | None = None,
+) -> None:
+    """Apply one RFC-0143 complete local-binding mutation atomically."""
+    if operation not in {"add", "replace", "remove"}:
+        raise ValueError("invalid local binding mutation")
+    if operation == "add" and binding is None:
+        raise ValueError("local binding is required")
+    if operation != "add" and owning_capability is None:
+        raise ValueError("owning capability is required")
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        previous = configuration.local
+        if previous is not None and not isinstance(
+            previous.runtime, MultiBindingRuntimeCompositionValues
+        ):
+            raise ValueError(
+                "local binding mutation requires retained multi-binding composition"
+            )
+        bindings = [] if previous is None else list(previous.runtime.bindings)
+        if operation == "add":
+            assert binding is not None
+            bindings.append(binding)
+        else:
+            assert owning_capability is not None
+            index = next(
+                (
+                    index
+                    for index, current in enumerate(bindings)
+                    if owning_capability in current.capabilities
+                ),
+                None,
+            )
+            if index is None:
+                raise ValueError("no retained binding owns that capability")
+            if operation == "replace":
+                assert binding is not None
+                bindings[index] = binding
+            else:
+                del bindings[index]
+        runtime = MultiBindingRuntimeCompositionValues(bindings=tuple(bindings))
+        validate_retained_multi_binding_runtime_composition(runtime)
+        local = RetainedLocalConfiguration(
+            runtime=runtime,
+            local_capabilities=None
+            if previous is None
+            else previous.local_capabilities,
+            execution_limit=None if previous is None else previous.execution_limit,
+        )
+        save_retained_configuration(replace(configuration, local=local), path)
+
+
+def mutate_retained_local_capabilities(
+    operation: str, capability: str | None = None, path: Path | None = None
+) -> None:
+    """Apply one RFC-0143 caller-local routing-capability mutation."""
+    if operation not in {"add", "remove", "clear"}:
+        raise ValueError("invalid local capability mutation")
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        if configuration.local is None:
+            raise ValueError("retained local runtime composition is not configured")
+        current = configuration.local.local_capabilities
+        if operation == "clear":
+            capabilities = None
+        else:
+            if capability is None:
+                raise ValueError("capability is required")
+            validate_static_capabilities((capability,), subject="local")
+            values = [] if current is None else list(current)
+            if operation == "add":
+                if capability in values:
+                    raise ValueError("local capabilities must not duplicate")
+                values.append(capability)
+            else:
+                if capability not in values:
+                    raise ValueError("retained local capability not found")
+                values.remove(capability)
+            capabilities = validate_static_capabilities(values, subject="local")
+        save_retained_configuration(
+            replace(
+                configuration,
+                local=replace(configuration.local, local_capabilities=capabilities),
+            ),
+            path,
+        )
+
+
+def set_retained_execution_limit(
+    execution_limit: int | None, path: Path | None = None
+) -> None:
+    """Set the independently retained RFC-0106 execution-limit fact."""
+    if execution_limit is not None and (
+        isinstance(execution_limit, bool)
+        or not isinstance(execution_limit, int)
+        or execution_limit <= 0
+    ):
+        raise ValueError("execution limit must be a positive integer")
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        if configuration.local is None:
+            raise ValueError("retained local runtime composition is not configured")
+        save_retained_configuration(
+            replace(
+                configuration,
+                local=replace(configuration.local, execution_limit=execution_limit),
+            ),
+            path,
+        )
+
+
 def reset_retained_local_configuration(path: Path | None = None) -> None:
     """Clear only the retained-local domain through HAC persistence."""
     with _retained_mutation_lock(path):
@@ -344,6 +460,49 @@ def remove_retained_remote_node(node_id: str, path: Path | None = None) -> bool:
             return False
         save_retained_configuration(replace(configuration, remote_nodes=nodes), path)
     return True
+
+
+def mutate_retained_remote_capabilities(
+    node_id: str,
+    operation: str,
+    capability: str,
+    path: Path | None = None,
+) -> None:
+    """Apply one RFC-0143 remote capability mutation without deleting its node."""
+    if operation not in {"add", "remove"}:
+        raise ValueError("invalid remote capability mutation")
+    validated_node_id = remote_node_id(node_id)
+    validate_static_capabilities((capability,), subject="remote")
+    with _retained_mutation_lock(path):
+        configuration = load_retained_configuration(path)
+        nodes = list(configuration.remote_nodes)
+        index = next(
+            (
+                index
+                for index, node in enumerate(nodes)
+                if node.node_id == validated_node_id
+            ),
+            None,
+        )
+        if index is None:
+            raise ValueError("retained node not found")
+        node = nodes[index]
+        capabilities = list(node.capabilities)
+        if operation == "add":
+            if capability in capabilities:
+                raise ValueError("remote capabilities must not duplicate")
+            capabilities.append(capability)
+        else:
+            if capability not in capabilities:
+                raise ValueError("retained remote capability not found")
+            capabilities.remove(capability)
+        nodes[index] = replace(
+            node,
+            capabilities=validate_static_capabilities(capabilities, subject="remote"),
+        )
+        save_retained_configuration(
+            replace(configuration, remote_nodes=tuple(nodes)), path
+        )
 
 
 def replace_retained_external_information_plugin(

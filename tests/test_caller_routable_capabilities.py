@@ -16,6 +16,8 @@ from home_ai_cluster.core.local_capability_binding import (
 from home_ai_cluster.core.models import (
     AdapterHealth,
     Capability,
+    ChatMessage,
+    ClusterRequest,
     NodeDescription,
     NodeHealth,
 )
@@ -24,6 +26,7 @@ from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
     RemoteNodeDeclarationRegistry,
 )
+from home_ai_cluster.core.router import NoMatchingAdapterError, route_request
 from home_ai_cluster.core.routing_candidates import RoutingCandidateSelectionMode
 from home_ai_cluster.main import create_app, create_receiver_app
 from home_ai_cluster.openai_compatibility import create_openai_compatibility_app
@@ -52,6 +55,13 @@ class RecordingAdapter:
     async def chat(self, request: object) -> object:
         self.execution_calls += 1
         return object()
+
+
+def routed_request(capability_name: str) -> ClusterRequest:
+    return ClusterRequest(
+        messages=[ChatMessage(role="user", content="Hello")],
+        capability=Capability(name=capability_name),
+    )
 
 
 def node(
@@ -283,3 +293,70 @@ def test_browser_capability_tabs_follow_the_projection_and_fail_closed() -> None
     )
     assert "setInterval" not in script
     assert "setTimeout" not in script
+
+
+def test_browser_empty_projection_promotes_configuration_tab() -> None:
+    script = (
+        files("home_ai_cluster")
+        .joinpath("web", "assets", "app.js")
+        .read_text(encoding="utf-8")
+    )
+    availability = script.split(
+        "function setCapabilityOperationAvailability(capabilities)", 1
+    )[1].split("async function loadCallerRoutableCapabilities", 1)[0]
+    activation = script.split("function activateTab(tab, focus = false)", 1)[1].split(
+        "function setCapabilityOperationAvailability", 1
+    )[0]
+
+    assert "const firstAvailableTab = tabs.find((tab) => !tab.hidden);" in availability
+    assert "if (firstAvailableTab) activateTab(firstAvailableTab);" in availability
+    assert 'selected.setAttribute("aria-selected", "false")' not in availability
+    assert "configuration-tab" not in availability
+    assert 'other.setAttribute("aria-selected", String(selected));' in activation
+    assert "other.tabIndex = selected ? 0 : -1;" in activation
+    assert "hidden = !selected;" in activation
+
+
+def test_route_request_preserves_unbound_capability_error() -> None:
+    adapter = RecordingAdapter("local", {"code"})
+    bindings = LocalCapabilityBindings(
+        [LocalCapabilityBinding(frozenset({"code"}), adapter)]
+    )
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="^No bound adapter provides capability: chat$",
+    ):
+        route_request(
+            routed_request("chat"),
+            NodeRegistry([node(["chat"], ["local"])]),
+            AdapterRegistry([adapter], local_capability_bindings=bindings),
+        )
+
+
+def test_route_request_preserves_no_eligible_node_failure() -> None:
+    adapter = RecordingAdapter("local", {"chat"})
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="^No available node provides capability: chat$",
+    ):
+        route_request(
+            routed_request("chat"),
+            NodeRegistry([node(["code"], ["local"])]),
+            AdapterRegistry([adapter]),
+        )
+
+
+def test_route_request_preserves_no_matching_adapter_failure() -> None:
+    adapter = RecordingAdapter("local", {"chat"})
+
+    with pytest.raises(
+        NoMatchingAdapterError,
+        match="^No adapter provides capability on available node: chat$",
+    ):
+        route_request(
+            routed_request("chat"),
+            NodeRegistry([node(["chat"], ["missing"])]),
+            AdapterRegistry([adapter]),
+        )

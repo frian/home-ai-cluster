@@ -1084,9 +1084,8 @@
     });
     const selected = tabs.find((tab) => tab.getAttribute("aria-selected") === "true");
     if (selected && selected.hidden) {
-      const firstAvailableCapabilityTab = Array.from(capabilityTabs.values()).find((tab) => !tab.hidden);
-      if (firstAvailableCapabilityTab) activateTab(firstAvailableCapabilityTab);
-      else selected.setAttribute("aria-selected", "false");
+      const firstAvailableTab = tabs.find((tab) => !tab.hidden);
+      if (firstAvailableTab) activateTab(firstAvailableTab);
     }
   }
 

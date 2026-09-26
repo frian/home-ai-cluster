@@ -354,9 +354,10 @@ def _binding_from_arguments(
         base_url = input("Base URL (blank for Ollama): ").strip() or None
         model = input("Model (blank for default Ollama): ").strip() or None
         if runtime == "ollama":
-            disable_thinking = (
-                input("Disable thinking? [y/N] ").strip().lower() in {"y", "yes"}
-            )
+            disable_thinking = input("Disable thinking? [y/N] ").strip().lower() in {
+                "y",
+                "yes",
+            }
         if runtime != "ollaya":
             temperature_input = input("Temperature (blank for default): ").strip()
             if temperature_input:

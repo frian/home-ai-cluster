@@ -6,6 +6,7 @@ from collections.abc import Mapping
 import httpx
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -214,8 +215,8 @@ class OllamaAdapter:
             if not isinstance(proposal, str):
                 raise ValueError("Ollama classification output must be a JSON string")
         except (KeyError, TypeError, ValueError) as exc:
-            raise RuntimeAdapterUnavailableError(
-                "Runtime adapter unavailable",
+            raise InvalidClassificationResultError(
+                "Invalid classification result"
             ) from exc
 
         return proposal

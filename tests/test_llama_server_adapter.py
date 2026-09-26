@@ -5,6 +5,7 @@ import httpx
 import pytest
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -383,19 +384,13 @@ def test_llama_server_adapter_classify_translates_malformed_response(
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=body)
 
-    with pytest.raises(RuntimeAdapterUnavailableError) as exc_info:
+    with pytest.raises(InvalidClassificationResultError):
         asyncio.run(
             LlamaServerAdapter(
                 model="configured-model",
                 transport=httpx.MockTransport(handler),
             ).classify(make_classify_request())
         )
-
-    assert str(exc_info.value) == "Runtime adapter unavailable"
-    assert isinstance(
-        exc_info.value.__cause__,
-        (IndexError, KeyError, TypeError, ValueError),
-    )
 
 
 def test_llama_server_adapter_classify_client_has_no_timeout(

@@ -21,6 +21,14 @@ class RuntimeConnectionUnavailableBeforeRequestError(RuntimeAdapterUnavailableEr
     """Raised when a runtime connection cannot be established before sending."""
 
 
+class InvalidClassificationResultError(Exception):
+    """Raised when a received runtime response has no usable classification proposal."""
+
+
+class RuntimeAdapterExecutionError(Exception):
+    """Raised when an engaged runtime cannot complete its operation."""
+
+
 class RuntimeAdapter(Protocol):
     """Common boundary shared by every HAC runtime adapter."""
 

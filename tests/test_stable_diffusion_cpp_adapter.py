@@ -9,6 +9,7 @@ import pytest
 
 from home_ai_cluster.adapters.base import (
     ImageGenerationExecutionAdapter,
+    RuntimeAdapterExecutionError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -268,14 +269,14 @@ def test_native_job_polling_and_ordinary_local_vertical() -> None:
 @pytest.mark.parametrize(
     "submission, poll, error",
     [
-        ({}, None, RuntimeAdapterUnavailableError),
-        ({"id": "bad/id"}, None, RuntimeAdapterUnavailableError),
-        ({"id": "job_1"}, {"status": "mystery"}, RuntimeAdapterUnavailableError),
-        ({"id": "job_1"}, {"status": "failed"}, RuntimeAdapterUnavailableError),
+        ({}, None, RuntimeAdapterExecutionError),
+        ({"id": "bad/id"}, None, RuntimeAdapterExecutionError),
+        ({"id": "job_1"}, {"status": "mystery"}, RuntimeAdapterExecutionError),
+        ({"id": "job_1"}, {"status": "failed"}, RuntimeAdapterExecutionError),
         (
             {"id": "job_1"},
             {"status": "completed", "result": {}},
-            RuntimeAdapterUnavailableError,
+            RuntimeAdapterExecutionError,
         ),
     ],
 )
@@ -341,7 +342,7 @@ def test_oversized_submission_response_is_closed_before_json_parsing() -> None:
             lambda request: httpx.Response(202, stream=stream)
         ),
     )
-    with pytest.raises(RuntimeAdapterUnavailableError):
+    with pytest.raises(RuntimeAdapterExecutionError):
         asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
     assert stream.closed
 
@@ -363,7 +364,7 @@ def test_chunked_oversized_result_response_is_closed_before_json_parsing(
     adapter = StableDiffusionCppAdapter(
         base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
     )
-    with pytest.raises(RuntimeAdapterUnavailableError):
+    with pytest.raises(RuntimeAdapterExecutionError):
         asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))
     assert stream.closed
 
@@ -478,5 +479,5 @@ def test_invalid_base64_oversized_and_multiple_runtime_results_fail_closed() -> 
         adapter = StableDiffusionCppAdapter(
             base_url="http://127.0.0.1:7860", transport=httpx.MockTransport(handler)
         )
-        with pytest.raises(RuntimeAdapterUnavailableError):
+        with pytest.raises(RuntimeAdapterExecutionError):
             asyncio.run(adapter.generate_image(ImageGenerationRequest(instruction="x")))

@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 
+from home_ai_cluster.adapters.base import InvalidClassificationResultError
 from home_ai_cluster.core.execution_intervals import (
     ExecutionIntervalCardinality,
     ExecutionPermissionDeniedError,
@@ -124,11 +125,16 @@ async def execute_local_routing_decision(
         return ImageGenerationResult(image_bytes=image_bytes, node_id=decision.node.id)
 
     if isinstance(request, ClassifyRequest):
-        proposal = await _await_local_adapter_invocation(
-            lambda: decision.adapter.classify(request),
-            execution_intervals,
-            interval_already_entered=interval_already_entered,
-        )
+        try:
+            proposal = await _await_local_adapter_invocation(
+                lambda: decision.adapter.classify(request),
+                execution_intervals,
+                interval_already_entered=interval_already_entered,
+            )
+        except InvalidClassificationResultError as exc:
+            raise InvalidClassificationLabelError(
+                "Invalid classification label"
+            ) from exc
         if proposal not in request.labels:
             raise InvalidClassificationLabelError("Invalid classification label")
         return ClassifyResult(selected_label=proposal, node_id=decision.node.id)

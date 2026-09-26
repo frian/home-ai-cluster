@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 
 from home_ai_cluster.adapters.base import (
+    InvalidClassificationResultError,
     RuntimeAdapterUnavailableError,
     RuntimeConnectionUnavailableBeforeRequestError,
 )
@@ -201,8 +202,8 @@ class LlamaServerAdapter:
         try:
             return self._classification_content(response.json())
         except (IndexError, KeyError, TypeError, ValueError) as exc:
-            raise RuntimeAdapterUnavailableError(
-                "Runtime adapter unavailable",
+            raise InvalidClassificationResultError(
+                "Invalid classification result"
             ) from exc
 
     def _normalize_response(self, body: Any) -> tuple[str, str]:

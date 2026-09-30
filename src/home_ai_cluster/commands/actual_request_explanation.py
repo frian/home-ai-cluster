@@ -22,17 +22,19 @@ from home_ai_cluster.core.models import (
 from home_ai_cluster.core.orchestrator import (
     ExecutionPermissionDeniedError,
     NoSelectableRoutingCandidateError,
-    orchestrate_request_with_selected_candidate,
 )
+from home_ai_cluster.core.ordered_remote_fallback import (
+    orchestrate_request_with_ordered_static_remote_fallback,
+)
+from home_ai_cluster.core.ordinary_request_lifecycle import OrdinaryRequestLifecycle
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclarationRegistry,
     build_remote_node_declaration_registry,
 )
+from home_ai_cluster.core.remote_transport import RemoteTransport
 from home_ai_cluster.core.routing_candidates import (
     AutomaticCapabilitySelectionExplanation,
-    routing_candidates_for_request,
-    select_automatic_capability_routing_candidate,
 )
 from home_ai_cluster.request_history import record_account
 
@@ -77,7 +79,7 @@ def create_request(capability: str, message: str) -> ClusterRequest:
     return ClusterRequest(
         messages=[ChatMessage(role="user", content=message)],
         capability=Capability(name=capability),
-        constraints=RequestConstraints(),
+        constraints=RequestConstraints(local_only=False),
     )
 
 
@@ -185,9 +187,10 @@ async def evaluate_actual_request(
     node_registry: NodeRegistry | None = None,
     adapter_registry: AdapterRegistry | None = None,
     remote_registry: RemoteNodeDeclarationRegistry | None = None,
+    remote_transport: RemoteTransport | None = None,
     execution_intervals: ExecutionIntervalCardinality | None = None,
 ) -> dict[str, Any]:
-    """Select once and execute at most one selected candidate for one account."""
+    """Execute and explain one request through ordinary ordered fallback."""
     request = create_request(capability, message)
     nodes = (
         node_registry
@@ -204,58 +207,61 @@ async def evaluate_actual_request(
         if remote_registry is not None
         else build_remote_node_declaration_registry([])
     )
-    candidates = routing_candidates_for_request(request, nodes, adapters, remotes)
+    intervals = execution_intervals or ExecutionIntervalCardinality()
+    lifecycle = OrdinaryRequestLifecycle()
+    if remote_transport is None:
+
+        class NoRemoteTransport:
+            async def send(self, request: object, declaration: object) -> object:
+                raise RuntimeAdapterUnavailableError("remote transport unavailable")
+
+        remote_transport = NoRemoteTransport()  # type: ignore[assignment]
     try:
-        selection = select_automatic_capability_routing_candidate(request, candidates)
+        result = await orchestrate_request_with_ordered_static_remote_fallback(
+            request, nodes, adapters, remotes, remote_transport, intervals, lifecycle
+        )
     except NoSelectableRoutingCandidateError as error:
         return project_failed_account(
             error.explanation, NO_SELECTABLE_CANDIDATE_FAILURE
         )
-
-    if selection.selected is None:
-        return project_failed_account(
-            selection.explanation, NO_SELECTABLE_CANDIDATE_FAILURE
-        )
-
-    intervals = execution_intervals or ExecutionIntervalCardinality()
-    try:
-        if selection.selected.local is not None and not await intervals.try_enter():
-            raise ExecutionPermissionDeniedError(selection.explanation)
-        result = await orchestrate_request_with_selected_candidate(
-            request,
-            selection.selected,
-            execution_intervals=intervals,
-            local_interval_already_entered=selection.selected.local is not None,
-        )
     except ExecutionPermissionDeniedError:
+        assert lifecycle.selection is not None
         return project_failed_account(
-            selection.explanation,
+            lifecycle.selection,
             EXECUTION_PERMISSION_DENIED_FAILURE,
             local_execution_permission="denied",
             candidate_consideration="ended",
         )
     except RuntimeAdapterUnavailableError:
+        assert lifecycle.selection is not None
         return project_failed_account(
-            selection.explanation,
+            lifecycle.selection,
             RUNTIME_UNAVAILABLE_FAILURE,
             local_execution_permission="granted",
             candidate_consideration="executed",
         )
     except Exception:
+        assert lifecycle.selection is not None
         return project_failed_account(
-            selection.explanation,
+            lifecycle.selection,
             EXECUTION_FAILED_FAILURE,
             local_execution_permission="granted",
             candidate_consideration="executed",
         )
-
-    return project_succeeded_account(
-        selection.explanation,
+    assert lifecycle.selection is not None
+    account = project_succeeded_account(
+        lifecycle.selection,
         node_id=result.node_id,
         adapter=result.adapter,
         model=result.model,
         content=result.content,
     )
+    account["lifecycle"] = {
+        "candidates": lifecycle.candidates,
+        "continuations": lifecycle.continuation_reasons,
+        "final_node_id": lifecycle.final_node_id,
+    }
+    return account
 
 
 def main(argv: Sequence[str] | None = None) -> None:

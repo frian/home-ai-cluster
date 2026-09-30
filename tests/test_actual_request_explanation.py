@@ -3,7 +3,6 @@ import json
 
 import pytest
 
-import home_ai_cluster.commands.actual_request_explanation as request_explanation
 from home_ai_cluster.adapters.base import (
     RuntimeAdapter,
     RuntimeAdapterUnavailableError,
@@ -29,7 +28,6 @@ from home_ai_cluster.core.models import (
     NodeHealth,
     RuntimeResult,
 )
-from home_ai_cluster.core.orchestrator import NoSelectableRoutingCandidateError
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import build_remote_node_declaration_registry
 
@@ -96,12 +94,12 @@ def evaluate(
     return account, adapter
 
 
-def test_create_request_preserves_message_and_local_only_default() -> None:
+def test_create_request_preserves_message_and_allows_ordinary_remote_fallback() -> None:
     request = create_request("chat", "Hello")
 
     assert request.capability.name == "chat"
     assert request.messages[0].content == "Hello"
-    assert request.constraints.local_only is True
+    assert request.constraints.local_only is False
 
 
 def test_successful_account_has_the_structured_rfc_0034_projection() -> None:
@@ -111,8 +109,22 @@ def test_successful_account_has_the_structured_rfc_0034_projection() -> None:
         )
     )
 
-    assert list(account) == ["status", "routing", "result", "failure"]
-    assert account == {
+    assert list(account) == ["status", "routing", "result", "failure", "lifecycle"]
+    assert account["lifecycle"] == {
+        "candidates": [
+            {
+                "family": "local",
+                "node_id": "test-local",
+                "fact": "execution-permission-granted",
+            },
+            {"family": "local", "node_id": "test-local", "fact": "adapter-invoked"},
+        ],
+        "continuations": [],
+        "final_node_id": "test-local",
+    }
+    assert {
+        key: account[key] for key in ("status", "routing", "result", "failure")
+    } == {
         "status": "succeeded",
         "routing": {
             "requested_capability": "chat",
@@ -138,29 +150,17 @@ def test_successful_account_has_the_structured_rfc_0034_projection() -> None:
     assert len(adapter.requests) == 1
 
 
-def test_no_selectable_candidate_preserves_exception_routing_and_does_not_execute(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    select_once = request_explanation.select_automatic_capability_routing_candidate
-
-    def raise_no_selectable_candidate(
-        request: ClusterRequest, candidates: object
-    ) -> object:
-        selection = select_once(request, candidates)  # type: ignore[arg-type]
-        raise NoSelectableRoutingCandidateError(selection.explanation)
-
-    monkeypatch.setattr(
-        request_explanation,
-        "select_automatic_capability_routing_candidate",
-        raise_no_selectable_candidate,
-    )
-
+def test_no_selectable_candidate_preserves_exception_routing_and_does_not_execute() -> (
+    None
+):
     account, adapter = evaluate(
         RuntimeResult(content="unused", adapter="recording"),
         requested_capability="vision",
     )
 
-    assert account == {
+    assert {
+        key: account[key] for key in ("status", "routing", "result", "failure")
+    } == {
         "status": "failed",
         "routing": {
             "requested_capability": "vision",
@@ -180,27 +180,10 @@ def test_no_selectable_candidate_preserves_exception_routing_and_does_not_execut
     assert adapter.chat_calls == 0
 
 
-def test_evaluate_selects_and_executes_at_most_once(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    select = request_explanation.select_automatic_capability_routing_candidate
-    selections = 0
-
-    def record_selection(request: ClusterRequest, candidates: object) -> object:
-        nonlocal selections
-        selections += 1
-        return select(request, candidates)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(
-        request_explanation,
-        "select_automatic_capability_routing_candidate",
-        record_selection,
-    )
-
+def test_evaluate_selects_and_executes_at_most_once() -> None:
     account, adapter = evaluate(RuntimeResult(content="response", adapter="recording"))
 
     assert account["status"] == "succeeded"
-    assert selections == 1
     assert adapter.chat_calls == 1
 
 

@@ -100,15 +100,16 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
                 last_connection_error = exc
                 if request.constraints.local_only:
                     raise
-                if lifecycle is not None:
+                if lifecycle is not None and candidates.declared_remotes:
                     lifecycle.continued(
                         selection.selected.local.decision.node.id,
                         "local-runtime-connection-unavailable-before-request",
                     )
 
-    for candidate in candidates.declared_remotes:
+    for index, candidate in enumerate(candidates.declared_remotes):
+        has_next_remote = index + 1 < len(candidates.declared_remotes)
         if lifecycle is not None:
-            lifecycle.remote_contacted(candidate.node.id)
+            lifecycle.remote_transport_invoked(candidate.node.id)
         try:
             result = await execute_declared_remote_routing_candidate(
                 request,
@@ -120,7 +121,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
             return result
         except RuntimeConnectionUnavailableBeforeRequestError as exc:
             last_connection_error = exc
-            if lifecycle is not None:
+            if lifecycle is not None and has_next_remote:
                 lifecycle.continued(
                     candidate.node.id,
                     "remote-runtime-connection-unavailable-before-request",
@@ -129,6 +130,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
             remote_permission_denied = True
             if lifecycle is not None:
                 lifecycle.remote_refused(candidate.node.id)
+            if lifecycle is not None and has_next_remote:
                 lifecycle.continued(
                     candidate.node.id, "remote-execution-permission-refused"
                 )

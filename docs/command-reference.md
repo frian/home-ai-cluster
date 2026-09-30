@@ -1135,6 +1135,15 @@ surfaces. They remain installed and supported in their bounded roles, but are
 not ordinary commands in the sixteen-command `hac` root and have no ordinary
 `hac` equivalents.
 
+`home-ai-cluster-explain-request --capability CAPABILITY --message MESSAGE`
+executes the supplied business request through ordinary HAC execution and
+explains that same actual request. It is not a dry run, static routing preview,
+post-hoc reconstruction, or side-effect-free diagnostic. Its historical
+`--message` input supports Chat, Summarize, Code, and Image Generation (using
+the existing instruction and default-geometry semantics). It does not accept
+Classify: a real classification request requires operator-supplied labels, and
+this command has no labels input contract.
+
 ## Historical proof commands
 
 RFC-0075 retired four historical proof-only installed launchers. Their names

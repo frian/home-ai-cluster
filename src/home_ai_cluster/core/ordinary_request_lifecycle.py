@@ -35,9 +35,13 @@ class OrdinaryRequestLifecycle:
             {"family": "local", "node_id": node_id, "fact": "adapter-invoked"}
         )
 
-    def remote_contacted(self, node_id: str) -> None:
+    def remote_transport_invoked(self, node_id: str) -> None:
         self.candidates.append(
-            {"family": "declared-remote", "node_id": node_id, "fact": "contacted"}
+            {
+                "family": "declared-remote",
+                "node_id": node_id,
+                "fact": "transport-invoked",
+            }
         )
 
     def remote_refused(self, node_id: str) -> None:

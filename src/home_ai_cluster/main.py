@@ -6,6 +6,9 @@ from fastapi.responses import PlainTextResponse, Response
 
 from home_ai_cluster.api.client_disconnect import ConfirmedClientDisconnect
 from home_ai_cluster.api.routes import receiver_router, router
+from home_ai_cluster.api.static_routing_explanation import (
+    router as static_routing_explanation_router,
+)
 from home_ai_cluster.api.wiring import (
     LocalAppComposition,
     StaticRemoteCollectionWiring,
@@ -48,6 +51,7 @@ def create_app(
     local_app_composition: LocalAppComposition | None = None,
     static_remote_wiring: StaticRemoteWiring | None = None,
     static_remote_collection_wiring: StaticRemoteCollectionWiring | None = None,
+    include_static_routing_explanation: bool = True,
     lifespan: Callable[[FastAPI], AbstractAsyncContextManager[None]] | None = None,
 ) -> FastAPI:
     app = FastAPI(title="Home AI Cluster", lifespan=lifespan)
@@ -57,6 +61,8 @@ def create_app(
     app.state.local_app_composition = local_app_composition
     app.include_router(receiver_router)
     app.include_router(router)
+    if include_static_routing_explanation:
+        app.include_router(static_routing_explanation_router)
     return app
 
 

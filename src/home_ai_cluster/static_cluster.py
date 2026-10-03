@@ -309,6 +309,7 @@ def create_static_cluster_collection_app(
     routing_node_registry: NodeRegistry | None = None,
     client: httpx.AsyncClient | None = None,
     close_client: bool = True,
+    include_static_routing_explanation: bool = True,
 ) -> FastAPI:
     """Construct an application retaining one ordered remote collection."""
     process_client = client or create_static_cluster_http_client()
@@ -333,6 +334,7 @@ def create_static_cluster_collection_app(
     app = create_app(
         local_app_composition=local_app_composition,
         static_remote_collection_wiring=wiring,
+        include_static_routing_explanation=include_static_routing_explanation,
         lifespan=_create_lifespan(process_client) if close_client else None,
     )
     app.state.static_cluster_http_client = process_client

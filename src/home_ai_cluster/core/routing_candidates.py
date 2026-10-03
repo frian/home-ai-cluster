@@ -4,17 +4,20 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from home_ai_cluster.core.models import (
+    Capability,
     RemoteTransportRequest,
 )
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     DeclaredRemoteRoutingCandidate,
     RemoteNodeDeclarationRegistry,
+    declared_remote_routing_candidates_for_capability,
     declared_remote_routing_candidates_for_request,
 )
 from home_ai_cluster.core.router import (
     NoMatchingAdapterError,
     RoutingDecision,
+    local_routing_decision_for_capability,
     route_request,
 )
 
@@ -125,6 +128,32 @@ def routing_candidates_for_request(
     )
 
 
+def routing_candidates_for_capability(
+    capability: Capability,
+    node_registry: NodeRegistry,
+    adapter_registry: AdapterRegistry,
+    remote_registry: RemoteNodeDeclarationRegistry | None = None,
+) -> RoutingCandidates:
+    """Find ordinary static candidates without an executable request."""
+    decision = local_routing_decision_for_capability(
+        capability, node_registry, adapter_registry
+    )
+    remotes = (
+        tuple(
+            declared_remote_routing_candidates_for_capability(
+                capability, remote_registry
+            )
+        )
+        if remote_registry is not None
+        else ()
+    )
+    return RoutingCandidates(
+        local=LocalRoutingCandidate(decision) if decision is not None else None,
+        declared_remote=remotes[0] if remotes else None,
+        declared_remotes=remotes,
+    )
+
+
 def select_routing_candidate(
     candidates: RoutingCandidates,
     mode: RoutingCandidateSelectionMode,
@@ -197,15 +226,22 @@ def select_automatic_capability_routing_candidate(
     a selectable local candidate fixed precedence and allows a declared remote
     candidate only when the request does not require local-only execution.
     """
+    return select_automatic_capability_for_capability(
+        request.capability, request.constraints.local_only, candidates
+    )
+
+
+def select_automatic_capability_for_capability(
+    capability: Capability,
+    local_only: bool,
+    candidates: RoutingCandidates,
+) -> AutomaticCapabilitySelection:
+    """Apply the one ordinary initial-selection policy without request payload."""
     local_matched = candidates.local is not None
     declared_remote_matched = candidates.declared_remote is not None
     local_selectable = local_matched
-    local_only_excluded_declared_remote = (
-        declared_remote_matched and request.constraints.local_only
-    )
-    declared_remote_selectable = (
-        declared_remote_matched and not request.constraints.local_only
-    )
+    local_only_excluded_declared_remote = declared_remote_matched and local_only
+    declared_remote_selectable = declared_remote_matched and not local_only
 
     if local_selectable:
         outcome_rule = (
@@ -219,7 +255,7 @@ def select_automatic_capability_routing_candidate(
             mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
         )
         explanation = AutomaticCapabilitySelectionExplanation(
-            requested_capability_name=request.capability.name,
+            requested_capability_name=capability.name,
             local_matched=local_matched,
             declared_remote_matched=declared_remote_matched,
             local_selectable=True,
@@ -238,7 +274,7 @@ def select_automatic_capability_routing_candidate(
             mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
         )
         explanation = AutomaticCapabilitySelectionExplanation(
-            requested_capability_name=request.capability.name,
+            requested_capability_name=capability.name,
             local_matched=local_matched,
             declared_remote_matched=declared_remote_matched,
             local_selectable=False,
@@ -256,7 +292,7 @@ def select_automatic_capability_routing_candidate(
         else NoSelectableCandidateReason.NO_MATCHING_CANDIDATE
     )
     explanation = AutomaticCapabilitySelectionExplanation(
-        requested_capability_name=request.capability.name,
+        requested_capability_name=capability.name,
         local_matched=local_matched,
         declared_remote_matched=declared_remote_matched,
         local_selectable=False,

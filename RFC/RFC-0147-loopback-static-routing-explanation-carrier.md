@@ -1,6 +1,6 @@
 # RFC-0147: Loopback Static Routing Explanation Carrier
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-03
 
@@ -789,4 +789,4 @@ These questions do not change the carrier ownership decision accepted by this RF
 
 ## Decision
 
-Pending.
+Accepted.

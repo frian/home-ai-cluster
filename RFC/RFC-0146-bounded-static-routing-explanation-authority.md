@@ -603,22 +603,26 @@ RFC-0145 may report only continuation and candidate-specific facts that actually
 
 ## Relationship to RFC-0027
 
-RFC-0027 remains historically valid for its accepted synthetic explanation composition.
+RFC-0146 narrows RFC-0027's routing-explanation authority.
 
-However, RFC-0027's synthetic composition must not be treated as the semantic authority for modern effective ordinary-caller static explanation.
+RFC-0027 remains valid only for the synthetic explanation composition it explicitly constructs from its own invocation inputs. It remains authoritative for explaining that synthetic composition according to its accepted historical contract.
 
-RFC-0146 establishes the modern semantic authority.
+RFC-0027 is not authoritative for static explanation of an effective ordinary caller composition.
+
+For that question, RFC-0146 supersedes RFC-0027's broader historical routing-explanation framing and establishes the sole modern semantic authority:
+
+> What can this effective ordinary caller truthfully determine before execution?
+
+This semantic ownership correction does not decide the compatibility treatment of the retained `home-ai-cluster-explain-routing` launcher.
 
 A future RFC may choose among several compatibility strategies, including:
 
 - modernizing the retained `home-ai-cluster-explain-routing` launcher;
-- retaining the RFC-0027 launcher with its historical bounded semantics while adding a distinct modern carrier;
+- retaining the RFC-0027 launcher with its historical bounded synthetic-composition semantics while adding a distinct modern carrier;
 - providing an explicit compatibility distinction;
 - or retiring the historical launcher if compatibility evidence supports that decision.
 
-This RFC does not choose among those alternatives.
-
-No implementation may silently change RFC-0027's public meaning merely because its existing name appears suitable.
+Until that compatibility decision is made, no implementation may silently reinterpret the RFC-0027 launcher as an explanation of another effective ordinary caller merely because its existing name appears suitable.
 
 ## Relationship to retained Configuration
 

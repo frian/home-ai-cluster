@@ -1,6 +1,6 @@
 # RFC-0146: Bounded Static Routing Explanation Authority
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-03
 

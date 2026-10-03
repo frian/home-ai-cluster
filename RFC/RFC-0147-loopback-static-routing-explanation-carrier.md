@@ -40,7 +40,7 @@ RFC-0146 accepts one bounded static-routing explanation authority for the effect
 
 RFC-0146 deliberately leaves its public carrier unresolved.
 
-The accepted authority distinguishes static routing truth from execution truth. It may expose facts such as:
+The accepted authority distinguishes static routing truth from execution truth. It permits facts such as:
 
 - requested capability;
 - routing-relevant constraints;
@@ -50,6 +50,8 @@ The accepted authority distinguishes static routing truth from execution truth. 
 - accepted constraint exclusions;
 - initial static selection; and
 - existing static no-selection reasons.
+
+RFC-0147 intentionally exposes a smaller first public projection than the full RFC-0146 allowance. In particular, it does not expose a public no-selection-reason vocabulary.
 
 It must not expose or predict execution-only facts such as:
 
@@ -306,19 +308,24 @@ The carrier must not:
 
 The response may expose only facts already permitted by RFC-0146.
 
-At minimum, the carrier may represent:
+Every successful RFC-0147 explanation must project the following semantic facts:
 
-- requested capability;
-- supplied routing-relevant constraints;
+- the requested accepted capability;
+- the effective `local_only` value supplied for this diagnostic request;
 - whether a local candidate is statically eligible;
-- eligible declared-remote node IDs, when present, in existing declaration priority order;
-- whether an accepted routing constraint excludes an otherwise eligible candidate family;
-- the initial statically selected candidate, if one exists; and
-- an existing bounded static no-selection reason, if ordinary routing already owns one.
+- the ordered list of eligible declared-remote node IDs, preserving existing caller-owned declaration priority;
+- whether `local_only` excludes otherwise eligible declared-remote candidates from selectability; and
+- the initial statically selected candidate, represented as local, one eligible declared-remote node ID, or no selected candidate.
 
-The carrier may expose less than this set if implementation can remain useful while preserving the accepted semantic authority.
+These facts are the minimum public semantic contract of the first RFC-0146 carrier.
 
-It must not expose facts outside RFC-0146 merely because they are available in process memory.
+A fact may be structurally empty or negative when it does not apply. For example, the ordered remote list may be empty and the initial selected candidate may be absent. Implementation must not omit a semantic category merely because its value is negative.
+
+Exact JSON field names, nesting, ordering of object members, and equivalent serialization details remain implementation choices.
+
+The first carrier does not expose a public static no-selection-reason taxonomy. A no-selection outcome is represented by the mandatory candidate facts and the absence of an initial selected candidate. Promoting internal no-selection reasons to a public compatibility vocabulary requires a later architectural decision.
+
+The carrier must not expose facts outside this mandatory projection merely because they are available in process memory.
 
 In particular, the response must not expose:
 
@@ -355,7 +362,7 @@ A later demonstrated need for stronger local identity requires separate architec
 
 ### Declared-remote identity and order
 
-Minimal caller-owned declared-remote node IDs may be exposed when needed to distinguish multiple eligible remotes.
+The mandatory projection exposes caller-owned node IDs for every eligible declared remote.
 
 Their order must be exactly the existing caller-owned declaration priority order.
 
@@ -373,7 +380,7 @@ Actual continuation remains an execution-time fact.
 
 ### Initial selection
 
-The carrier may expose the initial candidate selected by the existing ordinary static selection policy.
+The mandatory projection exposes the initial candidate selected by the existing ordinary static selection policy, or an explicit no-selected-candidate state when none is statically selectable.
 
 The carrier must reuse the existing selection authority.
 
@@ -728,6 +735,7 @@ A future implementation must not decide without further architecture:
 - CLI behavior;
 - RFC-0027 migration;
 - broader topology detail;
+- public no-selection-reason vocabulary;
 - runtime/model detail;
 - health/readiness;
 - execution availability;
@@ -754,14 +762,16 @@ A future implementation should prove at least:
 13. retained configuration is not loaded to reconstruct active truth;
 14. invalid capability input fails closed;
 15. unavailable active composition fails closed;
-16. remote node IDs may be exposed while URLs and addresses remain absent;
-17. local binding, adapter, runtime, and model details remain absent;
-18. RFC-0144 output remains unchanged;
-19. RFC-0145 behavior remains unchanged;
-20. RFC-0027 behavior remains unchanged;
-21. trusted-LAN exposes no RFC-0147 route;
-22. receiver authority exposes no RFC-0147 route;
-23. ordinary routing and fallback semantics remain unchanged.
+16. every eligible declared remote is projected by caller-owned node ID in declaration priority order while URLs and addresses remain absent;
+17. every successful response includes the mandatory capability, `local_only`, local-eligibility, remote-eligibility/order, constraint-exclusion, and initial-selection semantic categories;
+18. no internal static no-selection reason is promoted to the public carrier;
+19. local binding, adapter, runtime, and model details remain absent;
+20. RFC-0144 output remains unchanged;
+21. RFC-0145 behavior remains unchanged;
+22. RFC-0027 behavior remains unchanged;
+23. trusted-LAN exposes no RFC-0147 route;
+24. receiver authority exposes no RFC-0147 route;
+25. ordinary routing and fallback semantics remain unchanged.
 
 ## Open questions
 
@@ -773,7 +783,7 @@ The following remain intentionally deferred:
 - What exact JSON field names should the request and response use?
 - Should a future browser operator view consume the same carrier?
 - Is there ever a justified trusted-LAN diagnostic subset?
-- Which bounded static no-selection reasons should be projected publicly if the existing internal taxonomy contains more detail than the first carrier needs?
+- Is there a later demonstrated need for a bounded public no-selection-reason vocabulary?
 
 These questions do not change the carrier ownership decision accepted by this RFC.
 

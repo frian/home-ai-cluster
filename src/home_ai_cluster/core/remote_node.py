@@ -102,16 +102,25 @@ def declared_remote_routing_candidates_for_request(
     RFC-0040 forbids sorting, health-ranking, inferred preference, or other
     automatic reordering.
     """
+    return declared_remote_routing_candidates_for_capability(
+        request.capability, remote_registry
+    )
+
+
+def declared_remote_routing_candidates_for_capability(
+    capability: Capability,
+    remote_registry: RemoteNodeDeclarationRegistry,
+) -> list[DeclaredRemoteRoutingCandidate]:
+    """Return ordinary eligible remote candidates without business payload."""
     return [
         DeclaredRemoteRoutingCandidate(
             node=declaration.node,
             declaration=declaration,
-            capability=request.capability,
+            capability=capability,
             reason=DECLARED_REMOTE_ROUTING_REASON,
         )
-        for declaration in declared_remote_declarations_for_request(
-            request,
-            remote_registry,
+        for declaration in declared_remote_declarations_for_capability(
+            capability, remote_registry
         )
     ]
 

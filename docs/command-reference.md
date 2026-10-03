@@ -455,6 +455,27 @@ static-cluster routing eligibility. Omission retains the existing `chat` plus
 **See also:** [Canonical operator workflow](operator-workflow.md) for declaration
 examples.
 
+## Loopback static routing explanation HTTP request
+
+The running ordinary `hac local` or `hac static-cluster` process accepts
+`POST /diagnostics/static-routing-explanation` on its loopback listener.
+Send JSON containing only one accepted `capability` and a Boolean `local_only`:
+
+```json
+{"capability":"chat","local_only":false}
+```
+
+The response contains `capability`, `local_only`, `local_eligible`,
+`eligible_remote_node_ids` in declaration order,
+`remotes_excluded_by_local_only`, and `initial_selection`. Selection is `null`,
+`{"kind":"local"}`, or
+`{"kind":"declared_remote","node_id":"<declared node ID>"}`.
+Eligible remote IDs remain listed when `local_only` excludes selection.
+Invalid input returns HTTP 422; unavailable active caller composition returns
+HTTP 503. This reads the running caller's static routing state without
+executing or probing a candidate. It is absent from the trusted-LAN, receiver,
+and compatibility applications.
+
 ## `hac compatibility`
 
 **Purpose:** Start the separate narrow OpenAI-compatible chat process.

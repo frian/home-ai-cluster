@@ -16,6 +16,7 @@ from home_ai_cluster.core.orchestrator import (
     NoSelectableRoutingCandidateError,
     orchestrate_request_with_selected_candidate,
 )
+from home_ai_cluster.core.ordinary_request_lifecycle import OrdinaryRequestLifecycle
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import RemoteNodeDeclarationRegistry
 from home_ai_cluster.core.remote_transport import (
@@ -35,6 +36,7 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
     remote_registry: RemoteNodeDeclarationRegistry,
     remote_transport: RemoteTransport,
     execution_intervals: ExecutionIntervalCardinality | None = None,
+    lifecycle: OrdinaryRequestLifecycle | None = None,
 ) -> RemoteTransportResult:
     """Try local once, then eligible declared remotes once in declaration order.
 
@@ -50,6 +52,9 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
     )
     selection = select_automatic_capability_routing_candidate(request, candidates)
 
+    if lifecycle is not None:
+        lifecycle.selected(selection.explanation)
+
     if selection.selected is None:
         raise NoSelectableRoutingCandidateError(selection.explanation)
 
@@ -61,33 +66,74 @@ async def orchestrate_request_with_ordered_static_remote_fallback(
             execution_intervals is None or await execution_intervals.try_enter()
         )
         if not local_permitted:
+            if lifecycle is not None:
+                lifecycle.local_permission(
+                    False, selection.selected.local.decision.node.id
+                )
             if request.constraints.local_only or not candidates.declared_remotes:
                 raise ExecutionPermissionDeniedError(selection.explanation)
+            if lifecycle is not None:
+                lifecycle.continued(
+                    selection.selected.local.decision.node.id,
+                    "local-execution-permission-denied",
+                )
         else:
+            if lifecycle is not None:
+                lifecycle.local_permission(
+                    True, selection.selected.local.decision.node.id
+                )
+                lifecycle.local_adapter_invoked(
+                    selection.selected.local.decision.node.id
+                )
             try:
-                return await orchestrate_request_with_selected_candidate(
+                result = await orchestrate_request_with_selected_candidate(
                     request,
                     selection.selected,
                     remote_transport=remote_transport,
                     execution_intervals=execution_intervals,
                     local_interval_already_entered=execution_intervals is not None,
                 )
+                if lifecycle is not None:
+                    lifecycle.succeeded(result.node_id)
+                return result
             except RuntimeConnectionUnavailableBeforeRequestError as exc:
                 last_connection_error = exc
                 if request.constraints.local_only:
                     raise
+                if lifecycle is not None and candidates.declared_remotes:
+                    lifecycle.continued(
+                        selection.selected.local.decision.node.id,
+                        "local-runtime-connection-unavailable-before-request",
+                    )
 
-    for candidate in candidates.declared_remotes:
+    for index, candidate in enumerate(candidates.declared_remotes):
+        has_next_remote = index + 1 < len(candidates.declared_remotes)
+        if lifecycle is not None:
+            lifecycle.remote_transport_invoked(candidate.node.id)
         try:
-            return await execute_declared_remote_routing_candidate(
+            result = await execute_declared_remote_routing_candidate(
                 request,
                 candidate,
                 remote_transport,
             )
+            if lifecycle is not None:
+                lifecycle.succeeded(result.node_id)
+            return result
         except RuntimeConnectionUnavailableBeforeRequestError as exc:
             last_connection_error = exc
+            if lifecycle is not None and has_next_remote:
+                lifecycle.continued(
+                    candidate.node.id,
+                    "remote-runtime-connection-unavailable-before-request",
+                )
         except RemoteExecutionPermissionDeniedError:
             remote_permission_denied = True
+            if lifecycle is not None:
+                lifecycle.remote_refused(candidate.node.id)
+            if lifecycle is not None and has_next_remote:
+                lifecycle.continued(
+                    candidate.node.id, "remote-execution-permission-refused"
+                )
 
     if last_connection_error is not None:
         raise last_connection_error

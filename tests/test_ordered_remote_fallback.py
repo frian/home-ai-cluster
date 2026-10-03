@@ -23,6 +23,7 @@ from home_ai_cluster.core.orchestrator import ExecutionPermissionDeniedError
 from home_ai_cluster.core.ordered_remote_fallback import (
     orchestrate_request_with_ordered_static_remote_fallback,
 )
+from home_ai_cluster.core.ordinary_request_lifecycle import OrdinaryRequestLifecycle
 from home_ai_cluster.core.registry import AdapterRegistry, NodeRegistry
 from home_ai_cluster.core.remote_node import (
     RemoteNodeDeclaration,
@@ -663,3 +664,37 @@ def test_summarize_does_not_fallback_after_remote_runtime_unavailable() -> None:
         )
 
     assert transport.attempted_node_ids == ["remote-a"]
+
+
+def test_lifecycle_local_only_preserves_no_remote_attempt() -> None:
+    adapter = RecordingAdapter(
+        RuntimeConnectionUnavailableBeforeRequestError("local unavailable")
+    )
+    transport = ScriptedRemoteTransport(
+        {"remote": ClusterResult(content="unused", adapter="remote", node_id="remote")}
+    )
+    lifecycle = OrdinaryRequestLifecycle()
+
+    with pytest.raises(RuntimeConnectionUnavailableBeforeRequestError):
+        asyncio.run(
+            orchestrate_request_with_ordered_static_remote_fallback(
+                make_request(local_only=True),
+                NodeRegistry([make_node("local", adapter.name)]),
+                AdapterRegistry([adapter]),
+                RemoteNodeDeclarationRegistry([make_declaration("remote")]),
+                transport,
+                lifecycle=lifecycle,
+            )
+        )
+
+    assert transport.attempted_node_ids == []
+    assert lifecycle.candidates == [
+        {
+            "family": "local",
+            "node_id": "local",
+            "fact": "execution-permission-granted",
+        },
+        {"family": "local", "node_id": "local", "fact": "adapter-invoked"},
+    ]
+    assert lifecycle.continuation_reasons == []
+    assert lifecycle.final_node_id is None

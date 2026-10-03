@@ -922,4 +922,4 @@ The following questions remain intentionally unresolved:
 
 ## Decision
 
-Pending.
+Accepted.

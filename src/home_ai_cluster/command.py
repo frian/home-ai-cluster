@@ -11,6 +11,7 @@ from home_ai_cluster import (
     static_cluster,
 )
 from home_ai_cluster.commands import (
+    active_routing_explanation,
     aider_command,
     chat_command,
     classify_command,
@@ -43,6 +44,7 @@ Finite commands:
   image-generation  Send one local Image Generation request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
+  explain-active-routing  Explain active static routing in the running cluster.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
   config          Manage retained configuration.
@@ -64,6 +66,7 @@ _COMMANDS: dict[str, Callable[[Sequence[str] | None], None]] = {
     "image-generation": image_generation_command.main,
     "summarize": summarize_command.main,
     "preflight": static_preflight.main,
+    "explain-active-routing": active_routing_explanation.main,
     "health": local_health_snapshot.main,
     "status": status_command.main,
     "config": config_command.main,

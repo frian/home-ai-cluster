@@ -40,6 +40,7 @@ Finite commands:
   image-generation  Send one local Image Generation request.
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
+  explain-active-routing  Explain active static routing in the running cluster.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
   config          Manage retained configuration.
@@ -54,6 +55,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
 
     assert scripts["home-ai-cluster"] == "home_ai_cluster.command:main"
     assert scripts["hac"] == scripts["home-ai-cluster"]
+    assert "home-ai-cluster-explain-active-routing" not in scripts
     assert set(command._COMMANDS) == {
         "local",
         "static-cluster",
@@ -68,6 +70,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "image-generation",
         "summarize",
         "preflight",
+        "explain-active-routing",
         "health",
         "status",
         "config",

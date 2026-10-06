@@ -1,6 +1,6 @@
 # RFC-0149: Bounded Active-Process Actual-Request Explanation Carrier
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-06
 
@@ -9,8 +9,6 @@ Author: frian
 ## Summary
 
 Add one explicit, effectful `POST /diagnostics/actual-request-explanation` carrier to the already-running ordinary loopback application. It executes one ordinary request through that process's active composition and returns the ordinary result, or a bounded terminal-failure projection, alongside RFC-0145 facts captured during that same execution. The first carrier accepts Chat, Summarize, Classify, and Code. Image Generation remains within RFC-0145's semantic authority, but its binary result needs a separate public transport decision before admission to this JSON carrier.
-
-This is a Draft decision for review. It authorizes no implementation until accepted.
 
 ## Context and problem
 
@@ -118,7 +116,7 @@ RFC-0032 **Actual Request Routing Explanation** and RFC-0034 **Structured Actual
 
 The route must respect RFC-0102 **Local Execution Permission Policy**, RFC-0103 **Local Execution Permission Failure Contract**, RFC-0104 **Remote Pre-Execution Permission Refusal**, RFC-0028 **Minimal Pre-Execution Candidate Fallback**, RFC-0040 **Multiple explicit static remote nodes**, RFC-0109 **Explicit LAN Receiver Route Boundary**, RFC-0111 **Explicit Receiver Authority Activation**, RFC-0130 **Bounded Trusted-LAN Browser Authority**, RFC-0031 **Minimal OpenAI-Compatible Chat Access**, RFC-0061 **Bounded Text Classification**, RFC-0067 **Bounded Textual Code Assistance**, RFC-0120 **Bounded Local Image Generation**, RFC-0131 **Bounded Image Generation Dimensions**, and RFC-0135 **Bounded Remote Image Generation**. RFC-0045 **One-shot ordinary request command**, RFC-0060 **Explicit Native Client Timeout**, RFC-0085 **Explicit HAC-Owned HTTP Environment Boundary**, and RFC-0090 **Ordinary Loopback Port 25042** remain unchanged. These titles are the current repository titles; this RFC does not revise their authority.
 
-Implementation will need a private route and enough request-scoped collection in the existing ordinary local, single-remote, and ordered-remote paths to satisfy RFC-0145 without changing their decisions. The command reference and clients are separate later work. This Draft changes no code, test, package entrypoint, or documentation outside this file.
+Implementation will need a private route and enough request-scoped collection in the existing ordinary local, single-remote, and ordered-remote paths to satisfy RFC-0145 without changing their decisions. The command reference and clients are separate later work. This RFC changes no code, test, package entrypoint, or documentation outside this file.
 
 ## Falsifiable acceptance proof
 
@@ -149,4 +147,4 @@ No architectural question remains for this proposed carrier decision. Private fu
 
 ## Decision
 
-Pending.
+Accepted.

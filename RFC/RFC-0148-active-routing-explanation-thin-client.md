@@ -27,7 +27,7 @@ The command is a client of the already-running ordinary loopback process.
 It sends exactly one bounded request to:
 
 ```text
-POST http://127.0.0.1:8000/diagnostics/static-routing-explanation
+POST http://127.0.0.1:25042/diagnostics/static-routing-explanation
 ```
 
 It accepts only:
@@ -317,7 +317,7 @@ This lifecycle difference from RFC-0027 is part of the public contract.
 The command sends exactly one request to:
 
 ```text
-POST http://127.0.0.1:8000/diagnostics/static-routing-explanation
+POST http://127.0.0.1:25042/diagnostics/static-routing-explanation
 ```
 
 The target is fixed.

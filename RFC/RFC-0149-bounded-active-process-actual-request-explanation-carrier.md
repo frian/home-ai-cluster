@@ -40,7 +40,7 @@ The ordinary loopback application alone owns `POST /diagnostics/actual-request-e
 
 ### Closed request contract
 
-The JSON body is a closed discriminated choice with exactly `kind`, `local_only`, and `request`. `kind` is one of `chat`, `summarize`, `classify`, `code`; `local_only` is an explicit strict Boolean routing constraint. `request` is the matching existing native public business body: Chat and Code use the ordered-message `/v1/chat` shape with `capability` required to equal `kind`; Summarize uses its bounded `text`; Classify uses its bounded `text` and ordered `labels`. The carrier applies the same normalized request validation and capability bounds as ordinary execution. Unknown fields, mismatched kinds/capabilities, malformed labels, and unsupported kinds are invalid. No arbitrary dictionary, runtime/model selection, generic metadata, or extensible operation key is accepted. `local_only` is explicit because this diagnostic route must say whether ordinary remote continuation is permitted; it changes no accepted continuation rule. For example:
+The JSON body is a closed discriminated choice with exactly `kind`, `local_only`, and `request`. `kind` is one of `chat`, `summarize`, `classify`, `code`; `local_only` is an explicit strict Boolean routing constraint. `request` uses the semantic fields of the matching existing native public business body: Chat and Code use the ordered-message `/v1/chat` shape with `capability` required to equal `kind`; Summarize uses its bounded `text`; Classify uses its bounded `text` and ordered `labels`. The carrier applies the same accepted normalized business-request validation and capability bounds as ordinary execution, but does not promise identical HTTP parser behavior or byte-for-byte input acceptance at native endpoints. This carrier body is deliberately closed: unknown fields are invalid even where an existing native public model ignores them. This stricter carrier parsing does not change native endpoint parsing. Mismatched kinds/capabilities, malformed labels, and unsupported kinds are also invalid. No arbitrary dictionary, runtime/model selection, generic metadata, or extensible operation key is accepted. `local_only` is explicit because this diagnostic route must say whether ordinary remote continuation is permitted; it changes no accepted continuation rule. For example:
 
 ```json
 {"kind":"classify","local_only":false,"request":{"text":"example","labels":["a","b"]}}
@@ -58,11 +58,40 @@ After validating the body, the route normalizes exactly one capability-specific 
 
 A completed explained invocation returns HTTP `200` JSON with exactly four top-level semantic parts: `status` (`succeeded` or `failed`), `result`, `failure`, and `explanation`. `200` means that the carrier completed and returned an account, **not** that business execution succeeded. A successful account has its ordinary normalized JSON result in `result`, `failure: null`, and RFC-0145 facts in `explanation`. Chat, Code, and Summarize preserve `ClusterResult` content and its accepted node/adapter/model attribution; Classify preserves `ClassifyResult.selected_label` and node attribution. No result is silently discarded or merged into explanation metadata. These capability-specific results are a closed choice, not a universal result envelope in core.
 
-`explanation` contains `requested_capability`, `local_only`, `initial_selection`, `candidate_facts`, `continuations`, and `final_node_id`. `initial_selection` is `null`, `{"kind":"local"}`, or `{"kind":"declared_remote","node_id":"..."}` according to the actual initial selection. Each candidate fact has only `family`, `node_id`, and one existing authoritative `fact`; each consumed continuation has only `node_id` and its concrete accepted `reason`. `final_node_id` is present only for success and otherwise `null`. Candidate facts use RFC-0145's distinctions among local permission, adapter invocation, remote transport/contact or refusal, and final execution. They expose no generic `attempted` state, hypothetical candidates, live-health claims, raw objects, or new timeline. The historical RFC-0034 `routing` object is not copied into this carrier merely for compatibility. Exact private classes and the closed serialized fact/reason spellings may be refined in implementation, but these fields and exclusions are contract requirements.
+`explanation` contains `requested_capability`, `local_only`, `initial_selection`, `candidate_facts`, `continuations`, and `final_node_id`. `initial_selection` is `null`, `{"kind":"local"}`, or `{"kind":"declared_remote","node_id":"..."}` according to the actual initial selection. Each candidate fact has exactly `family`, `node_id`, and `fact`; each consumed continuation has exactly `node_id` and `reason`. `final_node_id` is populated only for success and otherwise `null`. The historical RFC-0034 `routing` object is not copied into this carrier merely for compatibility.
+
+The first public `candidate_facts[].family` vocabulary is exactly `local` or `declared-remote`. The first public `candidate_facts[].fact` vocabulary and its permitted family are:
+
+| `fact` | Family | Meaning |
+| --- | --- | --- |
+| `execution-permission-granted` | `local` | The ordinary local execution-permission owner granted permission for this candidate during this request, before local adapter invocation. It does not assert adapter success. |
+| `execution-permission-denied` | `local` | That owner denied permission. The same candidate cannot also have `adapter-invoked` in this request. |
+| `adapter-invoked` | `local` | Ordinary control flow actually invoked the selected local adapter. This is not inferred from selection, permission, or final result. Where process-local permission applies, its granted fact precedes this fact. |
+| `transport-invoked` | `declared-remote` | Ordinary control flow invoked the process-owned remote transport for this candidate. It asserts neither confirmed request transmission beyond accepted transport semantics nor remote adapter invocation, runtime engagement, or success. |
+| `execution-permission-refused` | `declared-remote` | The declared remote returned the accepted pre-execution permission refusal for this request. Its `transport-invoked` fact precedes this fact; it does not assert remote adapter execution. |
+
+The first public `continuations[].reason` vocabulary is exactly:
+
+| `reason` | Meaning and corresponding candidate facts |
+| --- | --- |
+| `local-execution-permission-denied` | The named local candidate's denial was actually consumed to advance to a declared remote. Its facts contain `execution-permission-denied` and cannot contain `adapter-invoked`. |
+| `local-runtime-connection-unavailable-before-request` | The named local candidate's adapter was invoked, and its accepted pre-transmission runtime-unavailability condition was consumed to advance. Its facts contain `adapter-invoked` and, where process-local permission applies, earlier `execution-permission-granted`. |
+| `remote-runtime-connection-unavailable-before-request` | Transport was invoked for the named declared remote, and its accepted pre-transmission unavailability condition was consumed to advance to a later remote. Its facts contain `transport-invoked`; no stronger remote-execution fact is implied. |
+| `remote-execution-permission-refused` | Transport was invoked for the named declared remote, and its accepted pre-execution permission refusal was consumed to advance to a later remote. Its facts contain `transport-invoked` followed by `execution-permission-refused`. |
+
+Each continuation names the candidate ordinary control flow actually left for that concrete accepted reason. It exists only when control flow advanced to another candidate. A terminal condition on the final candidate does not create a continuation even if the same condition could have allowed advancement had another candidate existed. Neither raw exception text nor a hypothetical fallback enters this vocabulary.
+
+`candidate_facts` is serialized in the order these bounded authoritative facts became true during ordinary control flow for this request. `continuations` is serialized in the order ordinary control flow consumed the reasons. For a continuation, its exposed establishing fact or facts occurred first; the continuation was consumed next; facts for the next candidate occurred afterward. In particular, local permission grant precedes local adapter invocation, remote transport invocation precedes remote permission refusal, and a later remote's facts cannot precede the facts that caused control flow to leave an earlier remote. The separate arrays do not form a merged event timeline.
+
+Under accepted one-request routing and fallback, each concrete candidate is processed at most once. A completed account must not repeat the same `family` + `node_id` + `fact` combination, or the same `node_id` + `reason` continuation. These are carrier validation invariants, not new global node-identity or topology rules.
+
+This closed projection adds no generic `attempted`, `started`, `engaged`, `executed`, `failed`, `healthy`, or `ready` fact, arbitrary internal event name, timestamp, or duration. Occurrence order preserves only bounded candidate progression; it is not tracing, telemetry, an event bus, or a generalized timeline. `final_node_id` owns successful final attribution. New public candidate facts or continuation reasons require compatibility treatment and, where their semantics change architecture, RFC consideration. Private classes and methods remain implementation details.
 
 A completed ordinary terminal failure also returns HTTP `200`, with `status: failed`, `result: null`, the same bounded `explanation` collected before failure, and `failure: {"status":"..."}` containing only a safe route-owned terminal status. Its closed first vocabulary is `no-selectable-candidate`, `execution-permission-denied`, `runtime-unavailable`, or `execution-failed`, selected from the established ordinary terminal owner and existing safe HTTP/historical distinctions. Ordered remote exhaustion follows the existing terminal exception precedence; it is not assigned a new core failure class. `execution-failed` is the safe coarse projection for other terminal execution errors. This is a public projection at the diagnostic edge, not a change to core exceptions, an RFC-0034 compatibility promise, or a general failure taxonomy. No raw exception text or runtime/remote URL is returned. Facts may survive stack unwinding only until this same response is formed.
 
 Invalid carrier JSON or a rejected kind/body returns `422` with a fixed safe invalid-input detail and **does not execute**. If the active ordinary composition is missing or contradictory before execution starts, return `503` with a fixed safe carrier-unavailable detail and do not execute. If the carrier cannot safely construct an account after execution or during projection, return `500` with a fixed safe carrier-failure detail; do not run the request again to repair the account. These carrier failures do not masquerade as completed ordinary execution failures. The owning ordinary route should normally have a valid composition; `503` is fail-closed handling for an invalid construction state, not a license to reconstruct it. Ordinary terminal failures cannot be relabeled `503` merely because a runtime was unavailable. The exact safe detail strings are implementation details; status meanings and absence of raw errors are not.
+
+Unlike `422` and this pre-execution `503`, carrier `500` does not establish that the business request was not executed. After ordinary execution began, the request may have succeeded, failed terminally, or partially progressed under existing ordinary semantics without a trustworthy completed account reaching the caller. From the caller's perspective, business completion after carrier `500` is unknown unless independently established by another authority. The caller must not treat `500` as proof of non-execution: immediately repeating this effectful request may execute another business request. The carrier never retries or replays to repair the account; this RFC defines no automatic retry or idempotency mechanism.
 
 ### Privacy, cancellation, and retention
 
@@ -81,7 +110,7 @@ The route uses the existing RFC-0082 HTTP disconnect boundary for ordinary routa
 | Historical finite command only | Truthful for its own request and cardinality, but cannot answer active-process state. Preserved unchanged. |
 | Generic root client or per-command `--explain` first | Client input and compatibility policy cannot substitute for a carrier in the active process. Deferred. |
 
-The first route's four-capability scope keeps the result contract coherent. Its cost is that an operator cannot yet receive an active-process Image Generation result and explanation together. The alternative of silently returning only image metadata would make the diagnostic request effectful while withholding its product. Review should weigh that staged limitation against the binary transport complexity explicitly.
+The first route's four-capability scope keeps the result contract coherent. Its cost is that an operator cannot yet receive an active-process Image Generation result and explanation together. Silently returning only image metadata would make the diagnostic request effectful while withholding its product; the bounded binary transport decision remains separate.
 
 ## Existing authority and impact
 
@@ -107,15 +136,16 @@ Before implementation can claim this RFC, tests must demonstrate through the run
 10. The route exists on ordinary loopback apps and is absent on receiver, trusted-LAN, OpenAI-compatible, and compatibility apps.
 11. Explicit explanation writes no new history; non-explained native requests keep their response, execution, history, and overhead boundaries.
 12. Confirmed disconnect follows the existing cancellation behavior and does not create a misleading completed account.
+13. Every completed account uses only the closed public `family`, `fact`, and continuation `reason` values and their permitted family/reason relationships; an unsupported or arbitrary value cannot appear in a valid account.
+14. Candidate facts preserve bounded occurrence order, continuations preserve consumed-reason order, and their cross-array relationship shows local permission denial before remote progression and remote transport/refusal before progression to the next remote. No identical candidate fact or identical continuation repeats for one candidate.
+15. A terminal condition on the final candidate creates no fabricated continuation; neither array becomes a generic timeline or tracing stream.
+16. Carrier `500` is never presented as proof that business execution did not occur, and projection failure never triggers replay. Invalid input `422` and pre-execution composition `503` retain their no-execution guarantee.
 
 If these proofs require a second orchestrator, repeated permission check, new generic instrumentation, or a change to accepted fallback semantics, implementation must stop and return to architecture.
 
 ## Open questions
 
-- Is the four-capability first public contract the right staging point, given that Image Generation needs a separate binary-result transport decision?
-- Is HTTP `200` for a completed account with `status: failed` the clearest way to preserve failure facts while keeping carrier failure distinct? The proposed distinction is normative unless review changes it before acceptance.
-
-Private function/class placement and exact safe-detail wording remain implementation choices, not unresolved architecture.
+No architectural question remains for this proposed carrier decision. Private function/class placement and exact fixed safe-detail wording remain implementation choices.
 
 ## Decision
 

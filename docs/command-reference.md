@@ -53,7 +53,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has sixteen commands.
+The ordinary root surface has seventeen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -70,6 +70,7 @@ The ordinary root surface has sixteen commands.
 | [`image-generation`](#hac-image-generation) | Send one Image Generation request. |
 | [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
+| [`explain-active-routing`](#hac-explain-active-routing) | Explain active static routing in the running ordinary cluster. |
 | [`health`](#hac-health) | Inspect local declared state and runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
 | [`config`](#hac-config) | Manage and inspect retained configuration. |
@@ -983,6 +984,27 @@ or raw adapter output.
 
 **See also:** [Canonical operator workflow](operator-workflow.md).
 
+## `hac explain-active-routing`
+
+`hac explain-active-routing --capability <CAPABILITY> [--local-only]` (also
+`home-ai-cluster explain-active-routing`) sends one POST to the fixed loopback
+RFC-0147 endpoint at `http://127.0.0.1:25042/diagnostics/static-routing-explanation`.
+An ordinary HAC process must already be running. The command accepts one
+accepted HAC capability and optionally restricts selection to local candidates.
+It makes one request without a preflight or retry, then prints the validated
+RFC-0147 result as one compact JSON object.
+
+Invalid input exits 2 with `error: invalid routing explanation input`. Other
+failures exit 1 with one of: `error: ordinary cluster unavailable`,
+`error: routing explanation rejected`, `error: routing explanation unavailable`,
+`error: invalid routing explanation response`, or
+`error: routing explanation failed`. Failures print nothing to stdout.
+
+This reports active pre-execution static routing facts. It does not predict an
+actual request's execution or interpret retained Configuration. The separate
+`home-ai-cluster-explain-routing` launcher continues to explain synthetic
+candidates supplied to that invocation.
+
 ## `hac preflight`
 
 **Purpose:** Inspect local or explicit static declaration coherence.
@@ -1153,8 +1175,10 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the sixteen-command `hac` root and have no ordinary
-`hac` equivalents.
+not ordinary commands in the seventeen-command `hac` root. The synthetic
+`home-ai-cluster-explain-routing` has no equivalent root command; the distinct
+`hac explain-active-routing` command queries the running ordinary process and
+has no separate installed launcher.
 
 `home-ai-cluster-explain-request --capability CAPABILITY --message MESSAGE`
 executes the supplied business request through ordinary HAC execution and

@@ -1,6 +1,6 @@
 # RFC-0148: Active Routing Explanation Thin Client
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-06
 
@@ -968,4 +968,4 @@ These questions do not affect the bounded thin-client decision in this RFC.
 
 ## Decision
 
-Pending.
+Accepted.

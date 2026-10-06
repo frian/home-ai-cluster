@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from collections.abc import Callable, Sequence
-from typing import Literal
+from typing import Annotated, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, ValidationError
@@ -48,7 +48,7 @@ class _Explanation(BaseModel):
     capability: str
     local_only: StrictBool
     local_eligible: StrictBool
-    eligible_remote_node_ids: list[str]
+    eligible_remote_node_ids: list[Annotated[str, Field(min_length=1)]]
     remotes_excluded_by_local_only: StrictBool
     initial_selection: _LocalSelection | _RemoteSelection | None
 
@@ -107,13 +107,20 @@ def main(
         if result.capability != args.capability or result.local_only != args.local_only:
             raise ValueError("response does not match request")
         selection = result.initial_selection
-        if isinstance(selection, _LocalSelection) and not result.local_eligible:
-            raise ValueError("selected local candidate is not eligible")
-        if isinstance(selection, _RemoteSelection) and (
-            selection.node_id not in result.eligible_remote_node_ids
-            or result.local_only
+        if result.remotes_excluded_by_local_only != (
+            result.local_only and bool(result.eligible_remote_node_ids)
         ):
-            raise ValueError("selected remote candidate is not eligible")
+            raise ValueError("remote exclusion does not match eligible candidates")
+        if result.local_eligible:
+            if not isinstance(selection, _LocalSelection):
+                raise ValueError("eligible local candidate must be selected")
+        elif not result.local_only and result.eligible_remote_node_ids:
+            if not isinstance(selection, _RemoteSelection) or (
+                selection.node_id != result.eligible_remote_node_ids[0]
+            ):
+                raise ValueError("first eligible remote candidate must be selected")
+        elif selection is not None:
+            raise ValueError("no candidate is selectable")
     except (ValidationError, ValueError, TypeError):
         _failure(_INVALID_RESPONSE, 1)
     except Exception:

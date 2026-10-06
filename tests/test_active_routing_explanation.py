@@ -98,6 +98,94 @@ def test_valid_selection_variants(
 
 
 @pytest.mark.parametrize(
+    "changes",
+    [
+        {"local_eligible": True},
+        {
+            "local_eligible": True,
+            "eligible_remote_node_ids": ["remote-a"],
+            "initial_selection": {"kind": "declared_remote", "node_id": "remote-a"},
+        },
+        {"eligible_remote_node_ids": ["remote-a"]},
+        {
+            "eligible_remote_node_ids": ["remote-a", "remote-b"],
+            "initial_selection": {"kind": "declared_remote", "node_id": "remote-b"},
+        },
+        {
+            "eligible_remote_node_ids": ["remote-a"],
+            "initial_selection": {"kind": "declared_remote", "node_id": "other"},
+        },
+        {"local_only": True, "eligible_remote_node_ids": ["remote-a"]},
+        {
+            "eligible_remote_node_ids": ["remote-a"],
+            "remotes_excluded_by_local_only": True,
+            "initial_selection": {"kind": "declared_remote", "node_id": "remote-a"},
+        },
+        {"remotes_excluded_by_local_only": True},
+        {"eligible_remote_node_ids": [""]},
+    ],
+)
+def test_semantically_invalid_success_is_rejected(
+    capsys: pytest.CaptureFixture[str], changes: dict[str, object]
+) -> None:
+    result = {**RESULT, **changes}
+    argv = ["--capability", "chat", *(["--local-only"] if result["local_only"] else [])]
+    code, out, err, requests = _run(
+        capsys, argv, lambda request: httpx.Response(200, json=result)
+    )
+    assert (code, out, err, len(requests)) == (
+        1,
+        "",
+        "error: invalid routing explanation response\n",
+        1,
+    )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"local_eligible": True, "initial_selection": {"kind": "local"}},
+        {
+            "local_eligible": True,
+            "eligible_remote_node_ids": ["remote-a"],
+            "initial_selection": {"kind": "local"},
+        },
+        {
+            "local_only": True,
+            "local_eligible": True,
+            "eligible_remote_node_ids": ["remote-a"],
+            "remotes_excluded_by_local_only": True,
+            "initial_selection": {"kind": "local"},
+        },
+        {
+            "eligible_remote_node_ids": ["remote-a", "remote-b"],
+            "initial_selection": {"kind": "declared_remote", "node_id": "remote-a"},
+        },
+        {
+            "local_only": True,
+            "eligible_remote_node_ids": ["remote-a"],
+            "remotes_excluded_by_local_only": True,
+        },
+        {},
+    ],
+)
+def test_valid_selection_relationships_remain_accepted(
+    capsys: pytest.CaptureFixture[str], changes: dict[str, object]
+) -> None:
+    result = {**RESULT, **changes}
+    argv = ["--capability", "chat", *(["--local-only"] if result["local_only"] else [])]
+    code, out, err, requests = _run(
+        capsys, argv, lambda request: httpx.Response(200, json=result)
+    )
+    assert (code, out, err, len(requests)) == (
+        0,
+        json.dumps(result, separators=(",", ":")) + "\n",
+        "",
+        1,
+    )
+
+
+@pytest.mark.parametrize(
     "argv",
     [[], ["--capability", "unknown"], ["--capability", "chat", "--host", "remote"]],
 )

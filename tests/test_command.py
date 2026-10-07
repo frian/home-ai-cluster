@@ -41,6 +41,7 @@ Finite commands:
   summarize       Send one ordinary summarize request.
   preflight       Inspect static declaration coherence.
   explain-active-routing  Explain active static routing in the running cluster.
+  explain-active-request  Execute and explain one request in the running cluster.
   health          Observe local runtime health.
   status          Inspect static-cluster status.
   config          Manage retained configuration.
@@ -56,6 +57,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
     assert scripts["home-ai-cluster"] == "home_ai_cluster.command:main"
     assert scripts["hac"] == scripts["home-ai-cluster"]
     assert "home-ai-cluster-explain-active-routing" not in scripts
+    assert "home-ai-cluster-explain-active-request" not in scripts
     assert set(command._COMMANDS) == {
         "local",
         "static-cluster",
@@ -71,6 +73,7 @@ def test_project_scripts_preserve_the_unified_and_standalone_entry_points() -> N
         "summarize",
         "preflight",
         "explain-active-routing",
+        "explain-active-request",
         "health",
         "status",
         "config",
@@ -226,6 +229,8 @@ def test_ordinary_help_surfaces_explain_important_boundaries(
     assert "remote Code nodes" in help_for("code-workspace")
     assert "read stdin" in help_for("summarize")
     assert "read stdin" in help_for("classify")
+    assert "chat" in help_for("explain-active-request")
+    assert "classify" in help_for("explain-active-request")
     assert "Read-only" in help_for("preflight")
     assert "without runtime or network observation" in help_for("config", "show")
 
@@ -323,6 +328,7 @@ def test_invalid_root_forms_use_the_exact_unknown_command_failure(
         ("summarize", ["--text", "Source text"]),
         ("summarize", ["--file", "source.txt"]),
         ("preflight", ["--json"]),
+        ("explain-active-request", ["chat", "Hello"]),
         ("health", ["--json"]),
         ("status", ["--declaration", "cluster.toml", "--json"]),
         ("config", ["show"]),
@@ -402,6 +408,7 @@ def test_root_preserves_real_chat_operational_error_contract(
         ("code", command.code_command.main),
         ("summarize", command.summarize_command.main),
         ("preflight", command.static_preflight.main),
+        ("explain-active-request", command.active_request_explanation.main),
         ("health", command.local_health_snapshot.main),
         ("status", command.status_command.main),
         ("config", config_command.main),

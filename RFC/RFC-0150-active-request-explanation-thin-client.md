@@ -1,6 +1,6 @@
 # RFC-0150: Active Request Explanation Thin Client
 
-Status: Accepted
+Status: Draft
 
 Date: 2026-10-07
 
@@ -106,9 +106,9 @@ Permitted continuation reasons and their establishing fact are:
 | `remote-runtime-connection-unavailable-before-request` | same declared remote's `transport-invoked` |
 | `remote-execution-permission-refused` | same declared remote's `execution-permission-refused`, after `transport-invoked` |
 
-Validation preserves relationships visible in RFC-0149's public fields. Facts start with the selected candidate when facts exist; a null selection has no candidate facts. For the same local candidate, a grant must precede adapter invocation **if both facts are present**; denial contradicts either grant or adapter invocation. Adapter invocation without a public permission fact is not rejected solely for lacking a grant: the client cannot know whether process-local permission applied. For the same declared remote, permission refusal requires an earlier transport invocation. Identical `family` + `node_id` + `fact` combinations do not repeat. In the ordered `candidate_facts` array, a candidate identified by `family` + `node_id` cannot resume after facts for a different candidate appear.
+Validation preserves relationships visible in RFC-0149's public fields. Facts start with the selected candidate when facts exist; a null selection has no candidate facts. For the same local candidate, `adapter-invoked` requires an earlier `execution-permission-granted` in the ordered `candidate_facts` array; denial contradicts either grant or adapter invocation. RFC-0102 local execution permission applies to a local candidate executed through RFC-0149's ordinary originating carrier. The client validates this public lifecycle invariant without evaluating permission itself. For the same declared remote, permission refusal requires an earlier transport invocation. Identical `family` + `node_id` + `fact` combinations do not repeat. In the ordered `candidate_facts` array, a candidate identified by `family` + `node_id` cannot resume after facts for a different candidate appear.
 
-Each continuation's closed reason determines its candidate family; its non-empty `node_id` identifies that candidate within the family, without assuming node IDs are globally unique across local and declared-remote candidates. The corresponding establishing fact in the table must exist for that candidate. In particular, `local-runtime-connection-unavailable-before-request` requires `adapter-invoked`, but does not itself require a grant; any grant present must precede that invocation. A continuation is valid only if the ordered candidate-fact progression identifies a later candidate after that candidate; this also rejects a continuation for the final represented candidate. Identical `node_id` + `reason` continuations do not repeat. The `continuations` array must correspond monotonically to the visible candidate progression: a later entry cannot name a candidate earlier in that progression. These checks do not establish the exact position at which any continuation occurred between candidate facts. Client validation can establish consistency between the two public projections, but cannot reconstruct their private cross-array event positions. A successful final node belongs to an invoked candidate. Validation rejects visible contradictions without deciding which candidate should have been eligible or selected.
+Each continuation's closed reason determines its candidate family; its non-empty `node_id` identifies that candidate within the family, without assuming node IDs are globally unique across local and declared-remote candidates. The corresponding establishing fact in the table must exist for that candidate. In particular, `local-runtime-connection-unavailable-before-request` requires the same local candidate's `execution-permission-granted` followed by `adapter-invoked`; the establishing execution fact remains `adapter-invoked`. A continuation is valid only if the ordered candidate-fact progression identifies a later candidate after that candidate; this also rejects a continuation for the final represented candidate. Identical `node_id` + `reason` continuations do not repeat. The `continuations` array must correspond monotonically to the visible candidate progression: a later entry cannot name a candidate earlier in that progression. These checks do not establish the exact position at which any continuation occurred between candidate facts. Client validation can establish consistency between the two public projections, but cannot reconstruct their private cross-array event positions. A successful final node belongs to an invoked candidate. Validation rejects visible contradictions without deciding which candidate should have been eligible or selected.
 
 ### Output and client failure
 
@@ -174,7 +174,8 @@ A future implementation must prove:
 12. Public-account validation proves at least:
     - missing or extra account fields and the wrong capability-specific result form are rejected;
     - unknown family, fact, or continuation reason and a wrong fact/family combination are rejected;
-    - a local grant followed by adapter invocation is accepted; invocation followed by grant, denial plus invocation, and grant plus denial for the same candidate are rejected; invocation without either permission fact is not rejected solely for lacking a grant;
+    - a local grant followed by adapter invocation is accepted; invocation without a prior grant, invocation followed by a later grant, denial plus invocation, and grant plus denial for the same candidate are rejected;
+    - `local-runtime-connection-unavailable-before-request` without both the same local candidate's prior grant and invocation is rejected, while grant followed by invocation and that continuation is accepted;
     - remote permission refusal without earlier transport invocation is rejected, and transport invocation followed by refusal is accepted;
     - a duplicate candidate fact or a candidate resuming after progression to a different candidate is rejected;
     - a duplicate continuation, a continuation without its public establishing fact, or a continuation naming a candidate with no later candidate in the public fact progression is rejected; continuation reason/family mapping is checked without assuming global node-ID uniqueness, and continuation order is monotonic with visible candidate progression.
@@ -191,4 +192,4 @@ No implementation-blocking architectural question remains for this first client.
 
 ## Decision
 
-Accepted.
+Pending.

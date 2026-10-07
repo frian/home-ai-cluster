@@ -79,7 +79,38 @@ minimal ordinary Chat presentation, returned `ClusterResult.content` display,
 and a bounded, understandable HAC-unavailable presentation. It sends one
 ordinary native request for capability `chat` to
 `POST http://127.0.0.1:25042/v1/chat` using the existing request and response
-contracts. HAC is already running. The Desktop neither starts nor supervises it.
+contracts. The host and port are inherited from the currently accepted ordinary
+native convention, including RFC-0090; this RFC does not establish independent
+or permanent port authority. If that accepted HAC convention changes, Desktop
+follows the changed native contract. HAC is already running. The Desktop neither
+starts nor supervises it.
+
+Each Send constructs a fresh ordinary `chat` request containing exactly one
+newly submitted `user` message. Previously displayed requests and responses are
+presentation state only: they are not automatically included in later requests,
+replayed, or reconstructed as history or hidden context. The visible window is
+not an implicit multi-turn session; a later Send starts new work and need not
+clear the previous display.
+
+At most one ordinary Chat request may be in flight. Send is unavailable while
+one is pending; the first client has no request queue, background second Chat
+request, or automatic retry. After a valid success, bounded failure, or client
+timeout, the user may explicitly initiate another Send. The fixed client-side
+wait bound is 120 seconds, without user configuration. On expiry the Desktop
+presents a bounded timeout failure and makes Send available again. A timeout
+does not prove that HAC did not execute the earlier request. The Desktop must
+not claim that work was cancelled, not executed, or rolled back; a later Send
+is new work.
+
+A successful Chat presentation requires a successful HTTP response valid under
+the accepted native ordinary `ClusterResult` contract, including expected Chat
+content. Malformed or unexpected responses, redirects, transport failures,
+timeouts, and unsuccessful HTTP responses are failures, not partial successes.
+Ordinary user-visible failure must be bounded and understandable, without raw
+exception dumps, tracebacks, arbitrary response bodies, private transport
+details, unexpected returned URLs, or implementation diagnostics. This does not
+constrain separately controlled development logs or tests and adds no telemetry
+or persistent error logging.
 
 The client may validate the narrow wire shape and present the returned content
 and safe failure. It must not interpret attribution into availability, health,
@@ -100,13 +131,20 @@ state, contact Ollama or another runtime, reproduce routing logic, or access
 HAC private implementation objects. If a later Desktop need has no accepted
 native client contract, the requirement returns to HAC architecture before
 implementation. A Desktop-owned workaround or second source of truth is not
-authorized.
+authorized. New or changed HAC-owned observations, operations, authority, or
+native client contracts belong in `home-ai-cluster` and follow its normal
+architectural/RFC process where required.
 
 ### Client authority, privacy, and existing surfaces
 
 The first client communicates only with the accepted local ordinary native Chat
-surface. It must not require changes to HAC Host, Origin, CORS, loopback, or
-other authority boundaries for Desktop convenience. It adds no listener,
+surface. For its HAC request, it bypasses system, environment, and application
+HTTP proxies, connects directly to the accepted ordinary loopback target, and
+does not follow HTTP redirects. A redirect response is a bounded request
+failure; it causes no request to the redirect target. This closes the first
+Desktop request's local-first and privacy-first outbound boundary without
+changing HAC. It must not require changes to HAC Host, Origin, CORS, loopback,
+or other authority boundaries for Desktop convenience. It adds no listener,
 telemetry, analytics, cloud service, remote Desktop control, or default prompt
 or response retention.
 
@@ -129,6 +167,11 @@ add complexity not justified by this first window. This decision makes no
 claim that PySide6 is universally superior or that a later migration is
 planned. Reconsideration requires a concrete problem and the normal decision
 process.
+
+Desktop-only implementation, presentation, packaging, and technology decisions
+belong to the Desktop project's own decision process after that repository
+exists. A later framework change that preserves HAC contracts and authority
+does not inherently require a new HAC architectural decision.
 
 Cross-platform packaging remains to be validated. The Desktop repository owns
 its eventual build and release work. This RFC selects no bundle format,
@@ -177,21 +220,35 @@ Before the first Desktop implementation claims this RFC, demonstrate:
 
 1. The Desktop runs as a separate process with no `home_ai_cluster` import or
    private-state access; HAC is already running and is not started by Desktop.
-2. One Send action submits an accepted ordinary `chat` request to the fixed
-   native loopback endpoint, real HAC routes and executes it through a real
-   runtime, and the window presents the returned `ClusterResult.content`.
-3. An unreachable ordinary HAC process yields bounded, understandable failure
-   presentation without raw private details or client-side retry.
-4. Desktop code makes no direct runtime request, routing decision, or node,
+2. One Send action submits an accepted ordinary `chat` request directly to the
+   inherited native loopback endpoint; real HAC routes and executes it through
+   a real runtime, and the window presents valid `ClusterResult.content`.
+3. Transport evidence shows system, environment, and application HTTP proxies
+   are bypassed, redirects are not followed, and client proxy or redirect
+   behavior cannot send the request outside the accepted ordinary loopback
+   destination. A redirect yields bounded failure without another request.
+4. While one Chat request is pending, Send is unavailable and no second request
+   starts or queues. After its terminal presentation, Send becomes available;
+   no automatic retry occurs.
+5. Two sequential Sends produce two independent ordinary `chat` requests, each
+   with exactly one newly submitted `user` message and no prior displayed
+   request or response as context.
+6. The client presents timeout failure after the fixed 120-second wait, enables
+   a new explicit Send, and neither retries automatically nor claims the earlier
+   work was cancelled, not executed, or rolled back.
+7. Valid native success presents Chat content; malformed, unexpected, redirect,
+   transport, timeout, and unsuccessful HTTP responses yield bounded,
+   understandable user-visible failure without raw private details.
+8. Desktop code makes no direct runtime request, routing decision, or node,
    model, adapter, or runtime selection, and reads no retained Configuration.
-5. No HAC API, browser authority, compatibility behavior, Host/Origin/CORS
+9. No HAC API, browser authority, compatibility behavior, Host/Origin/CORS
    rule, or loopback exposure changes to make the Desktop work.
-6. Linux, Windows, and macOS packaging feasibility is investigated separately
-   before claiming supported distributable releases for all three.
+10. Linux, Windows, and macOS packaging feasibility is investigated separately
+    before claiming supported distributable releases for all three.
 
-The first five points require real ordinary HAC integration evidence where
-execution is claimed; a transport fake alone cannot establish it. Validation
-should remain proportional to the small client.
+Real ordinary HAC integration is required where execution is claimed; a
+transport fake alone cannot establish it. Validation should remain
+proportional to the small client.
 
 ## Open questions
 

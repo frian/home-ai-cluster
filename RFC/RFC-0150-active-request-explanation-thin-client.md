@@ -1,6 +1,6 @@
 # RFC-0150: Active Request Explanation Thin Client
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-07
 
@@ -192,4 +192,4 @@ No implementation-blocking architectural question remains for this first client.
 
 ## Decision
 
-Pending.
+Accepted.

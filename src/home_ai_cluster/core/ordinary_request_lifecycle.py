@@ -14,10 +14,16 @@ class OrdinaryRequestLifecycle:
     selection: AutomaticCapabilitySelectionExplanation | None = None
     candidates: list[dict[str, str]] = field(default_factory=list)
     continuation_reasons: list[dict[str, str]] = field(default_factory=list)
+    continuation_fact_counts: list[int] = field(default_factory=list)
     final_node_id: str | None = None
+    local_initial_selection: bool = False
 
     def selected(self, explanation: AutomaticCapabilitySelectionExplanation) -> None:
         self.selection = explanation
+
+    def selected_local(self) -> None:
+        """Preserve the local-only router's actual selected decision."""
+        self.local_initial_selection = True
 
     def local_permission(self, granted: bool, node_id: str) -> None:
         self.candidates.append(
@@ -55,6 +61,7 @@ class OrdinaryRequestLifecycle:
 
     def continued(self, node_id: str, reason: str) -> None:
         self.continuation_reasons.append({"node_id": node_id, "reason": reason})
+        self.continuation_fact_counts.append(len(self.candidates))
 
     def succeeded(self, node_id: str) -> None:
         self.final_node_id = node_id

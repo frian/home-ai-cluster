@@ -4,6 +4,9 @@ from contextlib import AbstractAsyncContextManager
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, Response
 
+from home_ai_cluster.api.actual_request_explanation import (
+    router as actual_request_explanation_router,
+)
 from home_ai_cluster.api.client_disconnect import ConfirmedClientDisconnect
 from home_ai_cluster.api.routes import receiver_router, router
 from home_ai_cluster.api.static_routing_explanation import (
@@ -63,6 +66,7 @@ def create_app(
     app.include_router(router)
     if include_static_routing_explanation:
         app.include_router(static_routing_explanation_router)
+        app.include_router(actual_request_explanation_router)
     return app
 
 

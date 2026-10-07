@@ -31,10 +31,67 @@ from home_ai_cluster.core.ordered_remote_fallback import (
 from home_ai_cluster.core.ordinary_request_lifecycle import OrdinaryRequestLifecycle
 from home_ai_cluster.core.router import NoMatchingAdapterError
 from home_ai_cluster.core.routing_candidates import (
+    AutomaticCapabilitySelectionExplanation,
     AutomaticCapabilitySelectionOutcomeRule,
 )
 
 router = APIRouter()
+
+
+class _FailureIsolatingLifecycle(OrdinaryRequestLifecycle):
+    """Keep carrier recording failures out of ordinary execution control flow."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.recording_failed = False
+
+    def selected(self, explanation: AutomaticCapabilitySelectionExplanation) -> None:
+        try:
+            super().selected(explanation)
+        except Exception:
+            self.recording_failed = True
+
+    def selected_local(self) -> None:
+        try:
+            super().selected_local()
+        except Exception:
+            self.recording_failed = True
+
+    def local_permission(self, granted: bool, node_id: str) -> None:
+        try:
+            super().local_permission(granted, node_id)
+        except Exception:
+            self.recording_failed = True
+
+    def local_adapter_invoked(self, node_id: str) -> None:
+        try:
+            super().local_adapter_invoked(node_id)
+        except Exception:
+            self.recording_failed = True
+
+    def remote_transport_invoked(self, node_id: str) -> None:
+        try:
+            super().remote_transport_invoked(node_id)
+        except Exception:
+            self.recording_failed = True
+
+    def remote_refused(self, node_id: str) -> None:
+        try:
+            super().remote_refused(node_id)
+        except Exception:
+            self.recording_failed = True
+
+    def continued(self, node_id: str, reason: str) -> None:
+        try:
+            super().continued(node_id, reason)
+        except Exception:
+            self.recording_failed = True
+
+    def succeeded(self, node_id: str) -> None:
+        try:
+            super().succeeded(node_id)
+        except Exception:
+            self.recording_failed = True
 
 
 class _ClosedModel(BaseModel):
@@ -184,13 +241,16 @@ def _explanation(
                 "adapter-invoked",
             ) in facts:
                 raise ValueError("denied local adapter invocation")
-            if (
-                (family, node_id, "adapter-invoked") in facts
-                and (family, node_id, "execution-permission-granted") in facts
-                and fact_positions[(family, node_id, "execution-permission-granted")]
-                > fact_positions[(family, node_id, "adapter-invoked")]
-            ):
-                raise ValueError("local fact order")
+            if (family, node_id, "adapter-invoked") in facts:
+                grant_position = fact_positions.get(
+                    (family, node_id, "execution-permission-granted")
+                )
+                if (
+                    grant_position is None
+                    or grant_position
+                    > fact_positions[(family, node_id, "adapter-invoked")]
+                ):
+                    raise ValueError("local invocation without prior permission")
         elif (family, node_id, "execution-permission-refused") in facts and (
             (family, node_id, "transport-invoked") not in facts
             or fact_positions[(family, node_id, "transport-invoked")]
@@ -306,7 +366,7 @@ async def actual_request_explanation(http_request: Request) -> dict[str, object]
             status_code=503, detail="Active request explanation unavailable"
         )
 
-    lifecycle = OrdinaryRequestLifecycle()
+    lifecycle = _FailureIsolatingLifecycle()
 
     async def execute():
         if single is not None:
@@ -348,6 +408,8 @@ async def actual_request_explanation(http_request: Request) -> dict[str, object]
         failure = {"status": _failure_status(exc)}
 
     try:
+        if lifecycle.recording_failed:
+            raise ValueError("untrustworthy lifecycle recording")
         if result is not None and not isinstance(
             result, (ClusterResult, ClassifyResult)
         ):

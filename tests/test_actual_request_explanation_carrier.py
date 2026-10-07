@@ -599,3 +599,112 @@ def test_projection_rejects_duplicate_and_arbitrary_continuation():
     lifecycle.continuation_reasons[-1]["reason"] = "invented-reason"
     with pytest.raises(ValueError):
         _explanation(request, lifecycle, succeeded=True)
+
+
+@pytest.mark.parametrize("recording_method", ["selected_local", "local_permission"])
+def test_local_recording_failure_does_not_interrupt_execution_or_leak_interval(
+    monkeypatch, recording_method
+):
+    intervals = CountingIntervals()
+    app, adapter, _, _ = app_for(intervals=intervals)
+
+    def broken(*args):
+        raise RuntimeError("private recorder secret")
+
+    monkeypatch.setattr(OrdinaryRequestLifecycle, recording_method, broken)
+    response = post(app, chat())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Request explanation failed"}
+    assert "private recorder secret" not in response.text
+    assert intervals.enter_calls == 1
+    assert intervals.value == 0
+    assert len(adapter.calls) == 1
+
+
+def test_direct_remote_recording_failure_does_not_suppress_transport(monkeypatch):
+    remote = ClusterResult(content="remote", adapter="remote", node_id="remote")
+    app, _, transport, _ = app_for(
+        adapter=False, remotes=("remote",), outcomes={"remote": remote}
+    )
+
+    def broken(*args):
+        raise RuntimeError("private recorder secret")
+
+    monkeypatch.setattr(OrdinaryRequestLifecycle, "remote_transport_invoked", broken)
+    response = post(app, chat(local_only=False))
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Request explanation failed"}
+    assert [node_id for node_id, _ in transport.calls] == ["remote"]
+
+
+def test_ordered_continuation_recording_failure_preserves_progression(monkeypatch):
+    remote = ClusterResult(content="second", adapter="remote", node_id="second")
+    app, _, transport, _ = app_for(
+        adapter=False,
+        remotes=("first", "second"),
+        outcomes={"first": RemoteExecutionPermissionDeniedError(), "second": remote},
+    )
+
+    def broken(*args):
+        raise RuntimeError("private recorder secret")
+
+    monkeypatch.setattr(OrdinaryRequestLifecycle, "continued", broken)
+    response = post(app, chat(local_only=False))
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Request explanation failed"}
+    assert [node_id for node_id, _ in transport.calls] == ["first", "second"]
+
+
+def test_ordinary_execution_failure_still_returns_completed_account():
+    app, adapter, _, intervals = app_for(
+        adapter=Adapter(RuntimeError("private execution secret")),
+        intervals=CountingIntervals(),
+    )
+    response = post(app, chat())
+
+    assert response.status_code == 200
+    account = response.json()
+    assert account["status"] == "failed"
+    assert account["failure"] == {"status": "execution-failed"}
+    assert account["result"] is None
+    assert len(adapter.calls) == intervals.enter_calls == 1
+    assert intervals.value == 0
+    assert "private execution secret" not in response.text
+
+
+def test_recording_failure_takes_precedence_over_ordinary_failure(monkeypatch):
+    app, adapter, _, intervals = app_for(
+        adapter=Adapter(RuntimeError("private execution secret")),
+        intervals=CountingIntervals(),
+    )
+
+    def broken(*args):
+        raise RuntimeError("private recorder secret")
+
+    monkeypatch.setattr(OrdinaryRequestLifecycle, "selected_local", broken)
+    response = post(app, chat())
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Request explanation failed"}
+    assert len(adapter.calls) == intervals.enter_calls == 1
+    assert intervals.value == 0
+    assert "private recorder secret" not in response.text
+    assert "private execution secret" not in response.text
+
+
+def test_projection_rejects_local_invocation_without_prior_grant():
+    request = ClusterRequest(
+        messages=[{"role": "user", "content": SECRET}],
+        capability=Capability(name="chat"),
+        constraints=RequestConstraints(),
+    )
+    lifecycle = OrdinaryRequestLifecycle()
+    lifecycle.selected_local()
+    lifecycle.local_adapter_invoked("local")
+    lifecycle.succeeded("local")
+
+    with pytest.raises(ValueError, match="prior permission"):
+        _explanation(request, lifecycle, succeeded=True)

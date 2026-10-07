@@ -53,7 +53,7 @@ the same semantics.
 
 ## Quick command map
 
-The ordinary root surface has seventeen commands.
+The ordinary root surface has eighteen commands.
 
 | Command | Purpose |
 | ------- | ------- |
@@ -71,6 +71,7 @@ The ordinary root surface has seventeen commands.
 | [`summarize`](#hac-summarize) | Send one native bounded summarize request. |
 | [`preflight`](#hac-preflight) | Inspect static declaration coherence. |
 | [`explain-active-routing`](#hac-explain-active-routing) | Explain active static routing in the running ordinary cluster. |
+| [`explain-active-request`](#hac-explain-active-request) | Execute and explain one request in the running ordinary cluster. |
 | [`health`](#hac-health) | Inspect local declared state and runtime health. |
 | [`status`](#hac-status) | Inspect one declared static cluster. |
 | [`config`](#hac-config) | Manage and inspect retained configuration. |
@@ -1005,6 +1006,45 @@ actual request's execution or interpret retained Configuration. The separate
 `home-ai-cluster-explain-routing` launcher continues to explain synthetic
 candidates supplied to that invocation.
 
+## `hac explain-active-request`
+
+`hac explain-active-request` (also `home-ai-cluster explain-active-request`)
+submits one real business request to the already-running ordinary `hac local`
+or `hac static-cluster` process. The fixed active-process authority is
+`http://127.0.0.1:25042/diagnostics/actual-request-explanation`. The client
+does not start or discover a process. There is no standalone launcher.
+
+```sh
+hac explain-active-request chat "hello"
+hac explain-active-request code --message "explain this function"
+hac explain-active-request summarize --text "source text"
+hac explain-active-request summarize --file source.txt
+printf 'source text' | hac explain-active-request summarize
+hac explain-active-request classify --text "source text" --label A --label B
+```
+
+The four subcommands are `chat`, `code`, `summarize`, and `classify`. Chat and
+Code each accept one positional message or one `--message`. Summarize and
+Classify accept one `--text`, one bounded regular UTF-8 `--file`, or stdin when
+neither is given. Classify needs 2–32 ordered labels. Each subcommand accepts
+`--local-only` to restrict execution to a local candidate, and
+`--timeout-seconds SECONDS` (1–3600, default 120). The timeout is an HTTP
+client timeout, not a server execution deadline.
+
+A valid response prints the complete account as one compact JSON object. A
+valid `status:"failed"` business account still exits 0. Invalid local input
+exits 2 with `error: invalid request explanation input`. Client failures exit
+1 with one safe line: `error: ordinary cluster unavailable`,
+`error: request explanation timed out`, `error: request explanation rejected`,
+`error: request explanation unavailable`,
+`error: invalid request explanation response`, or
+`error: request explanation failed`. Failures print no account.
+There is no automatic retry: after a timeout or carrier HTTP 500, execution
+may already have happened. Repeating the command submits new business work.
+
+The historical `home-ai-cluster-explain-request` builds its own finite
+composition for its invocation; this command uses the active ordinary process.
+
 ## `hac preflight`
 
 **Purpose:** Inspect local or explicit static declaration coherence.
@@ -1175,7 +1215,7 @@ The retained standalone launchers `home-ai-cluster-explain-routing`,
 `home-ai-cluster-explain-request`, `home-ai-cluster-history`, and
 `home-ai-cluster-clear-history` are specialized diagnostic/history compatibility
 surfaces. They remain installed and supported in their bounded roles, but are
-not ordinary commands in the seventeen-command `hac` root. The synthetic
+not ordinary commands in the eighteen-command `hac` root. The synthetic
 `home-ai-cluster-explain-routing` has no equivalent root command; the distinct
 `hac explain-active-routing` command queries the running ordinary process and
 has no separate installed launcher.

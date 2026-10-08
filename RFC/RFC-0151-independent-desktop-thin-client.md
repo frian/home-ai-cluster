@@ -1,6 +1,6 @@
 # RFC-0151: Independent Desktop Thin Client
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-07
 
@@ -281,4 +281,4 @@ question to validate before release claims.
 
 ## Decision
 
-Draft. This RFC does not authorize Desktop implementation until accepted.
+Accepted.

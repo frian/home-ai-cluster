@@ -154,7 +154,8 @@ RFC-0148 and RFC-0150:
   exit behavior.
 
 This is byte-for-byte compatibility for a given validated response, not merely
-semantic JSON equivalence. It preserves existing scripts without migration.
+semantic JSON equivalence. Scripts that currently consume default JSON stdout
+must explicitly select `-j` or `--json` after this change.
 
 The accepted carriers and clients currently reject undeclared response fields.
 This proposal does not weaken that fail-closed boundary. A future optional
@@ -411,8 +412,8 @@ environment toggle, or configuration is proposed.
 
 No implementation is authorized by this Draft. If accepted, the smallest
 implementation should add command-local pure formatting after existing response
-validation and selected-output emission. It should not modify server code,
-carrier models, or ordinary orchestration.
+validation and before the single completed stdout write. It should not modify
+server code, carrier models, or ordinary orchestration.
 
 Tests must cover at least:
 

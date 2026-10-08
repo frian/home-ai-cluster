@@ -1,6 +1,6 @@
 # RFC-0152: Native Active Routable Capability Projection
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-08
 
@@ -319,4 +319,4 @@ error wording remain implementation details.
 
 ## Decision
 
-Proposed. This RFC remains Draft pending architectural review and acceptance.
+Accepted.

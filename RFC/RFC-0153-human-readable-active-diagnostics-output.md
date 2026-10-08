@@ -271,7 +271,7 @@ Illustrative successful local request:
 Active request explanation
 Capability: chat
 Local only: false
-Status: succeeded
+Request status: succeeded
 Initial selection: local
 
 Candidate facts:
@@ -295,7 +295,7 @@ Illustrative local permission denial followed by remote continuation:
 Active request explanation
 Capability: chat
 Local only: false
-Status: succeeded
+Request status: succeeded
 Initial selection: local
 
 Candidate facts:
@@ -320,7 +320,7 @@ Illustrative explained business failure:
 Active request explanation
 Capability: summarize
 Local only: true
-Status: failed
+Request status: failed
 Initial selection: local
 
 Candidate facts:

@@ -14,10 +14,9 @@ hac explain-active-routing
 hac explain-active-request
 ```
 
-Each command would retain its current compact JSON stdout as its default and
-would accept `--format text` for a deterministic, human-readable plain-text
-projection of the one complete, validated response it already obtained. The
-explicit `--format json` spelling would select the same current JSON output.
+Each command would present a deterministic human-readable plain-text projection
+of the one complete, validated response it already obtained by default. The
+explicit `-j`/`--json` option would select the existing compact JSON output.
 
 This is a CLI-edge proposal only. It neither changes the RFC-0147 or RFC-0149
 HTTP carriers nor adds facts, endpoints, routing, execution, fallback, timing,
@@ -39,8 +38,8 @@ inspect without making the CLI reconstruct routing or infer hidden events.
 ## Goals
 
 - Add one explicit, deterministic human-readable presentation for each command.
-- Preserve RFC-0148 and RFC-0150 JSON stdout byte-for-byte by default and when
-  `--format json` is selected.
+- Preserve RFC-0148 and RFC-0150 JSON stdout byte-for-byte when `-j`/`--json`
+  is selected.
 - Preserve carrier response shapes, client validation, request submission,
   timeout, retry, privacy, ordering, exit, and stderr contracts.
 - Project only facts already present in the validated public response.
@@ -100,42 +99,53 @@ The following remain mandatory:
    explanation. It remains stdout result data and exits zero under RFC-0150.
    Client/input/carrier/validation failures remain stderr-only failures.
 6. No raw exception, URL, address, credential, retained configuration, hidden
-   routing reason, private transport detail, prompt, or additional lifecycle
-   detail may enter text output.
+   routing reason, private transport detail, request input or prompt, or
+   additional lifecycle detail may enter text output. A business result may
+   itself reproduce user input; presentation cannot and must not claim to
+   prevent that result-owned behavior.
 
 ## Proposal
 
 ### Format selection
 
-Both included commands accept:
+The default successful stdout representation is human-readable text. Both
+included commands accept:
 
 ```text
---format json
---format text
+-j
+--json
 ```
 
-`json` is the default. `text` selects the human-readable projection. The
-option follows normal argparse placement for each command: routing accepts it
-with its existing root options; each active-request capability subcommand
-accepts it with its existing options. It is not a global `hac` option and does
-not alter the request body.
+Either spelling selects the compact JSON representation. The option follows
+ordinary argparse placement for each command: routing accepts it with its
+existing root options; each active-request capability subcommand accepts it
+with its existing options. It is not a global `hac` option and does not alter
+the request body.
 
-Only the two lowercase values above are accepted. `--format=text` is the
-ordinary equivalent spelling of `--format text`. Missing option values,
-unknown values, and repeated format options are invalid local input: the
-existing safe invalid-input stderr line is emitted, no HTTP request occurs, and
-the command exits 2. The exact parser mechanics remain an implementation detail
-so long as one value is accepted and ambiguity is rejected.
+For example:
+
+```sh
+hac explain-active-routing --capability chat
+hac explain-active-routing --capability chat --json
+hac explain-active-request chat "Hello"
+hac explain-active-request chat "Hello" -j
+```
+
+`-j` and `--json` take no value. Unknown output options and supplied option
+values are invalid local input: the existing safe invalid-input stderr line is
+emitted, no HTTP request occurs, and the command exits 2. Consistent with the
+existing RFC-0048 command convention, repeated `-j`/`--json` occurrences are
+accepted and select JSON; they have the same result as one occurrence.
 
 Selection is independent of TTY state, redirection, pipes, environment,
 configuration, width, locale, color support, and terminal capabilities. There
-is no `--json`, `--human`, `--pretty`, color mode, automatic terminal choice,
+is no `--format`, `--human`, `--pretty`, color mode, automatic terminal choice,
 or third format in this proposal.
 
 ### JSON compatibility
 
-No-option invocation and `--format json` must emit exactly the representation
-already required by RFC-0148 and RFC-0150:
+`-j`/`--json` must emit exactly the representation already required by
+RFC-0148 and RFC-0150:
 
 - one compact `json.dumps(..., separators=(",", ":"))` JSON object;
 - current field names, field insertion order, object/array structure, nulls,
@@ -154,7 +164,8 @@ field; it must not silently omit a newly accepted meaningful field.
 
 ### Text presentation rules
 
-`--format text` writes one complete report and one trailing newline to stdout.
+Without `-j`/`--json`, the command writes one complete report and one trailing
+newline to stdout.
 Exact indentation and blank-line count are not contractual. Labels, section
 order, public vocabulary, required facts, and source ordering are contractual.
 No ANSI sequence, color, column alignment, or terminal capability carries
@@ -182,6 +193,10 @@ while preventing content from changing terminal state or HAC-owned report
 structure. An empty content value is explicitly shown as an empty block. No
 business content is printed for a failed account because RFC-0149 supplies no
 result in that case.
+
+The formatter must construct the complete report before writing stdout. If
+formatting fails, it writes no partial report; existing safe client-failure
+handling applies.
 
 ### Active routing report
 
@@ -320,7 +335,8 @@ Result: none
 Format selection happens only after the existing complete response has been
 validated. It must not change request count, request body, client timeout,
 HTTP status mapping, safe stderr messages, retry behavior, or response
-validation.
+validation. Default text output and explicit JSON output use the same completed
+validated response.
 
 For either format:
 
@@ -340,21 +356,18 @@ not leak public content or an exception and must not produce a partial report.
 
 ## Alternatives considered
 
-### Text default with explicit JSON
+### JSON default with explicit text selection
 
-This follows RFC-0048's inspection-command decision and is attractive for
-interactive use. It is rejected here because RFC-0148 and RFC-0150 make JSON
-mandatory public stdout, these commands have newer compatibility-sensitive
-contracts, and the actual-request command may emit business content. Changing
-the no-option contract would require existing automation to migrate despite no
-repository evidence that every operator wants that break.
+Rejected. It preserves the existing default but fails the observed operator
+need: an operator would still need an option or `jq` for an immediately readable
+active explanation.
 
-### JSON default with `--human`
+### Human default with `--format text|json`
 
-This is compatible but creates a second naming pattern beside the explicit
-two-value format selection considered for this bounded pair. `--format text`
-states the selected representation directly and leaves a symmetric explicit
-JSON spelling without introducing a third form.
+Rejected. RFC-0048 and comparable `hac preflight`, `hac health`, and `hac
+status` commands use human-readable default output with `-j`/`--json` for their
+compact machine representation. Reusing that bounded convention is smaller and
+more consistent than introducing a format selector for only this pair.
 
 ### TTY-dependent behavior
 
@@ -374,15 +387,25 @@ command-specific projections are sufficient evidence now.
 
 ## Compatibility and rollout
 
-This is additive: existing invocations retain exact JSON stdout. `--format
-text` is new syntax only. An accepted RFC would supersede only RFC-0148 and
-RFC-0150's CLI presentation requirement to the narrow extent necessary to add
-that explicit text alternative; it would not supersede either carrier,
-authority, validation, or execution contract.
+This intentionally changes default invocation compatibility: existing no-option
+calls change from compact JSON to human-readable text. Existing scripts that
+parse the current stdout must add `-j` or `--json`; the repository does not
+establish how many such scripts exist, so this change must not assume there are
+none.
 
-No transition warning, automatic migration, environment toggle, configuration,
-or documentation rewrite of existing JSON examples is necessary. Future
-documentation may demonstrate the opt-in text form after implementation.
+Explicit JSON compatibility is preserved: `-j`/`--json` must emit the existing
+normalized JSON representation byte-for-byte for the same validated response.
+HTTP compatibility is unchanged: RFC-0147 and RFC-0149 request/response
+contracts are unchanged. Routing and execution compatibility are unchanged:
+the CLI still submits and validates the same request without recomputation or
+new authority.
+
+If accepted, this RFC supersedes only RFC-0148's **Success output** provision
+and RFC-0150's **Output and client failure** provision, to the extent that they
+require compact JSON for no-option successful stdout. It does not supersede
+their endpoint, carrier, thin-client, validation, authority, timeout, error,
+routing, or execution provisions. No transition warning, automatic migration,
+environment toggle, or configuration is proposed.
 
 ## Implementation and testing consequences
 
@@ -393,7 +416,7 @@ carrier models, or ordinary orchestration.
 
 Tests must cover at least:
 
-- both commands in default JSON, explicit JSON, and text modes;
+- both commands in default text and explicit JSON modes;
 - byte-for-byte JSON compatibility and one trailing newline;
 - all required text facts, empty/absent values, local versus declared-remote
   distinction, candidate and continuation order, and no fabricated facts;
@@ -401,10 +424,13 @@ Tests must cover at least:
 - local success, permission-denial continuation, remote transport/refusal
   semantics, explained business failure, and classification result metadata;
 - complete multiline content and terminal-control escaping without truncation;
-- stdout/stderr separation, client failures, invalid format, and zero exit for
+- stdout/stderr separation, client failures, invalid JSON-option use, repeated
+  JSON options, and zero exit for
   a valid failed business account; and
-- absence of raw exceptions, URLs, addresses, credentials, prompt data, and
-  extra private lifecycle/configuration information.
+- absence of raw exceptions, URLs, addresses, credentials, request input or
+  prompts, and extra private lifecycle/configuration information; and
+- complete report construction before stdout write, including formatter-failure
+  behavior with no partial output.
 
 ## Open questions
 
@@ -415,7 +441,7 @@ is needed to review this proposal.
 
 ## Decision requested
 
-Accept an additive `--format text|json` contract, with JSON as the default,
+Accept human-readable default output plus explicit `-j`/`--json` compact JSON
 for only `hac explain-active-routing` and `hac explain-active-request`, subject
 to the compatibility, privacy, and thin-client boundaries above.
 

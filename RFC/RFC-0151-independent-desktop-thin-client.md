@@ -92,15 +92,32 @@ replayed, or reconstructed as history or hidden context. The visible window is
 not an implicit multi-turn session; a later Send starts new work and need not
 clear the previous display.
 
-At most one ordinary Chat request may be in flight. Send is unavailable while
-one is pending; the first client has no request queue, background second Chat
-request, or automatic retry. After a valid success, bounded failure, or client
-timeout, the user may explicitly initiate another Send. The fixed client-side
-wait bound is 120 seconds, without user configuration. On expiry the Desktop
-presents a bounded timeout failure and makes Send available again. A timeout
-does not prove that HAC did not execute the earlier request. The Desktop must
-not claim that work was cancelled, not executed, or rolled back; a later Send
-is new work.
+At most one Desktop client request may await completion at a time. Send is
+unavailable while one awaits completion; the first client has no request queue,
+background second Chat request, or automatic retry. After a valid success,
+bounded failure, or expiry of the selected client wait, that Desktop client
+request no longer awaits completion and the user may explicitly initiate
+another Send.
+
+Applying RFC-0060's capability-neutral ordinary-client timeout ownership to
+this independent Desktop client, the default client wait is 120 seconds. The
+operator may explicitly select an integer number of seconds from `1` through
+`3600` when starting Desktop with `--timeout-seconds SECONDS`, for example
+`home-ai-cluster-desktop --timeout-seconds 300`. The selected value applies to
+ordinary Chat Sends during that running Desktop invocation. Invalid values fail
+locally before an ordinary Chat request is sent. The value is not persisted or
+sourced from environment variables, HAC retained Configuration, or project or
+user configuration; restarting without the option restores the default. This
+launch option adds no Desktop settings system and does not require reuse of
+HAC's one-shot CLI parser. The wait belongs to the invoking operator and
+Desktop client, not HAC topology, routing, capability, node, model, adapter,
+runtime, or server policy.
+
+On expiry the Desktop presents a bounded timeout failure and makes Send
+available again, without automatic or queued retry. A timeout establishes no
+HAC execution or cancellation truth: the Desktop must not claim that earlier
+work was cancelled, not executed, rolled back, or stopped. HAC-side work may
+continue after the Desktop client stops awaiting it; a later Send is new work.
 
 A successful Chat presentation requires a successful HTTP response valid under
 the accepted native ordinary `ClusterResult` contract, including expected Chat
@@ -227,15 +244,21 @@ Before the first Desktop implementation claims this RFC, demonstrate:
    are bypassed, redirects are not followed, and client proxy or redirect
    behavior cannot send the request outside the accepted ordinary loopback
    destination. A redirect yields bounded failure without another request.
-4. While one Chat request is pending, Send is unavailable and no second request
-   starts or queues. After its terminal presentation, Send becomes available;
-   no automatic retry occurs.
+4. While one Desktop client request awaits completion, Send is unavailable and
+   no second request starts or queues. After success, bounded failure, or
+   expiry of its client wait, Send may become available; this says nothing
+   about whether earlier HAC-side work continues.
 5. Two sequential Sends produce two independent ordinary `chat` requests, each
    with exactly one newly submitted `user` message and no prior displayed
    request or response as context.
-6. The client presents timeout failure after the fixed 120-second wait, enables
-   a new explicit Send, and neither retries automatically nor claims the earlier
-   work was cancelled, not executed, or rolled back.
+6. Starting Desktop without a timeout override uses the 120-second default;
+   a representative valid `--timeout-seconds` value applies to ordinary Chat
+   Sends during that invocation. The accepted integer bounds are `1` and
+   `3600`; invalid values fail locally before a Chat request is sent. The value
+   is neither retained nor sourced from ambient configuration. On expiry the
+   client presents bounded timeout failure, enables a new explicit Send,
+   neither retries automatically nor claims the earlier work was cancelled,
+   not executed, rolled back, or stopped.
 7. Valid native success presents Chat content; malformed, unexpected, redirect,
    transport, timeout, and unsuccessful HTTP responses yield bounded,
    understandable user-visible failure without raw private details.

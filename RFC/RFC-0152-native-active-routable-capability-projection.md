@@ -168,6 +168,13 @@ transport, and any separately bound authority. This RFC neither changes that
 authority nor grants a client host, port, URL, proxy, redirect, or target
 choice.
 
+The `/diagnostics/` path does not itself enforce that authority. The carrier
+must be attached through application composition owned by the ordinary
+originating native loopback process. A shared router or factory may be reused
+only if the resulting route is absent from receiver, trusted-LAN browser,
+compatibility/OpenAI, remote transport, and other separately bound application
+authorities.
+
 The operation accepts no body, query parameters, constraints, request content,
 or selection input. It has no side effect and starts no background work.
 
@@ -177,10 +184,12 @@ On success it returns HTTP `200` with exactly:
 {"capabilities":["chat","summarize","code"]}
 ```
 
-`capabilities` is an array of distinct accepted semantic capability names in
-the stable project accepted-vocabulary order used by RFC-0144's projection.
-It may be empty. It must not expose local-versus-remote provenance, counts,
-priority, explanation, or any other fact.
+`capabilities` is an array of distinct accepted semantic capability names.
+Membership and uniqueness are contractual; array order has no semantic meaning
+and clients must not depend on it. An implementation may emit a deterministic
+order, but no particular vocabulary iteration order is part of this native
+contract. The array may be empty. It must not expose local-versus-remote
+provenance, counts, priority, explanation, or any other fact.
 
 If the active process cannot truthfully construct the projection from its
 active composition, it fails closed with HTTP `503` and a fixed safe detail.
@@ -266,8 +275,10 @@ A future implementation must demonstrate at least:
 3. An active static-cluster remote-only eligible capability is included, while
    neither remote reachability nor a remote probe is required.
 4. Local plus remote eligibility yields one capability name; an absent path
-   yields no name; a coherent no-path composition returns a successful empty
-   set.
+   yields no name; a valid constructed active composition with no eligible
+   capability paths returns a successful empty set through the real projector
+   and native carrier. This proof does not require an existing production
+   launcher to create that composition.
 5. Membership is capability-centered and engine-independent, with no model,
    runtime, adapter, node, topology, configuration, health, or execution data
    in a valid response.
@@ -279,8 +290,9 @@ A future implementation must demonstrate at least:
    neither predicts nor guarantees that result.
 8. Projection failure is safe and fail-closed; it does not cause a client to
    infer capability absence or trigger a replacement probe.
-9. The route exists only on ordinary native loopback authority and is absent
-   from receiver, trusted-LAN, compatibility/OpenAI, and remote surfaces.
+9. The route exists only on ordinary native loopback authority. Tests verify
+   its actual absence from receiver, trusted-LAN, compatibility/OpenAI, remote
+   transport, and other separately bound application compositions.
 10. A small independent non-HAC HTTP client can consume and validate the
     closed response without importing `home_ai_cluster` or inspecting HAC
     Configuration/topology; a Desktop implementation is not required.

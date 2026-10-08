@@ -447,3 +447,7 @@ for only `hac explain-active-routing` and `hac explain-active-request`, subject
 to the compatibility, privacy, and thin-client boundaries above.
 
 Implementation remains separate and requires acceptance first.
+
+## Decision
+
+Pending.

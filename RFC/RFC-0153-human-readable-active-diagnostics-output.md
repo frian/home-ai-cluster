@@ -1,6 +1,6 @@
 # RFC-0153: Human-Readable Active Diagnostics Output
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-08
 
@@ -450,4 +450,4 @@ Implementation remains separate and requires acceptance first.
 
 ## Decision
 
-Pending.
+Accepted.

@@ -109,6 +109,7 @@ def test_exact_body_one_post_and_success_output(
         if kind == "classify":
             argv.extend(["--label", "A", "--label", "B"])
             payload["labels"] = ["A", "B"]
+    argv.append("-j")
     account = _account(kind)
     code, out, err, requests, options = _run(
         capsys, argv, httpx.Response(200, json=account)
@@ -239,6 +240,7 @@ def test_classify_accepts_32_ordered_labels_and_rejects_33(
         ["chat", "x", "--timeout-seconds", "3601"],
         ["chat", "x", "--timeout-seconds", "1.0"],
         ["chat", "x", "--timeout-seconds", "1", "--timeout-seconds", "2"],
+        ["chat", "x", "--json=value"],
         ["image-generation"],
         ["chat", "x", "--body", "{}"],
     ],
@@ -298,7 +300,7 @@ def test_valid_failed_business_account_exits_zero(
     account.update(status="failed", result=None, failure={"status": "execution-failed"})
     account["explanation"]["final_node_id"] = None
     code, out, err, requests, _ = _run(
-        capsys, ["chat", "x"], httpx.Response(200, json=account)
+        capsys, ["chat", "x", "--json"], httpx.Response(200, json=account)
     )
     assert (code, out, err) == (
         0,
@@ -548,3 +550,150 @@ def test_classification_result_must_match_supplied_label(
         httpx.Response(200, json=account),
     )
     assert (code, out, err) == (1, "", client._INVALID_RESPONSE + "\n")
+
+
+@pytest.mark.parametrize("kind", ["chat", "code", "summarize", "classify"])
+def test_every_subcommand_defaults_to_human_output(
+    capsys: pytest.CaptureFixture[str], kind: str
+) -> None:
+    argv = [kind, "hello"] if kind in {"chat", "code"} else [kind, "--text", "hello"]
+    if kind == "classify":
+        argv.extend(["--label", "A", "--label", "B"])
+    code, out, err, requests, _ = _run(
+        capsys, argv, httpx.Response(200, json=_account(kind))
+    )
+    assert (code, err, len(requests)) == (0, "", 1)
+    assert "Active request explanation\n" in out
+    assert f"Capability: {kind}\n" in out
+    assert "Request status: succeeded\n" in out
+
+
+@pytest.mark.parametrize("option", ["-j", "--json"])
+def test_json_options_preserve_compact_output(
+    capsys: pytest.CaptureFixture[str], option: str
+) -> None:
+    account = _account()
+    code, out, err, _, _ = _run(
+        capsys, ["chat", "hello", option, "-j"], httpx.Response(200, json=account)
+    )
+    assert (code, out, err) == (
+        0,
+        json.dumps(account, separators=(",", ":")) + "\n",
+        "",
+    )
+
+
+def test_text_content_is_complete_and_terminal_safe(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = _account()
+    account["result"].update(content="line one\nFailure: forged\r\\\\\x1b[2J\x01\u0080")
+    code, out, err, _, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, err) == (0, "")
+    assert (
+        '| "line one"\n| "Failure: forged\\r\\\\\\\\\\u001b[2J\\u0001\\u0080"\n' in out
+    )
+    assert "\x1b" not in out
+
+
+def test_empty_content_is_distinct_from_literal_empty_marker(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    empty = _account()
+    empty["result"].update(content="")
+    literal = _account()
+    literal["result"].update(content="(empty)")
+    empty_result = _run(capsys, ["chat", "hello"], httpx.Response(200, json=empty))
+    literal_result = _run(capsys, ["chat", "hello"], httpx.Response(200, json=literal))
+    assert (empty_result[0], empty_result[2]) == (0, "")
+    assert (literal_result[0], literal_result[2]) == (0, "")
+    assert "| <empty>\n" in empty_result[1]
+    assert '| "(empty)"\n' in literal_result[1]
+    assert empty_result[1] != literal_result[1]
+
+
+def test_content_trailing_newline_preserves_final_logical_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = _account()
+    account["result"].update(content="first\n")
+    code, out, err, _, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, err) == (0, "")
+    assert '| "first"\n| ""\n' in out
+
+
+def test_human_report_preserves_candidate_and_continuation_order(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = _account()
+    account["explanation"].update(
+        candidate_facts=[
+            {
+                "family": "local",
+                "node_id": "local-1",
+                "fact": "execution-permission-denied",
+            },
+            {
+                "family": "declared-remote",
+                "node_id": "remote-a",
+                "fact": "transport-invoked",
+            },
+        ],
+        continuations=[
+            {
+                "node_id": "local-1",
+                "reason": "local-execution-permission-denied",
+            }
+        ],
+        final_node_id="remote-a",
+    )
+    account["result"].update(node_id="remote-a", model="model-a")
+    code, out, err, _, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, err) == (0, "")
+    assert out.index('local "local-1": execution-permission-denied') < out.index(
+        'declared remote "remote-a": transport-invoked'
+    )
+    assert (
+        'Continuations (same request):\n- after "local-1": '
+        "local-execution-permission-denied"
+    ) in out
+    assert 'Final execution node: "remote-a"' in out
+    assert 'Model: "model-a"' in out
+
+
+def test_formatter_failure_writes_no_partial_report(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(account: client._Account) -> str:
+        raise RuntimeError("private formatter failure")
+
+    monkeypatch.setattr(client, "_format_report", fail)
+    code, out, err, requests, _ = _run(capsys, ["chat", "hello"])
+    assert (code, out, err, len(requests)) == (1, "", client._FAILED + "\n", 1)
+
+
+def test_successful_output_uses_one_complete_stdout_write(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writes: list[str] = []
+
+    class Recorder:
+        def write(self, value: str) -> int:
+            writes.append(value)
+            return len(value)
+
+    monkeypatch.setattr(client.sys, "stdout", Recorder())
+    account = _account()
+    code, out, err, requests, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, out, err, len(requests)) == (0, "", "", 1)
+    assert writes == [
+        client._format_report(client._Account.model_validate(account)) + "\n"
+    ]

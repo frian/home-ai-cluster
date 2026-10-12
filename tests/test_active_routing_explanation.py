@@ -61,7 +61,7 @@ def test_one_post_exact_body_and_compact_complete_result(
     capsys: pytest.CaptureFixture[str], local_only: bool
 ) -> None:
     result = {**RESULT, "local_only": local_only}
-    argv = ["--capability", "chat", *(["--local-only"] if local_only else [])]
+    argv = ["--capability", "chat", *(["--local-only"] if local_only else []), "-j"]
     code, out, err, requests = _run(
         capsys, argv, lambda request: httpx.Response(200, json=result)
     )
@@ -90,7 +90,7 @@ def test_valid_selection_variants(
     }
     code, out, err, requests = _run(
         capsys,
-        ["--capability", "chat"],
+        ["--capability", "chat", "--json"],
         lambda request: httpx.Response(200, json=result),
     )
     assert code == 0 and err == "" and len(requests) == 1
@@ -129,7 +129,12 @@ def test_semantically_invalid_success_is_rejected(
     capsys: pytest.CaptureFixture[str], changes: dict[str, object]
 ) -> None:
     result = {**RESULT, **changes}
-    argv = ["--capability", "chat", *(["--local-only"] if result["local_only"] else [])]
+    argv = [
+        "--capability",
+        "chat",
+        *(["--local-only"] if result["local_only"] else []),
+        "-j",
+    ]
     code, out, err, requests = _run(
         capsys, argv, lambda request: httpx.Response(200, json=result)
     )
@@ -173,7 +178,12 @@ def test_valid_selection_relationships_remain_accepted(
     capsys: pytest.CaptureFixture[str], changes: dict[str, object]
 ) -> None:
     result = {**RESULT, **changes}
-    argv = ["--capability", "chat", *(["--local-only"] if result["local_only"] else [])]
+    argv = [
+        "--capability",
+        "chat",
+        *(["--local-only"] if result["local_only"] else []),
+        "-j",
+    ]
     code, out, err, requests = _run(
         capsys, argv, lambda request: httpx.Response(200, json=result)
     )
@@ -187,7 +197,12 @@ def test_valid_selection_relationships_remain_accepted(
 
 @pytest.mark.parametrize(
     "argv",
-    [[], ["--capability", "unknown"], ["--capability", "chat", "--host", "remote"]],
+    [
+        [],
+        ["--capability", "unknown"],
+        ["--capability", "chat", "--host", "remote"],
+        ["--capability", "chat", "--json=value"],
+    ],
 )
 def test_invalid_input_prevents_http(
     capsys: pytest.CaptureFixture[str], argv: list[str]
@@ -208,7 +223,7 @@ def test_every_accepted_capability_passes_local_validation(
 ) -> None:
     code, out, err, requests = _run(
         capsys,
-        ["--capability", capability],
+        ["--capability", capability, "-j"],
         lambda request: httpx.Response(200, json={**RESULT, "capability": capability}),
     )
     assert code == 0 and err == "" and len(requests) == 1
@@ -289,3 +304,74 @@ def test_transport_failure_has_no_retry_or_leak(
 
     code, out, err, requests = _run(capsys, ["--capability", "chat"], fail)
     assert (code, out, err, len(requests)) == (1, "", f"error: {expected}\n", 1)
+
+
+def test_default_output_is_human_readable_and_terminal_safe(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = {
+        **RESULT,
+        "local_eligible": False,
+        "eligible_remote_node_ids": ["remote-a", "bad\\x1b[2J"],
+        "initial_selection": {"kind": "declared_remote", "node_id": "remote-a"},
+    }
+    code, out, err, requests = _run(
+        capsys,
+        ["--capability", "chat"],
+        lambda request: httpx.Response(200, json=result),
+    )
+    assert (code, err, len(requests)) == (0, "", 1)
+    assert 'Eligible declared remotes: "remote-a", "bad\\\\x1b[2J"' in out
+    assert 'Initial selection: declared remote "remote-a"' in out
+    assert "No selectable candidate: no" in out
+    assert "\x1b" not in out
+
+
+@pytest.mark.parametrize("option", ["-j", "--json", "-j", "--json"])
+def test_json_options_preserve_compact_output(
+    capsys: pytest.CaptureFixture[str], option: str
+) -> None:
+    argv = ["--capability", "chat", option]
+    if option == "--json":
+        argv.append("-j")
+    code, out, err, _ = _run(
+        capsys, argv, lambda request: httpx.Response(200, json=RESULT)
+    )
+    assert (code, out, err) == (0, json.dumps(RESULT, separators=(",", ":")) + "\n", "")
+
+
+def test_formatter_failure_writes_no_partial_report(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail(result: client._Explanation) -> str:
+        raise RuntimeError("private formatter failure")
+
+    monkeypatch.setattr(client, "_format_report", fail)
+    code, out, err, requests = _run(
+        capsys,
+        ["--capability", "chat"],
+        lambda request: httpx.Response(200, json=RESULT),
+    )
+    assert (code, out, err, len(requests)) == (1, "", client._FAILED + "\n", 1)
+
+
+def test_successful_output_uses_one_complete_stdout_write(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writes: list[str] = []
+
+    class Recorder:
+        def write(self, value: str) -> int:
+            writes.append(value)
+            return len(value)
+
+    monkeypatch.setattr(client.sys, "stdout", Recorder())
+    code, out, err, requests = _run(
+        capsys,
+        ["--capability", "chat"],
+        lambda request: httpx.Response(200, json=RESULT),
+    )
+    assert (code, out, err, len(requests)) == (0, "", "", 1)
+    assert writes == [
+        client._format_report(client._Explanation.model_validate(RESULT)) + "\n"
+    ]

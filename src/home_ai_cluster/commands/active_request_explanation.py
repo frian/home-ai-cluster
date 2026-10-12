@@ -140,7 +140,7 @@ def _parse(
     *,
     stdin: BinaryIO | None,
     file_opener: Callable[[str, str], BinaryIO],
-) -> tuple[str, bool, float, dict[str, object]]:
+) -> tuple[str, bool, float, bool, dict[str, object]]:
     parser = _ArgumentParser(
         prog="home-ai-cluster explain-active-request",
         description="Execute and explain one request in the running ordinary cluster.",
@@ -161,6 +161,9 @@ def _parse(
                 command.add_argument("--label", action="append")
         command.add_argument("--local-only", action="store_true")
         command.add_argument("--timeout-seconds", action="append")
+        command.add_argument(
+            "-j", "--json", action="store_true", help="Print the compact JSON result."
+        )
     args = parser.parse_args(argv)
     timeouts = args.timeout_seconds or []
     if len(timeouts) > 1:
@@ -216,7 +219,7 @@ def _parse(
                 request = {"text": source}
         except ValidationError:
             raise _InvalidRequestInput from None
-    return kind, args.local_only, timeout, request
+    return kind, args.local_only, timeout, args.json, request
 
 
 def _validate_account(
@@ -328,6 +331,80 @@ def _failure(message: str, code: int) -> None:
     raise SystemExit(code) from None
 
 
+def _scalar(value: str | None) -> str:
+    """Render one public scalar without allowing terminal control."""
+    return "none" if value is None else json.dumps(value, ensure_ascii=True)
+
+
+def _selection(selection: _LocalSelection | _RemoteSelection | None) -> str:
+    if selection is None:
+        return "none"
+    if isinstance(selection, _LocalSelection):
+        return "local"
+    return f"declared remote {_scalar(selection.node_id)}"
+
+
+def _content_lines(content: str) -> list[str]:
+    """Preserve logical LF lines while escaping every other control character."""
+    if not content:
+        return ["| <empty>"]
+    return [f"| {json.dumps(line, ensure_ascii=True)}" for line in content.split("\n")]
+
+
+def _format_report(account: _Account) -> str:
+    """Project one validated actual-request account for a plain-text terminal."""
+    explanation = account.explanation
+    lines = [
+        "Active request explanation",
+        f"Capability: {explanation.requested_capability}",
+        f"Local only: {str(explanation.local_only).lower()}",
+        f"Request status: {account.status}",
+        f"Initial selection: {_selection(explanation.initial_selection)}",
+        "",
+    ]
+    if explanation.candidate_facts:
+        lines.append("Candidate facts:")
+        lines.extend(
+            f"- {item.family.replace('-', ' ')} {_scalar(item.node_id)}: {item.fact}"
+            for item in explanation.candidate_facts
+        )
+    else:
+        lines.append("Candidate facts: none")
+    if explanation.continuations:
+        lines.append("Continuations (same request):")
+        lines.extend(
+            f"- after {_scalar(item.node_id)}: {item.reason}"
+            for item in explanation.continuations
+        )
+    else:
+        lines.append("Continuations: none")
+    lines.extend(
+        [
+            f"Final execution node: {_scalar(explanation.final_node_id)}",
+            "Failure: "
+            f"{_scalar(account.failure.status) if account.failure else 'none'}",
+        ]
+    )
+    if account.status == "failed":
+        lines.append("Result: none")
+        return "\n".join(lines)
+    result = account.result
+    assert result is not None
+    lines.extend(["", "Result:", f"Node: {_scalar(result.node_id)}"])
+    if isinstance(result, _TextResult):
+        lines.extend(
+            [
+                f"Adapter: {_scalar(result.adapter)}",
+                f"Model: {_scalar(result.model)}",
+                "Content:",
+                *_content_lines(result.content),
+            ]
+        )
+    else:
+        lines.append(f"Selected label: {_scalar(result.selected_label)}")
+    return "\n".join(lines)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -337,7 +414,7 @@ def main(
 ) -> None:
     """Submit one request and print its complete validated public account."""
     try:
-        kind, local_only, timeout, request = _parse(
+        kind, local_only, timeout, json_output, request = _parse(
             argv, stdin=_stdin, file_opener=_file_opener
         )
     except (_InvalidRequestInput, UnicodeError):
@@ -371,4 +448,12 @@ def main(
         _failure(_INVALID_RESPONSE, 1)
     except Exception:
         _failure(_FAILED, 1)
-    print(json.dumps(account.model_dump(), separators=(",", ":")))
+    try:
+        output = (
+            json.dumps(account.model_dump(), separators=(",", ":"))
+            if json_output
+            else _format_report(account)
+        )
+    except Exception:
+        _failure(_FAILED, 1)
+    sys.stdout.write(output + "\n")

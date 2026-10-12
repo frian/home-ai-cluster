@@ -60,6 +60,9 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--capability", required=True, metavar="CAPABILITY")
     parser.add_argument("--local-only", action="store_true")
+    parser.add_argument(
+        "-j", "--json", action="store_true", help="Print the compact JSON result."
+    )
     args = parser.parse_args(argv)
     if args.capability not in ACCEPTED_CAPABILITY_NAMES:
         raise _InvalidInput
@@ -69,6 +72,43 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
 def _failure(message: str, code: int) -> None:
     print(message, file=sys.stderr)
     raise SystemExit(code) from None
+
+
+def _scalar(value: str | None) -> str:
+    """Render one public scalar without allowing terminal control."""
+    return "none" if value is None else json.dumps(value, ensure_ascii=True)
+
+
+def _selection(selection: _LocalSelection | _RemoteSelection | None) -> str:
+    if selection is None:
+        return "none"
+    if isinstance(selection, _LocalSelection):
+        return "local"
+    return f"declared remote {_scalar(selection.node_id)}"
+
+
+def _format_report(result: _Explanation) -> str:
+    """Project one validated routing explanation for a plain-text terminal."""
+    remotes = (
+        ", ".join(_scalar(node_id) for node_id in result.eligible_remote_node_ids)
+        or "none"
+    )
+    return "\n".join(
+        [
+            "Active routing explanation",
+            f"Capability: {result.capability}",
+            f"Local only: {str(result.local_only).lower()}",
+            f"Local eligible: {str(result.local_eligible).lower()}",
+            f"Eligible declared remotes: {remotes}",
+            (
+                "Remotes excluded by local-only: "
+                f"{str(result.remotes_excluded_by_local_only).lower()}"
+            ),
+            f"Initial selection: {_selection(result.initial_selection)}",
+            "No selectable candidate: "
+            f"{'yes' if result.initial_selection is None else 'no'}",
+        ]
+    )
 
 
 def main(
@@ -126,4 +166,12 @@ def main(
     except Exception:
         _failure(_FAILED, 1)
 
-    print(json.dumps(result.model_dump(), separators=(",", ":")))
+    try:
+        output = (
+            json.dumps(result.model_dump(), separators=(",", ":"))
+            if args.json
+            else _format_report(result)
+        )
+    except Exception:
+        _failure(_FAILED, 1)
+    sys.stdout.write(output + "\n")

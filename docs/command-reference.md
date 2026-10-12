@@ -44,7 +44,7 @@ forms remain canonical, supported, and non-deprecated.
 | `-f` | `--file` | aider, code-file, summarize, classify |
 | `-d` | `--declaration` | static-cluster, compatibility, preflight, status |
 | `-l` | `--label` | classify |
-| `-j` | `--json` | chat, code, external-information, summarize, classify, preflight, health, status |
+| `-j` | `--json` | chat, code, external-information, summarize, classify, preflight, explain-active-routing, explain-active-request, health, status |
 
 Every argparse-backed subcommand continues to provide `-h/--help`. Existing
 `-v/--verbose` remains available only where already supported: chat, code,
@@ -987,13 +987,20 @@ or raw adapter output.
 
 ## `hac explain-active-routing`
 
-`hac explain-active-routing --capability <CAPABILITY> [--local-only]` (also
+`hac explain-active-routing --capability <CAPABILITY> [--local-only] [-j|--json]` (also
 `home-ai-cluster explain-active-routing`) sends one POST to the fixed loopback
 RFC-0147 endpoint at `http://127.0.0.1:25042/diagnostics/static-routing-explanation`.
 An ordinary HAC process must already be running. The command accepts one
 accepted HAC capability and optionally restricts selection to local candidates.
 It makes one request without a preflight or retry, then prints the validated
-RFC-0147 result as one compact JSON object.
+RFC-0147 result. Human-readable text is the default; use `-j` or `--json` for
+the existing compact JSON object. This intentionally changes the previous
+JSON-default invocation: scripts must now specify `-j` or `--json`.
+
+```sh
+hac explain-active-routing --capability chat
+hac explain-active-routing --capability chat --json
+```
 
 Invalid input exits 2 with `error: invalid routing explanation input`. Other
 failures exit 1 with one of: `error: ordinary cluster unavailable`,
@@ -1021,6 +1028,7 @@ hac explain-active-request summarize --text "source text"
 hac explain-active-request summarize --file source.txt
 printf 'source text' | hac explain-active-request summarize
 hac explain-active-request classify --text "source text" --label A --label B
+hac explain-active-request chat "hello" --json
 ```
 
 The four subcommands are `chat`, `code`, `summarize`, and `classify`. Chat and
@@ -1028,10 +1036,13 @@ Code each accept one positional message or one `--message`. Summarize and
 Classify accept one `--text`, one bounded regular UTF-8 `--file`, or stdin when
 neither is given. Classify needs 2–32 ordered labels. Each subcommand accepts
 `--local-only` to restrict execution to a local candidate, and
-`--timeout-seconds SECONDS` (1–3600, default 120). The timeout is an HTTP
-client timeout, not a server execution deadline.
+`--timeout-seconds SECONDS` (1–3600, default 120), `-j`, and `--json`. The
+timeout is an HTTP client timeout, not a server execution deadline. Successful
+output is human-readable by default. Use `-j` or `--json` after any capability
+subcommand for the previous compact JSON representation; existing scripts must
+now select it explicitly.
 
-A valid response prints the complete account as one compact JSON object. A
+A valid response prints one completed account report. A
 valid `status:"failed"` business account still exits 0. Invalid local input
 exits 2 with `error: invalid request explanation input`. Client failures exit
 1 with one safe line: `error: ordinary cluster unavailable`,

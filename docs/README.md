@@ -19,6 +19,8 @@ Accepted RFCs, not this index, define the architecture.
   local, and static configuration examples.
 - [Canonical Operator Workflow](operator-workflow.md) — the supported
   local-only and explicit static-cluster operating sequence.
+- [Incus Loopback Receiver Dogfooding Runbook](incus-loopback-receiver-runbook.md)
+  — one validated local Incus caller and receiver startup procedure.
 
 ## Understand the project
 

@@ -117,7 +117,7 @@ def test_caller_local_routing_restriction_remains_authoritative() -> None:
     wiring = StaticRemoteWiring(
         node_registry=NodeRegistry(),
         adapter_registry=local.adapter_registry,
-        remote_registry=RemoteNodeDeclarationRegistry([remote("chat")]),
+        remote_registry=RemoteNodeDeclarationRegistry([remote("code")]),
         remote_transport=SimpleNamespace(),
         selection_mode=RoutingCandidateSelectionMode.AUTOMATIC_CAPABILITY,
     )
@@ -125,7 +125,7 @@ def test_caller_local_routing_restriction_remains_authoritative() -> None:
     response = get(create_app(local_app_composition=local, static_remote_wiring=wiring))
 
     assert response.status_code == 200
-    assert response.json() == {"capabilities": ["chat"]}
+    assert response.json() == {"capabilities": ["code"]}
 
 
 def test_active_static_remote_is_projected_without_contacting_it() -> None:

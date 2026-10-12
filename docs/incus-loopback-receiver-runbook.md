@@ -212,11 +212,24 @@ are not evidence of success.
 
 | Symptom | Check and correction |
 | --- | --- |
-| `incus start` fails with `bind: cannot assign requested address` | The observed proxy listened on an old Wi-Fi address. Inspect `incus config device show hac-debian-1` and use the existing host loopback listen address `127.0.0.1:25043`. |
+| `incus start` fails with `bind: cannot assign requested address` | The observed proxy listened on an old Wi-Fi address. Inspect `incus config device show hac-debian-1`, then reset its host listen address while the container is stopped as shown below. |
 | `curl` reports `Recv failure: Connection reset by peer` | The proxy may listen while HAC is stopped or its `connect` address is stale. Run `incus exec hac-debian-1 -- ss -ltnp`, inspect `incus config device show hac-debian-1`, and confirm receiver startup and the current container IPv4. |
 | `command -v hac` returns nothing inside Debian | Check `~/.local/bin/hac --version`; if present, run `export PATH="$HOME/.local/bin:$PATH"` in that shell. |
 | Receiver responds but caller uses an old URL | Run `uv run --locked hac config show` on the host. Correct the retained node declaration while preserving its capabilities, then restart the caller. |
 | `error: request explanation timed out` | The CLI received no completed validated account. The server may have received or begun work. Do not infer completion, cancellation, or safe retry; repeating the command submits another business request. |
+
+For that Incus startup failure, run this on the **host while the container is
+stopped**; the container IPv4 is not needed yet:
+
+```sh
+incus config device set hac-debian-1 hac-api \
+  listen=tcp:127.0.0.1:25043
+incus start hac-debian-1
+```
+
+After startup, inspect the current container IPv4 with `incus list hac-debian-1`.
+Then check the existing proxy and update its `connect` address if necessary,
+following [step 4](#4-check-or-update-the-existing-proxy-host-shell).
 
 ## Stop the environment
 
@@ -234,8 +247,10 @@ only if that is the operator's intention.
 
 ## Quick reference
 
-Host: `incus start hac-debian-1` → `incus list hac-debian-1` (record current
-IPv4) → `incus config device show hac-debian-1`.
+Host: `incus start hac-debian-1` (use the stopped-container recovery above if
+needed) → `incus list hac-debian-1` (record current IPv4) →
+`incus config device show hac-debian-1` (check `hac-api`; update `connect` using
+step 4 if the container IPv4 changed).
 
 Debian: `incus exec hac-debian-1 -- bash` → check `ollama list` and
 `hac --version` → start `hac local --runtime ollama --ollama-model

@@ -27,7 +27,10 @@ COMPATIBILITY_PORT = 8001
 
 def create_openai_compatibility_app() -> FastAPI:
     """Create the dedicated app without changing the ordinary application."""
-    app = create_app(include_static_routing_explanation=False)
+    app = create_app(
+        include_static_routing_explanation=False,
+        include_caller_routable_capabilities=False,
+    )
     app.include_router(compatibility_router)
     return app
 
@@ -43,6 +46,7 @@ def create_static_cluster_openai_compatibility_app(
         remote_nodes,
         local_app_composition=local_app_composition,
         include_static_routing_explanation=False,
+        include_caller_routable_capabilities=False,
     )
     if proof_observation:
         app.state.proof_observation_state = ProofObservationState()

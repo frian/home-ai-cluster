@@ -18,8 +18,8 @@ On 2026-10-12, the operator ran three manual configuration tests with an
 isolated `XDG_CONFIG_HOME`. Every mutation used that isolated configuration,
 leaving the normal retained configuration untouched. These are supplied
 operator observations, not tests or runtime traces independently captured by
-this investigation. No HAC process, runtime, or remote receiver was started or
-changed for this campaign. In the commands below, `hac_obs01` denotes the
+this investigation. No HAC serving process, runtime, or remote receiver was started
+or changed for this investigation. In the commands below, `hac_obs01` denotes the
 operator's wrapper that ran `uv run --locked hac` with that isolated
 `XDG_CONFIG_HOME`; `$OBS01_DIR` denotes its temporary test directory.
 
@@ -65,7 +65,7 @@ hac_obs01 config local binding add --capability code \
   --runtime ollama --model qwen2.5-coder:7b
 ```
 
-It exited `2` with exactly:
+It exited `2` with the following error line:
 
 ```text
 home-ai-cluster config: error: local binding mutation requires retained multi-binding composition

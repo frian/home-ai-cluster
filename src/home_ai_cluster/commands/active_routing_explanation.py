@@ -174,4 +174,4 @@ def main(
         )
     except Exception:
         _failure(_FAILED, 1)
-    print(output)
+    sys.stdout.write(output + "\n")

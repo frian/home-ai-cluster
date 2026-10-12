@@ -353,3 +353,25 @@ def test_formatter_failure_writes_no_partial_report(
         lambda request: httpx.Response(200, json=RESULT),
     )
     assert (code, out, err, len(requests)) == (1, "", client._FAILED + "\n", 1)
+
+
+def test_successful_output_uses_one_complete_stdout_write(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writes: list[str] = []
+
+    class Recorder:
+        def write(self, value: str) -> int:
+            writes.append(value)
+            return len(value)
+
+    monkeypatch.setattr(client.sys, "stdout", Recorder())
+    code, out, err, requests = _run(
+        capsys,
+        ["--capability", "chat"],
+        lambda request: httpx.Response(200, json=RESULT),
+    )
+    assert (code, out, err, len(requests)) == (0, "", "", 1)
+    assert writes == [
+        client._format_report(client._Explanation.model_validate(RESULT)) + "\n"
+    ]

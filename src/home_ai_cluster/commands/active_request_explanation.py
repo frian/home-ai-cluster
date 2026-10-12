@@ -347,10 +347,8 @@ def _selection(selection: _LocalSelection | _RemoteSelection | None) -> str:
 def _content_lines(content: str) -> list[str]:
     """Preserve logical LF lines while escaping every other control character."""
     if not content:
-        return ["| (empty)"]
-    return [
-        f"| {json.dumps(line, ensure_ascii=True)[1:-1]}" for line in content.split("\n")
-    ]
+        return ["| <empty>"]
+    return [f"| {json.dumps(line, ensure_ascii=True)}" for line in content.split("\n")]
 
 
 def _format_report(account: _Account) -> str:
@@ -458,4 +456,4 @@ def main(
         )
     except Exception:
         _failure(_FAILED, 1)
-    print(output)
+    sys.stdout.write(output + "\n")

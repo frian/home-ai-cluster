@@ -592,8 +592,38 @@ def test_text_content_is_complete_and_terminal_safe(
         capsys, ["chat", "hello"], httpx.Response(200, json=account)
     )
     assert (code, err) == (0, "")
-    assert "| line one\n| Failure: forged\\r\\\\\\\\\\u001b[2J\\u0001\\u0080\n" in out
+    assert (
+        '| "line one"\n| "Failure: forged\\r\\\\\\\\\\u001b[2J\\u0001\\u0080"\n' in out
+    )
     assert "\x1b" not in out
+
+
+def test_empty_content_is_distinct_from_literal_empty_marker(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    empty = _account()
+    empty["result"].update(content="")
+    literal = _account()
+    literal["result"].update(content="(empty)")
+    empty_result = _run(capsys, ["chat", "hello"], httpx.Response(200, json=empty))
+    literal_result = _run(capsys, ["chat", "hello"], httpx.Response(200, json=literal))
+    assert (empty_result[0], empty_result[2]) == (0, "")
+    assert (literal_result[0], literal_result[2]) == (0, "")
+    assert "| <empty>\n" in empty_result[1]
+    assert '| "(empty)"\n' in literal_result[1]
+    assert empty_result[1] != literal_result[1]
+
+
+def test_content_trailing_newline_preserves_final_logical_line(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    account = _account()
+    account["result"].update(content="first\n")
+    code, out, err, _, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, err) == (0, "")
+    assert '| "first"\n| ""\n' in out
 
 
 def test_human_report_preserves_candidate_and_continuation_order(
@@ -646,3 +676,24 @@ def test_formatter_failure_writes_no_partial_report(
     monkeypatch.setattr(client, "_format_report", fail)
     code, out, err, requests, _ = _run(capsys, ["chat", "hello"])
     assert (code, out, err, len(requests)) == (1, "", client._FAILED + "\n", 1)
+
+
+def test_successful_output_uses_one_complete_stdout_write(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    writes: list[str] = []
+
+    class Recorder:
+        def write(self, value: str) -> int:
+            writes.append(value)
+            return len(value)
+
+    monkeypatch.setattr(client.sys, "stdout", Recorder())
+    account = _account()
+    code, out, err, requests, _ = _run(
+        capsys, ["chat", "hello"], httpx.Response(200, json=account)
+    )
+    assert (code, out, err, len(requests)) == (0, "", "", 1)
+    assert writes == [
+        client._format_report(client._Account.model_validate(account)) + "\n"
+    ]

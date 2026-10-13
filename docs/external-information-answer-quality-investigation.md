@@ -84,7 +84,8 @@ The acquisitions shared only two source URLs. Advanced returned about 38%
 more source-content bytes and, in this sample, included an official passage
 confirming that Python 3.14 re-enabled the specializing adaptive interpreter
 (PEP 659) for free-threaded builds and reduced approximate single-thread
-overhead to 5-10%. Basic instead included a historical statement that
+overhead to 5-10%, depending on platform and compiler. Basic instead
+included a historical statement that
 re-enablement was *expected* in Python 3.14, not evidence that it had occurred.
 Basic also contained the earlier approximate 40% Python 3.13 overhead figure,
 which the sampled Advanced result set omitted.
@@ -127,7 +128,8 @@ source table headed "bubble 1 thread" as a multithreaded bubble-sort
 comparison.
 
 With Advanced sources, both models correctly reported PEP 659 re-enablement
-and the approximate 5-10% single-thread overhead, facts actually present in
+and the approximate 5-10% single-thread overhead (dependent on platform
+and compiler), facts actually present in
 the official-documentation excerpt. The 9B nonetheless generalized a
 CodSpeed performance observation beyond its stated scope and did not cleanly
 separate free-threading (PEP 703) from multiple interpreters (PEP 734).
@@ -148,10 +150,12 @@ execution's phase timing was not instrumented.
 1. **Transport works; answer trust is unproven.** HAC supplied the selected
    evidence to ordinary Chat. Returned provenance does not certify that any
    generated claim was supported by the source it cites.
-2. **Source quality matters.** In this example Advanced supplied a decisive
+2. **The observed source sets differed in coverage.** In this example
+   Advanced supplied a decisive
    official passage missing from Basic, correcting one important fact in
    downstream answers. It also omitted a useful historical comparison.
-3. **Model choice matters, but does not solve grounding.** The 27B performed
+3. **The observed model answers differed without establishing reliability.**
+   The 27B performed
    better on the fictional selection test and avoided some unsupported
    assertions, yet it still misinterpreted benchmarks, blurred independent
    features, and produced an overconfident conclusion in one Basic answer.

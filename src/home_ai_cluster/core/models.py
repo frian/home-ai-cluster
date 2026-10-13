@@ -124,8 +124,8 @@ class SourceEvidence(BaseModel):
     @field_validator("content")
     @classmethod
     def validate_content_size(cls, value: str) -> str:
-        if len(value.encode("utf-8")) > 1_024:
-            raise ValueError("source content must not exceed 1,024 UTF-8 bytes")
+        if len(value.encode("utf-8")) > 2_048:
+            raise ValueError("source content must not exceed 2,048 UTF-8 bytes")
         return value
 
 

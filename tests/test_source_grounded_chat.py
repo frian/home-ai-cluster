@@ -123,7 +123,7 @@ def post(app, path: str, payload: object) -> httpx.Response:
             "https://example.test/" + "a" * 2_027,
             "https://example.test/" + "a" * 2_028,
         ),
-        ("content", "é" * 512, "é" * 512 + "a"),
+        ("content", "é" * 1_024, "é" * 1_024 + "a"),
     ],
 )
 def test_source_evidence_enforces_utf8_field_bounds(
@@ -138,6 +138,16 @@ def test_source_evidence_enforces_utf8_field_bounds(
     values[field] = above_limit
     with pytest.raises(ValidationError):
         SourceEvidence(**values)
+
+
+@pytest.mark.parametrize("content", ["a" * 1_024, "a" * 1_025, "a" * 2_048])
+def test_source_evidence_accepts_expanded_content_bound(content: str) -> None:
+    assert source(content=content).content == content
+
+
+def test_source_evidence_rejects_content_above_expanded_bound() -> None:
+    with pytest.raises(ValidationError):
+        source(content="a" * 2_049)
 
 
 @pytest.mark.parametrize(
@@ -200,6 +210,22 @@ def test_source_grounded_request_enforces_bounds() -> None:
     )
     with pytest.raises(ValidationError):
         SourceGroundedChatRequest(question="Question", sources=[oversized])
+
+
+def test_source_grounded_request_preserves_aggregate_evidence_bound() -> None:
+    maximum_source = source(
+        title="t" * 512,
+        url="https://example.test/" + "u" * 2_027,
+        content="c" * 2_048,
+    )
+
+    accepted = SourceGroundedChatRequest(
+        question="Question", sources=[maximum_source] * 4
+    )
+    assert accepted.sources == [maximum_source] * 4
+
+    with pytest.raises(ValidationError):
+        SourceGroundedChatRequest(question="Question", sources=[maximum_source] * 5)
 
 
 def test_source_grounded_request_validates_complete_prior_exchanges() -> None:
@@ -297,7 +323,7 @@ def test_source_grounded_request_rejects_projection_overflow_before_routing() ->
     control_source = source(
         title="\x00" * 512,
         url="https://example.test/" + "\x00" * 2_027,
-        content="\x00" * 1_024,
+        content="\x00" * 1_536,
     )
 
     with pytest.raises(ValidationError):
@@ -443,6 +469,34 @@ def test_public_route_rejects_invalid_input_without_adapter_execution() -> None:
     assert adapter.requests == []
 
 
+def test_public_route_enforces_expanded_content_bound_before_execution() -> None:
+    adapter = RecordingChatAdapter()
+    app = create_app(local_app_composition=local_composition(adapter))
+    accepted_payload = source_payload() | {
+        "sources": [
+            {
+                "title": "First",
+                "url": "https://example.test/first",
+                "content": "é" * 1_024,
+            }
+        ]
+    }
+
+    accepted = post(app, "/v1/chat/sources", accepted_payload)
+    assert accepted.status_code == 200
+    assert adapter.requests[0].messages[-2].content == source_data_message_content(
+        [source(content="é" * 1_024, title="First", url="https://example.test/first")]
+    )
+
+    oversized = accepted_payload | {
+        "sources": [accepted_payload["sources"][0] | {"content": "a" * 2_049}]
+    }
+    rejected = post(app, "/v1/chat/sources", oversized)
+    assert rejected.status_code == 422
+    assert rejected.json() == {"detail": "Invalid source-grounded chat request"}
+    assert len(adapter.requests) == 1
+
+
 def test_public_route_rejects_invalid_prior_messages_without_adapter_execution() -> (
     None
 ):
@@ -530,7 +584,7 @@ def test_internal_envelope_is_strict_and_receiver_projects_locally() -> None:
     app = create_app(local_app_composition=local_composition(adapter))
     request = SourceGroundedChatRequest(
         question="Remote question",
-        sources=[source()],
+        sources=[source(content="a" * 2_048)],
         constraints=RequestConstraints(local_only=False),
     )
     body = internal_cluster_request_body(request)
@@ -538,7 +592,7 @@ def test_internal_envelope_is_strict_and_receiver_projects_locally() -> None:
     assert body["kind"] == "source-grounded-chat"
     assert body["request"] == {
         "question": "Remote question",
-        "sources": [source().model_dump()],
+        "sources": [source(content="a" * 2_048).model_dump()],
         "constraints": {
             "local_only": False,
             "prefer_fast_response": False,
@@ -550,9 +604,18 @@ def test_internal_envelope_is_strict_and_receiver_projects_locally() -> None:
     response = post(app, "/internal/cluster/request", body)
 
     assert response.status_code == 200
-    assert response.json()["sources"] == [source().model_dump()]
+    assert response.json()["sources"] == [source(content="a" * 2_048).model_dump()]
     assert len(adapter.requests) == 1
     assert adapter.requests[0].messages[-1].content == "Remote question"
+
+    oversized_source_body = body | {
+        "request": body["request"]
+        | {"sources": [body["request"]["sources"][0] | {"content": "a" * 2_049}]}
+    }
+    rejected_oversized = post(app, "/internal/cluster/request", oversized_source_body)
+    assert rejected_oversized.status_code == 422
+    assert rejected_oversized.json() == {"detail": "Invalid internal cluster request"}
+    assert len(adapter.requests) == 1
 
     bad_body = body | {"unexpected": True}
     rejected = post(app, "/internal/cluster/request", bad_body)

@@ -1,6 +1,6 @@
 # RFC-0154: Bounded External Information Source Expansion
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-13
 
@@ -308,19 +308,21 @@ mixed-version rejection and the safe deployment order.
 
 ## Open questions
 
-- Does independent review find 2,048 bytes to be the smallest justified
-  provider-neutral margin, given the limited measurement?
+- The following are possible future investigations, not prerequisites to this
+  accepted decision. Does future evidence support reconsidering whether 2,048
+  bytes remains the smallest justified provider-neutral margin?
 - Is the retained 20,480-byte aggregate ceiling the right conservative total
-  budget once it becomes reachable, or should any change to it require a
-  separate investigation and RFC?
+  budget once it becomes reachable? Any change to it requires a separate
+  investigation and RFC.
 - What controlled future evidence, if any, would be sufficient to assess
   answer usefulness without retaining private prompts, source text, or outputs?
 
 ## Decision
 
-If accepted, amend RFC-0077 only by raising the maximum
-`SourceEvidence.content` size from 1,024 to 2,048 UTF-8 bytes while preserving
-all other source, aggregate, projection, validation, authority, and failure
-rules. Amend RFC-0093 only by changing its fixed Tavily Search
-`chunks_per_source` value from 1 to 2 while preserving all other request,
-transport, normalization, and privacy rules. RFC-0078 remains unchanged.
+Accept this RFC as an explicit amendment to RFC-0077 and RFC-0093. Amend
+RFC-0077 only by raising the maximum `SourceEvidence.content` size from 1,024
+to 2,048 UTF-8 bytes while preserving all other source, aggregate, projection,
+validation, authority, and failure rules. Amend RFC-0093 only by changing its
+fixed Tavily Search `chunks_per_source` value from 1 to 2 while preserving all
+other request, transport, normalization, and privacy rules. RFC-0078 remains
+unchanged.

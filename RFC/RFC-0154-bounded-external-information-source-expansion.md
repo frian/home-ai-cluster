@@ -316,7 +316,7 @@ mixed-version rejection and the safe deployment order.
 - What controlled future evidence, if any, would be sufficient to assess
   answer usefulness without retaining private prompts, source text, or outputs?
 
-## Proposed decision
+## Decision
 
 If accepted, amend RFC-0077 only by raising the maximum
 `SourceEvidence.content` size from 1,024 to 2,048 UTF-8 bytes while preserving

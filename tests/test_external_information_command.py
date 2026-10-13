@@ -67,6 +67,18 @@ def valid_candidate() -> dict[str, str]:
     }
 
 
+def test_candidate_sources_accept_expanded_content_and_reject_oversize() -> None:
+    accepted = external_information_command._candidate_sources(
+        [valid_candidate() | {"content": "a" * 2_048}]
+    )
+    assert accepted[0].content == "a" * 2_048
+
+    with pytest.raises(external_information_command._AcquisitionFailure):
+        external_information_command._candidate_sources(
+            [valid_candidate() | {"content": "a" * 2_049}]
+        )
+
+
 def result_body() -> dict[str, object]:
     return {
         "content": "generated response",
@@ -689,6 +701,7 @@ def test_sync_load_import_exception_and_plugin_exception_fail_safely(
         [{"title": "Title", "url": "https://example.test/source", "content": 3}],
         [{"title": "", "url": "https://example.test/source", "content": "Body"}],
         [{"title": "Title", "url": "ftp://example.test/source", "content": "Body"}],
+        [valid_candidate() | {"content": "a" * 2_049}],
     ],
 )
 def test_invalid_candidate_representation_or_evidence_never_posts(

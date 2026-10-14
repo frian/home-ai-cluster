@@ -1,6 +1,6 @@
 # RFC-0155: Ephemeral Desktop Chat Conversation
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-14
 
@@ -22,8 +22,8 @@ followed by the new user message.  No session, conversation identifier,
 endpoint, `ClusterRequest` or `ClusterResult` change, persistent store, or
 sticky routing is introduced.
 
-This is a Draft proposal only.  It authorizes neither Desktop implementation
-nor a change to HAC core.
+This accepted decision authorizes a separate Desktop implementation only.
+It makes no change to HAC core.
 
 ## Existing authority and problem
 
@@ -113,8 +113,8 @@ neither `ClusterResult` nor one-shot semantics.
 
 ### Aggregate context bound
 
-This RFC proposes that Desktop adopt RFC-0087's existing interactive-client
-convention of **65,536 UTF-8 bytes of aggregate message content**.  It is a
+Desktop adopts RFC-0087's existing interactive-client convention of
+**65,536 UTF-8 bytes of aggregate message content**.  It is a
 Desktop-owned candidate-request bound, not a universal native Chat protocol or
 runtime-context-window limit.
 
@@ -130,7 +130,7 @@ runtime context-window discovery.
 
 Adopting the CLI convention is appropriate as a small, familiar finite
 Desktop-owned disclosure bound while engines remain independent.  It is a
-proposal for review, not evidence that all Chat clients or HAC itself already
+client-owned limit, not evidence that all Chat clients or HAC itself already
 have this limit.
 
 ### New conversation
@@ -166,7 +166,7 @@ networking or cloud disclosure.
 
 ## Relationship to RFC-0151
 
-If accepted, this RFC replaces RFC-0151's Desktop-specific requirements that
+This RFC replaces RFC-0151's Desktop-specific requirements that
 each Send contain exactly one newly submitted user message, that displayed
 exchanges never become context, and that the visible Desktop window is not a
 multi-turn conversation.  The replacement is this RFC's complete
@@ -188,7 +188,7 @@ existing native Chat contract remains authoritative.
 | --- | --- |
 | Keep Desktop one-shot only | Preserves the current explicit rule, but leaves the displayed transcript unable to inform a follow-up request. |
 | Add a one-shot/conversation selector | Makes disclosure mode visible but creates a persistent mode choice for an otherwise ordinary Chat window and increases state and test surface. |
-| Client-owned ephemeral conversation | Proposed. Keeps the smallest lifecycle in the visible owning window while preserving ordinary requests and independent routing. |
+| Client-owned ephemeral conversation | Accepted. Keeps the smallest lifecycle in the visible owning window while preserving ordinary requests and independent routing. |
 | Server-owned sessions | Requires identifiers, retention, lifecycle, concurrency, recovery, and privacy policy beyond this need. |
 | Persistent Desktop conversations | Adds storage, retention, recovery, and history-management authority contrary to the local ephemeral scope. |
 | Automatic truncation or summarization | Hides content loss or rewrites operator content and introduces policy and model behavior not needed for a clear local refusal. |
@@ -201,7 +201,7 @@ may reach the proposed local bound.  The benefit is a truthful conversational
 experience without giving Desktop orchestration authority or creating retained
 history.
 
-If accepted, implementation belongs only in the independent Desktop repository
+Implementation belongs only in the independent Desktop repository
 and should use small window-owned in-memory state, not a reusable conversation
 framework.  It must not modify HAC models, routes, routing, topology,
 adapters, runtimes, Configuration, browser behavior, or compatibility behavior.
@@ -223,7 +223,7 @@ A later implementation must demonstrate at minimum that:
 9. no persistence, session, conversation ID, additional disclosure path, or HAC contract change appears; and
 10. existing Desktop features and Linux and Windows regression coverage remain functional.
 
-## Open questions
+## Confirmed owner choices
 
 The project owner has confirmed these proposal details: the aggregate bound is
 exactly 65,536 UTF-8 bytes of message content; New conversation clears the
@@ -232,9 +232,11 @@ and it is unavailable while a request awaits completion.  The operator may
 wait or choose Stop waiting; after timeout or Stop waiting, New conversation
 is available and an abandoned late response cannot repopulate or mutate it.
 
-These confirmed proposal details do not accept this RFC or authorize
-implementation before acceptance.
+These confirmed choices are part of this accepted Desktop conversation contract.
 
 ## Decision
 
-Draft.  No decision is accepted and no implementation is authorized.
+Accepted. This RFC authorizes a later, separate implementation of the bounded
+window-owned Desktop conversation described above. It narrowly amends RFC-0151
+as specified, preserves all other HAC authority and client boundaries, and
+does not itself implement any Desktop changes or modify HAC core.

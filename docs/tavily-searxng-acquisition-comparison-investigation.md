@@ -160,9 +160,9 @@ are grounded in the shared console output.
   named syscalls.
 - **Tavily Advanced:** ranks 1–4 were different URLs for
   `io_uring_setup(2)`: two Wayback snapshots, one `kernel.org` mirror
-  and one `www.man7.org` page. All four contained **exactly identical
-  2,260-byte content**, as established by the equal SHA-256 prefix
-  `df8ae60a5832`. Rank 5 was an Ubuntu `io_uring_setup(2)` manual
+  and one `www.man7.org` page. All four had **2,260-byte contents with the same reported
+  12-character SHA-256 prefix** (`df8ae60a5832`), strongly indicating
+  duplicate text. Full digests were not retained in the console output. Rank 5 was an Ubuntu `io_uring_setup(2)` manual
   excerpt of 2,740 bytes. No selected Tavily result was a directly
   titled `io_uring_enter(2)` manual page.
 - **All five** Tavily source contents exceeded the current **2,048-byte
@@ -217,7 +217,7 @@ are grounded in the shared console output.
    content bytes per result. These behaviors reflect different
    acquisition products, not necessarily different raw discovery quality.
 3. **Longer is not automatically better.** The Linux Advanced result
-   repeated identical content four times, missed a directly titled
+   contained four apparent duplicate excerpts, missed a directly titled
    reference for one of the two queried syscalls, and failed HAC
    validation for every individual source. More bytes neither imply
    unique coverage nor guarantee compatibility.

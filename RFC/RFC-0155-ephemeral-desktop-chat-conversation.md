@@ -166,13 +166,21 @@ networking or cloud disclosure.
 
 ## Relationship to RFC-0151
 
-This RFC narrowly amends only RFC-0151's Desktop requirement that every Send
-contain exactly one newly submitted user message and never include displayed
-history.  If accepted, the replacement Desktop rule is the complete-context
-request behavior above.  RFC-0151 otherwise remains authoritative, including
-the independent Desktop repository and process boundary and all HAC authority.
-RFC-0087 and RFC-0062 are precedents, not automatic authorization for Desktop.
-The existing native Chat contract remains authoritative.
+If accepted, this RFC replaces RFC-0151's Desktop-specific requirements that
+each Send contain exactly one newly submitted user message, that displayed
+exchanges never become context, and that the visible Desktop window is not a
+multi-turn conversation.  The replacement is this RFC's complete
+successful-context rule.  RFC-0151's falsifiable implementation proof item 5
+is likewise replaced by this RFC's first-turn and subsequent-turn proof
+expectations.
+
+RFC-0151's exclusion of server-owned sessions and persistent conversations
+remains authoritative: this Desktop-owned ephemeral conversation is not a
+server session, and every Send remains one independent ordinary HAC request.
+All other RFC-0151 boundaries remain unchanged, including the independent
+Desktop repository and process boundary and HAC authority.  RFC-0087 and
+RFC-0062 are precedents, not automatic authorization for Desktop.  The
+existing native Chat contract remains authoritative.
 
 ## Alternatives considered
 
@@ -217,12 +225,15 @@ A later implementation must demonstrate at minimum that:
 
 ## Open questions
 
-Project-owner review should decide whether the proposed 65,536-byte Desktop
-bound should match the CLI convention exactly, whether clearing visible
-request-status messages while preserving unsent input is the preferred New
-conversation presentation, and whether the initial disabled-during-wait policy
-is sufficiently clear.  These questions do not authorize implementation before
-the Draft is accepted.
+The project owner has confirmed these proposal details: the aggregate bound is
+exactly 65,536 UTF-8 bytes of message content; New conversation clears the
+visible conversation and request-status messages while preserving unsent input;
+and it is unavailable while a request awaits completion.  The operator may
+wait or choose Stop waiting; after timeout or Stop waiting, New conversation
+is available and an abandoned late response cannot repopulate or mutate it.
+
+These confirmed proposal details do not accept this RFC or authorize
+implementation before acceptance.
 
 ## Decision
 

@@ -38,7 +38,7 @@ loopback request and candidate normalization.
 No repository, plugin, RFC, configuration, routing, adapter, server, or
 model behavior was changed. No generated answers were requested.
 
-## Operator setup and reproducible method
+## Operator setup and documented method
 
 The operator ran a disposable Python script from the local HAC Python
 environment, one case at a time, and shared its console output. The script
@@ -167,9 +167,10 @@ are grounded in the shared console output.
   titled `io_uring_enter(2)` manual page.
 - **All five** Tavily source contents exceeded the current **2,048-byte
   individual limit**, so fresh `SourceEvidence` / complete-request
-  validation failed before any execution. The aggregate of 11,780
-  content bytes was below the 20,480-byte combined field ceiling;
-  the individual source bound was decisive in this observed data.
+  validation failed before any execution. The 11,780-byte content
+  subtotal was below the 20,480-byte combined-field ceiling; every
+  individual source exceeded its 2,048-byte content limit, which was
+  sufficient to reject the request.
   No truncation or repair was performed.
 - The two providers shared **zero exact URLs**.
 
@@ -206,9 +207,9 @@ are grounded in the shared console output.
 ## Findings and limitations
 
 1. **Discovery was strong in this narrow sample.** SearXNG's first
-   result was a directly relevant primary documentation reference in all
-   five cases (with `man7.org` treated as an established Linux-manual
-   reference, not mislabeled as `docs.kernel.org`). Tavily's first
+   result was a directly relevant primary or established documentation
+   reference in all five cases (with `man7.org` treated as an established
+   Linux-manual reference, not mislabeled as `docs.kernel.org`). Tavily's first
    result was such a reference in three cases; on Python it started with
    LinkedIn, and on Linux with a Wayback copy.
 2. **Passage depth differed substantially.** Tavily Advanced often

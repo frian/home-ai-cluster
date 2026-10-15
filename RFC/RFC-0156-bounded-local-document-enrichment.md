@@ -162,6 +162,16 @@ rewrites, nor lets a model choose URLs. An ineligible candidate consumes no
 network attempt and never causes a replacement URL to be discovered. Retrieval
 is sequential; no concurrency, worker, queue, or framework is proposed.
 
+The plugin receives only the unchanged Search `QUERY`. The caller then invokes
+the HAC-owned component with the returned candidates and the local operator
+`QUESTION`; deterministic passage relevance is evaluated against that actual
+question, not merely the Search query. The component must not rewrite either
+value, invoke an LLM, make another Search or model request, or receive prior
+conversation history for selection. It sends no question to a document website,
+whether in a URL parameter, request body, or another HTTP field. Under
+RFC-0134, the newest user turn is already the Search query and may also guide
+local passage selection; no additional conversation history is needed.
+
 Three counts are deliberately separate: there can be up to five returned Search
 candidates, up to five eligible document-retrieval attempts, and up to five
 final `SourceEvidence` entries. They need not be equal: an ineligible URL has
@@ -190,6 +200,16 @@ It must not silently truncate an already constructed `SourceEvidence` object.
 The selected title, original provenance URL, and selected passage form fresh
 evidence subject to the unchanged 2,048-byte content limit, five-source limit,
 20,480-byte aggregate limit, and 65,536-byte projection limit.
+
+When an authorized browser operation runs in the already-running ordinary HAC
+process, enrichment must preserve ordinary asyncio event-loop responsiveness.
+Sequential work does not authorize direct synchronous blocking network work on
+the event-loop thread during retrieval, HTML processing, or passage selection.
+If a synchronous transport is chosen later, its integration must explicitly
+meet the non-blocking and cancellation requirements; cancelling an asyncio task
+does not by itself establish that the underlying blocking network operation has
+ended. This requirement selects no HTTP library, threading model, subprocess,
+worker framework, or generic execution framework.
 
 IP-pinned urllib3 HTTPS remains a candidate mechanism, not an accepted HAC or
 plugin dependency. Any selected dependency belongs to the main HAC distribution,
@@ -225,7 +245,8 @@ new retrieval attempts, evidence construction, routing, and Source-Grounded
 Chat. No late Source-Grounded Chat may start after cancellation or global
 expiry, even if an underlying blocking read later returns. `urllib3`
 `Timeout.total` does not itself meet this hard lifecycle requirement. This
-Draft does not choose subprocesses, workers, or another execution framework.
+Draft does not choose subprocesses, workers, or another execution framework;
+it also permits no background continuation after the foreground operation ends.
 
 Privacy remains explicit: the query goes to the selected Search provider under
 its existing authorization; each eligible attempted document creates one
@@ -255,6 +276,9 @@ falsifiable proofs must show:
   the chosen transport behavior, without claiming the current mocked proof did.
 - A narrowly scoped local slow-stream proof establishes per-document and global
   bounds and confirms cancellation or expiry prevents late Source-Grounded Chat.
+- A focused local responsiveness proof shows that enrichment does not block the
+  ordinary HAC asyncio event loop, including when a selected transport is
+  synchronous.
 - Default logs expose no sensitive query, question, URL, HTML, source content,
   or credential.
 

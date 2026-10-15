@@ -1,6 +1,6 @@
 # RFC-0156: Bounded Local Document Enrichment for External Information
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-15
 
@@ -8,7 +8,7 @@ Author: frian
 
 ## Summary
 
-This Draft proposes one bounded extension to the existing External Information
+This RFC accepts one bounded extension to the existing External Information
 caller path. After an already authorized, exactly selected Search plugin returns
 up to five untrusted candidates, a HAC-owned caller-local document-enrichment
 component may attempt, in provider result order, to retrieve and locally extract
@@ -19,8 +19,9 @@ the existing Source-Grounded Chat path.
 The component belongs to the main `home-ai-cluster` Python distribution. It is
 an internal module conceptually named `hac-extract`; that is a working name,
 not an accepted public CLI, package, distribution, entry point, service, or
-capability. It is neither a plugin nor provider-specific. This Draft authorizes
-no implementation, dependency, configuration, or accepted architectural change.
+capability. It is neither a plugin nor provider-specific. Acceptance authorizes
+only later bounded implementation PRs; it adds no implementation, dependency,
+or configuration in this change.
 
 The proposal works independently with either the RFC-0079 SearXNG Search plugin
 or the RFC-0093 Tavily Search plugin. SearXNG requires neither Tavily nor an
@@ -47,7 +48,7 @@ complete validation before routing.
 
 Rejected [RFC-0064](RFC-0064-bounded-public-url-summarization.md) established
 that URL retrieval authority and its transport safety cannot be inferred from a
-provenance URL. Its rejection remains in force; this Draft does not authorize a
+provenance URL. Its rejection remains in force; this RFC does not authorize a
 generic fetch or URL-summarization feature.
 
 The local feasibility record at
@@ -85,7 +86,7 @@ granting URL authority to an execution node.
 
 ## Non-goals
 
-This Draft does not authorize a new plugin, distribution, repository, service,
+This RFC does not authorize a new plugin, distribution, repository, service,
 public command, capability, browser, crawler, JavaScript, redirect, proxy,
 cookie, ambient credential, HTTP, retry, concurrency, worker pool, queue,
 document-acquisition framework, model-generated URL selection, Tavily Extract,
@@ -99,7 +100,7 @@ routing change, or production implementation.
 | HAC-owned caller-local enrichment after plugin acquisition | One provider-neutral implementation; the caller already owns the authorized operation, lifecycle, fresh evidence construction, and final validation | Requires a narrow RFC-0078 amendment because its current caller may not turn returned provenance URLs into retrieval destinations. |
 | Helper invoked inside each Search plugin | Keeps retrieval beside provider request code | Gives two independently installed plugins common URL authority, duplicates a common concern, and obscures caller-owned authorization and lifecycle. It would require plugin imports/knowledge of enrichment and is not proposed. |
 
-This Draft proposes the first placement. The internal HAC component receives
+This RFC accepts the first placement. The internal HAC component receives
 already returned candidate data only after the caller has established the
 separate authorization for this turn. It does not own Search, plugin/provider
 selection, routing, inference, Chat execution, persistence, or a listener.
@@ -123,7 +124,7 @@ authority alone never permit contacting a result URL. An authorized Search turn
 with enrichment disabled performs no document retrieval.
 
 The caller owns one additional ephemeral document-enrichment authority for the
-specific turn. For the existing surfaces, this Draft proposes:
+specific turn. For the existing surfaces, this RFC accepts:
 
 | Surface | Search authority today | Proposed enrichment authority |
 | --- | --- | --- |
@@ -131,7 +132,7 @@ specific turn. For the existing surfaces, this Draft proposes:
 | RFC-0133 explicit native loopback browser acquisition | Current-page explicit operation | A separate visible current-page document-enrichment control for that operation, default off and non-retained. |
 | RFC-0134 automatic native loopback browser Chat | Current-page automatic External Information control | A separate visible `Allow local document enrichment` control, default off and non-retained; it is necessary in addition to automatic Search authority. |
 | Foreground interactive Chat | Explicit `--external-information` process flag | An additional foreground `--document-enrichment` flag, valid only with the existing Search authority and not retained. |
-| RFC-0096 retained one-shot Chat fallback | Retained one-shot Search authority | Search-only. This Draft proposes no separately authorized enrichment mechanism and does not extend retained RFC-0096 authority. |
+| RFC-0096 retained one-shot Chat fallback | Retained one-shot Search authority | Search-only. This RFC accepts no separately authorized enrichment mechanism and does not extend retained RFC-0096 authority. |
 
 The acquisition caller is not always a short-lived CLI. Under RFC-0133 and
 RFC-0134 it can execute inside the already-running ordinary HAC process. That
@@ -160,7 +161,7 @@ five returned candidates in their original provider order; for each candidate,
 attempt at most one retrieval when its URL is eligible. It neither ranks,
 rewrites, nor lets a model choose URLs. An ineligible candidate consumes no
 network attempt and never causes a replacement URL to be discovered. Retrieval
-is sequential; no concurrency, worker, queue, or framework is proposed.
+is sequential; no concurrency, worker, queue, or framework is accepted.
 
 The plugin receives only the unchanged Search `QUERY`. The caller then invokes
 the HAC-owned component with the returned candidates and the local operator
@@ -221,7 +222,7 @@ urllib3 installation is not a project dependency contract.
 
 A normal per-document failure is evidence-level degradation within an already
 authorized Search acquisition, not ordinary-Chat or provider fallback. The
-proposed policy is to preserve the original Search snippet for an ineligible
+accepted policy is to preserve the original Search snippet for an ineligible
 URL, timeout, retrieval rejection, empty document, oversized document, or no
 useful selected passage, provided the final complete evidence list validates.
 Successful retrieval replaces that candidate's snippet with the selected
@@ -234,8 +235,8 @@ document passages for 1 and 2, the original snippet for 3, a document passage
 for 4, and the original snippet for 5. The full list then undergoes final
 RFC-0077/RFC-0154 validation. The alternative—dropping failed candidates—would
 reduce untrusted snippet carry-through but needlessly loses existing authorized
-Search evidence and can yield fewer sources; this Draft proposes preservation
-instead, subject to review.
+Search evidence and can yield fewer sources; this RFC accepts preservation
+instead.
 
 Per-document failure differs from global termination. The whole enrichment
 operation has a finite overall lifecycle in addition to every per-document
@@ -245,7 +246,7 @@ new retrieval attempts, evidence construction, routing, and Source-Grounded
 Chat. No late Source-Grounded Chat may start after cancellation or global
 expiry, even if an underlying blocking read later returns. `urllib3`
 `Timeout.total` does not itself meet this hard lifecycle requirement. This
-Draft does not choose subprocesses, workers, or another execution framework;
+RFC-0156 does not select subprocesses, workers, or another execution framework;
 it also permits no background continuation after the foreground operation ends.
 
 Privacy remains explicit: the query goes to the selected Search provider under
@@ -282,7 +283,8 @@ falsifiable proofs must show:
 - Default logs expose no sensitive query, question, URL, HTML, source content,
   or credential.
 
-These proofs do not authorize their implementation in this RFC change.
+These are mandatory readiness conditions for separate implementation PRs. They
+must not be treated as already satisfied by the offline feasibility evidence.
 
 ## Trade-offs and open questions
 
@@ -294,12 +296,30 @@ retrieval behavior. Up to five sequential attempts improve documentary coverage
 while increasing bounded latency and website disclosures; the overall deadline
 and no-compensation rule keep that cost finite and understandable.
 
-Architectural review still must decide the exact public controls/flag spellings,
-the numeric per-document and overall limits, the concrete dependency and
-transport mechanism, and the final deterministic extraction/selection rules.
-Those questions must not be resolved silently during implementation.
+Exact public controls/flag spellings, numeric per-document and overall limits,
+the concrete dependency and transport mechanism, and deterministic extraction
+and scoring details remain bounded implementation choices. They must be proposed
+explicitly in focused implementation PRs and reviewed by maintainers; they are
+not authority for an agent to make a new architectural decision. Any choice
+that expands retrieval authority, disclosure scope, supported surfaces,
+persistence, concurrency, or another accepted boundary requires separate
+architectural review and, where appropriate, a new RFC.
 
 ## Decision
 
-Draft. No production implementation, dependency, accepted RFC amendment,
-configuration, public command, or merge authorization is granted.
+Accept this RFC as a narrow amendment to RFC-0078's acquisition boundary. An
+explicitly authorized acquisition caller may use one HAC-owned, caller-local
+document-enrichment component after one selected unchanged Search-plugin
+invocation and before fresh complete RFC-0077/RFC-0154 evidence validation.
+
+The component processes up to five returned candidates sequentially in provider
+order. It selects deterministic QUESTION-guided passages for successful public
+HTTPS HTML retrievals and preserves the corresponding original Search snippet
+for individual retrieval failures. Separate ephemeral retrieval authorization,
+no question/history disclosure to document websites, complete evidence
+validation, cancellation/expiry prevention of late Chat, and browser event-loop
+responsiveness are required boundaries.
+
+Acceptance authorizes subsequent bounded implementation PRs subject to the
+required implementation proofs. It does not mean the feature exists, is ready
+for production, or permits implementation choices beyond the boundaries above.

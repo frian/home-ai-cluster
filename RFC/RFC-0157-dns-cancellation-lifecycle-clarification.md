@@ -1,6 +1,6 @@
 # RFC-0157: DNS Cancellation Lifecycle Clarification for Document Enrichment
 
-Status: Draft
+Status: Accepted
 
 Date: 2026-10-16
 
@@ -8,7 +8,7 @@ Author: frian
 
 ## Summary
 
-This Draft proposes a narrow clarification to RFC-0156's document-enrichment
+This RFC clarifies RFC-0156's document-enrichment
 lifecycle boundary.  An authorized retrieval may use
 `asyncio.get_running_loop().getaddrinfo()` to resolve an eligible hostname
 before connecting.  On common asyncio implementations, the system resolver
@@ -16,7 +16,7 @@ work may run through an executor.  Cancelling the HAC coroutine awaiting that
 work does not necessarily physically interrupt an already-running system DNS
 resolution.
 
-The proposed clarification distinguishes that residual system resolver work
+This clarification distinguishes that residual system resolver work
 from HAC-owned document retrieval.  After cancellation, global expiry, client
 disconnect, or loss of the current turn's authorization, HAC must terminate
 its own retrieval progression and must not consume a late DNS result.  The
@@ -25,7 +25,7 @@ may finish when the operating system or runtime cannot interrupt it.  That
 qualification neither authorizes background document retrieval nor weakens any
 application-level termination guarantee.
 
-This is a documentation-only Draft.  It proposes no implementation, test,
+This is a documentation-only clarification.  It introduces no implementation, test,
 dependency, configuration, Search-plugin, Chat, or public-contract change.
 
 ## Existing authority
@@ -58,8 +58,8 @@ underlying operation.  RFC-0085 preserves the separate HAC-owned HTTP
 transport boundary; it does not alter resolver behavior or create an ambient
 network exception.
 
-This Draft proposes to clarify RFC-0156 only.  RFC-0156 remains authoritative
-until this proposal is accepted.
+This RFC clarifies RFC-0156 only.  RFC-0156 remains authoritative subject to
+this narrow accepted clarification.
 
 ## Problem
 
@@ -156,7 +156,7 @@ background activity.
 
 ## Non-goals
 
-This Draft does not authorize a custom DNS resolver, subprocess supervisor,
+This RFC does not authorize a custom DNS resolver, subprocess supervisor,
 worker pool, queue, background retrieval service, generic network framework,
 new caller authority, Search or Chat change, implementation change, test
 change, dependency change, configuration change, or production activation.
@@ -185,7 +185,7 @@ platform property from the application-level behavior HAC owns and can prove.
 
 ## Compatibility
 
-The proposal preserves RFC-0156's caller-local, authorized, sequential,
+This clarification preserves RFC-0156's caller-local, authorized, sequential,
 bounded document-enrichment architecture.  It introduces no new transport,
 runtime adapter, routing behavior, request or response format, configuration,
 or retained state.  It makes the existing no-late-Chat and no-background HAC
@@ -194,4 +194,11 @@ uninterruptible underlying system resolver.
 
 ## Decision
 
-Pending.
+Accept this narrow clarification of RFC-0156. Cancellation or expiry ends
+HAC-owned document-retrieval progression and forbids late HAC actions. An
+already-running ordinary system DNS resolution may finish when the runtime or
+operating system cannot physically interrupt it, but its result must never
+resume the terminated HAC operation. All RFC-0156 transport and cleanup
+bounds, authorization restrictions, and no-late-Chat guarantees remain binding.
+Acceptance does not authorize production activation or establish implementation
+conformance.

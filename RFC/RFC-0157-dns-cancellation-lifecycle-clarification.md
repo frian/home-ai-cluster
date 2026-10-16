@@ -94,10 +94,11 @@ expiry, client disconnect, or loss of the current turn's authorization:
 7. HAC must not consume a cancelled DNS result to resume the terminated
    operation.
 
-The term *bounded shutdown behavior* retains RFC-0082's meaning: bounded HAC
-ownership and authority, not a promise that every library, operating-system
-resource, or external operation is released immediately or within a specified
-duration.
+Bounded shutdown behavior preserves all applicable RFC-0156 limits on
+HAC-owned transport operations and cleanup waits. It does not guarantee
+immediate or time-bounded physical release of every underlying operating-system
+resource. The system DNS qualification below does not relax any HAC-owned
+transport deadline or shutdown bound.
 
 ### Strictly limited system DNS qualification
 

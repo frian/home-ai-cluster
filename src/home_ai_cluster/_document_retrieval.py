@@ -116,6 +116,7 @@ async def retrieve_html(url: str) -> str:
             DocumentRetrievalFailureCode.CONNECTION_FAILED
         ) from error
 
+
 async def _close_writer(writer: asyncio.StreamWriter) -> None:
     """Request closure and wait only for the bounded local shutdown protocol."""
     writer.close()

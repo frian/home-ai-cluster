@@ -24,6 +24,7 @@ CONNECT_TIMEOUT_SECONDS = 5.0
 HEADER_TIMEOUT_SECONDS = 5.0
 BODY_READ_TIMEOUT_SECONDS = 5.0
 DOCUMENT_TIMEOUT_SECONDS = 15.0
+CLOSE_TIMEOUT_SECONDS = 1.0
 
 
 class DocumentRetrievalFailureCode(StrEnum):
@@ -70,24 +71,34 @@ async def retrieve_html(url: str) -> str:
     owned stream in ``finally`` and is deliberately propagated, so no detached
     retrieval survives a cancelled foreground task.
     """
-    destination = _parse_destination(url)
-    addresses = await _resolve_public_addresses(destination)
-    # One selected answer means no retry or alternate-destination behavior.
-    address = addresses[0]
     writer: asyncio.StreamWriter | None = None
+    cancelled = False
     try:
         async with asyncio.timeout(DOCUMENT_TIMEOUT_SECONDS):
-            reader, writer = await _connect(destination, address)
-            await _send_request(writer, destination)
-            headers = await _read_headers(reader)
-            _validate_response_headers(headers)
-            body = await _read_body(reader, headers)
+            destination = _parse_destination(url)
+            addresses = await _resolve_public_addresses(destination)
+            # One selected answer means no retry or alternate-destination behavior.
+            address = addresses[0]
             try:
-                return body.decode("utf-8")
-            except UnicodeDecodeError as error:
-                raise DocumentRetrievalFailure(
-                    DocumentRetrievalFailureCode.MALFORMED_RESPONSE
-                ) from error
+                reader, writer = await _connect(destination, address)
+                await _send_request(writer, destination)
+                headers = await _read_headers(reader)
+                _validate_response_headers(headers)
+                body = await _read_body(reader, headers)
+                try:
+                    return body.decode("utf-8")
+                except UnicodeDecodeError as error:
+                    raise DocumentRetrievalFailure(
+                        DocumentRetrievalFailureCode.MALFORMED_RESPONSE
+                    ) from error
+            except asyncio.CancelledError:
+                cancelled = True
+                if writer is not None:
+                    writer.close()
+                raise
+            finally:
+                if writer is not None and not cancelled:
+                    await _close_writer(writer)
     except asyncio.CancelledError:
         raise
     except TimeoutError as error:
@@ -104,17 +115,23 @@ async def retrieve_html(url: str) -> str:
         raise DocumentRetrievalFailure(
             DocumentRetrievalFailureCode.CONNECTION_FAILED
         ) from error
-    finally:
-        if writer is not None:
-            writer.close()
-            try:
-                await writer.wait_closed()
-            except (ConnectionError, OSError):
-                pass
+
+async def _close_writer(writer: asyncio.StreamWriter) -> None:
+    """Request closure and wait only for the bounded local shutdown protocol."""
+    writer.close()
+    try:
+        async with asyncio.timeout(CLOSE_TIMEOUT_SECONDS):
+            await writer.wait_closed()
+    except TimeoutError as error:
+        raise DocumentRetrievalFailure(DocumentRetrievalFailureCode.TIMEOUT) from error
+    except (ConnectionError, OSError):
+        # The transport is already unusable; closure was requested and no result
+        # is returned from this function after a retrieval failure.
+        return
 
 
 def _parse_destination(url: str) -> _Destination:
-    if not isinstance(url, str):
+    if not isinstance(url, str) or any(ord(character) < 32 for character in url):
         raise DocumentRetrievalFailure(DocumentRetrievalFailureCode.INELIGIBLE_URL)
     try:
         parsed = urlsplit(url)
@@ -144,10 +161,35 @@ def _parse_destination(url: str) -> _Destination:
         raise DocumentRetrievalFailure(DocumentRetrievalFailureCode.INELIGIBLE_URL)
     host = f"[{hostname}]" if ":" in hostname else hostname
     host_header = host if actual_port == 443 else f"{host}:{actual_port}"
-    target = parsed.path or "/"
-    if parsed.query:
-        target = f"{target}?{parsed.query}"
+    target = _request_target(parsed.path, parsed.query)
     return _Destination(hostname, host_header, actual_port, target)
+
+
+def _request_target(path: str, query: str) -> str:
+    """Return one conservative ASCII origin-form target without normalization."""
+    target = path or "/"
+    if query:
+        target = f"{target}?{query}"
+    allowed = (
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+        "!$&'()*+,;=:/?@%"
+    )
+    if any(character not in allowed for character in target):
+        raise DocumentRetrievalFailure(DocumentRetrievalFailureCode.INELIGIBLE_URL)
+    index = 0
+    while index < len(target):
+        if target[index] == "%":
+            if index + 2 >= len(target) or not all(
+                character in "0123456789abcdefABCDEF"
+                for character in target[index + 1 : index + 3]
+            ):
+                raise DocumentRetrievalFailure(
+                    DocumentRetrievalFailureCode.INELIGIBLE_URL
+                )
+            index += 3
+        else:
+            index += 1
+    return target
 
 
 async def _resolve_public_addresses(
@@ -225,7 +267,13 @@ async def _send_request(
         "Accept-Encoding: identity\r\n"
         "Connection: close\r\n\r\n"
     )
-    writer.write(request.encode("ascii"))
+    try:
+        wire = request.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise DocumentRetrievalFailure(
+            DocumentRetrievalFailureCode.INELIGIBLE_URL
+        ) from error
+    writer.write(wire)
     await writer.drain()
 
 

@@ -27,6 +27,17 @@ class _Writer:
         return None
 
 
+class _PendingCloseWriter(_Writer):
+    def __init__(self) -> None:
+        super().__init__()
+        self.wait_started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def wait_closed(self) -> None:
+        self.wait_started.set()
+        await self.release.wait()
+
+
 def _reader(response: bytes) -> asyncio.StreamReader:
     reader = asyncio.StreamReader(limit=retrieval.MAX_RESPONSE_HEADER_BYTES)
     reader.feed_data(response)
@@ -71,6 +82,37 @@ def test_url_target_excludes_fragment_and_never_contains_credentials() -> None:
 
     assert destination.target == "/a?q=x"
     assert destination.host_header == "example.com"
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "https://example.com/unicode-é",
+        "https://example.com/?query=é",
+        "https://example.com/with space",
+        "https://example.com/line\r\nbreak",
+        "https://example.com/%not-encoded",
+    ),
+)
+def test_request_target_rejects_unsafe_or_non_ascii_values(url: str) -> None:
+    with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+        retrieval._parse_destination(url)
+    assert error.value.code is retrieval.DocumentRetrievalFailureCode.INELIGIBLE_URL
+
+
+def test_request_target_preserves_valid_percent_encoding() -> None:
+    destination = retrieval._parse_destination(
+        "https://example.com/a%2Fb?encoded=%C3%A9"
+    )
+    assert destination.target == "/a%2Fb?encoded=%C3%A9"
+
+
+def test_send_request_turns_an_unexpected_encoding_error_into_typed_failure() -> None:
+    writer = _Writer()
+    destination = retrieval._Destination("example.com", "example.com", 443, "/é")
+    with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+        asyncio.run(retrieval._send_request(writer, destination))
+    assert error.value.code is retrieval.DocumentRetrievalFailureCode.INELIGIBLE_URL
 
 
 @pytest.mark.parametrize(
@@ -292,6 +334,90 @@ def test_slow_body_read_hits_the_bounded_timeout(
 
     assert error.value.code is retrieval.DocumentRetrievalFailureCode.TIMEOUT
     assert writer.closed
+
+
+def test_document_deadline_covers_pending_dns_before_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resolver_started = asyncio.Event()
+    never = asyncio.Event()
+    connection_started = False
+
+    async def resolve(
+        _: retrieval._Destination,
+    ) -> list[retrieval._ResolvedAddress]:
+        resolver_started.set()
+        await never.wait()
+        return await _public_destination(_)
+
+    async def connect(*args: object) -> tuple[asyncio.StreamReader, _Writer]:
+        nonlocal connection_started
+        del args
+        connection_started = True
+        return _reader(_response()), _Writer()
+
+    async def run() -> None:
+        task = asyncio.create_task(retrieval.retrieve_html("https://example.com/"))
+        await resolver_started.wait()
+        with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+            await task
+        assert error.value.code is retrieval.DocumentRetrievalFailureCode.TIMEOUT
+
+    monkeypatch.setattr(retrieval, "_resolve_public_addresses", resolve)
+    monkeypatch.setattr(retrieval, "_connect", connect)
+    monkeypatch.setattr(retrieval, "DOCUMENT_TIMEOUT_SECONDS", 0.001)
+    asyncio.run(run())
+    assert not connection_started
+
+
+def test_pending_normal_close_becomes_a_typed_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writer = _PendingCloseWriter()
+
+    async def connect(
+        *args: object,
+    ) -> tuple[asyncio.StreamReader, _PendingCloseWriter]:
+        del args
+        return _reader(_response()), writer
+
+    monkeypatch.setattr(retrieval, "_resolve_public_addresses", _public_destination)
+    monkeypatch.setattr(retrieval, "_connect", connect)
+    monkeypatch.setattr(retrieval, "CLOSE_TIMEOUT_SECONDS", 0.001)
+    with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+        asyncio.run(retrieval.retrieve_html("https://example.com/"))
+    assert error.value.code is retrieval.DocumentRetrievalFailureCode.TIMEOUT
+    assert writer.closed
+    assert writer.wait_started.is_set()
+
+
+def test_cancellation_requests_close_without_waiting_for_a_stuck_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writer = _PendingCloseWriter()
+    entered = asyncio.Event()
+
+    async def connect(
+        *args: object,
+    ) -> tuple[asyncio.StreamReader, _PendingCloseWriter]:
+        del args
+        reader = asyncio.StreamReader()
+        reader.feed_data(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n")
+        entered.set()
+        return reader, writer
+
+    async def run() -> None:
+        task = asyncio.create_task(retrieval.retrieve_html("https://example.com/"))
+        await entered.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    monkeypatch.setattr(retrieval, "_resolve_public_addresses", _public_destination)
+    monkeypatch.setattr(retrieval, "_connect", connect)
+    asyncio.run(run())
+    assert writer.closed
+    assert not writer.wait_started.is_set()
 
 
 def test_pending_retrieval_does_not_block_the_event_loop(

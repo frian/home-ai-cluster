@@ -192,8 +192,6 @@ or retained state.  It makes the existing no-late-Chat and no-background HAC
 continuation requirements testable without claiming control over an
 uninterruptible underlying system resolver.
 
-## Decision status
+## Decision
 
-Draft.  This proposed clarification is not accepted authority.  W002-004
-remains open, and RFC-0156 continues to govern until maintainers explicitly
-accept this RFC.
+Pending.

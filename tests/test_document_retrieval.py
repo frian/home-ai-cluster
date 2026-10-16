@@ -577,7 +577,6 @@ def test_late_executor_backed_dns_completion_cannot_resume_cancelled_retrieval(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     resolver_started = asyncio.Event()
-    resolver_finished = asyncio.Event()
     release_resolver = threading.Event()
     attempted_actions: list[str] = []
 
@@ -605,7 +604,6 @@ def test_late_executor_backed_dns_completion_cannot_resume_cancelled_retrieval(
         def resolve_late() -> list[tuple[object, ...]]:
             loop.call_soon_threadsafe(resolver_started.set)
             assert release_resolver.wait(timeout=1)
-            loop.call_soon_threadsafe(resolver_finished.set)
             return [(socket.AF_INET, 0, 0, "", ("93.184.216.34", 443))]
 
         def getaddrinfo(
@@ -631,10 +629,9 @@ def test_late_executor_backed_dns_completion_cannot_resume_cancelled_retrieval(
             assert resolver_future is not None
             assert not resolver_future.done()
             release_resolver.set()
-            await asyncio.wait_for(resolver_finished.wait(), timeout=1)
-            assert resolver_future.result(timeout=0) == [
-                (socket.AF_INET, 0, 0, "", ("93.184.216.34", 443))
-            ]
+            assert await asyncio.wait_for(
+                asyncio.wrap_future(resolver_future), timeout=1
+            ) == [(socket.AF_INET, 0, 0, "", ("93.184.216.34", 443))]
             assert attempted_actions == []
             assert [
                 pending

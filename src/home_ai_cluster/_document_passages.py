@@ -41,7 +41,11 @@ def select_passages(html: str, question: str) -> str | None:
     """
     if not isinstance(html, str) or not isinstance(question, str):
         return None
-    if len(html.encode("utf-8")) > MAX_HTML_BYTES:
+    try:
+        html_size = len(html.encode("utf-8"))
+    except UnicodeError:
+        return None
+    if html_size > MAX_HTML_BYTES:
         return None
 
     question_words = _words(question)
@@ -84,7 +88,7 @@ class _DocumentTextParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.passages: list[str] = []
-        self._ignored_depth = 0
+        self._ignored_tags: list[str] = []
         self._heading_depth = 0
         self._parts: list[str] = []
         self._current_heading: str | None = None
@@ -94,9 +98,9 @@ class _DocumentTextParser(HTMLParser):
         del attrs
         tag = tag.lower()
         if tag in _IGNORED_TAGS:
-            self._ignored_depth += 1
+            self._ignored_tags.append(tag)
             return
-        if self._ignored_depth:
+        if self._ignored_tags:
             return
         if tag in _HEADING_TAGS:
             self._flush()
@@ -110,11 +114,11 @@ class _DocumentTextParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
-        if tag in _IGNORED_TAGS:
-            if self._ignored_depth:
-                self._ignored_depth -= 1
+        if self._ignored_tags:
+            if tag == self._ignored_tags[-1]:
+                self._ignored_tags.pop()
             return
-        if self._ignored_depth:
+        if tag in _IGNORED_TAGS:
             return
         if tag in _HEADING_TAGS and self._heading_depth:
             self._heading_depth -= 1
@@ -124,7 +128,7 @@ class _DocumentTextParser(HTMLParser):
             self._flush()
 
     def handle_data(self, data: str) -> None:
-        if not self._ignored_depth:
+        if not self._ignored_tags:
             self._parts.append(data)
 
     def close(self) -> None:
@@ -136,15 +140,20 @@ class _DocumentTextParser(HTMLParser):
         self._parts.clear()
         if not text:
             return
-        self._extracted_bytes += len(text.encode("utf-8"))
-        if self._extracted_bytes > MAX_EXTRACTED_TEXT_BYTES:
-            raise ValueError("extracted text exceeds the bounded limit")
         if heading:
+            self._add_extracted_text(text)
             self._current_heading = text
             return
         if self._current_heading:
             text = f"{self._current_heading}\n{text}"
+        self._add_extracted_text(text)
         self.passages.append(text)
+
+    def _add_extracted_text(self, text: str) -> None:
+        """Account for every string retained by the parser, including headings."""
+        self._extracted_bytes += len(text.encode("utf-8"))
+        if self._extracted_bytes > MAX_EXTRACTED_TEXT_BYTES:
+            raise ValueError("extracted text exceeds the bounded limit")
 
 
 def _split_passages(passages: list[str]) -> list[str]:

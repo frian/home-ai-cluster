@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import pytest
+
 from home_ai_cluster._document_passages import (
     MAX_EXTRACTED_TEXT_BYTES,
     MAX_HTML_BYTES,
     MAX_PASSAGE_BYTES,
+    _DocumentTextParser,
     select_passages,
 )
 
@@ -98,10 +101,44 @@ def test_returns_no_result_for_oversized_html_or_extracted_text() -> None:
     assert select_passages(many_paragraphs, "relevant") is None
 
 
+def test_repeated_heading_context_counts_toward_extracted_text_limit() -> None:
+    heading = "Heading " * 64
+    html = f"<h1>{heading}</h1>" + "<p>x</p>" * 1_000
+
+    parser = _DocumentTextParser()
+    with pytest.raises(ValueError, match="extracted text exceeds"):
+        parser.feed(html)
+
+    retained_bytes = len(parser._current_heading.encode("utf-8")) + sum(
+        len(passage.encode("utf-8")) for passage in parser.passages
+    )
+    assert retained_bytes <= MAX_EXTRACTED_TEXT_BYTES
+    assert select_passages(html, "heading") is None
+
+
+@pytest.mark.parametrize("surrogate", [chr(0xD800), chr(0xDC00)])
+def test_returns_no_result_for_invalid_unicode(surrogate: str) -> None:
+    assert select_passages(f"<p>{surrogate}</p>", "text") is None
+
+
 def test_handles_malformed_parseable_html() -> None:
     assert select_passages("<h2>Install<p>Install the package", "install package") == (
         "Install\nInstall the package"
     )
+
+
+def test_ignored_content_remains_ignored_after_mismatched_closing_tag() -> None:
+    html = "<nav>hidden</footer> exposed</nav><p>ordinary content</p>"
+
+    assert select_passages(html, "exposed") is None
+    assert select_passages(html, "ordinary content") == "ordinary content"
+
+
+def test_nested_ignored_content_and_unrelated_closing_tag_stay_ignored() -> None:
+    html = "<nav>hidden<style>also hidden</style></aside> still hidden</nav><p>body</p>"
+
+    assert select_passages(html, "hidden") is None
+    assert select_passages(html, "body") == "body"
 
 
 def test_hostile_document_text_is_only_selectable_text() -> None:

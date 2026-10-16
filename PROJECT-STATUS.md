@@ -30,4 +30,4 @@ These are **coordination IDs**, not RFC numbers, issue numbers, priority assignm
 
 Accepted RFCs, binding contracts, pinned Git revisions and immutable audit evidence remain authoritative within their domains. This index cannot accept a decision, authorize a network/test action, change a product boundary or supersede repository-specific `AGENTS.md`.
 
-For HAC-CAP `BLIND` campaigns, **do not share this index if it reveals prior findings, audit conclusions or other contaminating context**; use a fresh unanchored session with only the protocol-authorized inputs. No workflow convenience overrides audit independence.
+HAC-CAP `BLIND` reviewers must not read `PROJECT-STATUS.md` or `PROJECT-LOG.md` during their campaigns. These coordination documents are outside the authorized BLIND input set, regardless of their current content. Use a fresh unanchored session with only protocol-authorized inputs; no workflow convenience overrides audit independence.

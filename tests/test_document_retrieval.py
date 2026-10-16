@@ -1,12 +1,213 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import socket
 import ssl
+import subprocess
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 import pytest
 
 from home_ai_cluster import _document_retrieval as retrieval
+
+_TLS_HOSTNAME = "document.example.test"
+
+
+class _TlsMaterial:
+    def __init__(
+        self,
+        trusted_ca: Path,
+        matching_certificate: Path,
+        matching_key: Path,
+        mismatching_certificate: Path,
+        mismatching_key: Path,
+        untrusted_certificate: Path,
+        untrusted_key: Path,
+    ) -> None:
+        self.trusted_ca = trusted_ca
+        self.matching_certificate = matching_certificate
+        self.matching_key = matching_key
+        self.mismatching_certificate = mismatching_certificate
+        self.mismatching_key = mismatching_key
+        self.untrusted_certificate = untrusted_certificate
+        self.untrusted_key = untrusted_key
+
+
+def _openssl(*arguments: str) -> None:
+    subprocess.run(
+        ["openssl", *arguments],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _issue_certificate(
+    directory: Path,
+    name: str,
+    common_name: str,
+    ca_certificate: Path,
+    ca_key: Path,
+) -> tuple[Path, Path]:
+    certificate = directory / f"{name}.pem"
+    key = directory / f"{name}-key.pem"
+    request = directory / f"{name}.csr"
+    extensions = directory / f"{name}.ext"
+    extensions.write_text(
+        "basicConstraints=CA:FALSE\n"
+        f"subjectAltName=DNS:{common_name}\n"
+        "keyUsage=digitalSignature,keyEncipherment\n"
+        "extendedKeyUsage=serverAuth\n",
+        encoding="ascii",
+    )
+    _openssl(
+        "req",
+        "-new",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-keyout",
+        str(key),
+        "-out",
+        str(request),
+        "-subj",
+        f"/CN={common_name}",
+    )
+    _openssl(
+        "x509",
+        "-req",
+        "-in",
+        str(request),
+        "-CA",
+        str(ca_certificate),
+        "-CAkey",
+        str(ca_key),
+        "-CAcreateserial",
+        "-out",
+        str(certificate),
+        "-days",
+        "1",
+        "-sha256",
+        "-extfile",
+        str(extensions),
+    )
+    return certificate, key
+
+
+@pytest.fixture(scope="module")
+def tls_material(tmp_path_factory: pytest.TempPathFactory) -> _TlsMaterial:
+    """Generate ephemeral local CA material; no certificate fixture is retained."""
+    if shutil.which("openssl") is None:
+        pytest.skip("local TLS integration tests require the openssl executable")
+    directory = tmp_path_factory.mktemp("document-retrieval-tls")
+    trusted_ca = directory / "trusted-ca.pem"
+    trusted_ca_key = directory / "trusted-ca-key.pem"
+    untrusted_ca = directory / "untrusted-ca.pem"
+    untrusted_ca_key = directory / "untrusted-ca-key.pem"
+    _openssl(
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-keyout",
+        str(trusted_ca_key),
+        "-out",
+        str(trusted_ca),
+        "-days",
+        "1",
+        "-subj",
+        "/CN=HAC retrieval trusted test CA",
+    )
+    _openssl(
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-keyout",
+        str(untrusted_ca_key),
+        "-out",
+        str(untrusted_ca),
+        "-days",
+        "1",
+        "-subj",
+        "/CN=HAC retrieval untrusted test CA",
+    )
+    matching_certificate, matching_key = _issue_certificate(
+        directory,
+        "matching",
+        _TLS_HOSTNAME,
+        trusted_ca,
+        trusted_ca_key,
+    )
+    mismatching_certificate, mismatching_key = _issue_certificate(
+        directory,
+        "mismatching",
+        "other.example.test",
+        trusted_ca,
+        trusted_ca_key,
+    )
+    untrusted_certificate, untrusted_key = _issue_certificate(
+        directory,
+        "untrusted",
+        _TLS_HOSTNAME,
+        untrusted_ca,
+        untrusted_ca_key,
+    )
+    return _TlsMaterial(
+        trusted_ca,
+        matching_certificate,
+        matching_key,
+        mismatching_certificate,
+        mismatching_key,
+        untrusted_certificate,
+        untrusted_key,
+    )
+
+
+def _trusted_client_context_factory(
+    ca_certificate: Path, contexts: list[ssl.SSLContext]
+) -> Callable[[], ssl.SSLContext]:
+    def create_context() -> ssl.SSLContext:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=str(ca_certificate))
+        contexts.append(context)
+        return context
+
+    return create_context
+
+
+async def _start_tls_server(
+    certificate: Path,
+    key: Path,
+    handler: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
+    sni_names: list[str | None],
+) -> tuple[asyncio.AbstractServer, int]:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certificate, key)
+    context.set_servername_callback(
+        lambda _ssl_object, name, _context: sni_names.append(name)
+    )
+    try:
+        server = await asyncio.start_server(handler, "127.0.0.1", 0, ssl=context)
+    except OSError as error:
+        pytest.skip(f"local TLS integration tests require loopback sockets: {error}")
+    socket_info = server.sockets[0].getsockname()
+    return server, socket_info[1]
+
+
+def _loopback_destination(
+    port: int,
+) -> Callable[[retrieval._Destination], Awaitable[list[retrieval._ResolvedAddress]]]:
+    async def resolve(_: retrieval._Destination) -> list[retrieval._ResolvedAddress]:
+        # This is controlled test policy setup only. Production validation still
+        # rejects loopback answers before this transport receives an address.
+        return [retrieval._ResolvedAddress(socket.AF_INET, ("127.0.0.1", port))]
+
+    return resolve
 
 
 class _Writer:
@@ -444,3 +645,256 @@ def test_pending_retrieval_does_not_block_the_event_loop(
     monkeypatch.setattr(retrieval, "_connect", connect)
     asyncio.run(run())
     assert writer.closed
+
+
+def test_real_local_tls_uses_pinned_address_original_sni_and_verified_hostname(
+    monkeypatch: pytest.MonkeyPatch, tls_material: _TlsMaterial
+) -> None:
+    """Exercise TCP and TLS; only the test's policy resolver is controlled."""
+
+    async def run() -> None:
+        sni_names: list[str | None] = []
+        received_request = asyncio.Event()
+
+        async def handler(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            request = await reader.readuntil(b"\r\n\r\n")
+            assert b"Host: document.example.test\r\n" in request
+            received_request.set()
+            writer.write(_response(body=b"<p>local TLS</p>"))
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+
+        server, port = await _start_tls_server(
+            tls_material.matching_certificate,
+            tls_material.matching_key,
+            handler,
+            sni_names,
+        )
+        contexts: list[ssl.SSLContext] = []
+        loop = asyncio.get_running_loop()
+
+        async def unexpected_resolution(*_: object, **__: object) -> object:
+            raise AssertionError(
+                "the pinned numeric address must not be resolved again"
+            )
+
+        monkeypatch.setattr(
+            retrieval,
+            "_resolve_public_addresses",
+            _loopback_destination(port),
+        )
+        monkeypatch.setattr(
+            ssl,
+            "create_default_context",
+            _trusted_client_context_factory(tls_material.trusted_ca, contexts),
+        )
+        monkeypatch.setattr(loop, "getaddrinfo", unexpected_resolution)
+        try:
+            assert await retrieval.retrieve_html(f"https://{_TLS_HOSTNAME}/proof") == (
+                "<p>local TLS</p>"
+            )
+            await asyncio.wait_for(received_request.wait(), timeout=1)
+        finally:
+            server.close()
+            await server.wait_closed()
+
+        assert sni_names == [_TLS_HOSTNAME]
+        assert len(contexts) == 1
+        assert contexts[0].check_hostname is True
+        assert contexts[0].verify_mode is ssl.CERT_REQUIRED
+
+    asyncio.run(run())
+
+
+def test_real_local_tls_rejects_a_trusted_certificate_for_another_hostname(
+    monkeypatch: pytest.MonkeyPatch, tls_material: _TlsMaterial
+) -> None:
+    async def run() -> None:
+        sni_names: list[str | None] = []
+
+        async def handler(
+            _: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            writer.close()
+            await writer.wait_closed()
+
+        server, port = await _start_tls_server(
+            tls_material.mismatching_certificate,
+            tls_material.mismatching_key,
+            handler,
+            sni_names,
+        )
+        contexts: list[ssl.SSLContext] = []
+        monkeypatch.setattr(
+            retrieval,
+            "_resolve_public_addresses",
+            _loopback_destination(port),
+        )
+        monkeypatch.setattr(
+            ssl,
+            "create_default_context",
+            _trusted_client_context_factory(tls_material.trusted_ca, contexts),
+        )
+        try:
+            with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+                await retrieval.retrieve_html(f"https://{_TLS_HOSTNAME}/")
+        finally:
+            server.close()
+            await server.wait_closed()
+
+        assert error.value.code is retrieval.DocumentRetrievalFailureCode.TLS_FAILED
+        assert sni_names == [_TLS_HOSTNAME]
+        assert contexts[0].check_hostname is True
+        assert contexts[0].verify_mode is ssl.CERT_REQUIRED
+
+    asyncio.run(run())
+
+
+def test_real_local_tls_rejects_an_untrusted_certificate_authority(
+    monkeypatch: pytest.MonkeyPatch, tls_material: _TlsMaterial
+) -> None:
+    async def run() -> None:
+        sni_names: list[str | None] = []
+
+        async def handler(
+            _: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            writer.close()
+            await writer.wait_closed()
+
+        server, port = await _start_tls_server(
+            tls_material.untrusted_certificate,
+            tls_material.untrusted_key,
+            handler,
+            sni_names,
+        )
+        contexts: list[ssl.SSLContext] = []
+        monkeypatch.setattr(
+            retrieval,
+            "_resolve_public_addresses",
+            _loopback_destination(port),
+        )
+        monkeypatch.setattr(
+            ssl,
+            "create_default_context",
+            _trusted_client_context_factory(tls_material.trusted_ca, contexts),
+        )
+        try:
+            with pytest.raises(retrieval.DocumentRetrievalFailure) as error:
+                await retrieval.retrieve_html(f"https://{_TLS_HOSTNAME}/")
+        finally:
+            server.close()
+            await server.wait_closed()
+
+        assert error.value.code is retrieval.DocumentRetrievalFailureCode.TLS_FAILED
+        assert sni_names == [_TLS_HOSTNAME]
+        assert contexts[0].check_hostname is True
+        assert contexts[0].verify_mode is ssl.CERT_REQUIRED
+
+    asyncio.run(run())
+
+
+def test_real_local_tls_pending_network_io_keeps_the_event_loop_responsive(
+    monkeypatch: pytest.MonkeyPatch, tls_material: _TlsMaterial
+) -> None:
+    async def run() -> None:
+        sni_names: list[str | None] = []
+        request_received = asyncio.Event()
+        release_response = asyncio.Event()
+
+        async def handler(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            await reader.readuntil(b"\r\n\r\n")
+            request_received.set()
+            await release_response.wait()
+            writer.write(_response(body=b"<p>responsive</p>"))
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+
+        server, port = await _start_tls_server(
+            tls_material.matching_certificate,
+            tls_material.matching_key,
+            handler,
+            sni_names,
+        )
+        contexts: list[ssl.SSLContext] = []
+        monkeypatch.setattr(
+            retrieval,
+            "_resolve_public_addresses",
+            _loopback_destination(port),
+        )
+        monkeypatch.setattr(
+            ssl,
+            "create_default_context",
+            _trusted_client_context_factory(tls_material.trusted_ca, contexts),
+        )
+        task = asyncio.create_task(retrieval.retrieve_html(f"https://{_TLS_HOSTNAME}/"))
+        try:
+            await asyncio.wait_for(request_received.wait(), timeout=1)
+            # The task is waiting on real TLS/TCP input, yet this coroutine runs.
+            await asyncio.sleep(0)
+            assert not task.done()
+            release_response.set()
+            assert await task == "<p>responsive</p>"
+        finally:
+            release_response.set()
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(run())
+
+
+def test_real_local_tls_cancellation_closes_the_live_connection(
+    monkeypatch: pytest.MonkeyPatch, tls_material: _TlsMaterial
+) -> None:
+    async def run() -> None:
+        sni_names: list[str | None] = []
+        request_received = asyncio.Event()
+        client_disconnected = asyncio.Event()
+
+        async def handler(
+            reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+        ) -> None:
+            await reader.readuntil(b"\r\n\r\n")
+            writer.write(b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n")
+            await writer.drain()
+            request_received.set()
+            await reader.read()
+            client_disconnected.set()
+            writer.close()
+            await writer.wait_closed()
+
+        server, port = await _start_tls_server(
+            tls_material.matching_certificate,
+            tls_material.matching_key,
+            handler,
+            sni_names,
+        )
+        contexts: list[ssl.SSLContext] = []
+        monkeypatch.setattr(
+            retrieval,
+            "_resolve_public_addresses",
+            _loopback_destination(port),
+        )
+        monkeypatch.setattr(
+            ssl,
+            "create_default_context",
+            _trusted_client_context_factory(tls_material.trusted_ca, contexts),
+        )
+        task = asyncio.create_task(retrieval.retrieve_html(f"https://{_TLS_HOSTNAME}/"))
+        try:
+            await asyncio.wait_for(request_received.wait(), timeout=1)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            await asyncio.wait_for(client_disconnected.wait(), timeout=1)
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    asyncio.run(run())
